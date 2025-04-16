@@ -1,0 +1,621 @@
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+/**
+ * Class Freehand shape
+ * @Extends Common Shape class
+ * Handles drawing and scaling all free hand drawn shapes
+ * @Property {Array} Points Array of free hand X/Y points in a buffer
+ * @constructor
+ * @param {String} sPicFile - Optional
+ * 
+ */
+Class FreeHandShape extends commonShape {
+   Init(*) {
+      Super.Init()
+      this._Points               := ""
+      this.OkToClose             := true  ; If it is OK to close the curve/polygon if start/end points are close
+      this.PenSmoothFactor       := Shapes.PenSmoothFactor
+      this.ArrowSmoothFactor     := Shapes.ArrowSmoothFactor
+      this.HighlightSmoothFactor := Shapes.HighlightSmoothFactor
+      this.highlightOpacity      := Shapes.highlightOpacity
+      this.imageBrush            := 0
+      this.hasImage              := false
+      this.lastColor             := -1
+      this.pOutline              := 0
+      this.useLines              := 0
+      ; Shape dependent defaults
+      Switch this.Shape {
+         Case Shapes.SHAPE_ARCARROW:
+            this.shapeThickness     := Shapes.arrowLineThickness * this.DPIFactor * this.Factor
+            this.shapeOpacity       := Shapes.arrowOpacity
+            this.smoothFactor       := Shapes.ArrowSmoothFactor
+            this.outlineColor       := Shapes.outlineColor
+            this.outlineThickFactor := Shapes.outlineThickFactor
+         Case Shapes.SHAPE_HILITER:
+            this.shapeThickness := Shapes.highLightThickness * this.DPIFactor * this.Factor
+            this.shapeOpacity   := Shapes.highlightOpacity
+            this.Color          := Shapes.highlightColor
+            this.smoothFactor   := Shapes.HighlightSmoothFactor
+         Case Shapes.SHAPE_PEN:
+            this.shapeThickness := Shapes.penLineThickness * this.DPIFactor * this.Factor
+            this.shapeOpacity   := Shapes.penOpacity
+            this.smoothFactor   := Shapes.PenSmoothFactor
+         Case Shapes.SHAPE_WIDEPEN:
+            this.shapeThickness := Shapes.widePenThickness * this.DPIFactor * this.Factor
+            this.shapeOpacity   := Shapes.penOpacity
+            this.smoothFactor   := Shapes.PenSmoothFactor
+         Case Shapes.SHAPE_WHITEOUT:
+            this.shapeThickness := Shapes.highLightThickness * this.DPIFactor * this.Factor
+            this.Color          := this.GetCursorBGColor(this.SnipObj, 16, 16)
+            this.smoothFactor   := Shapes.HighlightSmoothFactor
+         Default:
+            this.shapeThickness := Shapes.rawLineThickness * this.DPIFactor * this.Factor
+            this.shapeOpacity   := Shapes.penOpacity
+      }
+      ; Set alpha and minGap values
+      this.setSmoothingFactor(this.smoothFactor)
+   }
+   /**
+    * Called prior to a series of draws or Refreshes
+    */
+   Startup() {
+      super.Startup()
+      ; solid or highlighter
+      GDIp.SetPenColor(this.pPrime, this.shapeOpacity << 24 | this.Color)
+      ; rounded ends like real pen, center aligned and rounded joints
+      GDIp.SetPenAlignment(this.pPrime, 0)
+      ; Class to draw the curves
+      Switch this.Shape {
+         Case Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_HILITER:
+            GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; unanchored line endings
+            GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
+            this.OkToClose := false
+            ; Real time draw the underlying highlighted bitmap
+            If (this.Shape = Shapes.SHAPE_HILITER) {
+               If (NOT this.hasImage OR this.Color != this.lastColor) {
+                  ; Below will allow real-time highlighting with the pen
+                  this.createImageBrush()
+               }
+            }
+         Case Shapes.SHAPE_ARCARROW:
+            GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
+            GDIp.SetPenStartCap(this.pPrime, 3) ; triangle
+            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 3) ; Grey thickness/color of the outer border
+            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded, 3=triangle, round the outline only
+
+            ; TODO - add outline pen
+            this.OkToClose := false
+         Case Shapes.SHAPE_PEN, Shapes.SHAPE_WIDEPEN:
+            GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; rounded
+            GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
+            this.OkToClose := true
+         Default:
+            Warning("Unknown Shape " this.Shape)
+      }
+      this.MyPoints              := FreeHandShape.clsPoints(this.pPrime, this.minGap, this.Alpha)
+      this.MyPoints.pPrime       := this.pPrime
+      this.MyPoints.blankBrush   := this.blankBrush
+      this.MyPoints.pOutline     := this.pOutline
+      this.MyPoints.OkToClose    := this.OkToClose
+      this.MyPoints.shapeOpacity := this.shapeOpacity
+      this.lastColor             := this.Color
+   }
+   ;----------------------------------------------------------------------
+   ; Set the smoothing factor
+   ; Hand tune these settings
+   ;----------------------------------------------------------------------
+   setSmoothingFactor(amount) {
+      ; Ratio of minGap to alpha smoothing
+      r := 3
+      Switch amount {
+         Case "Extreme":
+            this.alpha := 0.04
+            this.sm := r / this.alpha ; 40 visible pixels (96 DPI)
+         Case "Very High":
+            this.alpha := 0.07
+            this.sm := r / this.alpha ; 40 visible pixels (96 DPI)
+         Case "High":
+            this.alpha := 0.15
+            this.sm := r / this.alpha ; 25
+         Case "Medium":
+            this.alpha := 0.25
+            this.sm := r / this.alpha ; 15
+         Case "Low":
+            this.alpha := 0.4
+            this.sm := r / this.alpha ; 5
+         Case "Minimal":
+            this.alpha := 0.8
+            this.sm := r / this.alpha ; 1
+         Case "None":
+            this.alpha := 1
+            this.sm := 1
+         Default:
+            this.alpha := 0.9
+            this.sm := r / this.alpha ; 3
+      }
+      this.minGap := this.sm * this.DPIFactor    ; default minimum gap between curve points
+   }
+   /**
+    * Closing the shape for later reuse
+    */
+   Close() {
+      this._Points := unset
+      this.MyPoints := unset
+      Super.Close()
+      If (this.imageBrush) {
+         this.GUI.ReleaseBrush(this.imageBrush)
+         this.imageBrush := 0
+         this.hasImage   := 0
+      }
+   }
+
+   /**
+    * Updatew/Create the image brush as needed
+    * Will be color dependent
+    */
+   createImageBrush() {
+      If (this.imageBrush) {
+         this.SnipObj.ReleaseBrush(this.imageBrush)
+         this.imageBrush := 0
+      }
+
+      brushKey := this.Color . "-" this.shapeOpacity
+      If (this.imageBrush := this.SnipObj.GetBrush("Highlight", brushKey)) {
+         ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush))
+      } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
+         this.SnipObj.AddBrush(this.imageBrush, "Highlight", brushKey)
+      } Else {
+         warning("Failed to retrieve a text brush from the highlighted shape")
+         Return 0
+      }
+      ; During a move we may have changed the translation
+      GDIp.ResetTextureTransform(this.imageBrush)
+      GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth) 
+      ; Set the highlight brush to the highlighted image underneath
+      GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
+      this.hasImage := true
+      this.lastColor := this.Color
+
+   }
+   /**
+    * Set the primary pen and body brush color
+    * Would be called when resizing the shape
+    * @param {number} param
+    * @returns {number} returns
+    */
+   SetColor(newColor) {
+      If (newColor != this.lastColor) {
+         If (this.Shape = Shapes.SHAPE_HILITER) {
+            ; Need a new highlight color Pen/Brush
+            this.Color := newColor
+            this.createImageBrush()
+         } Else {
+            super.SetColor(newColor)
+         }
+      }
+   }
+
+   /**
+   * Freehand Shape Points Properties
+   * Unique to freehand
+   * Used to clone the shape
+   */
+   Points {
+      set {  
+         If (Type(value) = "Buffer") {
+            ; Create a new buffer for this instance
+            this._Points := CloneBuffer(value)
+         } Else {
+            warning("Expected to receive a points buffer, but got a " Type(value))
+         }
+      }
+      get => this._Points
+   }
+   /**
+    * Draw a new (+ prior) point into the canvas
+    * 
+    * If minGap = 0 then point added regardless
+    * @param G Graphics Handle
+    * @param X X Location of upper left
+    * @param Y Y Location of upper left
+    * @param useLines true to use lines, false to use curves
+    * @param minGap minimum gap between points, 0 to always draw
+    */
+   Draw(G, X, Y, useLines, minGap?) {
+      this.MyPoints.DrawCurve(G, X, Y, useLines, (minGap ?? this.minGap))
+      return this.MyPoints.Added
+   }
+   /**
+    * Complete / redraw the curve but determine if it should be closed or not
+    * @param G Graphics handle
+    * @param UseLines 1 to draw with lines, 0 with curves
+    */
+   CloseCurve(G, useLines) {
+      this.MyPoints.CompleteCurve(G, useLines)
+      this.useLines := useLines
+   }
+   /**
+    * Save the bounds of the freehand shape after drawing it
+    * Also saves original dimensions and adds a grab rectangle
+    * @param {Object} surface - DIB Surface used to draw the freehand
+    * @param {Integer} padding - DIB Padding to allow drawing outside the lines
+    */
+   saveCoords(surface) {
+      ; If we pass in the pen the coordinates will be a bit larger allowing more
+      ; line resizing later
+      ; C := this.shapeCoord := this.MyPoints.CalcCoords(surface)
+      C := this.shapeCoord := this.MyPoints.CalcCoords(surface, this.pPrime) ; account for pen width
+      ; GDIp.FillRectangle(surface.G, this.bGrab, C.X1, C.Y1, C.W, C.H)
+      ; debug("Coords " c.X1 " " c.Y1 " " c.X2 " " c.Y2)
+      GDIp.DrawRectangle(surface.G, this.pGrab, C.X1, C.Y1, C.W, C.H)
+      ; Save a copy of the 0,0 translated points (vs. windows coordinates)
+      ; BUG - if way off canvas then it doesn't get drawn
+      ;       lost in translation it looks like, for large negative X
+      this._Points      := this.MyPoints.GetTransPoints(C.X1, C.Y1)
+      this.DrawFunction := this.MyPoints.DrawFunction
+      this.OG.W         := Ceil(this.sCoord.W)
+      this.OG.H         := Ceil(this.sCoord.H)
+      this.OG.PenWidth  := GDIp.GetPenWidth(this.pPrime)
+      Return this.shapeCoord
+   }
+   /**
+    * Move the shape and refresh if it is a highlighter pen
+    * @param X Optional X location
+    * @param Y Optional Y location
+    * @param W Optional Width
+    * @param H Optional Height
+    */
+   Move(wX?, wY?, wW?, wH?) {
+      Critical("On")
+      ; Post move updates for colors
+      Switch this.Shape {
+         Case Shapes.SHAPE_WHITEOUT:
+            If (res := this.GetCroppedBackgroundColor()) >= 0 {
+               Super.Move(wX?, wY?, wW?, wH?, false)
+               this.Color := res
+               this.Refresh()
+            } Else {
+               Super.Move(wX?, wY?, wW?, wH?)
+            }
+         Default:
+            ; Allow refresh to do the actual move to prevent flickering on resize
+            Super.Move(wX?, wY?, wW?, wH?, false)
+            this.Refresh()
+      }
+      Critical("Off")
+   }
+   /**
+    * Reset to original dimensions
+    */
+   ResetSize() {
+      this.shapeThickness := this.OG.PenWidth
+      this.Move(, , this.OG.W, this.OG.H) ; Move relys on GDI being active
+   }
+    /**
+    * Redraw a freehand shape
+    * Set the shape coordinates before calling this X1/Y1/W/H
+    * Called after setting a new color from Move
+    */
+   Refresh() {
+      If (type(this._Points) = "Buffer") {
+         If (NOT this.Started) {
+            Started := true
+            this.Startup()
+         }
+         ; Have already set these if we are moving/resizing
+         C   := this.shapeCoord
+         If ((iH := Ceil(C.H)) > 0 AND (iW := Ceil(C.W)) > 0) {
+            ; The dib is sized to the enlarged surface
+            Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+            ; Scale from OG space to the new space
+            ; We ALWAYS write into the OG sized space and the transform will
+            ; do the scaling for us.
+            ogSize := this.OG
+            ; If we aren't changing dimensions then just redraw
+            If (ogSize.W != C.W OR ogSize.H != C.H) {
+               ; Scale pen size as well
+               ; NOTE - we may or may not want to change thickness as well
+               ; If we do scale the pen width we probably won't clip
+               If (true) {
+                  pRatio := (C.W * C.H) / (ogSize.W * ogSize.H)
+                  GDIp.SetPenWidth(this.pPrime, pRatio * this.shapeThickness)
+                  if (this.pOutline)
+                     GDIp.SetPenWidth(this.pOutline, pRatio * this.shapeThickness * this.outlineThickFactor / 3)
+                  ; TODO - Scale the outline for ArcArrow as well
+               }
+               ; NOTE - if reducing size it may clip arrowheads and thick lines
+               ; This method will also maintain the arrow head size
+               pm := GDIp.Matrix(, , , C.W / ogSize.W, C.H / ogSize.H)
+               ; pm.Scale(C.W / ogSize.W, C.H / ogSize.H)
+               cpts := CloneBuffer(this.Points)
+               pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
+               pm := ""
+
+            } Else {
+               cpts := this.Points
+            }
+            ; GDIp.FillRectangle(Surf.G, this.bGrab, 0, 0, C.W, C.H)
+            GDIp.DrawRectangle(Surf.G, this.pGrab, 0, 0, C.W, C.H)
+
+            ; If a highlighter, then do that vs drawing the lines
+            If (this.Shape = Shapes.SHAPE_HILITER) {
+               ; Replace the pen contents with the highlighted background under the shape
+               GDIp.ResetTextureTransform(this.imageBrush)
+               GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ;Snips.BorderWidth
+               GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
+            }
+            ; Draw the outline and fill it in blank
+            this.OutlinePoints(Surf.G, this.useLines, cpts)
+            ; draw the inside line
+            this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
+            cpts := ""
+            ; Update the control window surface
+            Surf.UpdateLayer(C.X, C.Y)
+            Surf := ""
+         }
+         If (IsSet(Started)) {
+            this.CleanUp()
+         }
+      } Else {
+         warning("Expected to have Points property but did not!")
+      }
+   }
+   /**
+    * Enclose a set of lines with an outline
+    * Fill it in if we have opacity < 255
+    * 
+    * @param G Graphics Object
+    * @param UseLines 
+    */
+   OutlinePoints(G, UseLines, pBuf) {
+      ; NOTE - doesn't handle closed curves
+      If (this.pOutline) {
+         oPath := GDIp.Path(G)
+
+         if UseLines
+            oPath.AddPathLines(pBuf, pBuf.Size // 8)
+         else
+            oPath.AddPathCurve(pBuf, pBuf.Size // 8)
+         oPath.WidenPath(this.pPrime)
+         oPath.DrawPath(this.pOutline)
+         If (this.shapeOpacity < 255) {
+            oPath.SolidFillPath(this.blankBrush)
+         }
+         oPath := ""
+      }
+   }
+
+
+   /**
+    * No padding used for free hand shapes, data is ignored
+    * @param L Left
+    * @param T Top
+    * @param R Right
+    * @param B Bottom
+    */
+   savePadding(L, T, R, B) {
+   ; Freehand shapes coordinates already include padding
+      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
+   }
+   /**
+    * Get a copy of the freehand points for cloning
+    * @returns {Buffer} - Freehand point pairs
+    */
+   ClonePoints() {
+      return CloneBuffer(this.Points)
+   }
+   /**
+    * Class to hold an array of points
+    * @param {number} Pen - pen to draw with
+    * @param {number} minGap - Optional minimum gap between points
+    * @param {number} Count - Optional Initial size of buffer (will expand)
+    * @returns {number} returns this
+    */   
+   Class clsPoints {
+      __New(_Pen, minGap := 20, Alpha := 0.3, Count := 100) {
+         this.pBuf          := Buffer(Count * 8) ; x = 4, y = 4 bytes
+         this.maxOffset     := this.pBuf.Size
+         this.Offset        := 0
+         this.Added         := 1
+         this.shapeOpacity  := 0xFF
+         this.pOutline      := 0
+         this.pPrime        := 0
+         this.blankBrush    := 0
+         this.Pen           := _Pen
+         this.lastInX       := -1000
+         this.lastInY       := -1000
+         this.lastX         := -1000
+         this.lastY         := -1000
+         this.closeMinGap   := 50 ; threshold to close a curve
+         this.minGap        := minGap
+         this.Alpha         := Alpha
+         this.nextTick      := A_TickCount
+         this.coord         := { X1: 10000, Y1: 10000, X2: -10000, Y2: -10000 }
+         this.firstPoint    := { X: -1000, Y: -1000 }
+         this.DrawFunction  := GDIp.DrawCurve2 ; default
+         this.OkToClose     := true
+         this.InitValue     := false
+      }
+      __Delete() {
+         this.pBuf := unset
+      }
+      /**
+       * Add a new point to the curve
+       * @param {number} X coordinate
+       * @param {number} Y coordinate
+       * @param {number} minGap minimum gap to check to add a point
+       * @param {number} useLines indicates if straight or curves are to be used
+       */
+      _Add(X, Y, minGap, useLines := 0) {
+         now := A_TickCount
+         ; Enlarge buffer as needed
+         If ((this.Offset + 16) > this.maxOffset) {
+            this.pBuf.Size *= 1.5
+            this.maxOffset := this.pBuf.Size
+         }
+         /*
+         Logic is as follows:
+         1. Save the latest point at raw mouse cursor so it visually aligns
+         2. Replace the point from 1. if we have reached the timeout or minGap with the smoothed value,
+            And create the next point at the current position and repeat 1/2.
+         */
+         Xc := X, Yc := Y 
+         ; Save first point for closing polygon check later
+         If ( this.firstPoint.X = -1000) {
+            this.firstPoint := { X: X, Y: Y }
+         } else if (NOT useLines) {
+            ; Some exponential smoothing on the inputs (curves only)
+            X := X * this.alpha + (1 - this.alpha) * this.lastInX
+            Y := Y * this.alpha + (1 - this.alpha) * this.lastInY
+         }
+         ; Decide whether to add this as an official point
+         ; If we dwell then also place a point if using lines
+         dist := this.distance(X, this.lastX, Y, this.lastY)
+         If ((dist > minGap) OR (now > this.nextTick AND useLines)) {
+            this.lastX := X, this.lastY := Y
+            ; Replace latest temp point with last valid smoothed point
+            NumPut("Float", X, "Float", Y, this.pBuf, this.Offset)
+            ; Next entry will initially get the current point
+            this.Added++ ; have one more
+            this.Offset += 8 ; point to next entry
+         }
+         ; Always use the unsmoothed current position for last point to track mouse
+         NumPut("Float", Xc, "Float", Yc, this.pBuf, this.Offset)
+         this.lastInX := X, this.lastInY := Y
+         this.nextTick := A_TickCount + 300 ; HC of 300 ms pause
+      }
+      Count => this.Added
+      Points => this.pBuf
+      /**
+       * Offset the points from larger canvas back to be 0 based for later reuse in a smaller picture window
+       * @param X Amount to shift/translate the points array
+       * @param Y Amount to shift/translate the points array
+       * @returns {Buffer} translated points buffer
+       */
+      GetTransPoints(X, Y) {
+         ; debug("translate " . -X . " " . -Y)
+         pts    := CloneBuffer(this.pBuf, this.Added * 8) ; skips any blank points in OG buffer
+         Matrix := GDIp.Matrix(,-X,-Y)
+         Matrix.TransformPoints(pts, this.Added)
+         Matrix := ""
+         Return pts
+      }
+      
+      /**
+       * Complete / redraw the curve and determine if it should be closed or not
+       * Call this as last step when drawing
+       * @param G Graphics handle
+       * @param UseLines 1 to draw with lines, 0 with curves
+       */
+      CompleteCurve(G, UseLines) {
+         GDIp.GraphicsClear(G)
+         If (this.OkToClose AND this.distance(this.firstPoint.X, this.lastInX, this.firstPoint.Y, this.lastInY) < this.closeMinGap) {
+            this.DrawFunction := UseLines ? GDIp.DrawPolygon : GDIp.DrawClosedCurve
+         } Else {
+            this.DrawFunction := UseLines ? GDIp.DrawLines : GDIp.DrawCurve2
+         }
+         this.OutlinePoints(G, UseLines)
+         this.DrawFunction(G, this.Pen, this.pBuf.Ptr, this.Added)
+      }
+      /**
+       * Enclose a set of lines with an outline
+       * Fill it in if we have opacity < 255
+       * @param G Graphics Object
+       * @param UseLines 
+       */
+      OutlinePoints(G, UseLines) {
+         ; NOTE - doesn't (need to yet) handle closed curves
+         If (this.pOutline) {
+            oPath := GDIp.Path(G)
+            if UseLines
+               oPath.AddPathLines(this.pBuf, this.Added)
+            else
+               oPath.AddPathCurve(this.pBuf, this.Added)
+            oPath.WidenPath(this.Pen)
+            oPath.DrawPath(this.pOutline)
+            If (this.shapeOpacity < 255) {
+               oPath.SolidFillPath(this.blankBrush)
+            }
+            oPath := ""
+         }
+      }
+      /**
+       * 
+       * @param G Graphics Handle
+       * @param X X Location for point
+       * @param Y Y Location for point
+       * @param {Integer} UseLines false to connect with curves, true to connect with lines
+       * @param minGap Only add the point if this distance value is exceeded from last point added
+       */
+      DrawCurve(G, X, Y, UseLines := false, minGap?) {
+         this._Add(X, Y, (minGap ?? this.minGap), UseLines)
+         GDIp.GraphicsClear(G)
+         this.DrawFunction := UseLines ? GDIp.DrawLines : GDIp.DrawCurve2
+         this.OutlinePoints(G, UseLines)
+         this.DrawFunction(G, this.Pen, this.pBuf.Ptr, this.Added)
+
+         ; Troubleshooting to also draw the points
+         If (0) {
+            bpen := GDIp.CreatePen(0xFFFFFF00, 2)
+
+            Offset := 0
+            Loop this.added {
+               X := NumGet(this.pBuf.Ptr, Offset, "Float")
+               Y := NumGet(this.pBuf.Ptr, Offset + 4, "Float")
+               GDIp.DrawEllipse(G, bpen, X - 5, Y - 5, 10, 10)
+               Offset += 8
+            }
+            GDIp.DeletePen(bpen)
+         }
+      }
+      /**
+       * Compute the coordinates of a surface DB and returns a coordinates object
+       * This computes the boundary, but doesn't account for pen width
+       * Takes to long to search the bitmap, also pBitmap has 0xFF opacity vs 0x00 for blank cells
+       * @param {Object} surface DIB Section Object
+       * @param {Integer} padding how much to pad the result
+       * @param {Integer} pen optional, if pen is passed in they will use worldbounds without padding
+       * @returns {Object} sCoord object
+       */
+      CalcCoords(surface, pen := 0) {
+         ; Need three points minimum to make a polygon
+         If (this.added > 1) {
+            ;----------------------------------------------------------------------
+            ; Stage 1: Get the extent of the line center points
+            ;          0,0 is the window excluding the padding
+            ;          Since we translated the 0,0 point of the graphics object by the padding
+            ;----------------------------------------------------------------------
+            oPath := GDIp.Path()
+            if (this.Added = 2)
+               oPath.AddPathLines(this.Points, this.Added)
+            else
+               oPath.AddPathPolygon(this.Points, this.Added)
+
+            ;----------------------------------------------------------------------
+            ; Stage 2 : Get the pixel level extents from the surface object
+            ;           Will account for dangling arrow heads and pen width
+            ;           X1/X2/Y1/Y2 is needed (padding is also returned but not needed here)
+            ;----------------------------------------------------------------------
+            ; Starting point for the path
+            ; If we are using the pen approach, just rely on GDI+ to compute the boundaries, no need for padding
+            ; NOTE - for Arrow head pens we get a LOT of padding, so it may not be desireable, but does allow for increasing width
+            If (pen) {
+               C := oPath.GetPathWorldBoundsI(Pen)
+               oPath := ""
+               Return { X1: C.X, X2: C.X + C.W, Y1: C.Y, Y2: C.Y + C.H, W: C.W, H: C.H, B: 0, L: 0, R: 0, T: 0 }
+            } Else {
+               ; Get the X/Y/W/H initial guess
+               ; without a pen we get a very tight rectangle (at the center line), se we need to search out a bit
+               C := oPath.GetPathWorldBoundsI()
+               oPath := ""
+               ; TODO - adding hard coded pad, we could add a penwidth or account for arrow heads
+               Return surface.FindExtent(C.X, C.Y, C.W, C.H, 10) ; include padding for later pen width increase
+            }
+         } Else {
+            Return { X1: 0, X2: 0, Y1: 0, Y2: 0, W: 0, H: 0, B:0, L:0, R:0, T:0 }
+         }
+      }
+
+      distance(x1, x2, y1, y2) => Sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+   }
+}

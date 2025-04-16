@@ -1,0 +1,105 @@
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+
+;----------------------------------------------------------------------
+; Body related shapes
+;----------------------------------------------------------------------
+Class BodyShape extends commonShape {
+   ; outlineOpacity := 0 ; lint
+   Init(*) {
+      Super.Init()
+      this.outlineColor       := Shapes.outlineColor
+      this.outlineThickFactor := Shapes.outlineThickFactor
+      this.fillOpacity        := Shapes.fillOpacity
+      this.shapeThickness := Shapes.rawLineThickness * this.DPIFactor * this.Factor
+      
+   }
+   Startup() {
+      super.Startup()
+      Switch this.Shape {
+         Case Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT:
+            this.fBrush := this.myBrushes.Add(this.fillOpacity << 24 | this.Color)
+            ; Outline pen to set behind color pen
+            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor)
+            ; Center
+            GDIp.SetPenAlignment(this.pPrime, 0)
+            GDIp.SetPenAlignment(this.pOutline, 0)
+            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded
+            GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
+      }
+   }
+   /**
+    * Set the primary pen and body brush color
+    * Requires GDIp to be running
+    * @param {number} param
+    * @returns {number} returns
+    */
+   SetColor(newColor) {
+      super.SetColor(newColor)
+      If (this.HasProp("fBrush")) { ; highlight/redact brush
+         GDIp.SetBrushColor(this.fBrush, this.fillOpacity << 24 | newColor)
+      }
+   }
+    /**
+    * Draw a new body shape at X/Y & W/H
+    * @param G Graphics Handle
+    * @param X X Location of upper left
+    * @param Y Y Location of upper left
+    * @param W Width of shape to draw
+    * @param H Height of shape to draw
+    */
+   Draw(G, X, Y, W, H) {
+      Switch this.Shape {
+         Case Shapes.SHAPE_RECT:
+
+            GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; zero upper/left corner always
+            GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
+            GDIp.DrawRectangle(G, this.pOutline, X, Y, W, H) ; zero upper/left corner always
+            GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
+         Case Shapes.SHAPE_RORECT:
+            ; Increase outline by 1/2 thickness
+            s := this.shapeThickness * (this.outlineThickFactor - 1) / 2
+            GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; so we can grab corners
+            radius := Min(W, H) * 0.1 ; 10% of min dimension
+            GDIp.FillRoundedRectangle(G, this.fBrush, X, Y, W, H, radius)
+            GDIp.DrawRoundedRectangle(G, this.pOutline, X - s, Y - s, W + s * 2, H + s * 2, radius)
+            ; Note, draws inset regardless of pen setting
+            GDIp.DrawRoundedRectangle(G, this.pPrime, X, Y, W, H, radius)
+
+         Case Shapes.SHAPE_ELLIPSE:
+            ; If I want handles I need to fill in a dim rectangle
+            GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H)
+            GDIp.FillEllipse(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
+            GDIp.DrawEllipse(G, this.pOutline, X, Y, W, H)
+            GDIp.DrawEllipse(G, this.pPrime, X, Y, W, H)
+
+         Default:
+      }
+      this.sCoord := { X1: X, X2: X + W, Y1: Y, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+   }
+   /**
+    * Redraw a body shape
+    * @param {Integer} Startup - true to startup/shutdown also
+    */
+   Refresh() {
+      If (NOT this.Started) {
+         this.Startup()
+         started := true
+      }
+      ; internal shape boundaries
+      C := this.shapeCoord
+      ; shape window boundaries (can be bigger)
+      this.getPos(&iX, &iY, &iW, &iH)
+      Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+      this.Draw(Surf.G, C.X1 - iX, C.Y1 - iY, C.W, C.H)      ; Scale from OG space to the new space
+      ; IDEA - would be nice to pad the dib then compute needed space with GetPathWorldBoundsI so we don't clip
+      this.shapeCoord := C
+      ; Restore old position
+      Surf.UpdateLayer(iX, iY)
+      Surf := ""
+      If (IsSet(started)) {
+         this.CleanUp()
+      }
+   }
+
+}

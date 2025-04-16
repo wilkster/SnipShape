@@ -1,0 +1,421 @@
+/************************************************************************
+ * @description Menu Class Wrapper for RMB menu
+ * @file clsMenus.ahk2
+ * @author Tom Wilkason - Derived from fantastic guru OG Snipper code
+ * @date 2024/04/20
+ * @version 1.0.0
+ ***********************************************************************/
+
+/**
+ * Static Class for menus
+ * @param None
+ * @returns None
+ */   
+Class SnipMenus {
+   Static csMenu := Menu()
+   Static PictMenu := Menu()
+   Static SnipMenu := Menu()
+   Static ResizeMenu := Menu()
+   Static __New() {
+      Global SnipShapeIcon
+      Global Settings_CursorPath
+      Global Settings_SavePath_Image
+      ;------------------------------
+      ; RMB Menus
+      ;-----------------------------------------------
+      ; Settings_CursorPath can contain png files for icons
+      ; this.AddEntry('Snip Info', "SnipShape.ico")
+
+      this.AddEntry('Copy Snip to Clipboard (Ctrl-C)', "Clipboard.ico")
+      this.AddEntry('Cut Snip to Clipboard (Ctrl-X)', "SnipShape.ico")
+      this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
+      this.csMenu.Add()
+      this.AddEntry('OCR Text Lines to Clipboard', "Ocr.cur")
+      this.AddEntry('OCR Text Words to Clipboard', "Ocr.cur")
+      this.AddEntry('OCR Text Table to Clipboard', "Ocr.cur")
+      this.csMenu.Add()
+      ; Note, these two are renamed with current file name in Post
+      this.AddEntry('Edit:', "Edit.ico")
+      this.AddEntry('Save:', "SaveAs.ico")
+      this.csMenu.Add()
+      this.AddEntry("Minimize This Snip (Down)", "Minimize.ico")
+      this.AddEntry("Minimize All Snips (Ctrl-Down)", "Minimize.ico")
+      this.csMenu.Add() ;12
+      this.AddEntry("Clear all Shapes (Shift-Del)", "Clear.ico")
+      this.csMenu.Add() ;14
+      ; Don't rename this ust here
+      this.AddEntry("Button Bar (F1)", "BBClose.ico") ;15
+      ; Submenus
+      this.csMenu.Add() ;16
+      ; IDEA - Can we inhibit paste text/bitmap if none is available on the clipboard     
+      ; this.AddEntry("Paste Shape from Clipboard (Ctrl-V)","Paste.ico")
+      this.csMenu.Add("Insert Picture Shapes",this.PictMenu)
+      this.csMenu.SetIcon("Insert Picture Shapes", Settings_CursorPath . "Shapes.ico")
+      this.csMenu.Add('') ;16
+      this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
+      this.csMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
+      this.csMenu.Add("Clone and Resize Snip",this.ResizeMenu)
+      this.csMenu.SetIcon("Clone and Resize Snip", Settings_CursorPath . "Resize.ico")
+      ; Resize Submenu
+      For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
+         this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
+      }
+      this.csMenu.Add('')
+      this.AddEntry("Close This Snip (Esc)", "Close.ico") ;17
+      this.AddEntry("&Close All Snips", "Close.ico") ;18
+      logGDI("Completed Loading Snip Menus")
+      ; Handle tray clicks
+      OnMessage(0x404, this.TrayMessage.Bind(this))
+      ; OnMessage(0x117, this.WM_INITMENUPOPUP.bind(this))
+   }
+   ;----------------------------------------------------------------------
+   ; Handle callback for the RMB menu
+   ;----------------------------------------------------------------------
+   Static ContextSnipMenu_Handler(ItemName, ItemPos, MyMenu) {
+      Switch {
+         Case ItemName ~= "Copy Snip to Clipboard": Snips.Snip2Clipboard(Snips.borderWithCopy, WinExist("A"))                           
+         Case ItemName ~= "Cut Snip to Clipboard": 
+            if (sw := WinExist("A")) {
+               Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+               Snips.Close(sw, 0)
+            }
+         Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
+         Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           
+         Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(WinExist("A"),14)                           
+         Case ItemName ~= "Edit:": 
+            Snips.MSPaint(Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave))
+            Snips.Close()
+         Case ItemName ~= "Save:": Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave)                            
+         Case ItemName ~= "Duplicate": Snips.CloneAndScaleSnip(WinExist("A"), 1.0)
+         Case ItemName ~= "Minimize This": Snips.Minimize()
+         Case ItemName ~= "Minimize All": Snips.MinimizeAll()                                                   
+         Case ItemName ~= "Clear all": Snips.ClearAllShapes()                                                   
+         Case ItemName ~= "Button Bar": 
+            if ButtonBar.Enabled {
+               ButtonBar.Hide(0)
+            } else {
+               ButtonBar.Show(0,1)
+            }
+            this.SyncBB()
+         Case ItemName ~= "Close This Snip": Snips.Close()                                                   
+         Case ItemName ~= "Close All Snips": Snips.CloseAll()                                                    
+         Case ItemName ~= "Paste Clipboard Text": Shapes.PasteNewShape(1, 0, this.MenuX, this.MenuY)
+         Case ItemName ~= "Paste Clipboard Image": Shapes.PasteNewShape(0, 1, this.MenuX, this.MenuY)
+         Default:
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Post the RMB menus, would always be on a snip
+   ; Called in the context of the GuiSnip so avoid this. in the code
+   ;----------------------------------------------------------------------
+   Static Post(GuiCtrlObj, Item, IsRightClick, menuX, menuY) {
+      SnipObj := GuiCtrlObj.GUI
+      hWnd := SnipObj.hWnd
+      ; Reset draw mode (done on deactivate)
+      ; Snips.SetDrawMode(0)
+      ; Get cursor location to place pictures if needed
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&mX, &mY)
+      this.menuX := mX
+      this.menuY := mY
+      WinGetPos(&X, &Y, &W, &H, hWnd)
+      ; Sync the button bar state
+      this.SyncBB()
+      Try this.csMenu.Delete("Paste Clipboard Text")
+      Try this.csMenu.Delete("Paste Clipboard Image")
+      ; Add Menu entries and icons only if we have that format available
+      If Clipboard.hasText() {
+         this.csMenu.Insert("17&", "Paste Clipboard Text",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.SetIcon("Paste Clipboard Text", Settings_CursorPath . "Paste.ico")
+      }
+      If Clipboard.hasImage() {
+         this.csMenu.Insert("17&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.SetIcon("Paste Clipboard Image", Settings_CursorPath . "Paste.ico")
+      }
+      ; Keep positional rename since menu is renamed dynamically
+      this.csMenu.Rename('9&', "Edit: "  SnipObj.BaseName)
+      this.csMenu.Rename('10&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
+
+      this.PictMenu.Delete()
+      this.populatePicMenu(this.PictMenu, hWnd, mX, mY)
+      ; logGDI("Populated Snip/Pic Cache:" Settings_SavePath_Icons)
+      ; Show the menu
+      this.csMenu.Show()
+      ; Blocks here
+      this.PictMenu.Delete()
+   }
+   ;----------------------------------------------------------------------
+   ; Add a standard RMB entry along with its icon
+   ;----------------------------------------------------------------------
+   Static AddEntry(title, icon) {
+      this.csMenu.Add(Title, this.ContextSnipMenu_Handler.bind(this))    ;1
+      this.csMenu.SetIcon(title, Settings_CursorPath . icon)
+   }
+   ;----------------------------------------------------------------------
+   ; Check/unCheck menu entry for button bar tied to its state
+   ;----------------------------------------------------------------------
+   Static SyncBB() {
+      if (ButtonBar.Enabled)
+         this.csMenu.Check('Button Bar (F1)')
+      else
+         this.csMenu.UnCheck('Button Bar (F1)')
+   }
+   ;----------------------------------------------------------------------
+   ; Resize the image menu callbck
+   ;----------------------------------------------------------------------
+   Static rescale(Val, ItemName, ItemPos, MyMenu) {
+      Snips.CloneAndScaleSnip(WinActive('A'),Val)
+   }
+   ;----------------------------------------------------------------------
+   ; Populate the Picture menu with files from the folder and their icons
+   ;----------------------------------------------------------------------
+   Static populatePicMenu(pictMenu, hWnd, X, Y) {
+      static iconObj := ImageList()
+      DPI      := WinDPI(hWnd)
+      butSize  := Round(20 * DPI / 96) ; Pixel size of 20
+      MonInfo  := Snips.activeMonArea(1)
+      ; Wrap     := Floor(MonInfo.H / Height)
+      if (iconObj.Count == 0)
+         iconObj.Size := butSize
+      ; Make sure the icon imagelist is up to date
+      Loop Files Settings_SavePath_Icons . "*.*", "F" {
+         If (A_LoopFileExt ~= "i)ico|png|bmp|gif|jpg|wmf") {
+            if NOT iconObj.Has(A_LoopFileFullPath)
+               iconObj[A_LoopFileFullPath] :=A_LoopFileFullPath
+         }
+      }
+      ; Build menu sorted on file name saved in the iconObj
+      ; Maps are inherently sorted
+      For fullPath in iconObj {
+         SplitPath(fullPath , , , , &fName)
+         opt := (A_Index > 1 AND Mod(A_Index -1,30) = 0) ? "BarBreak" : ""
+         pictMenu.Add(fName, Picture_Handler.bind(hWnd, X, Y, fullPath), opt)
+         pictMenu.SetIcon(fName, "HICON:" iconObj[fullPath],,0) ; ,,width
+      }
+      ;----------------------------------------------------------------------
+      ; Callback to paste in a picture from the snips folder
+      ;----------------------------------------------------------------------
+      Picture_Handler(hWnd, sX, sY, fullPath, ItemName, ItemPos, MyMenu) {
+         ; Saved when menu was launched
+         SnipObj := Snips.GetGuiObj(hWnd)
+
+         If NOT (hOut := Shapes.CreatePicFromSource(SnipObj, fullPath, sX, sY)) {
+            qTrayTip("Failed to load image from " fullPath, 2)
+            Warning("Failed to load image from " fullPath)
+         }
+         MyMenu.Delete()
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Called just before a menu is posted
+   ; TODO - on very slow computers there is a white flash on the menu
+   ;        in dark mode, this could potentially be used to prevent that flash
+   ;----------------------------------------------------------------------
+   Static WM_INITMENUPOPUP(wParam, lParam, uMsg, hWnd) {
+      ; 376309965, 0, 279, 5245486
+      Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+      if (DarkMode)
+         DllCall("uxtheme\SetWindowTheme", "ptr", wParam, "str", "DarkMode_Explorer", "ptr", 0)
+      ; debug(wParam ", " lParam ", " uMsg ", " hWnd)
+   }
+   
+   ;----------------------------------------------------------------------
+   ; Respond to tray message, for now reload on click (for development)
+   ;----------------------------------------------------------------------
+   Static TrayMessage(wParam, lParam, uMsg, hWnd) {
+      ; Easy reload script - mostly for development
+      if (hwnd != A_ScriptHwnd)
+		   return
+      Switch lParam {
+         Case 0x202:   ; user left-clicked tray icon
+            ; Comment out if not debugging
+            ToolTip("Reloading")
+            Reload
+            ; If reload failed it will pass thru here
+            Sleep(6000)
+            TrayTip("Reload Failed")
+            SetTimer(TrayTip,-3000)
+            ; SoundBeep(600, 200)
+         Case 0x203:   ; user double left-clicked tray icon
+         Case 0x204:   ; user right-clicked tray icon
+         Case 0x208:   ; user middle-clicked tray icon
+         Case 1026:  ; NIN_BALLOONSHOW - Sent when the balloon is shown (balloons are queued)
+         Case 1027:  ; NIN_BALLOONHIDE - Sent when the balloon automatically disappears
+         Case 1028:  ; NIN_BALLOONTIMEOUT - Notification timed out or was closed or right-clicked
+         Case 1029:  ; NIN_BALLOONUSERCLICK - User clicked on the notification
+            ; TODO - this should only apply for screen captures
+            If ( NOT (hWnd := Snips.Clipboard2Snip())) {
+               qTrayTip("No image on the clipboard to edit", 2)
+            } Else {
+               Snips.GetGuiObj(hWnd).Show("Center")
+               ButtonBar.Show(hWnd)
+            }
+         Default:
+      }
+   }
+
+}
+
+;----------------------------------------------------------------------
+; Post the Shape RMB menus, would always be on a snip
+; Called in the context of the GuiSnip so avoid this. in the code
+; IDEA - move this under the shapes themselves so each can add its own entries
+;----------------------------------------------------------------------
+Class ShapeMenus {
+   Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
+      Static shapeMenu   := Menu()
+      Static colorMenu   := Menu()
+      Static subMenu     := Menu()
+      Static outlineMenu := Menu()
+      shapeMenu.Delete()
+      colorMenu.Delete()
+      subMenu.Delete()
+      outlineMenu.Delete()
+      PC := PeerCount(ShapeObj)
+      ; Shape specific
+; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
+      Switch ShapeObj.Source {
+         Case "File", "Clip":
+            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset Size","Reset.ico")
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
+            if (ShapeObj.Source = "FreeHand")
+               ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset Size","Reset.ico")
+            If (PC > 1)
+               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
+            If (PC > 2)
+               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards", "MoveBack.ico")
+         Case "Text":
+            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Shift-Click)","Edit.ico")
+            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Font Size","Reset.ico")
+            ; Special case for fill text
+            If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
+               shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
+               shapeMenu.SetIcon("Change " ShapeObj.ShapeName " Outline", Settings_CursorPath . "Outline.ico" ) 
+               for idx, menName in ["Rectangle", "Rounded Rectangle", "None"] {
+                  outlineMenu.Add(menName, OutlineType.bind(menName))
+                  if (ShapeObj.FillOutline = menName)
+                     outlineMenu.Check(menName)
+               }
+            }
+            ShapeMenu.Add()
+            If (PC > 1)
+               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
+            If (PC > 2)
+               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards (Alt-Click)", "MoveBack.ico")
+      }
+      ; Doesn't really work as it gets the pic under the shape as well
+      ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
+      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Duplicate " ShapeObj.ShapeName " (Ctrl-D/Ctrl-Click)", "Duplicate.ico")
+      ; Thickness and Amount
+      Switch ShapeObj.Source {
+         Case "BlurShape": 
+            shapeMenu.Add(ShapeObj.ShapeName . " Amount", subMenu)
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Amount", Settings_CursorPath . "Menu\Redact.png" )
+            subMenu.Add("Increase (Up)",blurFactor.bind(+.5))
+            subMenu.SetIcon("Increase (Up)", Settings_CursorPath . "Plus.ico")
+            subMenu.Add("Decrease (Down)",blurFactor.bind(-.5))
+            subMenu.SetIcon("Decrease (Down)", Settings_CursorPath . "Minimize.ico")
+         Case "BodyShape", "LineShape", "FreeHand":
+            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu)
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", Settings_CursorPath . "Menu\Shapes.png" )
+            subMenu.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
+            subMenu.SetIcon("Increase Thickness (Up)", Settings_CursorPath . "Plus.ico")
+            subMenu.Add("Decrease Thickness (Down)",LineThickness.bind(-.5))
+            subMenu.SetIcon("Decrease Thickness (Down)", Settings_CursorPath . "Minimize.ico")
+      }
+      ; Color Sub Menu
+      Switch ShapeObj.Source {
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+            cn := "Change " . ShapeObj.ShapeName . " Color"
+            shapeMenu.Add(cn, colorMenu)
+            shapeMenu.SetIcon(cn, Settings_CursorPath . "colors.ico" )
+            ; Reuse hicons from buttonbar creation
+            for menName in ButtonBar.colorNameArray {
+               colorMenu.Add(menName, ShapeMenus.Color_Handler.bind(this, ShapeObj, ButtonBar.colorCodeMap[menName]))
+               colorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
+            }
+            shapeMenu.Add()
+         Default:
+      }
+      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
+      If (PC > 1)
+         ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
+      shapeMenu.Show()
+      ; Blocks here
+      shapeMenu.Delete()
+      colorMenu.Delete()
+      subMenu.Delete()
+      outlineMenu.Delete()
+
+      Return
+
+      LineThickness(amt,*) {
+         ; ShapeObj.ChangeThickness(amt)
+         ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
+         ShapeObj.Refresh()
+      }
+      blurFactor(amt,*) {
+         ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
+         ShapeObj.Factor         *= (1+amt) ; blur/pixelate
+         ShapeObj.Refresh()
+      }
+      OutlineType(OLType,*) {
+         ShapeObj.FillOutline := OLType
+         ShapeObj.Refresh()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Add a menu entry along with a icon if needed
+   ;----------------------------------------------------------------------
+   Static AddEntry(Menu, shapeObj, title, icon:="") {
+      Global Settings_CursorPath
+      Menu.Add(Title, ShapeMenus.ContextShapeMenu_Handler.bind(this, shapeObj))    ;1
+      if (icon)
+         Menu.SetIcon(title, Settings_CursorPath . "\" . icon)
+   }
+   ;----------------------------------------------------------------------
+   ; Handle callback for the RMB menu
+   ;----------------------------------------------------------------------
+   Static ContextShapeMenu_Handler(shapeObj, ItemName, ItemPos, MyMenu) {
+      Switch {
+         Case ItemName ~= "to Back" : 
+            ; NOTE - clips and images are pushed too far down
+            ; Also, they are always under drawn shapes
+            ; Due to layered vs non-layered child windows (layered stack always on top)
+            shapeObj.PushToBottom() 
+         Case ItemName ~= "Backwards" : 
+            shapeObj.PushDown() 
+         Case ItemName ~= "Duplicate": 
+            Shapes.Duplicate("lbutton", shapeObj)
+         Case ItemName ~= "Delete": 
+            shapeObj.Close()
+         Case ItemName ~= "Edit": 
+            shapeObj.EditDispText()
+         Case ItemName ~= "Reset": 
+            shapeObj.ResetSize()
+            focusBorder.Sync()
+         Case ItemName ~= "to Clipboard":
+            focusBorder.HideFocus(false)
+            hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
+            Clipboard.SetHBITMAPToClipboard(hBitmap)
+         Case ItemName ~= "Clear":
+             Snips.ClearAllShapes(shapeObj.GUI.hWnd)
+
+         Default:
+      }
+      MyMenu.delete()
+   }
+   ;----------------------------------------------------------------------
+   ; Change the color of a shape
+   ;----------------------------------------------------------------------
+   Static Color_Handler(shapeObj, colorCode, ItemName, ItemPos, MyMenu) {
+      ShapeObj.Color := colorCode
+      ShapeObj.Refresh()
+      MyMenu.delete()
+   }
+}
+; TODO - ButtonBar menus class
+logGDI(BFN(Error("", -1).File) " loaded...")
+

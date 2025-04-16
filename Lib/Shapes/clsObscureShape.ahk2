@@ -1,0 +1,261 @@
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+
+;----------------------------------------------------------------------
+; Blur and other obscure shapes
+; These all use the background as part of the shape
+;----------------------------------------------------------------------
+Class ObscureShape extends commonShape {
+   Init(*) {
+      Super.Init()
+      this.highlightOpacity  := Shapes.highlightOpacity
+      this.PixelateBlockSize := Shapes.PixelateBlockSize
+      this.highlightColor    := Shapes.highlightColor
+      this.BlurDivisor       := Shapes.BlurDivisor
+      this.imageBrush        := 0
+      this.redactBrush       := 0
+      this.hasImage          := 0
+      Switch this.Shape {
+         ; TODO - Maybe don't use Factor* instead a different variable
+         Case Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_BLUR:
+            this.Factor *= Shapes.BlurDivisor
+         Case Shapes.SHAPE_PIXELATE:
+            this.Factor *= Shapes.PixelateBlockSize
+         Case Shapes.SHAPE_HILITE:
+            this.Color        := Shapes.highlightColor
+            this.shapeOpacity := Shapes.highlightOpacity
+         Case Shapes.SHAPE_REDAC:
+            this.Color  := this.GetCursorBGColor(this.SnipObj, 16, 16)
+         Default:
+      }
+   }
+   /**
+    * Grab a version of the Snip that is processed by the shape,
+    * Then create a texture brush with the underlying processed image aligned
+    * with the snip image.
+    */
+   createImageBrush() {
+      Snip := this.GUI
+      Pic  := Snip.PIC
+      If (this.imageBrush) {
+         Snip.ReleaseBrush(this.imageBrush)
+         this.imageBrush := 0
+      }
+      Switch this.Shape {
+         Case Shapes.SHAPE_PIXELATE: ; Time 9ms
+         ; TODO - put this code into its own class in the Snip class, so we don't have to do the check here
+         ; this.imageBrush := Snip.Brush.Get(this, param)
+         ; Problem is we need a lot of shape info, which this can pass in
+            Snip.PIC.GetPos(,,&W,&H)
+            brushKey := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
+            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush " brushKey)
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+               pBitOutput      := BitMap.PixelateBitmap(pBitInput, brushKey)
+               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
+               GDIp.DisposeImage(pBitOutput)
+               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip picture for " this.ShapeName)
+            }
+
+         Case Shapes.SHAPE_BLUR: ; Time 22ms
+            brushKey := Constrain(1, 100, Round(this.Factor))
+            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush")
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+               pBitOutput      := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
+               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
+               GDIp.DisposeImage(pBitOutput)
+               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip picture for " this.ShapeName)
+            }
+
+         Case Shapes.SHAPE_GAUS_BLUR: ; Time 67 ms (slower with higher values)
+            brushKey := Constrain(0, 255, Round(this.Factor * this.DPIScale))
+            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush")
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+               pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey)
+               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
+               GDIp.DisposeImage(pBitOutput)
+               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip picture for " this.ShapeName)
+            }
+
+         Case Shapes.SHAPE_HILITE, Shapes.SHAPE_HILITER: ; Time 33ms
+            brushKey := this.Color . "-" this.shapeOpacity
+            If (this.imageBrush := Snip.GetBrush("Highlight", brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush")
+            } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
+               Snip.AddBrush(this.imageBrush, "Highlight", brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip highlight for " this.ShapeName)
+            }
+            
+         Case Shapes.SHAPE_REDAC: ; 2ms
+            C := this.shapeCoord
+            ; Make sure the shape has been drawn first
+            If (C.W > 0 AND C.H > 0) {
+               If (pBitInput := this.pBitmapUnderShape()) {
+                  ; GDIp.GetImageDimensions(pBitInput, &W, &H)
+                  ; Just get the color and dispose of the bitmap used
+                  colRes := this.GetCroppedBackgroundColor(pBitInput)
+                  GDIp.DisposeImage(pBitInput)
+                  ; Got a valid color so create a new bitmap and fill it in with that color
+                  If (colRes >= 0) {
+                     this.Color := colRes
+                     If ( NOT this.redactBrush) {
+                        this.redactBrush := GDIp.BrushCreateSolid(0xFF000000 | this.Color)
+                     } Else {
+                        GDIp.SetBrushColor(this.redactBrush, 0xFF000000 | this.Color)
+                     }
+                  } Else {
+                     warning("Failed to get a cropped bitmap")
+                  }
+               } Else {
+                  warning("Failed to retrieve the Snip picture for redact")
+               }
+            } else {
+               ; No shape yet, just create the brush
+               this.redactBrush := GDIp.BrushCreateSolid(0xFF000000 | this.Color)
+            }
+
+         Default:
+            ; REDAC fill the brush with the color under the shape if possible
+      }
+      ; Shift to account for Snip border (PIC inset)
+      If (this.imageBrush) {
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth)
+         this.hasImage := true
+      }
+   }
+   /**
+    * Shape unique startup actions, detect if this is the first startup to create
+    * the brushes
+    */
+   Startup() {
+      super.Startup()
+      If ( NOT this.hasImage) {
+         this.createImageBrush()
+      }
+      ; During a move we may have changed the translation
+      If (this.imageBrush) {
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth) ;Snips.BorderWidth
+      }
+   }
+
+   /**
+    * Done with shape, we can now get rid of the brushes
+    */
+   Close() {
+      super.Close()
+      If (this.imageBrush) {
+         this.GUI.ReleaseBrush(this.imageBrush)
+         this.imageBrush := 0
+      }
+      ; Do we need to retain this? Yes
+      If (this.redactBrush) {
+         GDIp.DeleteBrush(this.redactBrush)
+         this.redactBrush := 0
+      }
+      this.hasImage := 0
+   }
+   /**
+    * Set the primary pen and body brush color
+    * Requires GDIp to be running
+    * @param {number} param
+    * @returns {number} returns
+    */
+   SetColor(newColor) {
+      super.SetColor(newColor)
+      ; Only need this for Highlights
+      if (this.Shape := Shapes.SHAPE_HILITE)
+         this.createImageBrush()
+   }
+    /**
+    * Draw a new obscure shape at X/Y & W/H, the brush may be filled with the process image
+    * @param G Graphics Handle
+    * @param X X Location of upper left
+    * @param Y Y Location of upper left
+    * @param W Width of shape to draw
+    * @param H Height of shape to draw
+    */
+   Draw(G, X, Y, W, H) {
+      brush := this.imageBrush ? this.imageBrush : this.redactBrush
+      GDIp.FillRoundedRectangle(G, brush, X, Y, W, H, 5 * this.DPIFactor)
+      this.sCoord := { X1: X, X2: X + W, Y1: Y, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+   }
+   /**
+    * Redraw a obscure shape, called after changing a parameter
+    */
+   Refresh() {
+      this.createImageBrush()
+      this.RefillFace()
+   }
+   /**
+    * Move the shape and optionally refresh if H/W changed
+    * @param X Optional X location
+    * @param Y Optional Y location
+    * @param W Optional Width
+    * @param H Optional Height
+    */
+   Move(X?, Y?, W?, H?) {
+      ; Super handles W/H, here we do if X/Y
+      If (this.IsOverSnip() AND NOT (IsSet(W) or IsSet(H))) {
+         ; Since we are redrawing at new pos, just do the coordinates calc
+         super.Move(X?, Y?, W?, H?, false)
+         ; REDAC is local over shape only
+         if (this.Shape = Shapes.SHAPE_REDAC)
+            this.createImageBrush()
+         this.RefillFace()
+      } Else {
+         ; Would be off the snip here, so just move the rectangle
+         Super.Move(X?,Y?,W?,H?)
+      }
+   }
+   /**
+    * Refill the face with the current brush
+    */
+   RefillFace() {
+      ; BUG - this can be a little jumpy when moving/refreshing the face. Not sure why
+      ; It looks like sometimes the window is moved THEN is is refreshed so we see a flicker
+      C := this.sCoord
+      ; imageBrush will be 0 if not used
+      ; Critical("On")
+      If (this.imageBrush) {
+         ; Brush sits over SNIP so we have to translate it to line up with the shape < 2ms
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ; This seems to cause the jumpiness
+         brush := this.imageBrush
+      } Else {
+         brush := this.redactBrush
+      }
+      ; Stuff the aligned image/brush into a rectangle 7-20 ms this block
+      Surf := GDIp.DIBSurface(C.W, C.H, this.hwnd)
+      ; This can take 5-10ms, probably due to the texture brush
+      GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
+      ; GDIp.FillRectangle(mysurf.G, brush, 0, 0, C.W, C.H) ; not any faster
+      Surf.UpdateLayer(C.X1, C.Y1)
+      Surf := ""
+      ; Critical("Off")
+   }
+   /**
+    * Adjust the shape factoru dynamically while drawing
+    * @param amt % of change
+    */
+   ChangeThickness(amt) {
+      this.Factor *= (1 + amt) ; blur/pixelate
+      this.createImageBrush()
+   }
+   ;----------------------------------------------------------------------
+   ; No padding used for obscure types
+   ;----------------------------------------------------------------------
+   savePadding(L, T, R, B) {
+      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
+   }
+}

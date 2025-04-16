@@ -1,0 +1,106 @@
+/************************************************************************
+ * @description Class to hold clipboard related functions
+ * @file clsClipboard.ahk2
+ * @author Tom Wilkason - Merged in code from fantastic guru Snipper.ahk
+ * @date 2024/04/20
+ * @version 1.0.0
+ ***********************************************************************/
+
+#Requires AutoHotkey v2
+#include clsGDIp.ahk2
+;----------------------------------------------------------------------
+; Clipboard related functions
+;----------------------------------------------------------------------
+Class Clipboard {
+   Static HBITMAPFromClipboard(&W, &H) {
+      If (!DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', CF_DIB := 8))
+         Return (0)
+
+      If (!DllCall('User32.dll\OpenClipboard', 'Ptr', A_ScriptHwnd))
+         Return (0)
+
+      Local hBitmap := DllCall('User32.dll\GetClipboardData', 'UInt', CF_BITMAP := 2, 'Ptr')
+      DllCall('User32.dll\CloseClipboard')
+
+      If (hBitmap) {
+         ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
+         buf := tagBITMAP()
+         DllCall("Gdi32\GetObject", "Ptr", hBitmap, "Int", buf.Size, "Ptr", buf)
+         W := buf.bmWidth
+         H := buf.bmHeight
+      }
+
+      Return (hBitmap)
+   }
+   ; SetBitmapToClipboard
+   Static SetPBitmapToClipboard(TpBitmap) {
+      hBitmap := Gdip.CreateHBITMAPFromBitmap(TpBitmap, 0)
+      Gdip.DisposeImage(TpBitmap)
+      If !hBitmap {
+         Return -3
+      }
+      this.SetHBitmapToClipboard(hBitmap)
+   }
+
+   ; SetHBITMAPToClipboard
+   Static SetHBITMAPToClipboard(hBitmap) {
+
+      off1 := A_PtrSize = 8 ? 52 : 44
+      off2 := A_PtrSize = 8 ? 32 : 24
+
+      pid := DllCall("GetCurrentProcessId", "uint")
+      hwnd := WinExist("ahk_pid " . pid)
+      r1 := DllCall("OpenClipboard", "Ptr", hwnd)
+      If !r1
+         Return -1
+
+      r2 := DllCall("EmptyClipboard")
+      If !r2 {
+         GDI.DeleteObject(hBitmap)
+         DllCall("CloseClipboard")
+         Return -2
+      }
+      oi := Buffer((A_PtrSize = 8) ? 104 : 84, 0) ; tagDIBSECTION , nested structures
+      DllCall("Gdi32\GetObject", "Ptr", hBitmap, "int", oi.size, "Ptr", oi.ptr)
+      ; TODO - oi should be
+      ; oi := tagBITMAP()
+      dwBytes := 40 + NumGet(oi, off1, "UInt")
+      hdib := DllCall("GlobalAlloc", "uint", 2, "Ptr", dwBytes, "Ptr")
+      pdib := DllCall("GlobalLock", "Ptr", hdib, "Ptr")
+      DllCall("RtlMoveMemory", "Ptr", pdib, "Ptr", oi.ptr + off2, "Ptr", 40)
+      DllCall("RtlMoveMemory", "Ptr", pdib + 40, "Ptr", NumGet(oi, off2 - A_PtrSize, "Ptr"), "Ptr", NumGet(oi, off1, "UInt"))
+      DllCall("GlobalUnlock", "Ptr", hdib)
+      ; IDEA adding a DIB to the clipboard, could also add text from an OCR CF_TEXT = 1
+      r3 := DllCall("SetClipboardData", "uint", 8, "Ptr", hdib) ; CF_DIB = 8, 2 is CF_BITMAP
+      DllCall("CloseClipboard")
+      DllCall("GlobalFree", "Ptr", hdib)
+      Gdi.DeleteObject(hBitmap)
+      E := r3 ? 0 : -4    ; 0 - success
+      Return E
+   }
+   ;----------------------------------------------------------------------------
+   ; Idea from: https://www.autohotkey.com/boards/viewtopic.php?f=83&t=114568
+   ;----------------------------------------------------------------------------
+   Static HTMLToClipboard(html) {
+      htmlFile := ComObject('HTMLfile')
+      htmlFile.write(html)
+      htmlFile.body.createTextRange().execCommand("Copy")
+      htmlFile := unset
+   }
+   Static hasText() {
+      For fmt in Array(1, 7, 13, 16, 49358)
+         if (ClipIsAvailable(fmt))
+            Return true
+      Return false
+   }
+   Static hasImage() {
+      For fmt in Array(2, 6, 8, 17)
+         if (ClipIsAvailable(fmt))
+            Return true
+      Return false
+   }
+
+}
+ClipIsAvailable(format) => DllCall("IsClipboardFormatAvailable", "uint", format)
+logGDI(BFN(Error("", -1).File) " loaded...")
+

@@ -1,0 +1,340 @@
+#Requires AutoHotkey v2.0
+/*
+https://www.autohotkey.com/boards/viewtopic.php?t=115952
+		global WindowProcNew := CallbackCreate(WindowProc)  ; Avoid fast-mode for subclassing.
+		global WindowProcOld := DllCall("user32\" SetWindowLong, "Ptr", GuiObj.Hwnd, "Int", GWL_WNDPROC, "Ptr", WindowProcNew, "Ptr")
+
+*/
+/**
+ * Implement theming for the contols on this GUI, call when GUI controls are all created and destroy when GUI is destroyed
+ * TODO - Add status bar support
+ * @param guiObj GUI Object
+ * @param {Integer} DarkMode true/false for dark mode 
+ */
+Class ControlThemes {
+   __New(guiObj, DarkMode := false) {
+      this.guiObj              := guiObj
+      this.DarkMode            := DarkMode
+      this.TextBackgroundBrush := 0
+      this.WindowProcNew       := 0
+      this.SetWindowAttribute()
+      this.SetWindowTheme()
+   }
+   __Delete() {
+      if (this.WindowProcNew)
+         CallbackFree(this.WindowProcNew)      
+      if (this.TextBackgroundBrush)
+         DllCall("Gdi32\DeleteObject", "Ptr", this.TextBackgroundBrush)
+   }
+
+   /**
+    * Setup the GUI to allow darkmode
+    */
+   SetWindowAttribute() {
+      this.DarkColors          := Map("Background", "0x202020", "Controls", "0x404040", "Font", "0xE0E0E0")
+      this.TextBackgroundBrush := DllCall("gdi32\CreateSolidBrush", "UInt", this.DarkColors["Background"], "Ptr")
+      this.PreferredAppMode    := Map("Default", 0, "AllowDark", 1, "ForceDark", 2, "ForceLight", 3, "Max", 4)
+
+      If (VerCompare(A_OSVersion, "10.0.17763") >= 0) {
+         DWMWA_USE_IMMERSIVE_DARK_MODE := 19
+         If (VerCompare(A_OSVersion, "10.0.18985") >= 0) {
+            DWMWA_USE_IMMERSIVE_DARK_MODE := 20
+         }
+         uxtheme := DllCall("kernel32\GetModuleHandle", "Str", "uxtheme", "Ptr")
+         SetPreferredAppMode := DllCall("kernel32\GetProcAddress", "Ptr", uxtheme, "Ptr", 135, "Ptr")
+         FlushMenuThemes := DllCall("kernel32\GetProcAddress", "Ptr", uxtheme, "Ptr", 136, "Ptr")
+         Switch this.DarkMode {
+            Case true:
+               DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", this.guiObj.hWnd, "Int", DWMWA_USE_IMMERSIVE_DARK_MODE, "Int*", true, "Int", 4)
+               DllCall(SetPreferredAppMode, "Int", this.PreferredAppMode["ForceDark"])
+               DllCall(FlushMenuThemes)
+               this.guiObj.BackColor := this.DarkColors["Background"]
+            default:
+               DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", this.guiObj.hWnd, "Int", DWMWA_USE_IMMERSIVE_DARK_MODE, "Int*", false, "Int", 4)
+               DllCall(SetPreferredAppMode, "Int", this.PreferredAppMode["Default"])
+               DllCall(FlushMenuThemes)
+               this.guiObj.BackColor := "Default"
+         }
+      }
+   }
+
+   /**
+    * Called internally to setup the themes for each control
+    */
+   SetWindowTheme() {
+      Static GWL_STYLE          := -16
+      Static GWL_WNDPROC        := -4
+      Static ES_MULTILINE       := 0x0004
+      Static LVM_GETTEXTCOLOR   := 0x1023
+      Static LVM_SETTEXTCOLOR   := 0x1024
+      Static LVM_GETTEXTBKCOLOR := 0x1025
+      Static LVM_SETTEXTBKCOLOR := 0x1026
+      Static LVM_GETBKCOLOR     := 0x1000
+      Static LVM_SETBKCOLOR     := 0x1001
+      Static LVM_GETHEADER      := 0x101F
+      Static GetWindowLong      := A_PtrSize = 8 ? "GetWindowLongPtr" : "GetWindowLong"
+      Static SetWindowLong      := A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"
+             CB_Init            := false
+             LV_Init            := false
+
+      Mode_Explorer  := (this.DarkMode ? "DarkMode_Explorer" : "Explorer") ; ClearMode_Explorer?
+      Mode_CFD       := (this.DarkMode ? "DarkMode_CFD" : "CFD")
+      Mode_ItemsView := (this.DarkMode ? "DarkMode_ItemsView" : "ItemsView")
+
+      For hWnd, GuiCtrlObj in this.guiObj {
+         Switch GuiCtrlObj.Type {
+            Case "UpDown":
+               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+            Case "Button", "CheckBox", "ListBox", "UpDown", "PicButton":
+               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+            Case "ComboBox", "DDL":
+               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_CFD, "Ptr", 0)
+            Case "Edit":
+               If (DllCall("user32\" GetWindowLong, "Ptr", GuiCtrlObj.hWnd, "Int", GWL_STYLE) & ES_MULTILINE) {
+                  DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+               } Else {
+                  DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_CFD, "Ptr", 0)
+               }
+            Case "ListView":
+               If !(LV_Init) {
+                  Static LV_TEXTCOLOR := SendMessage(LVM_GETTEXTCOLOR, 0, 0, GuiCtrlObj.hWnd)
+                  Static LV_TEXTBKCOLOR := SendMessage(LVM_GETTEXTBKCOLOR, 0, 0, GuiCtrlObj.hWnd)
+                  Static LV_BKCOLOR := SendMessage(LVM_GETBKCOLOR, 0, 0, GuiCtrlObj.hWnd)
+                  LV_Init := true
+               }
+               GuiCtrlObj.Opt("-Redraw")
+               Switch this.DarkMode {
+                  Case true:
+                  {
+                     SendMessage(LVM_SETTEXTCOLOR, 0, this.DarkColors["Font"], GuiCtrlObj.hWnd)
+                     SendMessage(LVM_SETTEXTBKCOLOR, 0, this.DarkColors["Background"], GuiCtrlObj.hWnd)
+                     SendMessage(LVM_SETBKCOLOR, 0, this.DarkColors["Background"], GuiCtrlObj.hWnd)
+                  }
+                  default:
+                  {
+                     SendMessage(LVM_SETTEXTCOLOR, 0, LV_TEXTCOLOR, GuiCtrlObj.hWnd)
+                     SendMessage(LVM_SETTEXTBKCOLOR, 0, LV_TEXTBKCOLOR, GuiCtrlObj.hWnd)
+                     SendMessage(LVM_SETBKCOLOR, 0, LV_BKCOLOR, GuiCtrlObj.hWnd)
+                  }
+               }
+               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+
+               ; To color the selection - scrollbar turns back to normal
+               ;DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_ItemsView, "Ptr", 0)
+
+               ; Header Text needs some NM_CUSTOMDRAW coloring
+               LV_Header := SendMessage(LVM_GETHEADER, 0, 0, GuiCtrlObj.hWnd)
+               DllCall("uxtheme\SetWindowTheme", "Ptr", LV_Header, "Str", Mode_ItemsView, "Ptr", 0)
+               GuiCtrlObj.Opt("+Redraw")
+            Default:
+               debug("Unsuppored Theme for " GuiCtrlObj.Type)
+         }
+      }
+      ; Setup the event handler that will be called for the GUI and each of it's controls
+      If ( NOT CB_Init) {
+         ; NOTE - I think I can do this indivdually for each control that is supported, pass in the control handle
+         this.WindowProcNew := CallbackCreate(this.WindowProc.bind(this),,4)  ; Avoid fast-mode for subclassing., parameter count it crucial
+         this.WindowProcOld := DllCall("user32\" SetWindowLong, "Ptr", this.guiObj.Hwnd, "Int", GWL_WNDPROC, "Ptr", this.WindowProcNew, "Ptr")
+      }
+   }
+   /**
+    * Callback to handle control messages, tweak colors for the items we are aware of
+    * @param hwnd handle to window (I think)
+    * @param uMsg control type
+    * @param wParam handle to control
+    * @param lParam 
+    * @returns {Float | Integer | String} 
+    */
+   WindowProc(hwnd, uMsg, wParam, lParam) {
+      Critical("On")
+      Static WM_CTLCOLOREDIT    := 0x0133
+      Static WM_CTLCOLORLISTBOX := 0x0134
+      Static WM_CTLCOLORBTN     := 0x0135
+      Static WM_CTLCOLORSTATIC  := 0x0138
+      Static WM_CTLCOLORDLG     := 0x0136
+      Static WM_PRINTCLIENT     := 0x0318
+      Static WM_COMMAND         := 0x0111
+      Static DC_BRUSH           := 18
+
+      If (this.DarkMode) {
+         Switch uMsg {
+            Case WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX:
+               DllCall("gdi32\SetTextColor", "Ptr", wParam, "UInt", this.DarkColors["Font"])
+               DllCall("gdi32\SetBkColor", "Ptr", wParam, "UInt", this.DarkColors["Controls"])
+               DllCall("gdi32\SetDCBrushColor", "Ptr", wParam, "UInt", this.DarkColors["Controls"], "UInt")
+               Return DllCall("gdi32\GetStockObject", "Int", DC_BRUSH, "Ptr")
+            Case WM_CTLCOLORBTN:
+               DllCall("gdi32\SetDCBrushColor", "Ptr", wParam, "UInt", this.DarkColors["Background"], "UInt")
+               Return DllCall("gdi32\GetStockObject", "Int", DC_BRUSH, "Ptr")
+            ; Case WM_CTLCOLORSTATIC:
+            ;    DllCall("gdi32\SetTextColor", "Ptr", wParam, "UInt", this.DarkColors["Font"])
+            ;    DllCall("gdi32\SetBkColor", "Ptr", wParam, "UInt", this.DarkColors["Background"])
+            ;    Return this.TextBackgroundBrush
+            Case WM_CTLCOLORDLG: ; not sure about this one
+               Return this.TextBackgroundBrush
+            ; Default:
+            ;    debug("Uknown Control:" hex(uMsg))
+         }
+      }
+      Critical("Off") ; important, needs to be paired
+      Return DllCall("user32\CallWindowProc", "Ptr", this.WindowProcOld, "Ptr", hwnd, "UInt", uMsg, "Ptr", wParam, "Ptr", lParam)
+   }
+}
+
+;----------------------------------------------------------------------
+; D A R K   M O D E   R E L A T E D
+; Also see https://github.com/nperovic/ToolTipEx/blob/main/ToolTipEx%20(for%20v2.1-alpha.8%2B).ahk
+;----------------------------------------------------------------------
+/**
+ * Make your ToolTip and Menu style conform to the current system theme (dark/light mode, rounded corners of Win 11 windows).  
+ * Simply include this Class in your script, no need to create an instance.
+ * https://github.com/nperovic/SystemThemeAwareToolTip/blob/main/SystemThemeAwareToolTip.ahk
+ * https://www.autohotkey.com/boards/viewtopic.php?t=113308
+ * TT_WNDPROC & WindowProc are both created
+ */
+Class SystemThemeAwareToolTipMenu {
+   Static IsDarkMode => !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+   ; Note : See myColorPicker for version with padding and borders
+   Static __New() {
+      static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
+
+      If this.HasOwnProp("HTT") || !this.IsDarkMode
+         Return
+
+      ; GroupAdd("tooltips_class32", "ahk_class tooltips_class32")
+      ; WS_EX_TOPMOST WS_EX_WINDOWEDGE
+      ; Dummy window of the same class as a tooltip then subclass it
+      this.HTT := DllCall("User32.dll\CreateWindowEx", "UInt", 0x8, "Ptr", StrPtr("tooltips_class32"), "Ptr", 0, "UInt", 3, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "Ptr", A_ScriptHwnd, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+      this.SubWndProc := CallbackCreate(TT_WNDPROC, , 4)
+      ; -24 = GCLP_WNDPROC
+      this.OriWndProc := DllCall(A_PtrSize = 8 ? "SetClassLongPtr" : "SetClassLongW", "Ptr", this.HTT, "Int", -24, "Ptr", this.SubWndProc, "Ptr")
+      ;----------------------------------------------------------------------
+      ; This will make the menus dark mode as well
+      ; https://learn.microsoft.com/en-us/answers/questions/579561/dark-light-mode-of-system-tray-icon-in-wpf
+      ;----------------------------------------------------------------------
+      uxtheme                := DllCall("GetModuleHandle", "str", "uxtheme", "ptr")
+      ; AllowDarkModeForWindow := GetProcAddress(uxtheme, 133)   ; doesn't seem to be needed
+      this.UseDarkMode       := DllCall(GetProcAddress(uxtheme, 132),"Int") ; vs using registry
+      SetPreferredAppMode    := GetProcAddress(uxtheme, 135)	; ordinal = 135 in 1903+ AllowDarkModeForApp->SetPreferredAppMode
+      FlushMenuThemes        := GetProcAddress(uxtheme, 136)	; ordinal = 136
+      ; This is for menus
+      ;0=Default  1=AllowDark  2=ForceDark  3=ForceLight  4=Max
+      DllCall(SetPreferredAppMode, "int", 1)	; Allow Dark
+      DllCall(FlushMenuThemes)
+
+      Return
+
+      ;----------------------------------------------------------------------
+      ; Callback when a tooltip window is created (class tooltips_class32)
+      ;----------------------------------------------------------------------
+      TT_WNDPROC(hWnd, uMsg, wParam, lParam) {
+         Static WM_CREATE := 0x0001, TTM_TRACKACTIVATE := 0x411, TTM_SETMARGIN := 0x41a
+         Switch uMsg {
+            Case WM_CREATE:
+               If (this.IsDarkMode)
+                  SetDarkToolTip(hWnd)
+               If (WinVer > 10)
+                  SetRoundedCorner(hWnd, 3)
+            Default:
+         }
+         Return DllCall(this.OriWndProc, "Ptr", hWnd, "UInt", uMsg, "Ptr", wParam, "Ptr", lParam, "UInt")
+      }
+      SetDarkToolTip(hWnd) => DllCall("UxTheme\SetWindowTheme", "Ptr", hWnd, "Ptr", StrPtr("DarkMode_Explorer"), "Ptr", StrPtr("ToolTip"))
+      SetRoundedCorner(hwnd, level := 3) => DllCall("Dwmapi\DwmSetWindowAttribute", "Ptr", hwnd, "UInt", 33, "Ptr*", level, "UInt", 4)
+      GetProcAddress(handle, function) => DllCall("Kernel32.dll\GetProcAddress", "Ptr", handle, "Ptr", function, "Ptr")
+   }
+
+   Static __Delete() => (this.HTT && WinKill("ahk_group tooltips_class32"))
+}
+;----------------------------------------------------------------------
+; Extend button to allow for pictures
+; Based on https://github.com/TheArkive/GuiCtlExt_ahk2/tree/master
+;----------------------------------------------------------------------
+Class PicButton extends Gui.Button {
+   ;@lint-disable class-non-dynamic-member-check
+   ; Add new method for GUI to add this, then add to the GUI
+   Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+   Static count := 0
+   Static __New() {
+      Gui.Prototype.AddPicButton         := this.AddPicButton
+   }
+   ;----------------------------------------------------------------------
+   ; Set the light/dark mode for a control
+   ;----------------------------------------------------------------------
+   Static Theme(hwnd) {
+      DllCall("uxtheme\SetWindowTheme", "ptr", hWnd, "str", this.DarkMode ? "DarkMode_Explorer" : "Explorer", "ptr", 0)
+   }
+   ;----------------------------------------------------------------------
+   ; Essentialy NEW method, called in the GUI context
+   ; 4 GDI resources in SetImg
+   ;----------------------------------------------------------------------
+   Static AddPicButton(sOptions := "", sPicFile := "", sPicFileOpt := "", txt := "") {
+      ; Static WM_CTLCOLORBTN       := 0x0135
+      ; AddPicButton is called from GUI, so this points to the GUI object
+      ctl := this.AddButton(sOptions, txt)   ; OK, this = GUI vs Button
+      ctl.base := PicButton.Prototype
+      If sPicFile
+         ctl.SetImg(sPicFile, sPicFileOpt) ; 4 gdi objects (2DC and 2 Bitmaps)
+      ; Also set the light/dark theme
+      PicButton.Theme(ctl.Hwnd)
+
+      Return ctl
+   }
+   /*
+   BS_ICON or BS_BITMAP set? | BM_SETIMAGE called? | Result  
+   --------------------------+---------------------+--------------------  
+   Yes                       | Yes                 | Show icon only.  
+   No                        | Yes                 | Show icon and text.  
+   Yes                       | No                  | Show text only.  
+   No                        | No                  | Show text only
+   */
+   ;----------------------------------------------------------------------
+   ; Method Called in the button context, this = button
+   ; TODO - detect if not a file, then skip the LoadPicture stuff (HICON/HBITMAP)
+   ;        comes into play when wer build the images directly and pass them in
+   ;----------------------------------------------------------------------
+   SetImg(sFile, sOptions := "") {      ; input params exact same as first 2 params of LoadPicture()
+      ; thanks to teadrinker: https://www.autohotkey.com/boards/viewtopic.php?p=299834#p299834
+      Static BS_ICON        := 0x40, BS_BITMAP  := 0x80, BM_SETIMAGE  := 0xF7
+      Static IMAGE_BITMAP   := 0,    IMAGE_ICON := 1,    IMAGE_CURSOR := 2
+      ; Static IS_WIN10       := (VerCompare(A_OSVersion, "10.0.22200") < 0)
+      ; Minimize won't work with GDI+ option, but others
+      hImg := LoadPicture(sFile, sOptions, &_type := 0) ; w/o _type will convert to bitmap
+      ; debug(++PicButton.count " " sFile " (" _type ")")
+      ; 2025-03-06 Force to Icon  (no difference though but would simplify the code)
+      ; hImg := LoadPicture(sFile, "Icon1 " . sOptions, &_type := 0) ; w/o _type will convert to bitmap
+      ; type := 0 → bitmap, 1 → Icon, 2→ cursor
+      If (hImg) {
+         ; Align the control style to the image type
+         ControlSetStyle((ControlGetStyle(this.hwnd) | (_type ? BS_ICON : BS_BITMAP)), this.hwnd) ; cursor treated like icon
+         ; Force cursors to icons, since buttons don't support IMAGE_CURSOR
+         hOldImg := SendMessage(BM_SETIMAGE, _type ? IMAGE_ICON : IMAGE_BITMAP, hImg, this.hwnd) ; 4 gdi opbjects
+         ; If resettign image, destroy the old one if it exists first
+         GDI.DeleteImage(hOldImg, IMAGE_BITMAP)
+         GDI.DeleteImage(hImg, _type)
+      } Else {
+         warning("Failed to load button image:" sFile)
+      }
+      Return
+   }
+   ; where SetBackColor was inserted
+   Type => "PicButton"
+}
+;----------------------------------------------------------------------
+; Change the buttons as well so they blend at edges
+; DDL, Edit, UpDown
+;----------------------------------------------------------------------
+; SyncButtonColor(guiObj) {
+;    value := guiObj.backcolor
+;    For ctrl in guiObj {
+;       If (ctrl.Type ~= "Button") {
+;          rgb := RGBHex(value)
+;          ctrl.Opt("+BackGround" rgb)
+;       }
+;    }
+;    RGBHex(val) {
+;       if NOT IsInteger(val)
+;          val := RGBval(val)
+;       Return Format("{:X}", val)
+;    }
+; }

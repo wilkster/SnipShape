@@ -1,0 +1,43 @@
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+#include ..\clsShapes.ahk2
+
+;----------------------------------------------------------------------
+; Body related shapes
+;----------------------------------------------------------------------
+Class ToolShape extends commonShape {
+   /**
+    * Additional Tool shape Startup for drawing
+    */
+   Startup() {
+      super.Startup()
+      GDIp.SetPenDashStyle(this.pPrime, 1)
+   }
+   /**
+    * Make adjustments based on the passed in factor, call before startup
+    * @param Factor 
+    */
+   Init(*) {
+      Super.Init()
+      Switch this.Shape {
+         Case Shapes.SHAPE_CROP :
+            this.Color := "FUCHSIA"
+         Case Shapes.SHAPE_OCR :
+            this.Color := "Orange"
+         Default :
+      }
+      this.shapeThickness := this.DPIFactor * 2 ; thin selection
+   }  
+    /**
+    * Draw a new tool shape at X/Y & W/H
+    * @param G Graphics Handle
+    * @param X X Location of upper left
+    * @param Y Y Location of upper left
+    * @param W Width of shape to draw
+    * @param H Height of shape to draw
+    */
+   Draw(G, X, Y, W, H) {
+      GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
+      this.sCoord := { X1: X, X2: X + W, Y1: Y, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+   }
+}

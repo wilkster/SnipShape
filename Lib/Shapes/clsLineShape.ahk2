@@ -1,0 +1,216 @@
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+#include ..\clsShapes.ahk2
+;----------------------------------------------------------------------
+; Line related shapes
+;----------------------------------------------------------------------
+Class LineShape extends commonShape {
+
+   ; outlineOpacity := 0xFF ; lint
+   Init(*) {
+      Super.Init()
+      this.outlineColor       := Shapes.outlineColor
+      this.outlineThickFactor := Shapes.outlineThickFactor
+      this.fillOpacity        := Shapes.fillOpacity
+      Switch this.Shape {
+         Case Shapes.SHAPE_TAPARROW:
+            this.shapeOpacity := Shapes.arrowOpacity
+            this.shapeThickness := Shapes.arrowLineThickness * this.Factor * this.DPIFactor * 2
+         Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
+            this.shapeOpacity := Shapes.arrowOpacity
+            this.shapeThickness := Shapes.arrowLineThickness * this.Factor * this.DPIFactor
+         Case Shapes.SHAPE_LINE, Shapes.SHAPE_BRACKET:
+            this.shapeThickness := Shapes.rawLineThickness * this.Factor * this.DPIFactor
+         Default:
+      }
+   }
+   Startup() {
+      super.Startup()
+      Switch this.Shape {
+
+         Case Shapes.SHAPE_ARROW, Shapes.SHAPE_TAPARROW:
+            ; filled = 1 solid triangle, =0 just two lines
+            ; Width will be N x Pen Width
+            If (this.shape = Shapes.SHAPE_TAPARROW) {
+               ; Tapered window fill color
+               this.fBrush := this.myBrushes.Add(this.shapeOpacity << 24 | this.Color)
+               ; no cap since converging to a point
+               GDIp.SetPenStartCap(this.pPrime, 0)
+               ; Outline pen
+               this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 6) ; Grey thickness/color of the outer border
+               GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded
+
+            } Else {
+               GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
+               ; Rounded Start
+               GDIp.SetPenStartCap(this.pPrime, 2)
+            }
+            GDIp.SetPenAlignment(this.pPrime, 0)
+
+         Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
+            ; Outline arrow is a little more complex to draw
+            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 3) ; Grey thickness/color of the outer border
+            GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW)
+            ; GDIp.CustomArrowCap(this.pOutline, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW) ; This isn't necessary since we are drawing along a path
+            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded, round the outline only
+
+         Case Shapes.SHAPE_BRACKET:
+            GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
+            GDIp.SetPenAlignment(this.pPrime, 0) ; center
+            GDIp.SetPenLineCaps(this.pPrime, 3, 3) ; triangles
+
+         Case Shapes.SHAPE_LINE:
+            GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
+      }
+   }
+   /**
+    * Set a new color for this shape for subsequent draw actions
+    * @param newColor 
+    */
+   SetColor(newColor) {
+      super.SetColor(newColor)
+      If (this.HasProp("fBrush")) { ; highlight/redact brush
+         GDIp.SetBrushColor(this.fBrush, this.shapeOpacity << 24 | newColor)
+      }
+   }
+    /**
+    * Draw a new line shape at X/Y & W/H
+    * @param G Graphics Handle
+    * @param X1 X Location of start
+    * @param Y1 Y Location of start
+    * @param X2 X Location of finish
+    * @param Y2 Y Location of finish
+    */
+   Draw(G, X1, Y1, X2, Y2) {
+      Switch this.shape {
+         Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
+            oPath := GDIp.Path(G)
+            oPath.AddPathLine(X1, Y1, X2, Y2)
+            oPath.WidenPath(this.pPrime)
+            oPath.DrawPath(this.pOutline)
+            ; If we are not opaque we have to remove the arrow-head inside lines from the shape
+            ; by overwriting the inside of the path before drawing the translucent line to fill it
+            If (this.shapeOpacity < 255) {
+               oPath.SolidFillPath(this.blankBrush)
+            }
+
+            oPath := ""
+            GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2) ; inside pen
+
+         Case Shapes.SHAPE_TAPARROW:
+            ; Start point is tiny, hard to grab
+            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
+            ; Create the arrow left to right on the 0 X centerline then rotate/translate into the graphics space
+            T := GDIp.GetPenWidth(this.pPrime) ; Everything scales off the primary thickness
+            W := T * 2 ; width of tip (Y dimension)
+            H := T * 2 ; length of tip (X dimension)
+            I := T * 0.25 ; Inset of tip from length (X dimension)
+            L := Sqrt((X1 - X2) ** 2 + (Y1 - Y2) ** 2)
+            ; Coordinates of the tapered arrow
+            pArray := [[0, 0], [L - H + I, T / 2], [L - H, W / 2], [L, 0], [L - H, -W / 2], [L - H + I, -T / 2]]
+            oPath := GDIp.Path(G)
+            oPath.AddPathArray(pArray, 1)
+            ; Compute the rotation angle and rotate the bracket (around graphics origin), then translate to the start point
+            ; 2.1 has proper Atan2
+            Ang := myAngle(Y2 - Y1, X2 - X1)
+            oPath.TranslateRotatePath(Ang, X1, Y1)
+            ; HACK - we center on the path, so we overlap it by half. Which is ok for opacity=255, but we get blending otherwise
+            if (this.shapeOpacity < 255)
+               GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
+            ; oPath.WidenPath(this.pOutline) ; Leaves a hole in the middle since the path is replaced by the outline of the pen
+            oPath.DrawPath(this.pOutline) 
+            oPath.FillPath(this.fBrush)
+            oPath := ""
+
+         Case Shapes.SHAPE_BRACKET:
+            /*
+               Compute the raw shape then rotate into place around the start point
+               This method can be used to draw any shape that follows the start/end
+               point while drawing.
+            */
+            Static notch := 15 * this.DPIFactor   ; depth of notches
+            ; Static pOffset := 0.20
+            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2) ; grab points
+            ; Bracket unique stuff
+            ; Create an array of the unrotated points for the bracket shape then put them into a points array
+            dX := Sqrt((X1 - X2) ** 2 + (Y1 - Y2) ** 2)
+            s2 := Min(notch * 2, 0.2 * dX) ; width of callout, 20% nomoly but no bigger than 2x notch size
+            s1 := (dX - s2) / 2 ; length of end segments
+            ; pArray := [[0, notch], [0, 0], [(0.5 - pOffset) * dX, 0], [dX / 2, -notch], [(0.5 + pOffset) * dX, 0], [dX, 0], [dX, +notch]]
+            ;    |_____________  _______________|
+            ;                  \/
+            pArray := [[0, notch], [0, 0], [s1, 0], [dX / 2, -notch], [s1 + s2, 0], [dX, 0], [dX, +notch]]
+            ; Translate/Rotate and Draw the points into the current context
+            oPath := GDIp.Path(G)
+            oPath.AddPathArray(pArray, 0)
+            ; Compute the rotation angle and rotate the bracket (around graphics origin), then translate to the start point
+            ; 2.1 has proper Atan2
+            Ang := myAngle(Y2 - Y1, X2 - X1)
+            oPath.TranslateRotatePath(Ang, X1, Y1)
+            oPath.DrawPath(this.pPrime)
+            oPath := ""
+
+         Default:
+            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
+            GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2)
+
+      }
+      this.shapeCoord := { X1: X1, X2: X2, Y1: Y1, Y2: Y2}
+   }
+    /**
+    * Redraw a line shape
+    * @param {Integer} Startup - true to startup/shutdown also
+    */
+   Refresh() {
+      If (NOT this.Started) {
+         started := true
+         this.Startup()
+      }
+      ; internal shape boundaries
+      C := this.shapeCoord
+      ; shape window boundaries (can be bigger)
+      this.getPos(&iX, &iY, &iW, &iH)
+      Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+      this.Draw(Surf.G, C.X1 - iX, C.Y1 - iY, C.X2 - iX, C.Y2 - iY)      ; Scale from OG space to the new space
+      Surf.UpdateLayer(iX, iY)
+      Surf := ""
+      ; Restore old position
+      this.shapeCoord := C
+
+      If (IsSet(started)) {
+         this.CleanUp()
+      }
+
+   }
+      /*
+         1-------------------------------------------------2
+         |                                                 |
+         |               Line Corners                      |
+         |                                                 |
+         6-------------------------------------------------4
+
+         Lines have corners of 1/4 or 4/1 2/6, 6/2 depending on their
+         orientation and direction.
+   */
+   FocusSquare => false
+   ;----------------------------------------------------------------------
+   ; Return shape informatoin for focus points and corner mouse is over
+   ;----------------------------------------------------------------------
+   FocusPoints() {
+      ; Static ResizePoints := Array() ; NOTE these need to offset relative to shape not window
+      C := this.shapeCoord
+      ; Line start is always Corner 1/9 and Line Finish is always Corner 4/10 (lean sets cursor angle)
+      ; If XOR we flag the alternate cursor to use
+      If ((C.Y2 > C.Y1) ^ (C.X2 > C.X1)) {
+         ; NESW cursor
+         ; ResizePoints.push({ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y })
+         return [{ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+      } Else {
+         ; NWSE cursor
+         ; ResizePoints.push({ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y })
+         return [{ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+      }
+   }
+
+}
+

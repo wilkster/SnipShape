@@ -1,0 +1,632 @@
+/************************************************************************
+ * @description Windows Snipper and Annotation tool in Autohotkey 2.0
+ * @file SnipShape.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/06
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2.1-
+;-----------------------------------------------
+;
+; AutoHotkey alternate to Windows Snipping Tool with additional features
+; Creates Gui of Snip that can be manipulated onscreen
+;
+;	Credits:
+;  Fanatic Guru / SKAN / iseahound plus
+;	The work of dozens of people inspired this script.
+;	Many of them listed in the threads below:
+;
+;	Screen Clipping		https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088
+;	Gdip				      https://www.autohotkey.com/boards/viewtopic.php?t=72011
+;  Snipper              https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622
+;  UWP OCR Library      https://github.com/Descolada/OCR
+;-----------------------------------------------
+/* Usage *
+ * Snipping
+ * - Two-Step notes
+ * -- Works like bulit-in snipper, easier to do a more precise selection
+ * -- Activation will change cursor (and optionally dim/freeze screen)
+ * -- Selection is done with mouse button-drag-release
+ * - lShift-lAlt mouse down (one or two step) to select an area and create a snip, optionally goes to clipboard/file
+ * - Alt-Win mouse down (one or two step) to select an area just to the clipboard
+ * - Holding shift key down forces a square capture
+ * - Holding space bar down will allow shifting of the entire box as you draw it
+ * - If using two-step (press Win-Ctr, or Win-Alt, wait for cursor then select), it is
+ *   more reasonable to have the Snapshot Screen enabled, otherwise there may be a slight delay.
+ *   Having two-step, dim screen and snapshot screen enabled make it work simliar to windows built in 
+ *   snip function (but much faster)
+ * - Shift-Win-T  - Select and OCR lines of text from the screen, always as a two-step
+ * 
+ * Buttonbar - F1 to toggle while snip active
+ * - Provides a list of actions grouped into the following
+ * -- Arrow Shapes
+ * -- Line/Rectangle/Ellipse Shapes
+ * -- Free pen shapes
+ * -- Highlighter shapes
+ * -- redact/pixelate/blur shapes
+ * -- Crop tool
+ * -- OCR tool
+ * -- Text shapes (tag/fill/outline)
+ * -- Color menu (or optionally buttons)
+ * 
+ * Tray Menu - toggle options
+ * - Snips Always On Top (default true)
+ * - Confirm Snip Close if it has Shapes (default true)
+ * - Use Two Step Snip Select  (false)
+ * - Freeze Screen Before Selection (default false)
+ * - Dim Screen When Selecting (default false)
+ * - Snip Across Monitors (default false)
+ * - Auto Update Clipboard (default false)
+ * - Auto Save Clips to File (default false)
+ * - Include Border With Clipboard Copy (default false)
+ * - Include Border With File Save (default false)
+ * - Show Focus Rectangle(default true)
+ *
+ * Hotkeys
+ * - Shift-Win-E  - Convert current clipboard to a snip if possible
+ * - Shift-Win-C  - Copy selection to clipboard and create a snip if possible
+ * - Alt-PrtScr   - Capture the active window to a snip
+ * - Ctrl-PrtScr  - Capture the active screen to a snip
+ *
+ * Drawing on snips
+ * - Press one of the keys below to change into a drawing mode, the border color will change, also on Button Bar
+ *   After drawing hitting the space bar or deactivating the window will cancel drawing mode
+ * -- V - Creates an arrow from end to arrow-head, shift key to keep on an axis
+ * -- X - Creates an arc'd arrow (with slow bends)
+ * -- A - Creates an outlined arrow from end to arrow-head, shift key to keep on an axis
+ * -- / - Creates a double outline arrow
+ * 
+ * -- L - Creates a line, shift to keep on an axis, shift key to keep on axis
+ * -- R - Creates an outlined rectangle, shift to keep square
+ * -- D - Creates an outlined rounded rectangle, shift to keep square
+ * -- E - Creates an outlined ellipse/circle, shift to keep a circle
+ * 
+ * -- F - Free-hand Pen in current color, shift to stay on an axis
+ * -- M - Free-hand Wide (Marker) Pen in current color, shift to stay on an axis
+ * 
+ * -- H - Free-Hand Highlighter starting in yellow, shift to stay on an axis
+ * -- Y - Yellow highlighter block
+ * 
+ * -- W - Free-Hand White Out Pen in background color, shift to stay on an axis
+ * -- X - Block/Redact rectangle with color under the cursor
+ * -- P - Pixelate Rectangle, good for text obscurring
+ * -- B - Blur Rectangle, good for photo obscurring
+ * 
+ * -- C - Cropping rectangle to make the current snip smaller by cropping it to selection
+ * -- O - OCR the selected area
+ * -- N - Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size
+ * -- T - Add Outline Text to cursor location
+ * -- U - Add Text with adaptive translucent background to stand out from busy backgrounds
+ * 
+ * -- 1-9 The set the drawing color of the next/active shape (also while drawing & resizing)
+ *        Will also change text color if text is selected for moving
+ * 
+ * -- Hold Alt key down when drawing shape to get a 2x a thicker border or pen/text size on most shapes
+ * -- When drawing or resizing, hold space bar to shift start location with mouse (except free hand)
+ * -- When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines
+ * -- When drawing free-hand shapes, Shift key will keep ling straigt until shift key is let go, this
+ *    can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
+ *    before continuing.
+ * -- When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square)
+ * -- While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode
+ * -- While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
+ * -- Ctrl-C to copy the snip and shapes to the clipboard (minimizing snip)
+ * -- Ctrl-S to save the snip and shapes to the a file
+ * -- Ctrl-X to cut the snip and shapes to the clipboard (closing snip)
+ * -- Ctrl-V on a snip will paste a new picture shape from the clipboard as either a bitmap (if available),
+ *    or text (if available)
+ * -- Ctrl-D to clone the current snip if on snip background, if focus is on a shape, it will clone the shape
+ * -- RMB Over Snip blank area should show a menu of various snip actions
+ * -- Ctrl-O on Snip to OCR the text to lines of text
+ * -- Ctrl-T on Snip to OCR the text to html table
+ * 
+ * Text / Graphics
+ * - Hit T/U key over snip and dialog box to add text to current mouse location
+ * - Hit ^P key over snip to select a graphic from a folder to add to current mouse location
+ * - RMB on snip to select a graphic using the menu to current mouse location (other options as well)
+ *
+ * Moving Shapes
+ * - Grab one of the sides or object itself to move it around
+ * 
+ * Deleting Shapes
+ * - If focus rectangle is active and a shape is highlighted then Del key will remove it
+ * - Alt-Click on a shape will remove it
+ * - Shift-Del will remove all shapes on a ship
+ * - RMB on Snip area, select Clear all Shapes in the menu selection
+ *
+ * Resizing Shapes
+ * - Enabling focus rectangle will help locate edges and resize points
+ * - Grab corner to resize in that direction, shift key maintains aspect ratio or square/linear
+ * - While resizing shapes you can use up/down to change the line thickness (when it applies)
+ * 
+ * Clicking on Shapes
+ * - Alt-click to remove the object
+ * - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
+ * - RMB on text will edit the text
+ * - RMB over inserted picture will reset to original size
+ * - RMB on other shapes will send them to the bottom of the stack / z-order
+ *
+ * OCR - Uses Descolas OCR engine to read text from snip
+ * - Read lines of text, with line breaks as shown
+ * - Read words of text, that only have line breaks at paragraph breaks, good of pasting
+ * - Read table text attempting to create an HTML table that represents each cell (with limitations)
+ * - Press O (or button-bar icon) to select a region of a snip to put the OCR on the clipboard
+ * 
+ * Other
+ * - Shift-Del will remove all the shapes on a Snip
+ * 
+ * Options in tray
+ * - Snapshot The Screen before Selection, to capture menus or moving subjects first
+ * - Dim Screen When Selecting - like windows Snipper to make it easier to focus
+ * - Snip Across all Monitors, show the selection across multiple monitors
+ * - Auto Update Clipboardv/ Auto Save Clips, after each shape change update
+ * - Include Border with Clipboard or Save
+ * - Confirm Snip Close if it has shapes
+ * - Use Two Step Snip Selection, can start the snip wih just hotkeys, then later use the mouse
+ *   to make the selection. Works well with Snapshot Screen first.
+ * - Additional options in the settings file like custom colors and default shape sizes
+ *
+ * Limitations
+ * - Freezing screen before capture can be slow if not using two-step capture
+ *   
+ * ButtonBar
+ * - Is there a way to have a pulldown that uses entire row for icon vs 32x32 or 16x16?
+ *   - Line thickness pulldown (example of entire row)
+ * - Group Arrows/Shapes/Pens/Highlight/Redact into drow menus to make it smaller
+ *
+ * Future Potential Features
+ * - Rename snip titles (for file save)?
+ * - Capture Mouse Pointer too? As a shape
+ * - Ctrl-Z remove the last shape added (keep an array of them?)
+ * - RMB on a per shape basis (same menus as button bar?) OnEvent("contextMenu", ctrl.hWnd)
+ *   - Pixelate, ability to set the block size for photos and such
+ *   - could also use the buttonbar pull down with sub menus for blur/pixelate/line thickness and such
+ * 
+ * Improved Text:
+ * 
+ * Code Cleanup / Bugs
+ * - The lbutton littering is annoying, maybe just make it a global
+ * - Move the window/misc related functions into a win class/namespace
+ *
+ * General Purpose Smart Objects
+ * - Any more needed?
+ * - Balloon comment with dragable arrow?
+ *
+*/
+OutputDebug("SnipShape Loading")
+
+#Warn All, OutputDebug
+#SingleInstance force       ; Ensures that only the last executed instance of script is running
+KeyHistory(0)               ; No key history
+ListLines(0)                ; disable logging of keys
+ProcessSetPriority("H")     ; Above normal priority
+SetMouseDelay(-1)           ; don't sleep on mouse movements
+SetKeyDelay(-1, -1)         ; don't sleep on key strokes, added second on 3/9/2020
+SetDefaultMouseSpeed(0)     ; move mouse instantly
+SetWinDelay(0)              ; Sets the delay that will occur after each windowing function, minimal but not -1
+SetControlDelay(-1)         ; Sets the delay that will occur after each control-modifying function.
+SendMode("Input")           ; uses the SendInput method for Send, SendText, Click, and MouseMove/Click/Drag
+SetTitleMatchMode(1)        ; match start in text
+DetectHiddenWindows(0)      ; needed to check if pop-up gui is hidden or not
+DetectHiddenText(0)         ; Not sure why this is set
+Global WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
+DllCall("shell32\SetCurrentProcessExplicitAppUserModelID", "wstr", "AutoHotkey.SnipShape")
+SetDPIContext(-4)
+Suspend(1)
+GDIp.SystemStartup()
+
+;-----------------------------------------------
+;; DEFAULT SETTING - VARIABLES
+;-----------------------------------------------
+; TODO - create a folder under AppData
+Global Settings_File               := A_AppData "\SnipShape.ini"
+Global Settings_CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
+; Use same folder as Windows Snipper
+Global Settings_SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
+Global Settings_SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
+Global Settings_SavePath_Icons     := IniReadValue("User Snips","IconPath",GetFullPathName('.\Stickies\'))
+If !FileExist(Settings_SavePath_Icons)
+   DirCreate(Settings_SavePath_Icons)
+If !FileExist(Settings_SavePath_Image)
+   DirCreate(Settings_SavePath_Image)
+
+;-----------------------------------------------
+; INITIALIZATION - VARIABLES
+;-----------------------------------------------
+Global SnipShapeIcon := Settings_CursorPath "\SnipShape.ico"
+A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area Only "
+TraySetIcon(SnipShapeIcon) ; Scissors
+; =====================================================================
+;                          I N C L U D E S
+; =====================================================================
+; SnipShape related files
+#Include %A_ScriptDir%\Lib          ; Set Lib folder
+#include libMisc.ahk2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2
+#include clsButtonBar.ahk2
+#include clsClipboard.ahk2
+#include clsCursor.ahk2
+#include clsMenus.ahk2
+#include clsShapes.ahk2
+#include clsSnips.ahk2
+; https://github.com/Descolada/OCR/blob/main/Lib/OCR.ahk
+#include OCR.ahk2
+
+OnExit(Exiting)
+
+;======================================================================
+;                              HOTKEYS
+; Win-PrintScreen default captures window
+; PrintScreen or Win-Shift-S default snipper
+;======================================================================
+;----------------------------------------------------------------------
+; Create Snip from Active window and optionally put in clipboard
+;----------------------------------------------------------------------
++PrintScreen:: {
+   if( hWnd := WinExist("A") ) {
+
+      hBitmap := BitMap.HBitmapFromHWNDtest(hWnd, 0)
+      Clipboard.SetHBITMAPToClipboard(hBitmap)
+
+      qTrayTip("Captured Active Window to clipboard")
+   } else {
+      qTrayTip("Did not find an active window")
+   }
+}
+!PrintScreen:: {
+   if( hWnd := WinExist("A") ) {
+      Area := Snips.getWindowArea(hWnd)
+      Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
+      qTrayTip("Captured Active Window")
+   } else {
+      qTrayTip("Did not find an active window")
+   }
+}
+;----------------------------------------------------------------------
+; Capture the entire monitor, can crop later
+; Do not put on the clipboard if if that is enabled
+;----------------------------------------------------------------------
+^PrintScreen:: {
+   Area := Snips.activeMonArea()
+   Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)
+   qTrayTip("Captured Active Monitor")
+}
+;----------------------------------------------------------------------
+; Edit Clipboard if in proper format
+;----------------------------------------------------------------------
++#e:: {
+   If ( NOT Snips.Clipboard2Snip()) {
+      qTrayTip("No image on the clipboard to edit",2)
+   }
+}
+
+;----------------------------------------------------------------------
+; Used for editing existing images in apps like OneNote
+; Restores the clipboard
+;----------------------------------------------------------------------
++#c:: {
+   CB_Orig := ClipboardAll()
+   A_Clipboard := ""
+   SendInput("^c")	; Copy to clipboard
+   Sleep(100)
+   If ClipWait(0.2, 1) {
+      If ( NOT Snips.Clipboard2Snip()) {
+         qTrayTip("No image on the clipboard to edit:" A_Clipboard,2)
+      }
+   } Else {
+      qTrayTip("Nothing on the clipboard to edit",2)
+   }
+   if Not Snips.UpdateClipboard
+      A_Clipboard := CB_Orig
+}
+;----------------------------------------------------------------------
+; Apps Key to start a snip
+;----------------------------------------------------------------------
+AppsKey:: {
+   If ( NOT isRepeat(300)) {
+      Area := Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
+   }
+}
+;----------------------------------------------------------------------
+; Hide/Show all Snips
+;----------------------------------------------------------------------
+!F12:: {
+   if Snips.AllMinimized()
+      Snips.RestoreAll()
+   else
+      Snips.MinimizeAll()
+}
+
+;----------------------------------------------------------------------
+; Handle the Mouse based Screen Clipping below, either one or two step
+;----------------------------------------------------------------------
+; block automatic key repeats for re-triggering action
+isRepeat(to) => (A_ThisHotkey = A_PriorHotkey) AND (A_TimeSincePriorHotkey < to)
+;----------------------------------------------------------------------
+; Create a Snip (keys in either order)
+;----------------------------------------------------------------------
+; <#Ctrl::
+; ^Lwin:: {
+; <#Shift::
+; +Lwin:: {
+<#S:: {
+   If ( NOT isRepeat(300)) {
+      Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
+      ; qTrayTip("Clipped Screen to Clipboard")
+   }
+}
+;----------------------------------------------------------------------
+; Clipboard Only (keys in either order)
+;----------------------------------------------------------------------
+<#Z:: {
+   if (NOT isRepeat(300)) {
+      Snips.SelectScreenRegion(1, 'LButton', "Red", True, 0, Snips.captureStatic, Snips.dimScreen)
+   }
+}
+;----------------------------------------------------------------------
+; Snip Selected Image and Optionally Copy to Clipboard
+;----------------------------------------------------------------------
+<^#Lbutton:: {
+   Snips.SelectScreenRegion(3, 'LButton', "Orange", Snips.UpdateClipboard, 1)
+}
+;----------------------------------------------------------------------
+;	Select region and copy to Clipboard Only
+;----------------------------------------------------------------------
+!#Lbutton:: {
+   Snips.SelectScreenRegion(3, 'LButton', "Red", True, 0)
+}
+;----------------------------------------------------------------------
+; OCR code currently works on window handle only
+; #O normally locks device orientation on windows
+;----------------------------------------------------------------------
+<#O:: {
+   Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", False, 13)
+}
+
+
+;======================================================================
+; Menu and Escape Handlers for Snip windows
+;======================================================================
+; NOTE - these will trigger if the color picker is up but snip is active.
+HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
+   ; Shape Letter/Name HotKeys
+   shapeColorHotKeys()
+   shapeColorHotKeys() {
+      for _idx, _sn in Shapes.ShapeName {
+         _key := Trim(StrSplit(_sn,"-")[2])
+         Hotkey(_key, Snips.SetDrawModeKey.Bind(Snips, _idx))
+      }
+      ; Color HotKeys, can be overridden by the INI file
+      for _idx, _defColor in Shapes.DefaultColorNames {
+         _cName := IniReadValue("User Shape Color", "Color " _idx, 123)
+         if _cName = 123 
+            IniWrite(_defColor, Settings_File, "User Shape Color", "Color " _idx)
+         else
+            _defColor := _cName
+         if _idx < 10
+            Hotkey(_idx, Shapes.setShapeColor.Bind(Shapes, _defColor)) ; bind calls in the context of Shapes class
+      }
+   }
+HotIfWinActive   
+; Spare bar as multiple uses, constrain it for active mode to cancel action
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND NOT Shapes.DrawActive
+   Space:: Snips.SetDrawMode(0)
+
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
+   ; ~Esc:: Snips.Close()	;	<-- @@ Close Active Snip, let Esc pass through for key checks (use onEvent instead?)
+    Del:: focusBorder.RemoveShapeIfFocused()	;	<-- @@ Close Active Shape
+   ; Hide/clean all shapes
+   +Del:: {
+      Snips.ClearAllShapes()
+      Snips.flashBorder(WinExist("A"))
+   }
+   ^P:: Shapes.AddPictureFromFile(WinExist("A"), "lButton", "P")
+   ^c:: {
+      ; Copy active snip and shapes to the clipboard
+      ; NOTE - We will copy focus border if it is active
+      if (sw := WinExist("A")) {
+         Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+         Snips.Minimize(sw)
+      }
+   }
+   ^x:: {
+      ; Cut active snip and shapes to the clipboard
+      if (sw := WinExist("A")) {
+         Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+         Snips.Close(sw, 0)
+      }
+   }
+   ^s:: {
+      Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave)
+      Snips.flashBorder(WinExist("A"))
+   }
+   ^D:: {
+      If (focusBorder.IsShown) {
+         ; Clone the shape if possible
+         Shapes.Duplicate("lbutton", focusBorder.ShapeObj)
+      } Else {
+         ; Clone the snip (without the shapes)
+         Snips.CloneAndScaleSnip(WinExist("A"), 1.0)
+      }
+   }
+   ; Paste new shape (text or a bitmap)
+   ^V:: {
+      Shapes.PasteNewShape()
+   }
+   ; ~Down:: {
+   ;    ; Only if not actively drawing
+   ;    If NOT GetKeyState("lbutton", "P")
+   ;       Snips.Minimize(WinExist("A"))
+   ; }
+   ^Down:: {
+      Snips.MinimizeAll()
+   }
+   ;----------------------------------------------------------------------
+   ; Reduce and Enlarge to a new snip
+   ; Also on RMB Menu on Snip
+   ;----------------------------------------------------------------------
+   ^O:: Snips.OCRSnipToClipboard(WinExist("A"), 15)
+   ^T:: Snips.OCRSnipToClipboard(WinExist("A"), 14)
+
+   ^!=::
+   ^!NumpadAdd:: Snips.CloneAndScaleSnip(WinExist("A"), 4.0)
+
+   ^=::
+   ^NumpadAdd:: Snips.CloneAndScaleSnip(WinExist("A"), 3.0)
+
+   !=::
+   !NumpadAdd:: Snips.CloneAndScaleSnip(WinExist("A"), 1.5)
+
+   =::
+   NumpadAdd:: Snips.CloneAndScaleSnip(WinExist("A"), 2.0)
+
+   -::
+   NumpadSub:: Snips.CloneAndScaleSnip(WinExist("A"), 1/2.0, 1)
+
+
+   F1:: {
+      ; Toggle Buttonbar
+      if (ButtonBar.Enabled)
+         ButtonBar.Hide(0)
+      else
+         ButtonBar.Show(0,1)
+   }
+   ; Read nummber color in real time
+   getKeyColor(num, default) => IniReadValue("User Shape Color", "Color " . num, default)
+#HotIf
+;----------------------------------------------------------------------
+; Move the active shape under these conditions
+;----------------------------------------------------------------------
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.ShapeObj)
+   $Up::ShiftShape(0, -5)
+   $Down::ShiftShape(0, +5)
+   $Left::ShiftShape(-5, 0)
+   $Right::ShiftShape(+5, 0)
+   ShiftShape(sX, sY) {
+      Critical("On")
+      C := focusBorder.ShapeObj.sCoord
+      focusBorder.ShapeObj.GetPos(&X, &Y, &W, &H)
+      ; Grid to the Shape sX/sY values
+      dx := sX = 0 ? 0 : sX - Mod(C.X + sX, sX)
+      dy := sY = 0 ? 0 : sY - Mod(C.Y + sY, sY)
+      MouseMove(dx, dy, 0, "R")
+      focusBorder.ShapeObj.Move(X + dx, Y + dy)
+      focusBorder.Sync()
+      Critical("Off")
+   }
+#HotIf
+
+; Hotif
+
+
+;----------------------------------------------------------------------
+; INI Helper Function
+; IniWriteIfBlank - Setting is not changed herein
+; IniWriteValue - Setting is changed herein
+;----------------------------------------------------------------------
+IniWriteIfBlank(V, Section, Parameter) {
+   If IniRead(Settings_File, Section, Parameter, "XX") = "XX"
+      IniWrite(V, Settings_File, Section, Parameter)
+}
+IniWriteValue(V, Section, Parameter) {
+   IniWrite(V, Settings_File, Section, Parameter)
+}
+IniReadValue(Section,Item, Default) => IniRead(Settings_File, Section, Item, Default)
+Suspend(0)
+
+/**
+ * Exit Handler
+ */
+Exiting(ExitReason, ExitCode) {
+   Global Settings_SavePath_Icons
+   Global Settings_SavePath_Image
+
+   ; Shut down messages
+   OnMessage(0x201, Snips.WM_LBUTTONDOWN, 0)
+   OnMessage(0x006, Snips.WM_ACTIVATE, 0)
+   OnMessage(0x0231, Snips.WM_SIZEEMOVE,0) ;WM_ENTERSIZEMOVE 
+   OnMessage(0x0232, Snips.WM_SIZEEMOVE,0) ;WM_EXITSIZEMOVE  
+   OnMessage(0x0216, Snips.WM_SIZEEMOVE,0) ; WM_MOVING
+
+   Try Snips.CloseAll()
+   ;----------------------------------------------------------------------
+   ; Save Settings, IniWriteIfBlank means it only comes from settings file
+   ;----------------------------------------------------------------------
+   ; Snips
+   IniWriteIfBlank(Snips.rawBorderWidth, "User Snips", "Border Width")
+   IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
+   IniWriteIfBlank(Settings_SavePath_Icons, "User Snips", "IconPath")
+   IniWriteIfBlank(Settings_SavePath_Image, "User Snips", "SnipPath")
+   IniWriteIfBlank(Settings_CursorPath, "User Snips", "CursorPath")
+
+   IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
+   IniWriteValue(Snips.BorderWithCopy,  "Snips", "Border With Copy")
+   IniWriteValue(Snips.BorderWithSave,  "Snips", "Border With Save")
+   IniWriteValue(Snips.autoSaveToFile,  "Snips", "Auto Save Clips to File")
+   IniWriteValue(Snips.minimizeOnSnip,  "Snips", "Minimize On Snip to File")
+   IniWriteValue(Snips.confirmClose,  "Snips", "Confirm Snip Close if it has Shapes") 
+   IniWriteValue(Snips.dimScreen,  "Snips", "Dim Screen When Selecting") 
+   IniWriteValue(Snips.snipGuides,  "Snips", "Snip Guides When Selecting") 
+   IniWriteValue(Snips.captureStatic,  "Snips", "Capture Static Screen")
+   IniWriteValue(Snips.topMost,  "Snips", "Keep Snip Always On Top")
+
+
+   ;Button Bar   
+   IniWriteIfBlank(ButtonBar.FontSize,  "User Button Bar", "Font Size")
+   IniWriteValue(ButtonBar.Enabled,  "Button Bar", "Enabled")
+
+   ; Common Shapes
+   IniWriteIfBlank(hex(Shapes.outlineColor), "User Shape Color", "Outline Color")
+   IniWriteValue(Shapes.outlineOpacity, "Common Shape", "Outline Opacity")
+   IniWriteValue(Shapes.rawLineThickness, "Common Shape", "Line Thickness")
+   IniWriteValue(Shapes.outlineThickFactor, "Common Shape", "Outline Thickness Factor")
+   IniWriteValue(hex(Shapes.globalShapeColor), "Common Shape", "Default Shape Color")
+   IniWriteValue(Shapes.shapeOpacity, "Common Shape", "Shape Opacity")
+   ; Arrows
+   IniWriteValue(Shapes.arrowLineThickness, "Arrow Shape", "Arrow Thickness")
+   IniWriteValue(Shapes.ArrowSmoothFactor, "Arrow Shape", "Arrow Smoothing Factor")
+   IniWriteValue(Shapes.arrowOpacity, "Arrow Shape", "Arrow Opacity")
+   ; Body
+   IniWriteValue(Shapes.fillOpacity, "Body Shape", "Shape Fill Opacity")
+   ; Freehand
+   IniWriteValue(Shapes.penLineThickness, "Freehand Shape", "Pen Thickness")
+   IniWriteValue(Shapes.widePenThickness, "Freehand Shape", "Wide Pen Thickness")
+   IniWriteValue(Shapes.penOpacity, "Freehand Shape", "Pen Opacity")
+   IniWriteValue(Shapes.PenSmoothFactor, "Freehand Shape", "Pen Smoothing Factor")
+   ; Highlighters / Redact
+   IniWriteValue(Shapes.highLightThickness, "Highlight Shape", "Highlight/Whiteout Factor")
+   IniWriteValue(Shapes.HighlightSmoothFactor, "Highlight Shape", "Highlight/Whiteout Smoothing Factor")
+   IniWriteValue(Shapes.highlightOpacity, "Highlight Shape", "Highlighter Opacity")
+   IniWriteValue(hex(Shapes.highlightColor), "Highlight Shape", "Highlighter Color")
+   ; Obscure
+   IniWriteValue(Shapes.PixelateBlockSize, "Obscure Shape", "Pixelate Block Size")
+   IniWriteValue(Shapes.BlurDivisor, "Obscure Shape", "Blur Factor")
+   ; Text
+   IniWriteValue(TextShape.textOpacity, "Text", "Text Opacity")
+   IniWriteValue(TextShape.TagFontName, "Text", "Tag Font Name")
+   IniWriteValue(TextShape.TagFontStyle, "Text", "Tag Font Style")
+   IniWriteValue(TextShape.TagFontSize, "Text", "Tag Font Size")
+   IniWriteValue(TextShape.TCOpacity, "Text", "Tag Center Opacity")
+
+   IniWriteValue(TextShape.FillFontName, "Text", "Fill Font Name")
+   IniWriteValue(TextShape.FillFontStyle, "Text", "Fill Font Style")
+   IniWriteValue(TextShape.FillAlignment, "Text", "Fill Text Alignment")
+   IniWriteValue(TextShape.FillFontSize, "Text", "Fill Font Size")
+   IniWriteValue(TextShape.FTOpacity, "Text", "Fill Text Opacity")
+   IniWriteValue(TextShape.FTOLOpacity, "Text", "Outline Opacity")
+   IniWriteValue(TextShape.FillOutline, "Text", "Rectangle Around Text")
+
+   IniWriteValue(TextShape.OLFontName, "Text", "Outline Font Name")
+   IniWriteValue(TextShape.OLFontStyle, "Text", "Outline Font Style")
+   IniWriteValue(TextShape.OLBlur, "Text", "Outline Blur Value")
+   IniWriteValue(TextShape.OLAlignment, "Text", "Outline Font Alignment")
+   IniWriteValue(TextShape.OLFontSize, "Text", "Outline Font Size")
+   IniWriteValue(TextShape.OLFillThickness, "Text", "Outline Width Percent")
+   IniWriteValue(TextShape.OLOpacity, "Text", "Outline Edge Opactiy")
+
+   GDIp.SystemShutdown()
+
+   dLog("Exiting Snipper:" ExitReason)
+}
+dLog("SnipShape Ready")

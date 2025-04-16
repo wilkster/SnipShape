@@ -1,0 +1,1445 @@
+/************************************************************************
+ * @description Class to create the screen clips
+ * @file clsSnips.ahk2
+ * @author Tom Wilkason (derived from work by fantastic guru)
+ * @date 2024/04/19
+ * @version 1.0.0
+ ***********************************************************************/
+
+#Requires AutoHotkey v2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2 
+#include clsShapes.ahk2
+#Include StopWatch.ahk2
+; Cancel start of selection with escape, when hidden won't meet WinExist criteria
+#HotIf IsWindowVisible(Snips.guiSSR.hWnd)
+   Escape:: Snips.closeSelect()
+#Hotif
+logGDI(BFN(Error("", -1).File) " loading...")
+
+/**
+ * Static Class to hold the snip related functions and data
+ * @param None
+ * @returns None
+ */
+Class Snips {
+   Static guiSSR      := 0
+   Static SnipMode    := 0
+   ; guiSnips Database Related
+   ;----------------------------------------------------------------------
+   ; Read in the settings and add some tray menu run-time settings
+   ;----------------------------------------------------------------------
+   Static __New() {
+      Global Settings_File
+      logGDI("Building Snip Menus")
+      this.rawBorderWidth  := IniReadValue("User Snips", "Border Width",2)
+      this.vertSync        := IniReadValue("User Snips", "Vertical Sync on Select", false)
+      this.UpdateClipboard := IniReadValue("Snips", "Auto Update Clipboard", false)
+      this.borderWithCopy  := IniReadValue("Snips", "Border With Copy", false)
+      this.borderWithSave  := IniReadValue("Snips", "Border With Save", false)
+      this.focusRectangle  := True ; IniReadValue("Snips","Focus Rectangle", true)
+      this.autoSaveToFile  := IniReadValue("Snips", "Auto Save Clips to File", false)
+      this.minimizeOnSnip  := IniReadValue("Snips", "Minimize On Snip", false)
+      this.confirmClose    := IniReadValue("Snips", "Confirm Snip Close if it has Shapes", true)
+      this.dimScreen       := IniReadValue("Snips", "Dim Screen When Selecting", false)
+      this.snipGuides      := IniReadValue("Snips", "Snip Guides When Selecting", false)
+      ; this.allScreens      := IniReadValue("Snips","Snip Across Monitors", false)
+      this.captureStatic   := IniReadValue("Snips", "Capture Static Screen", false)
+      this.topMost         := IniReadValue("Snips", "Keep Snip Always On Top", true)
+      this.updateInterval  := 10
+      ; +E0x20 doesn't trigger cursor
+      ; WS_EX_LAYERED     := +E0x80000 - required for DrawBorder, helps with dragging text around also
+      ; WS_EX_TRANSPARENT := +E0x20 - Prevents any mouse/key events from interactive with the window
+      ; WS_EX_COMPOSITED  := +E0x02000000 - Prevents splatter when resizing & drawing (this is critical), prevents using GDI+
+      ; WS_NOTIFY         := +0x0100 - so events get captured
+      this.guiSSR          := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
+      this.OCRMenu := Menu()
+      ; Requires the guiSSR to be active
+      A_TrayMenu.Add()  ; Creates a new menu item.
+      A_TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
+      A_TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
+      ; A_TrayMenu.Add("OCR Region Words", this.startOCR.bind(this,2))  ; Creates a new menu item.
+      A_TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
+      this.OCRMenu.Add("Selection Words", this.startOCR.bind(this,12))  ; Creates a new menu item.
+      this.OCRMenu.Add("Selection Lines", this.startOCR.bind(this,15))  ; Creates a new menu item.
+      this.OCRMenu.Add("Selection Table", this.startOCR.bind(this,14))  ; Creates a new menu item.
+      ; A_TrayMenu.Add("OCR Region Table", this.startOCR.bind(this,2))  ; Creates a new menu item.
+      A_TrayMenu.Add()  ; Creates a new menu item.
+
+      this.AddMenuCheck("Freeze Active Screen Before Selection", "captureStatic")
+      this.AddMenuCheck("Dim Screen When Selecting", "dimScreen")
+      this.AddMenuCheck("Snip Guides When Selecting", "snipGuides")
+      A_TrayMenu.Add()
+      this.AddMenuCheck("Snips Always On Top", "topMost")
+      this.AddMenuCheck("Confirm Snip Close if it has Shapes", "confirmClose") 
+      A_TrayMenu.Add()  ; Creates a new menu item.
+      this.AddMenuCheck("Auto Update Clipboard", "UpdateClipboard")
+      this.AddMenuCheck("Auto Save Snips to File", "autoSaveToFile")
+      this.AddMenuCheck("Minimize Snip After Capture", "minimizeOnSnip") 
+      this.AddMenuCheck("Include Border With Clipboard Copy", "borderWithCopy")
+      this.AddMenuCheck("Include Border With File Save", "borderWithSave")  
+      ; this.AddMenuCheck("Show Focus Rectangle", "focusRectangle")  
+
+      A_TrayMenu.Add()
+      A_TrayMenu.Add("Open Saved Snips", Snips.OpenSnipDialog.Bind(this))  ; Creates a new menu item.
+      A_TrayMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
+      A_TrayMenu.Add()
+      A_TrayMenu.Add("Edit Settings File", (*) => Run(Settings_File))  ; Creates a new menu item.
+      A_TrayMenu.SetIcon("Edit Settings File", Settings_CursorPath . "Settings.ico")
+
+      ; Track activation for border colors and draw mode
+      OnMessage(0x006, this.WM_ACTIVATE.Bind(this), 1)
+      ; Handle mouse clicks for various purposes
+      OnMessage(0x201, this.WM_LBUTTONDOWN.Bind(this),1)
+      ; OnMessage(0x203, this.WM_LBUTTONDBLCLK.Bind(this),1)
+
+      OnMessage(0x0231, this.WM_SIZEEMOVE.Bind(this),1) ;WM_ENTERSIZEMOVE 
+      OnMessage(0x0232, this.WM_SIZEEMOVE.Bind(this),1) ;WM_EXITSIZEMOVE  
+      OnMessage(0x0216, this.WM_SIZEEMOVE.Bind(this),1) ; WM_MOVING
+      ; Tell Windows 11 24h2 NOT to change window size (we want raw pixels)!
+      ; Returning 1 means used original non-DPI scaled window size
+      OnMessage(0x02E4, (*) => 1, 1) ; WM_GETDPISCALEDSIZE
+      logGDI("Completed Snip Settings and Menu")
+   }
+   Static guiSnips    := Map()
+   Static IsValid(hWnd)    =>   this.guiSnips.Get(hWnd, 0)
+   Static GetGuiObj(hWnd)  =>   this.guiSnips[hWnd]
+   ; Callback for TrayMenu 
+   Static StartSnip(*)     =>
+      Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
+   Static StartClipboard(*)     =>
+      Snips.SelectScreenRegion(1, 'LButton', "Red", Snips.UpdateClipboard, 0, Snips.captureStatic, Snips.dimScreen)
+   Static StartOCR(OCRMode, *) {
+      Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", false, OCRMode)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Set the draw mode
+   ;----------------------------------------------------------------------
+   Static SetDrawModeKey(val, hk) {
+      if (NOT Shapes.DrawActive)
+         this.SetDrawMode(Val)
+   }
+   Static SetDrawMode(Val?, hWnd?) {
+      if NOT IsSet(hWnd)
+         hwnd := WinExist("A")
+      if (SnipObj := this.IsValid(hWnd)) {
+         if (IsSet(Val)) {
+            if (SnipObj.DrawMode != val) {
+               SnipObj.DrawMode := Val
+               Cursor.SetCursor(Val)
+            }
+         } else
+            val := SnipObj.DrawMode
+         ; Change backcolor if we are in "edit" mode
+         if (val) 
+            SnipObj.BackColor := Shapes.globalShapeColor
+         else
+            SnipObj.BackColor := RGBval("c0x05a605")
+      } else
+         Warning("Did not see " hex(hwnd) " in the snip list")
+   }
+   ;----------------------------------------------------------------------
+   ; Return number of visible snips
+   ;----------------------------------------------------------------------
+   Static VisibleSnips() {
+      Vis := 0
+      ; for hWnd in WinGetList("SnipShapeWindow ahk_class AutoHotkeyGUI ahk_pid " DllCall("GetCurrentProcessId")) {
+      For hWnd in this.guiSnips {
+         If (WinGetMinMax(hWnd) >= 0)
+            Vis++
+      }
+      Return Vis
+   }
+   ;----------------------------------------------------------------------
+   ; Clear all active shapes and GC any data they have
+   ;----------------------------------------------------------------------
+   Static ClearAllShapes(hWnd := 0) {
+      if NOT hWnd
+         hWnd := WinExist("A")
+      If (SnipObj := Snips.IsValid(hWnd)) {
+         For Ctrl in SnipObj {
+            If (Ctrl.Source != "Screen") {
+               Ctrl.Close()
+            }
+         }
+         SnipObj.Dirty := 0
+      } else {
+         warning("Did not find a valid snip to clear shapes from")
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Extend the GUI to hold relevant Information 
+   ;----------------------------------------------------------------------
+   Class GuiSnip extends Gui {
+      ;----------------------------------------------------------------------
+      ; GUI is created and We save some additional information
+      ;----------------------------------------------------------------------
+      PIC := 0 ; for lint
+      __New(objArea := "") {
+         ; Composted Layered window (+0x0100 isn't legit - WS_NOTIFY)
+         ; Static Opt := '+E0x80000 +0x0100 +E0x02000000 -AlwaysOnTop -Caption -ToolWindow +OwnDialogs -DPIScale'
+         Static Opt := '+E0x80000 +E0x02000000 -0x1010000 -AlwaysOnTop -Caption -ToolWindow +OwnDialogs -DPIScale'
+         super.__New(Opt, "", this)
+
+         if Snips.topMost
+            this.Opt("+AlwaysOnTop")
+         this.Time                 := Snips.timeTag ; time at creation
+         this._Area                := objArea
+         this._DrawMode            := 0
+         this.Counter              := 0
+         this.Dirty                := 0
+         this.Title                := "SnipShapeWindow - " this.Time . ' (' this._Area.W 'x' this._Area.H ')'
+         this._FileName            := ""
+         this.BrushMap             := Map()        
+         this.BrushCount           := Map()        
+         Snips.guiSnips[this.hWnd] := this
+         ; logGDI("+Create Snip:" this.Title)
+         ; RMB menu is on the screenshot picture control
+         super.OnEvent("Close", this.Destroy.Bind(this))
+         super.OnEvent("Escape", Snips.Close.Bind(Snips, this.hWnd))	;	2025-01-28 Now using a binding vs hotkey
+      }
+      ;----------------------------------------------------------------------
+      ; GUI is gone at this point
+      ;----------------------------------------------------------------------
+      __Delete(*) {
+         For key, brush in this.BrushMap {
+            GDIp.DeleteBrush(brush)
+            debug("Deleted brush " key)
+         }
+         this.BrushMap := Map()
+         this.BrushCount := Map()
+      }
+      ;----------------------------------------------------------------------
+      ; Initiate the destruction, triggers __Delete as well after GUI gone
+      ;----------------------------------------------------------------------
+      Destroy(*) {
+         Try {
+            title := this.Title
+            Snips.ClearAllShapes(this.hWnd)  ; in case we have built in GC
+            Snips.guiSnips.Delete(this.hWnd)
+            super.Destroy()
+            ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
+         } Catch as E {
+            elog(E,"During Object Destroy")
+         } Finally {
+            focusBorder.HideFocus()
+            if (Snips.VisibleSnips() = 0)
+               ButtonBar.Hide()
+         }
+         Return 1
+      }
+
+
+      ;----------------------------------------------------------------------
+      ; Cache to hold reusable texture brushes shared by shapes on this snip
+      ;----------------------------------------------------------------------
+      _BrushRefCount(brush, Amount:=0) {
+         if (this.BrushCount.Has(brush))
+            this.BrushCount[brush] += Amount
+         else
+            this.BrushCount[brush] := Amount
+         ; debug("Brush Reference Count Now =" this.BrushCount[brush] ", amount=" Amount)
+         Return this.BrushCount[brush]
+      }
+      _BrushKey(shape, parameter) =>  "brush-" . shape . "-" . (IsFloat(parameter) ? round(parameter,3) : parameter)
+      ;----------------------------------------------------------------------
+      ; Call when adding a new brush (no check for duplicates)
+      ;----------------------------------------------------------------------
+      AddBrush(brush, shape, parameter) {
+         key := this._BrushKey(shape, parameter)
+         if (this.BrushMap.Has(key))
+            Warning("Did not expect to find an existing brush for " key)
+         this.BrushMap[key] := brush
+         this._BrushRefCount(brush, 1)
+         ; debug("Adding new Brush:'" key "' " hex(brush))
+      }
+      ;----------------------------------------------------------------------
+      ; Call to retrieve a brush if it exists
+      ;----------------------------------------------------------------------
+      GetBrush(shape, parameter) {
+         key := this._BrushKey(shape, parameter)
+         If (brush := this.BrushMap.Get(key, 0)) {
+            this._BrushRefCount(brush, 1)
+         }
+         Return brush
+      }
+      ;----------------------------------------------------------------------
+      ; Call to release a brush and delete it if the reference count drops to zero
+      ;----------------------------------------------------------------------
+      ReleaseBrush(handle) {
+         For key, brush in this.BrushMap {
+            If (brush = handle) {
+               ; If there remain no more references to the brush delete it
+               if ((res := this._BrushRefCount(brush,-1)) = 0) {
+                  GDIp.DeleteBrush(brush)
+                  this.BrushMap.Delete(key)
+                  this.BrushCount.Delete(brush)
+                  ; debug("Deleted a brush " key " " hex(brush) ", " this.BrushMap.Count " remaining unique brushes")
+               }
+               Return res
+            }
+         }
+         Return 0
+      }
+
+
+
+      Area {
+         get => this._Area
+         set => this._Area := Value
+      }
+      DrawMode {
+         get => this._DrawMode
+         set => this._DrawMode := Value
+      }
+      FileName {
+         set {
+            SplitPath(value,,,,&baseName)
+            this.Title := "SnipShapeWindow - " baseName
+            this._FileName := value
+         }
+         get => this._FileName
+      }
+      BaseName {
+         get {
+            if (this.FileName) {
+               SplitPath(this._FileName,,,,&baseName)
+               return basename
+            } Else {
+               return this.Time . ' (' this._Area.W 'x' this._Area.H ')'
+            }
+         }
+      }
+      /**
+       * Return the most common color at some pixel location
+       * Good for finding the true background color
+       * Handles GDI+ startup/shutdown here
+       * @param x Window Location X
+       * @param y Window Location Y
+       * @param extent radius around center point to extend matrix to search for
+       * @returns {String} Common Color in hex string format
+       */
+      BackgroundPICColorFromXY(winX, winY, extent := 0) {
+         hBitmap := this.PIC.Handle
+         ; Center of the region
+         winX -= extent, winY -= extent
+         W := 2 * extent + 1, H := 2 * extent + 1
+         ; Keep box on the window
+         winX := Max(0, winX), winY := Max(0, winY)
+         picHBitmap := BitMap.CropHBITMAP(hBitmap, winX, winY, W, H, 1)
+         picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
+         CC := BitMap.GetBackgroundColor(picPBitmap, &Perc)
+         GDI.DeleteObject(picHBitmap)
+         GDIp.DisposeImage(picPBitmap)
+         Return hex(CC) ; return in hex string like PixelGetColor
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Close the Selection Window
+   ; Called if Escape pressed while it is up
+   ;----------------------------------------------------------------------
+   Static closeSelect(objSel?) {
+      ; make sure we clean up, but Esc will also be deteched in the select loop
+      this.SelectScreenRegion(4, 'lbutton')
+   }
+   ;----------------------------------------------------------------------
+   ; When snip is activated draw a green border around it
+   ; And draw the de-activated border on the other one
+   ;----------------------------------------------------------------------
+   Static WM_ACTIVATE(wParam, lParam, msg, hWnd) {
+      ; lParam is other window
+      focusBorder.HideFocus(true)
+      If (SnipObj := Snips.IsValid(hWnd)) {
+         Switch (wParam &= 0xFF) {
+            Case 0:  ; Deactivate
+               Snips.SetDrawMode(0, hWnd)
+               SnipObj.BackColor := RGBval("c0x3b8181") ; Not Active
+               Sleep(50) ; let it Deactivate first so we know where it is
+               ; lParam is 0 if non AHK gui was activated
+               if (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
+                  ButtonBar.Hide()
+            Case 1, 2:  ; Activate
+               ; 2 = click, 1 = other reason
+               ; Cursor Callback may have already set drawmode from button bar
+               ; But this will make sure the border is correct
+               ; If minimized from task bar activate gets fired again
+               If (WinExist("A")) {
+                  Snips.SetDrawMode(Snips.GetGuiObj(hWnd).DrawMode, hWnd)
+                  If (wParam = 1)
+                     Sleep(50) ; let it restore first so we know where it is
+                  ButtonBar.Show(hWnd)
+               } Else {
+                  debug("Expected snip")
+               }
+            Default:
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Dragging a Snip around, we can move button bar at same time
+   ;----------------------------------------------------------------------
+   Static WM_SIZEEMOVE(wParam, lParam, msg, hWnd) {
+      If (SnipObj := this.IsValid(hWnd)) {
+         Switch msg {
+            Case 0x231: ; start dragging
+            Case 0x216: ; dragging
+               ; lParam is pointer to a rect structure of new position
+               ; better than WinGetPos while dragging
+               X := NumGet(lParam,0,"Int")
+               Y := NumGet(lParam,4,"Int")
+               ButtonBar.Show(hWnd, , X, Y)
+            Case 0x232: ; done dragging
+
+            Default:
+
+         }
+         return 1
+      }
+   }
+   Static WM_LBUTTONDBLCLK(wParam, lParam, msg, hWnd) {
+      debug("Double Click")
+   }
+   ;-----------------------------------------------
+   ; Used to initiate drawing on the surface or drag the snip around
+   ; Not called if over a shape
+   ; #define WM_KEYDOWN                      0x0100
+   ; #define WM_CHAR                         0x0102
+   ; #define WM_INPUT                        0x00FF
+   ; This is only called if not over a shape
+   ; wParam = Message (ignored)
+   ; lParam - Packed mouse location
+   ; msg - ignored
+   ; hwnd - Snip handle if in snip, otherwise nothing for drawing
+   ;-----------------------------------------------
+   Static WM_LBUTTONDOWN(wParam, lParam, msg, hWnd) {
+      Static WM_NCLBUTTONDOWN := 0xA1
+      If (SnipObj := this.IsValid(hWnd)) {
+         Shapes.InitateDrawHandler(SnipObj)
+      } else if (hWnd = this.guiSSR.hWnd) {
+         ; Step 2, initiate screen selection
+         Snips.SelectScreenRegion(2, 'LButton')
+      } else if (hWnd = ButtonBar.bbGui.hWnd) {
+         ; If buttonbar background then allow moving without caption
+         PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
+      } Else If (cb := ButtonBar.buttonCallbacks.Get(hWnd, 0)) {
+         ; Buttonbar Callbacks are handeled here
+         SetTimer(cb,-10)
+         ; menu is posted in 10ms
+      }
+      ; Have to NOT return anything
+   }
+   ;----------------------------------------------------------------------
+   ; Change the active snip border color if it is in draw mode
+   ;----------------------------------------------------------------------
+   static SetSnipBorderColor(val, hWnd := 0) {
+      if (NOT hWnd)
+         hWnd := WinExist("SnipShapeWindow")
+      if ((SnipObj := this.IsValid(hWnd))) {
+         nc := RGBval(val)
+         if (SnipObj.DrawMode) {
+            SnipObj.BackColor := nc
+         } else {
+            if NOT ButtonBar.Enabled {
+               ToolTip
+               ToolTip("Set default color to " val)
+               SetTimer(ToolTip, -2000)
+            }
+         }
+      }
+   }
+      
+   ;----------------------------------------------------------------------
+   ; Menu items for on/off settings
+   ;----------------------------------------------------------------------
+   Static AddMenuCheck(ItemName, VarName) {
+      A_TrayMenu.Add(ItemName, Snips.MenuHandler.Bind(this, VarName))  ; Creates a new menu item.
+      this.SetMenuCheck(VarName, ItemName, A_TrayMenu)
+   }
+   Static MenuHandler(VarName, ItemName, ItemPos, MyMenu) {
+      this.%VarName% := !this.%VarName%
+      this.SetMenuCheck(VarName, ItemName, MyMenu)
+   }
+   Static SetMenuCheck(VarName, ItemName, MyMenu) {
+      If (this.%VarName%)
+         MyMenu.Check(ItemName)
+      Else
+         MyMenu.UnCheck(ItemName)
+   }
+   ;----------------------------------------------------------------------
+   ; File dialog to open a snip
+   ;----------------------------------------------------------------------
+   Static OpenSnipDialog(*) {
+      Global Settings_SavePath_Image
+      If (SnipObj := Snips.IsValid(WinActive("A"))) {
+         SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+      }
+      SelectedFile := FileSelect(, Settings_SavePath_Image, "Select Screenshot to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      ; IDEA - save last folder in settings?
+      if (FileExist(SelectedFile)) {
+         Snips.CreateSnipFromFile(SelectedFile)
+         Return SelectedFile
+      } else {
+         Return 0
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Borderwidth converted to pixels
+   ; rawBorderWidth is from settings and is based on DPI of 96
+   ;----------------------------------------------------------------------
+   Static BorderWidth {
+      get => round(this.rawBorderWidth * activeMonDPIFactor(1))
+      set => rawBorderWidth := round(Value / activeMonDPIFactor(1))
+   }
+   ;----------------------------------------------------------------------
+   ; Flash the border to indicate an action such as clipboard copy
+   ;----------------------------------------------------------------------
+   Static flashBorder(hWnd, flash := 100) {
+      Try {
+         ; GUI may close during the sleeps
+         SnipObj := Snips.GetGuiObj(hWnd)
+         bc := SnipObj.BackColor
+         Sleep(flash)
+         SnipObj.BackColor := "c05ff00"
+         Sleep(flash)
+         SnipObj.BackColor := bc
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Hide the selection GUI optionally flashing it
+   ;----------------------------------------------------------------------
+   Static hideSelect() {
+      Sleep(-1)
+      this.guiSSR.Hide()
+   }
+   Static WindowCounter := 0  ; for windows names
+   ;----------------------------------------------------------------------
+   ; Show an outline while dragging the selection, runs in a loop
+   ; Note, can release the trigger keys as long as the mouse button is down
+   ; Uses a transparent text box within the margins to show the rectangle
+   ;----------------------------------------------------------------------
+
+   /*
+      Split this into two steps
+      1. ctrl-win bring up the GUI as overlay and change the mouse cursor to
+         cross
+      2. While keeping the pens/brushes/surface alive do the drawing of the
+         selection rectangle TODO
+      - Handle escape key to back out of step 1
+      - Make sure we don't lose resources by duplicate reentry
+      - Get rid of lastMode checks and rely on selSurf being an object
+      - Can conflict with my moverresizer (#lbutton), set a style bit so it is
+        ignored by moverresizer (maximize will do it but may break across windows)
+   */
+  /**
+   * Select the Screen Area for the Snip. allows two step or all at once
+   * @param {number} mode - 0x1 = stage 1, 0x2 = stage 2, 0x3 = both stages
+   * @param {number} key - typically lbutton, tracks this when let go
+   * @param {number} BorderColor - Color to draw for the select border
+   * @param {number} pushClipboard - Set in stage 1 it you want this snip put on the clipboard automatically
+   * @param {number} createSnip - Set in stage 1 if you want to create a static GUI for the snip, 11+ For OCR modes OCR
+   * @returns {number} 
+   */
+   Static SelectScreenRegion(mode, Key, BorderColor := "Orange", pushClipboard:=false, SnipMode := false, captureStatic:=false, dimScreen := false) {
+      Static selSurf := "", winX, winY, winW, winH, bDim := 0, fill, cpMode := false, bColor := "Orange", TempCap := ""
+      Static ActiveState := 0
+      Static BW
+
+      ; logGDI("SelectScreenRegion, mode=" mode)
+      ; Critical(-1) ; Specifying -1 turns on Critical but disables message checks.
+      ;----------------------------------------------------------------------
+      ; If we are in step one and user wants to cancel by repeating step 1
+      ; Or passing in Mode 4 (Escape)
+      ;----------------------------------------------------------------------
+      if ((ActiveState = 1 AND mode = 1) OR (ActiveState = 1 AND mode = 4)) {
+         dLog("User wants to cancel selection")
+         ActiveState := 0
+         TempCap := ""
+         Snips.hideSelect()
+         Cleanup()
+         Return
+      }
+      ;----------------------------------------------------------------------
+      ; Step 1 is to create the surface and optionally dim the screen
+      ;----------------------------------------------------------------------
+      if (mode & 0x1 AND Not IsObject(selSurf)) {
+         ActiveState := mode
+         ; Get Region 
+         this.SnipMode := SnipMode   ; for cursor detection
+         ; TODO - for now use active monitor since it is slower by Nx for N monitors
+         ; MonInfo := this.allMonArea()
+         MonInfo := this.activeMonArea(0)
+         BW      := this.BorderWidth 
+         ; for slower computers grab the mouse start before any delays
+         If (mode = 3) {
+            ; CoordMode('Mouse', 'Screen')
+            GetCursorPos(&sX, &sY)
+         }
+         ; If we want a static overlay, then put it up now
+         if (captureStatic) {
+            ; Almost all of the delay is in here, bitblt is the majority of the time
+            TempCap := this.OverlayScreen(this.activeMonArea(0))
+         }
+         winX    := MonInfo.X, winY := MonInfo.Y
+         winW    := MonInfo.W, winH := MonInfo.H
+         ; always use all monitors for snip area
+         ; We save the mode from the stage 1 call for later
+         cpMode := pushClipboard
+         bColor := BorderColor
+         ; Prepare GDIP stuff and fill the surface
+         ; NOTE - dimming and guides force us to use the full monitor space
+         ;        which can be slow to updatelayer on slower computers
+         selSurf := GDIp.DIBSurface(winW, winH, this.guiSSR.hWnd)
+         ; decrease quality for speed (quality not needed here)
+         GDIp.SetSmoothingMode(selSurf.G,1)
+         GDIp.SetInterpolationMode(selSurf.G,1)
+         ; To dim or not dim, that is the question
+         fill := dimScreen ? 0x90000000 : 0x01000000 ; need some opacity for the mouse to change
+         if NOT dimScreen
+            BW *=2
+         selSurf.GraphicsClear(fill) ; 10ms
+         ; NOTE - if we use NA then escape won't bind for canceling, if we do we won't change focus
+         ; Regardless, when we click to select we will change the focus to the selection GUI
+         ; If we change focus, then we lose any active menu pulldowns
+         ; Also, without focus the space key will be processed by the underlying window
+         this.guiSSR.Show("X0 Y0 W0 H0") ; NA  10ms
+         selSurf.UpdateLayer(winX, winY) ; 10 ms , triggers do not disturb bell icon in system tray
+         ; Screen is shown now, cursor should be changed as well
+      }
+      ;----------------------------------------------------------------------
+      ; Step 2 is to do the selection
+      ;----------------------------------------------------------------------
+      X := Y := W := H := 0
+      If (mode & 0x2 AND IsObject(selSurf)) {
+         dpi := MonDPIunderWindow(this.guiSSR.hWnd)
+         ActiveState := mode
+         myPens      := GDIp.Pens()
+         myBrushes   := GDIp.Brushes()
+         pCross      := myPens.Add(0x80808080, 2)
+         GDIp.SetPenAlignment(pCross, 0)                ; draw border inside of edge
+         GDIp.SetPenDashStyle(pCross, 1)
+
+         pBorder := myPens.Add(0xFF000000 | RGBval(bColor), BW)
+         GDIp.SetPenAlignment(pBorder, 1)                ; draw border inside of edge
+         ; Different border for clips vs OCR
+         if (this.SnipMode > 10)
+            Gdip.SetPenDashStyle(pBorder,1)
+         else
+            Gdip.SetPenDashStyle(pBorder,0)
+         ; Set composting mode so we overwrite the dimming in the middle, not merge with it
+         Gdip.SetCompositingMode(selSurf.G, 1)
+         ; don't make the punched whole transparent or the cursor will go to default when sizing smaller
+         bClear := myBrushes.Add(0x01000000) 
+         bFill  := myBrushes.Add(fill)
+         ; Use the mouse from step 1 if mode = 1 or 3
+         if (NOT IsSet(sX)) {
+            ; CoordMode('Mouse', 'Screen')
+            ; MouseGetPos(&sX, &sY)
+            GetCursorPos(&sX, &sY)
+         }
+         leX := sX , leY := sY 
+         If (this.snipGuides)
+            clsST := shortText(selSurf.G)
+         ;----------------------------------------------------------------------
+         ; Loop until mouse is released
+         ;----------------------------------------------------------------------
+         /*
+         To optimize screen while maintaining the full DIB across monitors
+         - rather than blank the dib just fill rectangle the prior coordinates with a fill brush
+         - Can create a dynamic DIB each time the size of the bounding rectangle.
+         - Modify update layered code to pass in the offset of the window x/y to update on each pass
+         */
+         Loop {
+            now := A_TickCount
+            If GetKeyState("Esc","P") {
+               X := Y := W := H := 0
+               ActiveState := 0
+               dLog("Escape key detected, cancelling select")
+               Break
+            }
+            GetCursorPos(&eX, &eY)
+            ; Compute delta this loop and save for next loop
+            dX := eX - leX, dY := eY - leY
+            leX := eX, leY := eY
+            ; Only process if the mouse moved
+            ; If the mouse moved, then redraw
+            if ((Abs(dx) + Abs(dy)) > 0) {
+               ; Shift the starting position when Space Bar is down
+; StopWatch.Start()
+               If (GetKeyState("Space","P") OR GetKeyState("RButton","P")) {
+                  sX += dX, sY += dY
+               }
+               ; Allow R to L or L to R selection
+               W := Abs(sX - eX) , H := Abs(sY - eY) 
+               X := Min(sX, eX)  , Y := Min(sY, eY)
+
+               ; Make coord relative to this viewspace
+               Xv := X - winX, Yv := Y - winY
+               ; Shift forces square region
+               If (GetKeyState("Shift","P"))
+                  W := H := Min(W, H)
+; StopWatch.lapText("GraphicsClear")
+               If (this.snipGuides) {
+                  ; Clear the whole DIB with the fill color (can be slow on older computers with multiple 4K displays)
+                  selSurf.GraphicsClear(fill) 
+                  ; Vertical lines (relative to graphics object)
+                  GDIp.DrawLine(selSurf.G, pCross, Xv, 0, Xv, winH)         ; start
+                  GDIp.DrawLine(selSurf.G, pCross, Xv + W, 0, Xv + W, winH) ; current
+                  ; Horizontal Lines (relative to graphics object)
+                  GDIp.DrawLine(selSurf.G, pCross, 0, Yv, winW, Yv)         ; start
+                  GDIp.DrawLine(selSurf.G, pCross, 0, Yv + H, winW, Yv + H) ; current
+                  ; draw text with the W/H of selection (make a little class)
+                  clsST.DrawText(Xv, Yv, W - BW * 2 " x " H - BW * 2 " px, " Round(W/dpi,1) " x " Round(H/dpi,1) " inches")
+               } else If (IsSet(pW) AND pW * pH > 0) {
+                  ; Erase the old rectangle (faster than clearing the whole DIB)
+                  GDIp.FillRectangle(selSurf.G, bFill, pXv, pYv, pW, pH)
+               }
+               ; Below two are instataneous
+               ; punch a hole in the surface to show the selection
+               GDIp.FillRectangle(selSurf.G, bClear, Xv, Yv, W, H)
+               ; draw the bounding box, offset by window borders
+               GDIp.DrawRectangle(selSurf.G, pBorder, Xv, Yv, W, H)
+; StopWatch.lapText("Draw/Fill Rectangle")
+               ; Save last coordinates for next clear
+               pXv := Xv, pYv := Yv, pW := W, pH := H
+                  
+               ; Update the GUI with the DIB
+               selSurf.UpdateLayer(winX, winY) ; This is where all the time is now
+; StopWatch.lapText("Layered Update")
+               ; Sync with vertical refresh to prevent tearing (needed on slower computers)
+               if (this.vertSync)
+                  DllCall("Dwmapi\DwmFlush", "Int")
+               else
+                  Sleep(-1)
+; StopWatch.lapText("Flush")
+            } Else {
+               dur := A_TickCount - now ; 16 ms on niwot 16-32 on Okra
+               Sleep(Max(0, this.updateInterval - dur))
+            }
+         } Until !GetKeyState(Key, 'p')
+         ; DllCall("Winmm\timeEndPeriod", "UInt", 1)
+         Cleanup()
+         ;----------------------------------------------------------------------
+         ; If we have a viable area, then snip it
+         ;----------------------------------------------------------------------
+         X += BW, Y += BW, H -= 2 * BW, W -= 2 * BW
+         Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
+         If (W > 15 and H > 15) {
+            Switch this.SnipMode {
+               Case 0, 1:
+                  Snips.SnipArea(Area, cpMode, this.autoSaveToFile, this.SnipMode)
+               Case 11,12,13,14,15:
+                  ; OCR Text                  
+                  Snips.OCRSnipToClipboard(Area, this.SnipMode)
+               Default:
+            }
+         }
+         ; Close the static overlay GUI if it existed and hide the selection GUI
+         TempCap := ""
+         ; Snip is visible, now hide the selection box
+         Snips.hideSelect()
+
+         ActiveState := 0
+         return Area
+      }
+      Return 
+      ;/////////////////////////////////////////////////////////////////
+      Cleanup() {
+         clsST  := ""
+         myPens := ""
+         myBrushes := ""
+         selSurf := ""
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Capture a a static screen(s) without border, used for selection
+   ; Helpful if the screen content is changing during selection
+   ;----------------------------------------------------------------------
+   Class OverlayScreen {
+      __New(Area) {
+         ; now := A_TickCount +E0x20  for not selectable
+         this.SnipObj := Gui("+E0x20 +E0x80000 -Caption +AlwaysOnTop +ToolWindow +OwnDialogs -Border -DPIScale", "tempWindow")
+         this.SnipObj.Show("NA W0 H0") ; unhide without activating
+         ; 1ms to here
+         ; The bitblt is nearly all of the time, haven't found a faster method
+         ; StopWatch.Start()
+         BitMap.OverlayToLayeredWindow(Area, this.SnipObj.hWnd)
+         ; StopWatch.cumText("Done")
+         ; 144ms to here (orka)
+      }
+      __Delete() {
+         this.SnipObj.Destroy()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Called after drag is complete to show the image and/or put to clipboard
+   ;----------------------------------------------------------------------
+   Static SnipArea(Area, SetClipboard := false, SaveFile := false, CreateSnip := true, SnipObj := false) {
+      global Settings_SavePath_Image
+      If (Area.W > 15 and Area.H > 15) {
+
+         ; hBitmap will be the responsibility for the clipboard/gui to clean up
+         hBitmap := BitMap.HBitmapFromScreen(Area)
+         ; NOTE : If PrintWindow worked on non DPI aware apps, it would be preferred
+         ;        so we would get parts of the window that is off screen or covered.
+         If CreateSnip {
+            BW := this.BorderWidth
+            If (!SnipObj) {
+               SnipObj := this.GuiSnip(Area)
+               ; Use Margin as the border, color will be set when activated
+               SnipObj.MarginX := BW, SnipObj.MarginY := BW
+
+               ; Mica11Backdrop(SnipObj.hWnd)
+            }
+            SnipObj.Pic := SnipObj.AddSnipPic(hBitmap)
+            ; RMB for options, only over picture not the shapes
+            ; SnipObj.Area := Area ; NOTE - we should already know this in picture control
+
+            ; Have to force the W/H for full screen captures since by default doesn't want to extend beyond screen size
+            ; Shifting by neg border width will align the snip exactly over the screen capture region
+            SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + BW * 2 " H" Area.H + BW * 2) ; NA -> want active
+            If (SaveFile) {
+               this.Snip2File(Settings_SavePath_Image, this.borderWithSave)
+               Snips.flashBorder(SnipObj.hWnd)
+            }
+            If Snips.minimizeOnSnip {
+               SnipObj.Minimize()
+            }
+            If SetClipboard {
+               Snips.Snip2Clipboard(Snips.borderWithCopy, SnipObj.hWnd)
+               Snips.flashBorder(SnipObj.hWnd)
+            }
+
+         } Else {
+            ; Select and screen capture only
+            ; ALWAYS put selection only on the clipboard
+            GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+            If (SaveFile) {
+               msg := "Clipped Area to Clipboard/File: " W " x " H " pixels"
+               this.SaveHBitMapFile(hBitmap, Settings_SavePath_Image)
+            } Else {
+               msg := "Clipped Area to Clipboard: " W " x " H " pixels"
+            }
+            Clipboard.SetHBitmapToClipboard(hBitmap)
+            qTrayTip(msg, 4, "Click Here to Edit", 6000)
+         }
+
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Take bitmap of window and put it on the the clipboard
+   ; Works with either snip windows or any other window
+   ;----------------------------------------------------------------------
+   Static Snip2Clipboard(Borders := false, hWnd?) {
+      If !IsSet(hWnd) {
+         hWnd := WinActive('A')
+         haveWindow := false
+      } Else
+         haveWindow := true
+
+      If (SnipObj := Snips.IsValid(hWnd)) {
+         If (haveWindow) {
+            ; Using a snip, ignore any window on top by grabbing the window handle screen
+            hBitMap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : this.BorderWidth)
+         } Else {
+            ; Using active window, not a Snip
+            WinGetPosEx(&X, &Y, &W, &H, hWnd)
+            BW := this.BorderWidth
+            If !Borders
+               X += BW, Y += BW, W -= BW * 2, H -= BW * 2
+            hBitMap := BitMap.hBitmapFromScreen({ X: X, Y: Y, W: W, H: H })
+         }
+         SnipObj.Dirty := 0
+         Clipboard.SetHBitmapToClipboard(hBitMap)
+      } else {
+         warning("Did not find a valid snip to copy from")
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Take bitmap of window and save it to a file
+   ; This will get the active window, either a snip or any other window
+   ; Border code in Snip2Clipboard put into BitmapFromHWND
+   ;----------------------------------------------------------------------
+   Static Snip2File(SavePath, Borders := false, hWnd?) {
+      BW := this.BorderWidth
+      If !FileExist(SavePath)
+         DirCreate(SavePath)
+      hWnd ??= WinActive("SnipShapeWindow") ; Alpha 2+
+      ; hWnd := hWnd ?? WinActive("SnipShapeWindow") ' 2.0'
+      if (hWnd) {
+         if (SnipObj := Snips.IsValid(hWnd))
+            SnipObj.Dirty := 0
+         hBitmap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : this.BorderWidth)
+         FileName := this.SaveHBitMapFile(hBitmap, SavePath, SnipObj)
+         GDI.DeleteObject(hBitmap)
+
+      } else 
+         FileName := ""
+      Return FileName
+   }
+   ;----------------------------------------------------------------------
+   ; Save the bitmap to a file, uses GDI+
+   ;----------------------------------------------------------------------
+   Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
+      try {
+         pBitmap := Gdip.CreateBitmapFromHBITMAP(hBitmap)
+         If IsSet(SnipObj) {
+            baseName := SnipObj.BaseName
+         } else {
+            GDIp.GetImageDimensions(pBitmap, &W, &H)
+            baseName := Snips.timeTag . ' (' W 'x' H ')'
+         }
+         FileName := SavePath . baseName . "." . Settings_SavePath_Image_Ext
+         If FileExist(FileName) {
+            If (ans := MsgBox("The File Exists, do you want to replace it?", FileName, 0x1024) = "Yes") {
+               Try {
+                  FileDelete(FileName)
+               } Catch as E {
+                  MsgBox("Error Removing File",FileName,0x30)
+               }
+               Bitmap.SaveBitmapToFile(pBitmap, FileName)
+            }
+         } Else {
+            Bitmap.SaveBitmapToFile(pBitmap, FileName)
+         }
+         Gdip.DisposeImage(pBitmap)
+      } catch as e {
+         qTrayTip("Snipper File Save: " e.Message ", from " e.What " @ line " e.Line ,3)
+         elog(e,"Saving File")
+         FileName := ""
+      }
+      Return FileName
+   }
+   ;----------------------------------------------------------------------
+   ; Launch MS Paint on the window
+   ;----------------------------------------------------------------------
+   Static MSPaint(fname) {
+      try {
+         Run('MSPaint.exe "' fname '"')
+      } catch as e {
+         qTrayTip("Snipper Error: " e.Message ", from " e.What " @ line " e.Line ,3)
+      }
+   }
+
+   /**
+    * Take the clipboard and put it into a snip
+    * @param Border Color 
+    * @returns true|false if the clipboard contained an image 
+    */
+   Static Clipboard2Snip(hWnd :=0, BorderColor := 0xff00FF00) {
+      If (Clipboard.hasImage()) {
+         BW := this.BorderWidth
+         If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
+            CoordMode('Mouse', 'Screen')
+            MouseGetPos(&X, &Y)
+            If (hWnd) {
+               WinGetPosEx(&X, &Y, &W, &H, hWnd)
+            } Else {
+               ; No way to know the position of the bitmap on the screen
+               X -= W / Random(2, 8), Y -= H / Random(2, 8)
+            }
+            Area              := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
+            SnipObj           := this.GuiSnip(Area)
+            SnipObj.MarginX   := BW, SnipObj.MarginY := BW
+            SnipObj.BackColor := BorderColor
+            SnipObj.Pic       := SnipObj.AddSnipPic(hBitmap)
+            ; Shift by margin so picture lays over the real image
+            SnipObj.Show('x' Area.X ' y' Area.Y) ; NA -> want active
+            Return SnipObj.hWnd
+         } Else {
+            warning("Failed to get a bitmap from the clipboard")
+            Return false
+         }
+      } Else {
+         Return false
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Scale and clone a snip
+   ;----------------------------------------------------------------------
+   Static CloneAndScaleSnip(hWnd, ScaleFactor := 1.0, IncludeShapes := 0) {
+      if this.IsValid(hWnd) {
+         ; Use the raw picture without any shapes
+         hBitmap := this.GetGuiObj(hWnd).Pic.Handle
+         if (IncludeShapes)
+            pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, this.BorderWidth)
+         else
+            pBitmap := gdip.CreateBitmapFromHBITMAP(hBitmap)
+         WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
+         ; Scale to a new bitmap
+         if (ScaleFactor != 1.0)
+            pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
+         if (ScaleFactor > 1.0) ; ScaleFactor => radius
+            pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
+         GDIp.GetImageDimensions(pBitmap, &W, &H)
+         ; Need an hBitmap for the picture
+         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         BW := this.BorderWidth
+         ; Setup the new Snip information
+         Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         SnipObj         := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+         SnipObj.MarginX := BW, SnipObj.MarginY := BW
+         SnipObj.Pic     := SnipObj.AddSnipPic(hBitmap)
+         ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
+         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
+      } else {
+         qTrayTip("Did not find a valid snip to resize", 2)
+      }
+   }
+   /**
+    * Load a file and create a new Snip from it
+    * @param sFile File to load
+    */
+   Static CreateSnipFromFile(sFile) {
+      pBitmap := Gdip.CreateBitmapFromFile(sFile)
+      if (pBitmap) {
+         MonInfo := this.activeMonArea(1)
+         GDIp.GetImageDimensions(pBitmap, &W, &H)
+         ; Need an hBitmap for the picture
+         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         BW := this.BorderWidth
+         ; Center image
+         X := MonInfo.X + MonInfo.W/2 - W/2
+         Y := MonInfo.Y + MonInfo.H/2 - H/2
+         ; Setup the new Snip information
+         Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         SnipObj := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+         SnipObj.FileName := sFile
+         SnipObj.MarginX  := BW, SnipObj.MarginY := BW
+         SnipObj.Pic      := SnipObj.AddSnipPic(hBitmap)
+         ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
+         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
+      } else {
+         qTrayTip("Did not find a valid bitmap to load", 2)
+      }
+   }
+   /**
+    * OCR Some Lines from a selection area
+    * @param Area Object containing rectangle
+    */
+   ; Static OCRFromArea(Area) {
+   ;    Result := OCR.FromRect(Area.X, Area.Y, Area.W, Area.H)
+   ;    Cluster := OCR.Cluster(Result.Words)
+   ;    For rowWords in Cluster {
+   ;       LineText .= rowWords.Text . "`n"
+   ;    } Else
+   ;       LineText := ""
+   ;    try {
+   ;       A_Clipboard := LineText
+   ;       qTrayTip("Clipped " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters")
+   ;    } catch as e {
+   ;       qTrayTip("Error Clipping " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters")
+   ;    }
+   ; }
+   ;----------------------------------------------------------------------
+   ; Use OCR Extension to grab text from the snip
+   ; TODO - blend this and above together, pass in an Area or a handle.
+   ;----------------------------------------------------------------------
+   /**
+    * Copy the snip text to the clipboard
+    * @param hWnd - Window handle to OCR from
+    * @param how = 11 - Line wrapped like onenote, not very good
+    * @param how = 12 - All words in an array (unwrapped)
+    * @param how = 13 - Improved Line Wrapped
+    * @param how = 14 - Tabular Data in HTML format
+    * @param how = 15 - Line Wrapped with Padding
+    * */
+   Static OCRSnipToClipboard(hWndOrArea, how := 13) {
+      If (IsObject(hWndOrArea)) {
+         Result := OCR.FromRect(hWndOrArea.X, hWndOrArea.Y, hWndOrArea.W, hWndOrArea.H)
+      } else If this.IsValid(hWndOrArea) {
+         hBitmap := this.GetGuiObj(hWndOrArea).Pic.Handle
+         ; Dynamic scale factor? {lang:"en-us", grayscale:1}
+         Result := OCR.FromBitmap(hBitmap, , { scale: 1, grayscale: 1, invertcolors: 0 })
+      } Else {
+         qTrayTip("Invalid parameter to OCRSnipToClipboard")
+         Return ""
+      }
+      if NOT Result.Words.Length {
+         qTrayTip("OCR Failed to get any text from snip",2)
+         Return ""
+      }
+      Switch how {
+         Case 11:  ; Dumb Line wrapped - like onenote, not work shit
+            For Line in Result.Lines {
+               LineText .= Line.Text . "`n"
+            } Else
+               LineText := ""
+            A_Clipboard := LineText
+            qTrayTip("Clipped " StrLen(A_Clipboard) " Characters", 4)
+
+         Case 12:   ; Unwrapped Words
+            ; Idea is separate wrapping paragraphs
+            AvgCharHeight :=0
+            for Word in Result.Words {
+               AvgCharHeight += Word.H
+            }
+            AvgCharHeight /= Result.words.Length
+            Text := ""
+            lastY := Result.Words[1].Y
+            for Word in Result.Words {
+               ; Guess that 2x avg char height is a new paragraph
+               Text .= ((word.Y > (lastY + 2.2 * AvgCharHeight)) ? "`n" : " ") . Word.Text
+               if Word.Y > lastY
+                  lastY := Word.Y
+            }
+            try {
+               A_Clipboard := Trim(Text)
+               qTrayTip("Clipped " Result.Words.Length " Words",4)
+            } catch as e {
+               qTrayTip("Error Clipping " Result.Words.Length " Words")
+            }
+
+
+         Case 13:   ; Cluster improves line detection
+            Cluster := OCR.Cluster(Result.Words)
+            ;cluster  Array of objects with {x,y,w,h,Text,Words} properties
+            ; 
+            For rowOfWords in Cluster {
+               LineText .= rowOfWords.Text . "`n"
+            } Else
+               LineText := ""
+            try {
+               A_Clipboard := LineText
+               qTrayTip("Clipped " Cluster.Length " Lines",4)
+            } catch as e {
+               qTrayTip("Error Clipping " Cluster.Length " Lines")
+            }
+            
+         Case 14:   ; Cluster for tables
+            /*
+            cluster  Array of objects with {x,y,w,h,Text,Words} properties
+            Line detection is pretty good here, Idea is to find left/center/right
+            column boundaries and try to detect words aligned on those boundaries 
+            and put them in the appropriate col. Also, if large gaps exist in the 
+            line we can assume a new column.
+
+            We don't handle missing cells, so alignment can get off in those cases
+            Also, multiple words center aligned in a table may be grouped incorrectly
+            Since they don't fall on a boundary
+            Also no way to group multiple lines into cells
+
+            Create an HTML table as well for general pasting
+
+            If there is a good way to detect the column boundaries, we could create an C sized
+            array for each row any populate it based on detected columns. Just keep track of
+            what col we are in and fill in the array. After done can then send to a function to
+            enclose each array element in a <TR><TD>..</TD>..</TR> text
+
+            Current approach is to cluster word groups and return columns of data that we
+            bucket into HTML cells. Missing items will push subsequete column entries up one
+            */
+
+            ; Find average char length and col buckets for each word
+            AvgCharWidth  := 0
+            AvgCharHeight := 0
+            For Word in Result.Words {
+               AvgCharWidth  += (Word.W / StrLen(Word.text))
+               AvgCharHeight += Word.H
+            }
+            AvgCharWidth  /= Result.words.Length
+            AvgCharHeight /= Result.words.Length
+            ; These parameters are hand tuned
+            spaceGap := Round(AvgCharWidth * 1)   ; A little bigger than a single space 0.9
+
+
+            ; Cluster by rows to get row spacing and other info
+            Rows := OCR.Cluster(Result.Words)
+            ; Make sure sorted by row
+            OCR.SortArray(Rows,,"y")
+            lastY  := 1e6, AvgRowSpacing := 0, N := 0
+            topY   := Rows[1].Y ; Top of first entry for offsets
+            RowMax := Rows.Length ; may be understated when we cluster by X & Y
+            ; Compute the average line spacing by clustering on rows only
+            For RowEntry in Rows {
+               If (RowEntry.Y > lastY) {
+                  AvgRowSpacing += RowEntry.Y - lastY
+                  N++
+               }
+               lastY := RowEntry.Y
+            }
+            If (N == 0) {
+               qTrayTip("Could not find any table text",4)
+               Return
+            }
+            AvgRowSpacing /= N
+
+
+
+            ; Now cluster by columns then rows within the column
+            ; Loop over each col and put into appropriate cell
+            Cluster := OCR.Cluster(Result.words, spaceGap) ; Sorted by Y coordinate by not sub by X
+            Cols   := Array()
+            rowNum := 0
+            ColMax := 0
+            lastRn := 1e6
+            For ColEntry in Cluster {
+               ; The X/Y location from the cluster is correct. I just need to bucket them better.
+               thisRn := Round((ColEntry.Y - topY) / AvgRowSpacing)
+               if (thisRn < lastRn) {
+                  ; new Col, restart row numbers
+                  ColMax++
+                  RowMax := Max(RowMax, rowNum)
+                  rowNum := 0
+                  if (IsSet(ColArray))
+                     Cols.Push(ColArray)
+                  ColArray := Array()
+               } Else {
+                  rowNum++
+               }
+               ; Fill in any prior missing/blank col entries
+               While (thisRn > ColArray.Length) {
+                  ColArray.push("")
+                  rowNum++
+               }
+               ColArray.push(ColEntry.Text)
+               lastRn := thisRn
+            }
+            ; Push last column
+            if (IsSet(ColArray))
+               Cols.Push(ColArray)
+
+            ; Populate the HTML table row first (vs col first how we OCRd the data)
+            html := "<!DOCTYPE html><html><head></head><body><Table border=1>"
+            Entries := 0
+            Loop RowMax {
+               html .= "<TR>"
+               R := A_Index
+               Loop ColMax {
+                  C := A_Index
+                  Try {
+                     val := Cols[C][R]
+                  } Catch as E {
+                     ; val := "↑ Missing ↑"
+                     val := ""
+                  } Finally {
+                     html .= "<TD>" val "</TD>"
+                     Entries++
+                  }
+               }
+               html .= "</TR>"
+            }
+            html .= "</Table></body></html>"
+
+            Clipboard.HTMLToClipboard(html)
+            qTrayTip("Clipped " Entries " Cells for " RowMax " rows and " ColMax " columns", 4)
+         Case 15:   ; Cluster improves line detection
+            ; Front pad the string best we can
+            AvgCharWidth := 0
+            For Word in Result.Words {
+               AvgCharWidth  += (Word.W / StrLen(Word.text))
+            }
+            AvgCharWidth  /= Result.words.Length
+            Cluster := OCR.Cluster(Result.Words)
+
+            For rowOfWords in Cluster {
+               pad := round(rowOfWords.X/AvgCharWidth)
+               LineText .= padStr(pad) . rowOfWords.Text . "`n"
+            } Else
+               LineText := ""
+
+            try {
+               A_Clipboard := LineText
+               qTrayTip("Clipped " Cluster.Length " Lines",4)
+            } catch as e {
+               qTrayTip("Error Clipping " Cluster.Length " Lines")
+            }
+
+         Default:
+      }
+      Result := ""
+      Return
+      
+      TD(WC) => WC ? "</TD><TD>" : ""
+      APP(&html, text) =>  html .= "</TD><TD>" . text
+      padStr(num) {
+         p := ""
+         loop num
+            p .= " "
+         return p
+      }
+
+      Replicate( Str, Count ) { ; By SKAN / CD: 01-July-2017 | goo.gl/U84K7J
+         Return StrReplace( Format( "{:0" Count "}", "" ), 0, Str )
+      }      
+   }
+   /**
+    * Return active monitor metrics and mouse location
+    * Call this before most of the other functions
+    * @param {Integer} workArea true to ignore taskbar
+    * @returns {Object} 
+    */
+   Static activeMonArea(workArea := 1) {
+      Static mnInfo := stMONITORINFOEX()
+      DllCall("User32\GetCursorPos", "uint64*", &POINT := 0)
+      hMon := DllCall("User32\MonitorFromPoint", "int64", POINT, "uint", 0)
+      DllCall("User32\GetMonitorInfo", "ptr", hMon, "ptr", mnInfo)
+      base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
+      Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
+      Return Area
+   }
+
+   /**
+    * Return the area of all the monitors
+    * @returns {Object} 
+    */
+   Static allMonArea() {
+      Area := Object()
+      Area.X := DllCall("GetSystemMetrics", "Int", 76)
+      Area.Y := DllCall("GetSystemMetrics", "Int", 77)
+      Area.W := DllCall("GetSystemMetrics", "Int", 78)
+      Area.H := DllCall("GetSystemMetrics", "Int", 79)
+      Return Area
+   }
+   /**
+    * Get an area of some window
+    * @param hWnd 
+    * @returns {Object} 
+    */
+   Static getWindowArea(hWnd) {
+      Area := Object()
+      If (hWnd) {
+         WinGetPosEx(&X, &Y, &W, &h, hWnd)
+         Area.X  := X,     Area.Y  := Y
+         Area.X2 := X + W, Area.Y2 := Y + h
+         Area.W  := W,     Area.H  := h
+      }
+      Return Area
+   }
+
+   Static timeTag => FormatTime(, '✂️ yyyy-MM-dd HH˸mm˸ss')
+   ;----------------------------------------------------------------------
+   ; Close all of the snips
+   ;----------------------------------------------------------------------
+   Static CloseAll() {
+      for hWnd, SnipObj in this.guiSnips.clone() {
+         SnipObj.Destroy()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Minimize all of the snips
+   ;----------------------------------------------------------------------
+   Static MinimizeAll() {
+      ButtonBar.Hide()
+      for hWnd, SnipObj in this.guiSnips {
+         WinMinimize(hWnd)
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Minimize all of the snips
+   ;----------------------------------------------------------------------
+   Static RestoreAll() {
+      for hWnd, SnipObj in this.guiSnips {
+         If (WinGetMinMax(hWnd) < 0) {
+            ; Button bar will restore on activate
+            WinRestore(hWnd)
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Determine if all snips are already minimized
+   ;----------------------------------------------------------------------
+   Static AllMinimized() {
+      for hWnd, SnipObj in this.guiSnips {
+         if (WinGetMinMax(hWnd) >= 0)
+            Return false
+      }
+      return true
+   }
+   ;----------------------------------------------------------------------
+   ; Activate the first known non-minimized GUI
+   ;----------------------------------------------------------------------
+
+   Static ActivateFirst() {
+      for hWnd, SnipObj in this.guiSnips {
+         if (WinGetMinMax(hWnd) >= 0) {
+            SnipObj.Show()
+            return true
+         }
+      }
+      return false
+   }
+   ;----------------------------------------------------------------------
+   ; Minimize the GUI
+   ;----------------------------------------------------------------------
+   Static Minimize(hWnd := 0) {
+      If NOT hWnd
+         hWnd := WinActive("SnipShapeWindow")
+      If (SnipObj := this.IsValid(hWnd)) {
+         WinMinimize(hWnd)
+         If NOT Snips.ActivateFirst()
+            ButtonBar.Hide()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Close the GUI and clear out any associated data
+   ; Only called for Snipper Windows
+   ;----------------------------------------------------------------------
+   Static Close(hWnd := 0, DMCheck:=1) {
+      If NOT hWnd
+         hWnd := WinActive("SnipShapeWindow")
+      If GetKeyState("lbutton", "P") {
+         dlog("Mouse Button is down - Skipping Snip close")
+      } Else If (SnipObj := this.IsValid(hWnd)) {
+         ; If in draw mode, revert to regular mode first
+         If (DMCheck AND SnipObj.DrawMode) {
+            Snips.SetDrawMode(0)
+         } Else {
+            ; Prompt to close if Snip has unsaved changes
+            shapeCount := 0
+            For ShapeObj in SnipObj {
+               If (ShapeObj.Visible and A_Index > 1)
+                  shapeCount++
+            }
+            if SnipObj.Dirty AND shapeCount > 0 AND Snips.confirmClose {
+               SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+               ans := MsgBox("Snip has unsaved changes with " shapeCount " Shapes, please confirm close", "Confirm Close", 1 + 32)
+               If (ans != "OK")
+                  Return
+
+            }
+            SnipObj.Destroy()
+         }
+      }
+   }
+}
+
+/**
+ * SnipPicture class that extends the base picture class
+ * Used to hold the snip background
+ * TODO : Beef up some methods here vs having them sprinkled
+ * @param {number} 
+ * @returns {number} 
+ */
+Class SnipPicture extends Gui.Pic {
+   ; Static so this is executed at file parse time, before execution starts
+   Static AddPicture := 0 ; fix lint issue
+   Static __New() {
+      ; New command to call a static method here to add the picture
+      Gui.Prototype.AddSnipPic := this.AddSnipPic
+   }
+   ;----------------------------------------------------------------------
+   ; Called from the GUI Context, i.e. SnipObj.PIC := SnipObj.AddSnipPic(hBitmap)
+   ;----------------------------------------------------------------------
+   Static AddSnipPic(hBitmap := "") {
+      ; AddPicturePlus is called from GUI, so this points to the GUI object
+      pObj        := this.AddPicture("+BackgroundTrans", "HBITMAP:" hBitmap) ; OK, this is GUI vs PicPlus
+      pObj.base   := SnipPicture.Prototype
+      pObj.Source := "Screen"
+      pObj.OnEvent("ContextMenu", SnipMenus.Post.bind(SnipMenus))
+      Return pObj
+   }
+   ;----------------------------------------------------------------------
+   ; get/set the bitmap handle for this piecture
+   ;----------------------------------------------------------------------
+   Handle {
+      get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      ; Resize control to actual bitmap size
+      set => this.Value := "*W0 *H0 HBITMAP:" Value
+   }  
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

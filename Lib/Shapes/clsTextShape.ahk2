@@ -1,0 +1,1039 @@
+;#####################################################################################
+; Advanced Text Contro 
+;#####################################################################################
+#Requires AutoHotkey v2.0 
+#include clsCommonShape.ahk2
+#Include ..\clsGDIp.ahk2
+#Include ..\libMisc.ahk2
+#Include ..\clsShapes.ahk2
+/**
+ * PicPlus class that extends the base picture class
+ * @param {number} 
+ * @returns {number} 
+ * TODO - replace static AddPicturePlus with __Call??
+ */
+; IDEA - could use a big blur vs a opaque fill text of bg color to block background
+;        will have to deal with irregular shpes though
+Class TextShape extends CommonShape {
+; @ lint-disable class-non-dynamic-member-check
+   Static TagFontName     := IniReadValue("Text", "Tag Font Name", "Tahoma")
+   Static TagFontStyle    := IniReadValue("Text", "Tag Font Style", "Bold")
+   Static TagFontSize     := IniReadValue("Text", "Tag Font Size", 15)
+   Static TCOpacity       := IniReadValue("Text", "Tag Center Opacity", 160)
+
+   Static FillFontName    := IniReadValue("Text", "Fill Font Name", "Tahoma")
+   Static FillFontStyle   := IniReadValue("Text", "Fill Font Style", "Bold")
+   Static FillAlignment   := IniReadValue("Text", "Fill Text Alignment", "Center")
+   Static FillFontSize    := IniReadValue("Text", "Fill Font Size", 12)
+   Static FTOpacity       := IniReadValue("Text", "Fill Text Opacity", 192)
+   Static FTOLOpacity     := IniReadValue("Text", "Outline Opacity", 255)
+   Static FillOutline     := IniReadValue("Text", "Rectangle Around Text", "None")
+
+   Static OLFontName      := IniReadValue("Text", "Outline Font Name", "Verdana")
+   Static OLFontStyle     := IniReadValue("Text", "Outline Font Style", "Bold")
+   Static OLAlignment     := IniReadValue("Text", "Outline Font Alignment", "Left")
+   Static OLFontSize      := IniReadValue("Text", "Outline Font Size", 15)
+   Static OLOpacity       := IniReadValue("Text", "Outline Edge Opacity", 160)
+   Static OLFillThickness := IniReadValue("Text", "Outline Width Percent",16)
+   Static OLBlur          := IniReadValue("Text", "Outline Blur Value",1)
+   Static textOpacity     := IniReadValue("Text", "Text Opacity", 0xFF)
+   ;----------------------------------------------------------------------
+   ; Caption unique properties
+   ;----------------------------------------------------------------------
+   Init(*) {
+      Super.Init()
+      this.Source          := "Text"
+      this.sText           := ""
+      this.Corner          := 0
+      this._Text           := ""
+      this._fontName       := "Arial"
+      this.DPIFactor       := A_ScreenDPI / 96
+      this._fontSize       := 12 ; Round(12 * pOBJ.DPIFactor)
+      this._ogFontSize     := 0
+      this._Alignment      := "Left"  ; Left|Center|Right
+      this._fontColor      := Shapes.globalShapeColor
+      this.textOpacity     := TextShape.textOpacity
+
+      this.TCOpacity       := TextShape.TCOpacity
+
+      this.FTOpacity       := TextShape.FTOpacity
+      this.FillOutline     := TextShape.FillOutline
+      this.FTOLOpacity     := TextShape.FTOLOpacity
+
+      this.OLOpacity       := TextShape.OLOpacity
+      this.OLFillThickness := TextShape.OLFillThickness
+      this.OLBlur          := TextShape.OLBlur
+      
+      this._fontStyle      := "Bold"
+      this.FocusRecOn      := false
+      this._BGColor        := 0x000000
+      this.shapeCoord      := { X1: 0, Y1: 0, X2: 0, Y2: 0}
+      ; this.bindDClick      := this.EditDispText.Bind(this)
+      ; this.OnEvent("DoubleClick", this.bindDClick)
+   }
+   ;----------------------------------------------------------------------
+   ; Text Unique properties and methods
+   ;----------------------------------------------------------------------
+   FontName {
+      get => this._fontName
+      Set => this._fontName := Value
+   }
+   FontSize {
+      get => this._fontSize
+      set => this._fontSize := Value
+   }
+   Text {
+      get => this._Text
+      set => this._Text := Value
+   }
+   Alignment {
+      get => this._Alignment
+      set => this._Alignment := Value
+   }
+   FontStyle {
+      get => this._fontStyle
+      set => this._fontStyle := Value
+   }
+   ;----------------------------------------------------------------------
+   ; We will set the background color from obscure, so also re-render the text
+   ;----------------------------------------------------------------------
+   BGColor {
+      get => this._BGColor
+      set {
+         this._BGColor := Value
+         this.GetPos(&_X,&_Y)
+         this.DrawText(_X,_Y,,,,,,,RGBVal(Value))
+      }
+   }
+
+   /**
+    * Meat of the class, Render the text to a new bitmap and set the picture control to the bitmap
+    * @param Text Optional Text to display, can be multiline
+    * @param Name Optional Font Name to use
+    * @param Size Optional Font Size to use
+    * @param Weight Optional Font Weight to use
+    * @param Color Optiona Font Color to use
+    * TODO - maybe don't pass in parameters but user sets properties prior to render?
+    * TODO - Call this Refresh and move into the Canvas class to be consistent
+    */
+   DrawText(lX := 0, lY := 0, Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
+      Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
+      If (IsSet(Size))
+         this._fontSize := Size
+      If (IsSet(Text))
+         this._Text := Text
+      If (IsSet(FontName))
+         this._fontName := FontName
+      If (IsSet(Alignment))
+         this._Alignment := Alignment
+      If (IsSet(Color))
+         this._fontColor := Color ; includes alpha
+      If (IsSet(Style))
+         this._fontStyle := Style
+      If (IsSet(BGColor))
+         this._BGColor := BGColor & 0xFFFFFF
+      ; Make sure alpha is loaded
+      If this._fontColor < 0xFF000000
+         this._fontColor |= this.textOpacity << 24
+      ; Startup
+      If (this._ogFontSize = 0)
+         this._ogFontSize := this._fontSize
+      ; NOTE - If I want to retain pixel for pixel sameness, stick to using A_ScreenDPI vs per monitor
+      ; IF I really want per monitor DPI then font sizes will have to be scaled vs A_ScreenDPI
+      DPI := WinDPI(this.hWnd)
+      this.DPIFactor := DPI / 96
+
+      isdc   := GDI.GetDC(this.GUI.hWnd) ; 0 or hwnd, doesn't seem to matter
+      G      := GDIp.GraphicsFromHDC(isdc)
+      GDIpText.SetTextRenderingHint(G, Rendering := 3) ; 5 causes color issues on small text
+      ;-------------------------------------------------------------------
+      ; Create the necessary Font Info
+      ;-------------------------------------------------------------------
+      hFamily := GDIpText.FontFamilyCreate(this._fontName) ; , IFC
+      If ( NOT hFamily) {
+         MsgBox("Invalid Font " this._fontName)
+         Return 0
+      } else If ( NOT IsNumber(this._fontSize)) {
+         MsgBox("Invalid Font Size " this._fontSize)
+         Return 0
+      }
+      StyleCode := StyleIndex.Get(this._fontStyle, 0)
+      hFont     := GDIpText.FontCreate(hFamily, this._fontSize, StyleCode)
+      ; BUG - unicode doesn't display as a font fallback, only works with Segoe emoji
+      ; GDI DrawText will, but have opacity issues with it currently
+      hFormat   := GDIpText.StringFormatCreate(FormatStyle := 0x00004004) ; 0x0000400 0x80000400
+      GDIpText.SetStringFormatTrimming(hFormat, 0)
+      ;-------------------------------------------------------------------
+      ; Measure required window size to bound the text, used to create
+      ; DIB Section in the next step, overall bound will be the GUI size
+      ;-------------------------------------------------------------------
+      this.GUI.GetPos(,, &Width, &Height)
+      ; NOTE - Maximum width of text rectangle will be Snip width.
+      GDIp.CreateRectF(&RCWin, 0, 0, Width, Height)
+      ; Don't specify alignment, use top/left
+      RCText := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
+      GDIp.DeleteGraphics(G)
+      ;----------------------------------------------------------------------
+      ; Get initial coordinates of the required rectangle for the text
+      ;----------------------------------------------------------------------
+      pad      := {}
+      shift    := {}
+      ahFactor := {}
+      txt := {
+         X: RCText.X1 ,
+         Y: RCText.Y1 ,
+         W: RCText.X2 ,
+         H: RCText.Y2
+      }
+      txt.LH   := txt.H / Lines
+
+      txt.W *= 1.01 ; make a bit bigger to prevent pre-mature wrapping in some cases with large text
+      outlineThickness := Round(this.DPIFactor * this.shapeThickness * this._fontSize / 20) ; Scale borders with font size
+      outlineOpacity   := this.FTOLOpacity << 24
+      ;----------------------------------------------------------------------
+      ; Some preliminary adjustments for certain shapes
+      ; Compute the necessary padding and tweak text box dimensions
+      ;----------------------------------------------------------------------
+      Switch this.Shape {
+         Case Shapes.SHAPE_TAG:
+            ; Tags will be square, enlarge box
+            txt.W := txt.H := Max(txt.W, txt.H)
+            pad.l := pad.r := pad.t := pad.b := outlineThickness
+            ; BUG - centering is visually off a bit for small tags
+            tOffset := 0 ; 
+            txt.x += pad.r + 1, txt.y += pad.t + 2
+         Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
+            ahFactor.x := 0.95 ; how far the point sticks out (rel to height)
+            ahFactor.y := 0.30 ; how far the top/bot sides stick out (rel to height)
+            ahLen := ahFactor.x * txt.H ; Arrowhead Length
+            Inset := ahLen / 25 ; So arrow doesn't look clunky
+
+            ; Padding relative to text required height so we can draw the arrow head
+            ; use 66% so the text fills in the arrow head a bit and arrow is shorter
+            If (this.Shape = Shapes.SHAPE_RIGHTARROWTEXT) {
+               pad.r := Ceil(ahLen * 0.66) ; only needed on one side (one arrow), don't pad the text
+               pad.l := 0
+            } Else {
+               pad.r := 0
+               pad.l := Ceil(ahLen * 0.66) ; only needed on one side (one arrow)
+               txt.x += pad.l
+            }
+            pad.t := pad.b := Ceil(ahFactor.y * txt.H) ; needed for both top and bottom
+            txt.y += pad.t
+            ; Slight offset so text is somewhat in the arrowhead
+         Case Shapes.SHAPE_FILLTEXT:
+            ; right now it draws it at the txt locations
+            pad.l := pad.r := pad.t := pad.b := (this.FillOutline = "None") ? 0 : outlineThickness * 3
+            txt.x += pad.r, txt.y += pad.t
+         Default:
+            ; Enlarge draw rectangle by a bit for outline text to prevent clipping
+            ; Needed for some fonts, probably a bug
+            pad.l := pad.r := pad.t := pad.b := 3
+            txt.x += pad.r, txt.y += pad.t
+      }
+      ;----------------------------------------------------------------------
+      ; This is the adjusted rectangle we draw the text in
+      ;----------------------------------------------------------------------
+      RCText.Init(txt.X, txt.Y, txt.W, txt.H)
+      txt.iW := Ceil(txt.W), txt.iH := Ceil(txt.H)
+      ; First time draw, save width, always save height for the text editor
+      if (NOT this.HasProp("EditWidth"))
+         this.EditWidth := txt.W / this.DPIFactor *1.03
+      ; Always add an extra line for the editor
+      this.EditHeight := (txt.H + txt.LH) / this.DPIFactor * 1.05
+      ;----------------------------------------------------------------------
+      ; We have rectangle based on screen info, create the DC/DIB and render
+      ; Add 1 pixels for width to cover slight left arrow cropping bug
+      ;----------------------------------------------------------------------
+      mySurf := GDIp.DIBSurface(txt.iW + pad.l + pad.r, txt.iH + pad.t + pad.b, this.hWnd)
+      G := mySurf.G
+      ;--------------------------------------------------------------
+      ; Quality Settings Here
+      ;--------------------------------------------------------------
+      GDIp.SetSmoothingMode(G, 4)                ; Anti Aliased 4x4 (most difference for shapes)
+      GDIp.SetInterpolationMode(G, 7)            ; High Quality Bicubic
+      GDIp.SetCompositingQuality(G, 5)           ; Linear, not sRGB
+      GDIp.SetCompositingMode(G, 0)              ; Alpha blend, Source over
+      GDIpText.SetTextRenderingHint(G, Rendering) ; AntiAliasGridFit for Text
+      GDIpText.SetStringFormatAlign(hFormat, this._Alignment = "Left" ? 0 : (this._Alignment = "Center" ? 1 : 2))
+      GDIpText.GdipSetStringFormatLineAlign(hFormat, 1) ; Vertical alignment is center
+      GDIp.GraphicsClear(G, 0)
+      ;--------------------------------------------------------------
+      ; Create the brushes and define the shape parameters
+      ;--------------------------------------------------------------
+      textBrush        := GDIp.BrushCreateSolid(this._fontColor)
+      ; Minimial opaqueness so we can grap the shape anywhere
+      blankBrush       := GDIp.BrushCreateSolid(0x01808080)  ; near blank
+      GDIp.FillRectangle(G, blankBrush, 0, 0, mySurf.Width, mySurf.Height)
+      GDIp.DeleteBrush(blankBrush)
+
+
+      ;--------------------------------------------------------------
+      ; Compute coordinates and draw each text type
+      ;--------------------------------------------------------------
+      Switch this.Shape {
+         Case Shapes.SHAPE_TEXT:
+            ; Rectangle to help grab resize points
+            ; utfBuf := Buffer(StrPut(this._Text, "UTF-8"))
+            ; StrPut(this._Text, utfBuf, , "UTF-8")
+            ; GDIpText.DrawString(G, StrGet(utfBuf,,"UTF-8"), hFont, hFormat, textBrush, &RCText)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+
+         Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
+            ; IDEA - Up/Down arrows as well?
+            ;----------------------------------------------------------------------
+            ; Compute and draw the arrow outline path based on the dib dimensions
+            ; Create Arrow points for a left facing arrow
+            ; The arrow coordinates all are scaled based on the text height (i.e. point size)
+            ; The DIB is the outer box around the arrowhead
+            ; The text box is contained within the DIB centered vert, but offset in X
+            ;----------------------------------------------------------------------
+            pArray := [
+               [0            , mySurf.Height / 2],     ; left vertex (point), the middle Y position
+               [ahLen        , 0],                     ; top tip end
+               [ahLen - inset, txt.Y],                 ; top tip base (where the inset ends)
+               [mySurf.Width , txt.Y],                 ; ur corner (far side of arrow)
+               [mySurf.Width , txt.Y + txt.H],         ; lr corner
+               [ahLen - inset, txt.Y + txt.H],         ; bottom tip base (inset ends)
+               [ahLen        , mySurf.Height]          ; bottom tip end
+            ]
+            oPath := GDIp.Path(G)
+            oPath.AddPathArray(pArray, 1) ; close the polygon
+            ; Flip the arrow 180 deg (L/R) needed
+            If (this.Shape = Shapes.SHAPE_RIGHTARROWTEXT) {
+               ; It rotates around top/left so shift it back by that amount so it maintains overall geometry
+               oPath.TranslateRotatePath(180, mySurf.Width, mySurf.Height)
+            }
+            ; Fill shape opaque
+            fillBrush := GDIp.BrushCreateSolid((this.FTOpacity << 24) | (this._BGColor & 0xFFFFFF))
+            oPath.FillPath(fillBrush)
+            GDIp.DeleteBrush(fillBrush)
+            ; Draw the shape outline
+            outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+            GDIp.SetPenLineJoin(outlinePen, 2) ; gives a rounded curve to the inset only
+            GDIp.SetPenAlignment(outlinePen, 1)
+            oPath.DrawPath(outlinePen)
+            ; Clean up
+            GDIp.DeletePen(outlinePen)
+            oPath := ""
+            ;----------------------------------------------------------------------
+            ; Finally Draw the text last on top
+            ;----------------------------------------------------------------------
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+
+         Case Shapes.SHAPE_FILLTEXT:
+            fillBrush := GDIp.BrushCreateSolid((this.FTOpacity << 24) | (this._BGColor & 0xFFFFFF))
+            radius := outlineThickness * 3 ; Min(txt.W, txt.H) * 0.10
+            ; Account for padding
+            Switch this.FillOutline {
+               Case "Rectangle":
+                  outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+                  GDIp.SetPenAlignment(outlinePen, 1)
+                  GDIp.FillRectangle(G,fillBrush, 0, 0, mySurf.Width, mySurf.Height)
+                  GDIp.DrawRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height)
+                  GDIp.DeletePen(outlinePen)
+               Case "Rounded Rectangle":
+                  GDIp.FillRoundedRectangle(G, fillBrush, 0, 0, mySurf.Width, mySurf.Height, radius)
+                  outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+                  GDIp.DrawRoundedRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height, radius)
+                  GDIp.DeletePen(outlinePen)
+               Default:
+                  GDIp.FillRoundedRectangle(G, fillBrush, 0, 0, mySurf.Width, mySurf.Height, radius)
+            }
+            GDIp.DeleteBrush(fillBrush)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+
+         Case Shapes.SHAPE_OLTEXT:
+            ; outline text size, A_ScreenDPI keeps it consistent across monitors and computers
+            emVal := this._fontSize * A_ScreenDPI / 72 
+            olThickness := emVal * this.OLFillThickness/100 ; IDEA - larger when blurring?
+            ; background Just so it isn't transparent for click thru
+            ; IDEA - should this be an option for B&W vs complementary outline?
+            ; outlinePen := GDIp.CreatePen(Caption.OLOpacity << 24 | 0xFFFFFF & BlackOrWhite(this._fontColor), olThickness)
+            outlinePen := GDIp.CreatePen(this.OLOpacity << 24 | 0xFFFFFF & Complementary(this._fontColor), olThickness)
+            GDIp.SetPenLineJoin(outlinePen, 2) ; Rounded, avoid spikes
+            ; Write the outline text first
+            Path := GDIp.CreatePath(0)
+            res  := GDIpText.AddPathString(Path, this._Text, -1, hFamily, StyleCode, emVal, &RCText, hFormat)
+            res  := GDIp.DrawPath(G, outlinePen, Path)    ; outside
+            ; We now have the outside shape in the G graphics
+            ; If we want to blur it then shrink/expand the outline part
+            If (this.OLBlur > 1) {
+               ; get alpha pBitmap copy
+               pFull := mySurf.getARGBpBitmap()
+               ; blur it by setting amount, font size and DPI adjusted
+               pBlur := BitMap.BlurBitmap(pFull, round(this.OLBlur * emVal/128))
+               ; write blur back into graphics
+               GDIp.GraphicsClear(G)   ; remove old outline
+               GDIp.DrawImage(G, pBlur, 0, 0, txt.W, txt.H, 0, 0, txt.W, txt.H)
+               ; cleanup
+               GDIp.DisposeImage(pBlur)
+               ; Also look at gradient brushes (PathGradientBrush) where the outside color is the background color
+            }
+            res  := GDIp.FillPath(G, textBrush, Path) ; inside
+            GDIp.DeletePen(outlinePen)
+            GDIp.DeletePath(Path)
+
+         Case Shapes.SHAPE_TAG:
+            ; Border is a bit thicker than raw line width
+            If (0) {
+               outlineThickness *= 1.5
+               ; Fill just up to the outline in case the outline is semi-transparent
+               fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._BGColor & 0xFFFFFF))
+               GDIp.FillEllipse(G, fillBrush, outlineThickness, outlineThickness, mySurf.Width - outlineThickness * 2, mySurf.Height - outlineThickness * 2)
+
+               ; Circle is inset around perimiter
+               cColor := Complementary(this._BGColor & 0xFFFFFF)
+               ; Fully saturate somewhat saturated colors
+               HLS := RGBToHLS(cColor)
+               If (HLS.S > 120 & HLS.S < 240) {
+                  HLS.S := 240
+                  cColor := HLStoRGB(HLS)
+               }
+
+               outlinePen := GDIp.CreatePen(outlineOpacity | cColor, outlineThickness)
+               ; outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+               GDIp.SetPenAlignment(outlinePen, 1)
+               ; This is probably a GDI thing with ellipses, but pulling in one pixel seems to look better as there may be some clipping
+               GDIp.DrawEllipse(G, outlinePen, 1, 1, mySurf.Width - 1, mySurf.Height - 1)
+               GDIpText.SetStringFormatAlign(hFormat, 1)
+               textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
+               GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCText)
+               GDIp.DeleteBrush(textAltBrush)
+               GDIp.DeletePen(outlinePen)
+               GDIp.DeleteBrush(fillBrush)
+            } Else {
+               ; Simplier solid background with black/white text
+               fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._fontColor & 0xFFFFFF))
+               GDIp.FillEllipse(G, fillBrush, 0, 0, mySurf.Width, mySurf.Height)
+               cColor := BlackOrWhite(this._fontColor & 0xFFFFFF)
+               textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
+               GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCText)
+               GDIp.DeleteBrush(textAltBrush)
+               GDIp.DeleteBrush(fillBrush)
+               
+            }
+
+         Default:
+      }
+      ; Update the window with the text (different than the underlying picture control)
+      mySurf.UpdateLayer(lX, lY)
+      ; Clean up
+      mySurf := ""
+      GDI.ReleaseDC(isdc, this.GUI.hWnd)
+      GDIp.DeleteBrush(textBrush)
+      GDIpText.DeleteStringFormat(hFormat)
+      GDIpText.DeleteFont(hFont)
+      GDIpText.DeleteFontFamily(hFamily)
+
+      this.UpdateCoord()
+      Return 1
+   }
+   ;----------------------------------------------------------------------
+   ; Edit the text
+   ;----------------------------------------------------------------------
+   EditDispText(*) {
+      CoordMode('Mouse', 'Window')
+      C := this.shapeCoord
+      this.Gui.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
+      Obj := TextInputBox(this, "Edit Text (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", this.text)
+      this.Gui.Opt("-OwnDialogs -Disabled") ; forces to grab the top focus
+      If (Obj.Result = "OK") {
+         this.Shape := Obj.Shape
+         this.DrawText(C.X1, C.Y1, Obj.Size, Trim(Obj.Value, " `n"), Obj.Font, Obj.ALignment, Obj.FontStyle, RGBval(Obj.Color))
+      }
+   }
+
+   ;//////////////////////////////////////////////////////////////////////
+   ; Common Methods that are overridden here
+   ;//////////////////////////////////////////////////////////////////////
+   Close() {
+      this.DrawText(0,0,2,".",,,,0x0)
+      ; this.OnEvent("DoubleClick", this.bindDClick, false)
+      Super.Close()
+   }
+
+   Color {
+      get => this._fontColor & 0xFFFFFF
+      set => this._fontColor := (0xFF000000 | RGBval(Value))
+   }
+
+   ; Rerender in og font size
+   ResetSize() {
+      this.GetPos(&_X,&_Y)
+      this.DrawText(_X,_Y,this._ogFontSize)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Move shape and update coordinates 
+   ; Used during Move or Resizing Operation
+   ;----------------------------------------------------------------------
+   Move(wX?, wY?, fontSize?) {
+      ; 1st move to where we want to be
+      super.Move(wX?, wY?)
+      Switch this.Shape {
+         ; Recompute the background color in real time
+         Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT, Shapes.SHAPE_TAG:
+            ; Recompute and redraw with the text background color
+            If ((res := this.GetCroppedBackgroundColor()) >= 0) {
+               this._BGColor := res
+               ; This will force a new draw below
+               fontSize := fontSize ?? this._fontSize
+            }
+         Default:
+      }
+      ; Redraw if size or color changed
+      If (IsSet(fontSize)) {
+         this.DrawText(wX?, wY?, fontSize)
+      }
+   }
+
+   /**
+    * Padding not used for Text
+    */
+   savePadding(L, T, R, B) {
+      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
+   }
+
+   ; This is called when up/down in moving
+   Refresh(*) {
+      this.GetPos(&_X, &_Y)
+      this.DrawText(_X, _Y)
+      this.UpdateCoord()
+   }
+   Startup() => {}
+   Cleanup() => {}
+   ChangeThickness(percent) {
+      this.shapeThickness *= (1 + percent)
+   }
+   SetColor(newColor) {
+      this.Color := newColor
+   }
+   FocusSquare => true
+   FocusPoints() {
+      C := this.shapeCoord
+      return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
+              { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
+              { C: 7, x: 0, Y: C.h/2 },     { C: 6, x: 0, Y: C.h }]
+   }
+
+}
+
+;----------------------------------------------------------------------
+; GDI+ Related Text Functions
+;----------------------------------------------------------------------
+Class GDIpText {
+
+   ;#####################################################################################
+
+   /**
+    * Draws a string based on a font, a layout rectangle, and a format.
+    * @param G Pointer to the Graphics object.
+    * @param sString Pointer to a wide-character string to be drawn.
+    * @param hFont Pointer to a Font object that specifies the font attributes (the family name, the size, and the style of the font) to use.
+    * @param hFormat  Pointer to a StringFormat object that specifies text layout information and display manipulations to be applied to the string.
+    * @param pBrush Pointer to a Brush object that is used to fill the string.
+    * @param RectF Reference to a rectangle that bounds the string
+    * @returns DrawString result code 
+    */
+   Static DrawString(G, sString, hFont, hFormat, pBrush, &RectF) {
+      Return DllCall("gdiplus\GdipDrawString"
+         , "Ptr", G
+         , "Ptr", StrPtr(sString)
+         , "Int", -1
+         , "Ptr", hFont
+         , "Ptr", RectF.Ptr
+         , "Ptr", hFormat
+         , "Ptr", pBrush)
+   }
+   Static AddPathString(path, string, length, family, style, emSize, &layoutRect, format) 
+      => DllCall('Gdiplus\GdipAddPathString', 'ptr', path, 'wstr', string, 'int', length, 'ptr', family, 'int', style, 'float', emSize, 'ptr', layoutRect.Ptr, 'ptr', format, 'uint')
+   Static AddPathStringI(path, string, length, family, style, emSize, &layoutRect, format) 
+      => DllCall('Gdiplus\GdipAddPathStringI', 'ptr', path, 'wstr', string, 'int', length, 'ptr', family, 'int', style, 'int', emSize, 'ptr', layoutRect.Ptr, 'ptr', format, 'uint')
+
+   ;#####################################################################################
+
+   /**
+    * Measures the extent of the string in the specified font, format, and layout rectangle
+    * @param G Pointer to the Graphics object.
+    * @param sString  Pointer to a wide-character string to be measured.
+    * @param hFont Pointer to a Font object that specifies the family name, size, and style of the font to be applied to the string.
+    * @param hFormat Pointer to a StringFormat object that specifies the layout information, such as alignment, trimming, tab stops, and so forth
+    * @param RectF Out - Reference to the rectangle that bounds the string.
+    * @returns Bounding rectangle to hold the string along with # Chars and # Lines that will fit in the rectangle 
+    */
+   Static MeasureString(G, sString, hFont, hFormat, RectF, &Lines?) {
+      RC := stRECTF()
+      DllCall("gdiplus\GdipMeasureString"
+         , "Ptr", G
+         , "Ptr", StrPtr(sString)
+         , "Int", -1
+         , "Ptr", hFont
+         , "Ptr", RectF.Ptr
+         , "Ptr", hFormat
+         , "Ptr", RC.Ptr
+         , "uint*", &Chars := 0
+         , "uint*", &Lines := 0)
+      Return RC
+      ; Return {X : NumGet(RC, 0, "Float"), Y : NumGet(RC, 4, "Float"), W: NumGet(RC, 8, "Float"), H: NumGet(RC, 12, "Float"), C: Chars, L : Lines }
+   }
+   ; Near   = 0
+   ; Center = 1
+   ; Far    = 2
+   Static SetStringFormatAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatAlign", "Ptr", hFormat, "Int", Align)
+   ; Top    = 0
+   ; Center = 1
+   ; Bottom = 2
+   Static GdipSetStringFormatLineAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatLineAlign", "ptr", hFormat, "int", Align) ; Top = 0, Center = 1, Bottom = 2
+
+
+   ; StringFormatFlagsDirectionRightToLeft    = 0x00000001
+   ; StringFormatFlagsDirectionVertical       = 0x00000002
+   ; StringFormatFlagsNoFitBlackBox           = 0x00000004 Allow glyph to overhang bounding box
+   ; StringFormatFlagsDisplayFormatControl    = 0x00000020 Show control glyphs
+   ; StringFormatFlagsNoFontFallback          = 0x00000400 <- leave off
+   ; StringFormatFlagsMeasureTrailingSpaces   = 0x00000800
+   ; StringFormatFlagsNoWrap                  = 0x00001000
+   ; StringFormatFlagsLineLimit               = 0x00002000
+   ; StringFormatFlagsNoClip                  = 0x00004000 Allow overhaning pixels
+   ; StringFormatFlagsBypassGDI               = 0x80000000
+   Static StringFormatCreate(Format := 0, Lang := 0) {
+      DllCall("gdiplus\GdipCreateStringFormat", "Int", Format, "Int", Lang, "UPtr*", &hFormat := 0)
+      Return hFormat
+   }
+   ; Style
+   ; Normal     = 0 (Default)
+   ; Bold       = 1
+   ; Italic     = 2
+   ; BoldItalic = 3
+   ; Underline  = 4
+   ; Strikeout  = 8
+   ; Units - 
+   ; UnitWorld,      0 -- World coordinate (non-physical unit)
+   ; UnitDisplay,    1 -- Variable -- for PageTransform only
+   ; UnitPixel,      2 -- Each unit is one device pixel.
+   ; UnitPoint,      3 -- (Default) Each unit is a printer's point, or 1/72 inch.
+   ; UnitInch,       4 -- Each unit is 1 inch.
+   ; UnitDocument,   5 -- Each unit is 1/300 inch.
+   ; UnitMillimeter  6 -- Each unit is 1 millimeter.
+   Static FontCreate(hFamily, Size, Style := 0, Units := 3) {
+      DllCall("gdiplus\GdipCreateFont", "Ptr", hFamily, "Float", Size, "Int", Style, "Int", Units, "UPtr*", &hFont := 0)
+      Return hFont
+   }
+   Static GetFontSize(hFont) {
+      DllCall("gdiplus\GdipGetFontSize", "UPtr", hFont, "float*", &result := 0)
+      Return result
+   }
+   ; pFormat =
+   ; StringTrimmingNone = 0,
+   ; StringTrimmingCharacter = 1,
+   ; StringTrimmingWord = 2,
+   ; StringTrimmingEllipsisCharacter = 3,
+   ; StringTrimmingEllipsisWord = 4,
+   ; StringTrimmingEllipsisPath = 5
+   Static SetStringFormatTrimming(pFormat, Trimming := 0) {
+      return DllCall("gdiplus\GdipSetStringFormatTrimming", "Ptr", pFormat, "Int", Trimming)
+   }
+   Static FontFamilyCreate(Font, fontCollection:=0) {
+      DllCall("gdiplus\GdipCreateFontFamilyFromName"
+         , "Ptr", StrPtr(Font)
+         , "Ptr", fontCollection
+         , "UPtr*", &hFamily := 0)
+
+      Return hFamily
+   }
+
+   Static DeleteStringFormat(hStringFormat) {
+      if (res := DllCall("gdiplus\GdipDeleteStringFormat", "Ptr", hStringFormat))
+         warning("Failed to delete String Format " res)
+   }
+   Static DeleteFont(hFont) {
+      if (res := DllCall("gdiplus\GdipDeleteFont", "Ptr", hFont))
+         warning("Failed to delete Font " res)
+   }
+   Static DeleteFontFamily(hFontFamily) {
+      if (res := DllCall("gdiplus\GdipDeleteFontFamily", "Ptr", hFontFamily))
+         warning("Failed to delete Font Family" res)
+   }
+   ; RenderingHint options:
+   ; SystemDefault            = 0 Specifies that a character is drawn using the currently selected system font smoothing mode (also called a rendering hint).
+   ; SingleBitPerPixelGridFit = 1 Specifies that a character is drawn using its glyph bitmap and hinting to improve character appearance on stems and curvature.
+   ; SingleBitPerPixel        = 2 Specifies that a character is drawn using its glyph bitmap and no hinting. This results in better performance at the expense of quality.
+   ; AntiAliasGridFit         = 3 Specifies that a character is drawn using its antialiased glyph bitmap and hinting. This results in much better quality due to antialiasing at a higher performance cost.
+   ; AntiAlias                = 4 Specifies that a character is drawn using its antialiased glyph bitmap and no hinting. Stem width differences may be noticeable because hinting is turned off.
+   ; ClearTypeGridFit         = 5 Specifies that a character is drawn using its glyph ClearType bitmap and hinting. Can't be used with CompositingModeSourceCopy.
+   Static SetTextRenderingHint(G, RenderingHint) => DllCall("gdiplus\GdipSetTextRenderingHint", "Ptr", G, "int", RenderingHint)
+
+   Static NewPrivateFontCollection() {
+      DllCall("gdiplus\GdipNewPrivateFontCollection", "UPtr*", &hFontCollection:=0)
+      Return hFontCollection
+   }
+   Static NewInstalledFontCollection() {
+      DllCall('Gdiplus\GdipNewInstalledFontCollection', 'UPtr*', &hFontCollection:=0, 'uint')
+      Return hFontCollection
+   }
+   /*
+   StringDigitSubstituteUser
+   Value: 0 Specifies a user-defined substitution scheme.
+   StringDigitSubstituteNone
+   Value: 1 Specifies to disable substitutions.
+   StringDigitSubstituteNational
+   Value: 2 Specifies substitution digits that correspond with the official national language of the user's locale.
+   StringDigitSubstituteTraditional
+   Value: 3 Specifies substitution digits that correspond with the user's native script or language, which may be different from the official national language of the user's locale.
+   */
+   Static SetStringFormatDigitSubstitution(hStringFormat, StringDigitSubstitute:=2, langID:=0) {
+      Return DllCall("gdiplus\GdipSetStringFormatDigitSubstitution", "Ptr", hStringFormat, "UInt", langID, "Int", StringDigitSubstitute)
+   } 
+}
+
+;----------------------------------------------------------------------
+; Input Box Replacement
+; Adapted from https://github.com/Ixiko/AHK-libs-and-classes-collection/blob/8f89301ab7b9b7a219970a665bb1d2c9baab08b8/libs/g-n/TextInputBox.ahk#L55
+;----------------------------------------------------------------------
+TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
+   Static typeMap  := Map("Fill Text", Shapes.SHAPE_FILLTEXT, "Outline", Shapes.SHAPE_OLTEXT, "Tag", Shapes.SHAPE_TAG, "Left Arrow", Shapes.SHAPE_LEFTARROWTEXT, "Right Arrow", Shapes.SHAPE_RIGHTARROWTEXT, "Text Only", Shapes.SHAPE_TEXT)
+   Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+   ; Any more than this request subclassing, not really worth it.
+   If ((Owner := WinExist("A")) != ShapeObj.GUI.hWnd) {
+      ; Handle extraneous triggers
+      dlog("No Active Window Owner found")
+      Return {Result:"Cancel"}
+   }
+   ; Theming overrides these
+   guiBC  := DarkMode ? " c3E3E3E" : ""
+   btBG   := DarkMode ? " cD9D9D9 Background3E3E3E" : "" ; button has same BG as the GUI
+   ctrlBG := DarkMode ? " cD9D9D9 Background323232" : "" ; Other controls have a bit lighter background
+   ; Want to be on top
+   ; Edit GUI
+   textGui := Gui('+Resize +ToolWindow -MaximizeBox -MinimizeBox +DPIScale' . (Owner ? ' +Owner' . Owner : ''), Title " - " Prompt)
+   Scale := WinDPI(textGui.hWnd) / 96
+
+   textGui.BackColor := guiBC
+   textGui.MarginX := "10", textGui.MarginY := "10"
+   textGui.SetFont('s10', "Tahoma")
+
+   ; List of fonts
+   ddlWidth := 125
+   oFonts := textGui.AddDropDownList("Section W" . ddlWidth . ctrlBG, Shapes.InstalledFonts)
+   oFonts.OnEvent("Change", FontChange)
+   oFonts.text := ShapeObj.FontName
+   ; Make the dropdown list a bit wider (need to DPI scale)
+   PostMessage(0x0160, Round(ddlWidth * 2 * Scale), 0, oFonts.hWnd)  ; raw pixels, make it 2x the width of the entry box
+
+   ; List of Styles
+   oStyle := textGui.AddDropDownList("YP W80" ctrlBG, ["Normal", "Bold", "Italic", "BoldItalic", "Underline", "Strikeout"])
+   oStyle.OnEvent("Change", StyleChange)
+   oStyle.text := ShapeObj.FontStyle
+   ; Get control height and use that moving forward
+   oStyle.GetPos(,,,&butH)
+
+   ; UpDown List of font sizes
+   oFontVal  := textGui.AddEdit("YP W50 H" butH ctrlBG)
+   oFontSize := textGui.AddUpDown("YP Range4-500" , ShapeObj.FontSize)
+   ; PicButton.Theme(oFontSize.Hwnd)
+   ; PicButton.Theme(oFontVal.Hwnd)
+
+   oFontSize.OnEvent("Change", SizeChange)
+   oFontVal.OnEvent("Change", SizeChange)
+
+   ; Alignment options
+   oAlign := textGui.AddDropDownList("YP W65" ctrlBG, ["Left", "Center", "Right"])
+   oAlign.OnEvent("Change", AlignmentChange)
+   oAlign.text := ShapeObj.Alignment
+
+   ; Optionally Text Style (fill, outline, tag)
+   oType := textGui.AddDropDownList("YP W90" ctrlBG, ["Text Only", "Fill Text", "Outline", "Tag", "Left Arrow" , "Right Arrow"])
+   oType.OnEvent("Change", TypeChange)
+   Switch ShapeObj.Shape {
+      Case Shapes.SHAPE_TEXT:
+         oType.text := "Text Only"
+      Case Shapes.SHAPE_FILLTEXT:
+         oType.text := "Fill Text"
+      Case Shapes.SHAPE_OLTEXT:
+         oType.text := "Outline"
+      Case Shapes.SHAPE_TAG:
+         oType.text := "Tag"
+      Case Shapes.SHAPE_LEFTARROWTEXT:
+         oType.text := "Left Arrow"
+      Case Shapes.SHAPE_RIGHTARROWTEXT:
+         oType.text := "Right Arrow"
+      Default:
+   }
+   ; Color Button to select custom button
+   oColButton := textGui.AddPicButton("YP HP W" butH btBG, Settings_CursorPath . "colors.ico", "W" butH * Scale - 4 " H" butH * Scale - 4)
+   oColButton.OnEvent("Click", PickColor)
+   Color := ShapeObj.Color
+   ;----------------------------------------------------------------------
+   ; Edit Control
+   ; IDEA - option to enable/disable word wrap, note it can't be toggled for existing control
+   ;        would need two edit controls with one or the other hidden to toggle wrap
+   ;----------------------------------------------------------------------
+   ; If we added text with soft CRLF, then remove them here and let them re-wrap
+   ; LF `n would be a normal hard return
+   If (InitText) {
+      InitText := StrReplace(InitText, "`r`n", "")
+   }
+   ; Restore edit control size from last edit if it exists   
+   ; NOTE - if we shrunk the edit control, it will also be expanded to that of the controls above it
+   editDesiredHeight := Max(150, ShapeObj.FontSize * Scale * 3)
+   eWidth  := ShapeObj.HasProp("EditWidth") ? ShapeObj.EditWidth : 400
+   eHeight := ShapeObj.HasProp("EditHeight") ? ShapeObj.EditHeight : editDesiredHeight
+   oEdit := textGui.AddEdit('+Wrap +' oAlign.text . ctrlBG . ' W' . eWidth . ' XM Y+M h' . eHeight . ' WantTab T4 Multi VScroll HScroll -E0x200 Border', InitText)
+   oEdit.SetFont('s' ShapeObj.FontSize, ShapeObj.FontName)
+   SetEditFontStyle(oStyle.text)
+
+   oCancel   := textGui.AddButton('XM Y+M' ctrlBG, 'Cancel')
+   oAccept   := textGui.AddButton('XM YP WP HP Default' ctrlBG, 'OK') 
+   oDefaults := textGui.AddButton('XM YP HP' ctrlBG, 'Save Defaults')
+
+   ; Hide windows and move some controls around
+   WinSetTransparent(0, textGui.hWnd)
+   ; Enabling overall theming
+
+   ; BUG - with this enabled, 1st time the resizing doesn't work
+   tc := ControlThemes(textGui, DarkMode)
+   textGui.Show("AutoSize Center")
+   ; Resize after geometry is computed
+   ; Restore prior edit box size to maintain word wrap
+   PlaceControls()
+   WinRedraw(textGui.hWnd)
+   WinSetTransparent("Off", textGui.hWnd)
+   textGui.OnEvent("Size", ResizeMe)
+
+   ; Window is now visible
+
+   ; Object to return to user
+   Data := { Result : "OK", Value: '', g: textGui, oEdit: oEdit }
+   ; Event Handlers
+   textGui.OnEvent('Close', InputBox_Close.Bind(Data, false))
+   textGui.OnEvent('Escape', InputBox_Close.Bind(Data, false))
+   oCancel.OnEvent('Click', InputBox_Close.Bind(Data, false))
+   oAccept.OnEvent('Click', InputBox_Close.Bind(Data, true))
+   oDefaults.OnEvent('Click', InputBox_SetDefults.Bind(Data, true))
+   ; Bind ^Enter to accept input
+   HotIfWinactive("ahk_id " textGui.hWnd)
+   Hotkey("^Enter", InputBox_Close.Bind(Data, true))
+   HotIfWinactive
+
+   ControlFocus(oEdit)
+   WinWaitClose(textGui.hWnd)
+   Try WinActivate(Owner)
+
+   Return Data
+   ;/////////////////////////////////////////////////////////////////////////
+   ResizeMe(GuiObj, MinMax, Width, Height) {
+      If minmax = -1
+         Return
+      PlaceControls()
+   }
+   
+   /**
+    * Tell the edit control to return wrapped text with soft breaks (CRLF)
+    * @param {Integer} softBreak 
+    * @returns {Integer} 
+    */
+   SetEditFormat(softBreak := 1) {
+      Static EM_FMTLINES := 0xC8
+      SendMessage(EM_FMTLINES, softBreak, , oEdit.hWnd)
+      Return A_LastError
+   }
+   ;----------------------------------------------------------------------
+   ; Resize the edit and button controls
+   ;----------------------------------------------------------------------
+   PlaceControls() {
+      ; Buttons on bottom spaced at 1/3 position
+      grid := 6
+      textGui.GetClientPos(,, &guiW, &guiH)
+      oAccept.GetPos(, , &butW, &butH)
+
+      oAccept.Move(4 * guiW / grid - butW / 2, guiH - butH - textGui.MarginY)
+      oCancel.Move(5 * guiW / grid - butW / 2, guiH - butH - textGui.MarginY)
+
+      oDefaults.GetPos(, , &butW, &butH)
+      oDefaults.Move(1 * guiW / grid - butW / 2, guiH - butH - textGui.MarginY)
+      ; Span with width for the edit control, resize vertically
+      oEdit.GetPos(, &editY , &editW, &editH)
+      oEdit.Move(, , guiW - 2 * textGui.MarginX, guiH - editY - (butH + 2 * textGui.MarginY))
+   }
+   /**
+    * Set defaults for selected shape to current values
+    * @param Data 
+    * @param Ok 
+    */
+   InputBox_SetDefults(Data, Ok, *) {
+      Switch typeMap[oType.text] {
+         Case Shapes.SHAPE_TEXT, Shapes.SHAPE_FILLTEXT , Shapes.SHAPE_LEFTARROWTEXT:
+            TextShape.FillFontName  := oFonts.text
+            TextShape.FillFontStyle := oStyle.text
+            TextShape.FillAlignment := oAlign.text
+            TextShape.FillFontSize  := oFontVal.text
+         Case Shapes.SHAPE_OLTEXT:
+            TextShape.OLFontName   := oFonts.text
+            TextShape.OLFontStyle  := oStyle.text
+            TextShape.OLAlignment  := oAlign.text
+            TextShape.OLFontSize   := oFontVal.text
+         Case Shapes.SHAPE_TAG:
+            TextShape.TagFontName  := oFonts.text
+            TextShape.TagFontStyle := oStyle.text
+            TextShape.TagFontSize  := oFontVal.text
+         Default:
+
+      }
+   }
+   /**
+    * Event callback when edit text dialog is closed
+    * @param Data Object to store results
+    * @param Ok True to accept changes, false to cancel
+    */
+   InputBox_Close(Data, Ok, *) {
+      If (Ok) {
+         SetEditFormat(true)  ; indicate we want softbreaks translated to `r`n
+         Data.Value     := Trim(Data.oEdit.Value) ; Value returns just a LF (`n) for manual breaks
+         SetEditFormat(false)
+         Data.Alignment  := oAlign.text
+         Data.Font       := oFonts.text
+         Data.Size       := oFontVal.text
+         Data.FontStyle  := oStyle.text
+         Data.Shape      := typeMap[oType.text]
+         Data.Color      := Color
+         If Data.Value = "" {
+            Data.Result := "Cancel"
+         } Else {
+            ; Save edit box dimensions for next time
+            oEdit.GetPos(,,  &editW, &editH)
+            ShapeObj.EditWidth  := editW
+         }
+      } else {
+         Data.Result := "Cancel"
+      }
+      Data.g.Destroy()
+      tc := ""
+   }
+   ;--------------------------------------
+   ; Change the edit controls in real time
+   ;--------------------------------------
+   AlignmentChange(*) {
+      oEdit.Opt("+" oAlign.text)
+   }
+   FontChange(*) {
+      oEdit.SetFont('s' oFontVal.text, oFonts.text)
+   }
+   ColorChange(*) {
+   }
+   StyleChange(*) {
+      SetEditFontStyle(oStyle.text)
+   }
+   TypeChange(*) {
+      ShapeObj.Shape := typeMap[oType.text]
+   }
+   SetEditFontStyle(style) {
+      Switch style {
+         Case "Bold":
+            oEdit.SetFont("norm bold")
+         Case "Italic":
+            oEdit.SetFont("norm italic")
+         Case "BoldItalic":
+            oEdit.SetFont("bold italic")
+         Case "Normal":
+            oEdit.SetFont("norm")
+         Case "Strikeout":
+            oEdit.SetFont("norm strike")
+         Case "Underline":
+            oEdit.SetFont("norm underline")
+         Default:
+            oEdit.SetFont("norm")
+      }
+   }
+   SizeChange(*) {
+      if IsInteger(oFontVal.text)
+         oEdit.SetFont('s' oFontVal.text, oFonts.text)
+   }
+   PickColor(*) {
+      colArray:=Array()
+      ; Read up 16 custom colors from the settings
+      Loop 16 {
+         cName := IniReadValue("User Shape Color", "Color " A_Index, 123)
+         If cName = 123
+            Break
+         colArray.push(RGBval(cName))
+      }
+      Color := ColorSelectDialog(Color ?? 0, textGui.hWnd, colArray, 1)
+      ; IDEA - I could detect and update the INI file with custom colors
+   }
+}
+; a:=A_TickCount
+; GetFontNames
+; debug(A_TickCount - a "ms for fonts")
+;----------------------------------------------------------------------
+; Return the font names installed on the system
+; 273 fonts in 3ms - very fast
+;----------------------------------------------------------------------
+GetInstalledFontNames() {
+   hDC     := GDI.GetDC()
+   LOGFONT := Buffer(92, 0)
+   oFonts  := Map()
+   aFonts  := Array()
+   NumPut("UChar", DEFAULT_CHARSET := 1, LOGFONT.PTR, 23 )
+   cb := CallbackCreate(EnumFontFamExProc, "F", 4)
+   DllCall("Gdi32\EnumFontFamiliesEx", "Ptr", hDC, "Ptr", LOGFONT, "Ptr", cb, "Ptr", 0, "UInt", 0)
+   GDI.ReleaseDC(hDC)
+   CallbackFree(cb)
+   ; Map keeps keys in sorted order, so use that
+   for FaceName, xx in oFonts
+      aFonts.push(FaceName)
+   Return aFonts
+
+   EnumFontFamExProc(lpelfe, lpntme, FontType, lParam) {
+      lfFaceName := StrGet(lpelfe + 28)
+      ; charSet := NumGet(LOGFONT,27,"Char")
+      ; debug(lfFaceName "=" charSet)
+      ; Skip non true-type fonts (TRUETYPE_FONTTYPE)
+      If NOT (lfFaceName ~= "i)@") AND (FontType = 4) {
+         If NOT oFonts.has(lfFaceName) {
+            oFonts[lfFaceName] := 1
+         }
+      }
+      Return true
+   }
+}
+;----------------------------------------------------------------------
+; Class to display short text above some location
+;----------------------------------------------------------------------
+Class shortText {
+   __New(G) {
+      GDIpText.SetTextRenderingHint(G, Rendering := 3)
+      this.hFamily   := GDIpText.FontFamilyCreate("Segoe UI")
+      this.hFont     := GDIpText.FontCreate(this.hFamily, 12)
+      this.hFormat   := GDIpText.StringFormatCreate(FormatStyle := 0x80004000) ; 0x0000400 0x80000400
+      this.textBrush := GDIp.BrushCreateSolid(0xFFF0F0F0)
+      this.fillBrush := GDIp.BrushCreateSolid(0x80000000)
+      this.G         := G
+   }
+   ;----------------------------------------------------------------------
+   ; Draw the text just above the location
+   ;----------------------------------------------------------------------
+   DrawText(X, Y, text) {
+      ; Need blending composting mode
+      cMode := GDIp.GetCompositingMode(this.G)
+      GDIp.SetCompositingMode(this.G, 0)              ; Blend with existing
+      GDIp.CreateRectF(&RCWin, 0, 0, 500, 100)
+      RCText    := GDIpText.MeasureString(this.G, text, this.hFont, this.hFormat, RCWin)
+      W         := RCText.W
+      H         := RCText.H
+      ; desired screen coordinate with needed text w/h offset by height (bottom alignment)
+      RCText.Init(X, Y - H, W, H)
+      GDIp.FillRectangle(this.G, this.fillBrush, X, Y - H, W, H)
+      GDIpText.DrawString(this.G, text , this.hFont, this.hFormat, this.textBrush, &RCText)
+      GDIp.SetCompositingMode(this.G, cMode)              ; Replace existing
+
+   }
+   __Delete() {
+      GDIp.DeleteBrush(this.textBrush)
+      GDIp.DeleteBrush(this.fillBrush)
+      GDIpText.DeleteStringFormat(this.hFormat)
+      GDIpText.DeleteFont(this.hFont)
+      GDIpText.DeleteFontFamily(this.hFamily)
+   }
+
+}

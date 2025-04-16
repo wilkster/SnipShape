@@ -1,0 +1,342 @@
+/************************************************************************
+ * @description ButtonBar Class for SnipShape
+ * @file clsButtonBar.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/19
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2.1-
+#include clsGDIp.ahk2
+#include libMisc.ahk2
+; #Include ..\vsCode\Gdiplus.ahk2
+/*
+ * Button Bar Class to show buttons and select shapes, colors and such
+ * Lives on top of active GUI if it is enabled.
+*/
+Class ButtonBar {
+   Static DPIFactor  := activeDPIFactor()
+   Static Margin     := round(2.5 * this.DPIFactor)
+   ; NOTE - we are not adjusting this dynamically for multiple monitors
+   Static ButSize    := this.DPIFactor >= 1.5 ? 32 : 16 ; Raw size of cursor, may have to use 16 for low DPI
+   Static colorQueue := 0
+   Static shapeQueue := 0
+   Static buttonTips := Map()
+   Static buttonCallbacks := Map()
+
+   Static bbGUI      := 0
+   Static lastShape  := 0
+   ;                      Arrows   Blocks  Pen  HL   Erase    C/E  Text
+   Static buttonGaps     := [6,2,2,2, 6,2,2,2, 6,2, 6,2, 6,2,2,2, 6,2, 6,2,2, 2,2,2,2,2]
+   Static BS_ICON        := 0x40
+   Static BS_BITMAP      := 0x80
+   ; For colors menus throughout
+   Static colorNameArray := Array()
+   Static colorCodeMap   := Map()
+   Static colorIconsObj  := ImageList()
+   Static __New() {
+      Global Settings_File    
+      Global Settings_CursorPath
+      logGDI("Building ButtonBar")
+      ; 0x08000000 not foreground
+      this.Enabled         := IniReadValue("Button Bar", "Enabled", 1)
+      ; For now, this is not run-time adjustable just read from the settings file
+      this.FontSize        := IniReadValue("User Button Bar", "Font Size", 8)
+      this.bbGui           := Gui("+AlwaysOnTop +Border +ToolWindow -Caption -DPIScale")
+      this.bbGui.MarginY   := this.Margin
+      this.bbGui.MarginX   := this.Margin
+      this.bbGui.BackColor := Shapes.globalShapeColor
+      this.bbHeight        := 0
+      ; this.btnBackColor    := "Cd4c5b9"
+      mbg := SystemThemeAwareToolTipMenu.IsDarkMode ? 0xFF2B2B2B : 0xFFF8F8F8
+
+      ; Force rounded corners on windows 11 since we don't have a caption - we do manually later for windows 10
+      win11RoundCorners(this.bbGui.hwnd)
+      ; Setting the font size sets the button size as well, later we re-read the button size for this DPI
+      this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
+      ;----------------------------------------------------------------------
+      ; Close Bar Button
+      ;----------------------------------------------------------------------
+      cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" this.Margin * 3, Settings_CursorPath . "BBClose.ico", "W" cH " H" cH)
+
+      ; logGDI("Buttons Done")
+      ; Return
+      b.GetPos(,,,&cH)
+      b.OnEvent("Click", this.Hide.bind(this,0))
+      ; Cursors need to zoom in a bit, remove some margin
+      bs := this.ButSize := round(cH - 4 * this.DPIFactor)
+      ; debug("was " bs)
+      ; ; large icons
+      ; bs := this.ButSize := SysGet(0 ? 11 : 49)
+      ; debug("is " bs " " ch)
+
+      ; First button tells us what hull size to use, leave a small margin for cursors
+      this.buttonTips[b.hWnd] := "Close Button Bar (F1)"
+      ;----------------------------------------------------------------------
+      ; Grab the cursors and make a button bar
+      ; Show them in desired order
+      ; Button1, Button2 .... and so on for MouseGetPos name of control
+      ; Could keep a hash by Buttonnn name to the tooltip string
+      ;----------------------------------------------------------------------
+      this.shapeIconsObj := ImageList()
+      this.shapeIconsObj.Size := this.ButSize
+
+      this.MenuShapes := Menu()
+      o := Round(2 * activeDPIFactor()) ; spacing
+      logGDI("Building Shape Buttons")
+      for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
+         this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
+      logGDI("Built Shape Buttons")
+      ;----------------------------------------------------------------------
+      ; Build a button or menu entry for each color in settings
+      ;----------------------------------------------------------------------
+      this.MenuColors := Menu()
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, Settings_CursorPath . "colors.ico", "W" bs " H" bs)
+      this.buttonCallbacks[b.hWnd] := this.PostColorMenu.bind(this) ; this.PostColors.bind(this) ; callback is mouse down not a full click
+      this.buttonTips[b.hWnd] := "Set Shape Colors (1-9)"
+      this.colorIconsObj.Size := bs
+      o := this.ButSize/2
+      ;----------------------------------------------------------------------
+      ; Loop up to 20 colors that may be in the settings file
+      ;----------------------------------------------------------------------
+      For idx, defColor in Shapes.DefaultColorNames {
+         cName := IniReadValue("User Shape Color", "Color " idx, 123)
+         If cName = 123 ; Create default setting if not already done
+            IniWrite(defColor, Settings_File, "User Shape Color", "Color " idx)
+      }
+      ; logGDI("ButtonBar Colors")
+      ; This are the background colors for the light/dark windows menus
+      Loop 20 {
+         cName := IniReadValue("User Shape Color", "Color " A_Index, 123)
+         if cName = 123
+            Break
+         Color := RGBval(cName)
+         o := 3 ; normal spacing here on out
+         ; Will draw a circle of each color for the gui/menu
+         ; NOTE - menu icons can be smaller
+         br      := GDIp.BrushCreateSolid(0xFF000000 | Color)
+         pBitmap := GDIp.CreateBitmap(bs, bs)
+         G       := GDIp.GraphicsFromImage(pBitmap)
+                    GDIp.SetSmoothingMode(G)
+                    GDIp.SetPixelOffsetMode(G)
+
+         name := "Set " cName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color")
+         GDIp.FillEllipse(G, br, 0, 0, bs - 1, bs - 1) ; 0 - based
+         ; Icons solve the transparency issue on the menu (vs bitmaps), we don't delete them since they are reused
+         hIcon := GDIp.CreateHICONFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         GDIp.DeleteBrush(br)
+         GDIp.DeleteGraphics(G)
+
+         ; Save this information by use in the shape class
+         this.colorNameArray.push(name)
+         ; Save in an image list (this consumes then discards the icon)
+         this.colorIconsObj[name] := hIcon
+         this.colorCodeMap[name]  := Color
+
+         ; logGDI(" ButtonBar Color " cName)
+         ; GDI.DestroyIcon(hIcon) ; not needed
+      }
+      logGDI("Built Color Buttons")
+
+      ;----------------------------------------------------------------------
+      ; Minimize Snip Button
+      ;----------------------------------------------------------------------
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, Settings_CursorPath . "Minimize.ico", "W" cH " H" cH)
+
+      b.OnEvent("Click", this.MinimizeSnip.bind(this,0))
+      this.buttonTips[b.hWnd] := "Minimize Active Snip (⌄)"
+      logGDI("Built Snip Buttons")
+
+      ;----------------------------------------------------------------------
+      ; Close Snip Button
+      ;----------------------------------------------------------------------
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, Settings_CursorPath . "Close.ico", "W" ch " H" ch)
+      b.OnEvent("Click", this.CloseSnip.bind(this))
+      ; Also handle Escape
+      this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
+      this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
+      logGDI("Built Close Buttons")
+      ; Make the button edges the same as the gui background color
+      ; more GDI Resources (one for each button)
+      this.BackColor := Shapes.globalShapeColor
+      ; Save the height for positioning on Show
+      logGDI("GUI Show complete")
+      this.bbgui.Show("NA Y" 100000 " X" 100000)
+      WinGetPos(, , , &nH, this.bbgui.hwnd)
+
+      this.bbHeight := nH
+      ; Windows 10 round the corners (not needed with backcolor)
+      win10RoundCorners(this.bbgui.hWnd, this.DPIFactor)
+
+      this.bbgui.Hide()
+      logGDI("ButtonBar Complete")
+   }
+   ;----------------------------------------------------------------------
+   ; Build a button and submenu
+   ;----------------------------------------------------------------------
+   Static BuildShapeButtons(Button, SubButtons,pad:=3) {
+      static key      := "lButton"
+      fileName := Settings_CursorPath . "Menu\" . Button . ".png"
+      b        := this.bbGui.AddPicButton("Y" this.Margin " X+" . pad, fileName, "W" this.ButSize " H" this.ButSize) ; 4 obj
+      ; Left click handler
+      this.buttonCallbacks[b.hWnd] := this.PostShapeMenu.bind(this, SubButtons) ; callback is mouse down not a full click
+      this.buttonTips[b.hWnd] := Button . " Menu"
+
+      ; RMB menu for settings
+      b.OnEvent("contextMenu", Shapes._cmdRMBHandler.bind(Shapes, Button, key))
+      ; Cache the cursor images into an imagelist for reuse and less GDI resources.
+      For Button in SubButtons {
+         sna      := StrSplit(Button, "-")
+         baseName := Trim(sna[1])
+         key      := Trim(sna[2])
+         fileName := Settings_CursorPath . baseName ".cur"
+         If (FileExist(fileName)) {
+            butName := baseName . " (" . key . ")"
+            this.shapeIconsObj[butName] := fileName  ; Load into image list          
+         } Else
+            MsgBox("Could not find file:" fileName)
+      }
+      ; logGDI("  Built " Button)
+   }
+   /**
+    * Post the shape menu for the selected shape
+    * @param SubButtons Array of menu items
+    */
+   Static PostShapeMenu(SubButtons) {
+      this.MenuShapes.Delete()
+      For Button in SubButtons {
+         sna      := StrSplit(Button, "-")
+         baseName := Trim(sna[1])
+         key      := Trim(sna[2])
+         bn       := baseName . " (" . key . ")"
+         this.MenuShapes.Add(bn, this._cmdHandler.bind(this, baseName, key))
+         this.MenuShapes.SetIcon(bn, "HICON:" this.shapeIconsObj[bn], , 0)
+      }
+      this.MenuShapes.Show()
+      ; Blocks here
+      this.MenuShapes.Delete()
+   }
+   /**
+    * Post the color menu, doesn't tie up resources
+    */
+   Static PostColorMenu() {
+      this.MenuColors.Delete()
+      For menName in this.colorNameArray {
+         this.MenuColors.Add(menName, this._colorHandler.bind(this, this.colorCodeMap[menName]))
+         this.MenuColors.SetIcon(menName, "HICON:" this.colorIconsObj[menName], , 0)
+      }
+      this.MenuColors.Show()
+      ; Blocks here
+      this.MenuColors.Delete()
+   }
+   ;----------------------------------------------------------------------
+   ; Change the back color of the window and the buttons
+   ;----------------------------------------------------------------------
+   Static BackColor {
+      get => this.bbGUI.BackColor
+      set {
+         this.bbGUI.BackColor := Value
+         ; Change the buttons as well so they blend at edges
+         for ctrl in this.bbGui {
+            if (ctrl.Type ~= "Button") {
+               rgb := RGBHex(value)
+               ctrl.Opt("+BackGround" rgb) ; This ties up a brush object for each one
+            }
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Shape button handler, push the shape onto the queue
+   ;----------------------------------------------------------------------
+   Static _cmdHandler(btn, key, ctl, info, *) {
+      this.shapeQueue := btn
+      this.lastShape := btn
+      ToolTip
+      ToolTip(btn " shape pressed (" key ")")
+      SetTimer(ToolTip, -2000)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Called by the Snip when the cursor enters the GUI to pull any
+   ; pending command/colors pressed from this GUI (message passing)
+   ;----------------------------------------------------------------------
+   Static GetQueuedCommand() {
+      cmd := this.shapeQueue
+      this.shapeQueue := 0
+      return cmd
+   }
+   Static GetQueuedColor() {
+      cmd := this.colorQueue
+      this.colorQueue := 0
+      return cmd
+   }
+   ;----------------------------------------------------------------------
+   ; Color button handler, push the color/shape onto the queue
+   ;----------------------------------------------------------------------
+   Static _colorHandler(btn, ctl, info,*) {
+      ToolTip
+      ToolTip(btn " color pressed")
+      SetTimer(ToolTip, -2000)
+      rgbClr := RGBval(btn)
+      this.colorQueue := btn
+      ; Clean up the button borders so they match the background
+      this.BackColor := rgbClr
+      this.MenuColors.Delete()
+   }
+   ;----------------------------------------------------------------------
+   ; Place the button bar right above the active snip
+   ;----------------------------------------------------------------------
+   Static Show(hWnd := 0, Enable?, X?, Y?) {
+      If (IsSet(Enable))
+         this.Enabled := Enable
+      If (this.Enabled) {
+         If (hWnd OR (hWnd := WinActive("SnipShapeWindow"))) {
+            ; Snip location, dragging will set these more accuratly
+            If (IsSet(X) AND IsSet(Y))
+               sX := X, sY := Y
+            Else
+               WinGetPos(&sX, &sY,,, hWnd)
+            ; Keep it visible on current monitor
+            MonInfo := Snips.activeMonArea()
+            newY    := Max(sY - this.bbHeight, MonInfo.Y)
+            sX      := Max(sX, MonInfo.X)
+            this.bbgui.Show("NA Y" newY " X" sX)
+
+            ; SetParent(this.bbgui.hWnd,hWnd)
+            ; this.bbgui.Move(sX,newY)
+         } Else {
+            dlog("No Snip Active when expected")
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Hide the button bar and optionally disable it
+   ;----------------------------------------------------------------------
+   Static Hide(enabled?, *) {
+      if (IsSet(enabled))
+         this.Enabled := enabled
+      this.bbgui.Hide()
+      ToolTip
+   }
+   ;----------------------------------------------------------------------
+   ; Minimize the last active snip
+   ;----------------------------------------------------------------------
+   Static MinimizeSnip(*) {
+     if (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.Minimize(hWnd)
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Close the last active snip
+   ;----------------------------------------------------------------------
+   Static CloseSnip(*) {
+      If (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.Close(hWnd, 0)
+         Snips.ActivateFirst()
+      } Else {
+         dlog("No Snip Window Found")
+      }
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

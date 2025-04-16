@@ -1,0 +1,408 @@
+/************************************************************************
+ * @description Curor class to show curors as needed to indicate actions
+ * @file clsCursor.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/20
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2.1-
+#include clsGDIp.ahk2
+;----------------------------------------------------------------------
+; Cursor Class
+;----------------------------------------------------------------------
+   /* Built-ins
+      IDC_APPSTARTING := 32650 IDC_ARROW       := 32512 IDC_CROSS       := 32515
+      IDC_HAND        := 32649 IDC_HELP        := 32651 IDC_IBEAM       := 32513
+      IDC_NO          := 32648 IDC_SIZEALL     := 32646 IDC_SIZENESW    := 32643
+      IDC_SIZENS      := 32645 IDC_SIZENWSE    := 32642 IDC_SIZEWE      := 32644
+      IDC_UPARROW     := 32516 IDC_WAIT        := 32514 
+   */
+
+Class Cursor {
+   Static Cursors          := Map(), Cursors.CaseSense := "Off"
+   Static SetCur           := GetModHandle("SetCursor", "User32")
+   Static MoveResizeCursor := 0
+   Static ResizeBox        := 9 * A_ScreenDPI / 96
+   ; The index ties to the potential resize points 9/10 are for lines leaning backwards
+   Static ResizeCursors := Array("SizeNWSE","SizeNESW","SizeEW","SizeNWSE","SizeNS","SizeNESW","SizeEW","SizeNS")
+   Static CL := Map("Starting" , 32650, "Pointer" , 32512, "Cross" , 32515, "Hand",  32649, "Help", 32651, "IBeam", 32513, "No", 32648
+                  , "SizeAll", 32646, "SizeNESW", 32643, "SizeNS", 32645, "SizeNWSE", 32642, "SizeEW", 32644, "SizeUpArrow", 32516
+                  , "Wait", 32514, "HandPin", 32671)
+   
+   Static __New() {
+      ;----------------------------------------------------------------------
+      ; Load all of the cursors we will use for dynamic cursor updates
+      ;----------------------------------------------------------------------
+      Global Settings_CursorPath
+      ; https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
+      ; Load the stock cursors by name and by ID
+      for name, ID in this.CL {
+         this.Cursors[name] :=this.Cursors[ID] := this.LoadStockCursor(ID)
+      }
+      ; Load custom cursors by file name
+      ; logGDI("Loading Cursor Files")
+      ; I := 0
+      ; TODO - can I use the same image list as for the button bar menus?
+      ; One issue is imagelist won't save the cursor hotspot
+      Loop Files Settings_CursorPath . "*.*" {
+         If (A_LoopFileExt ~= "i)cur|ani") {
+            SplitPath(A_LoopFileFullPath, &fileName, , , &baseName)
+            ; 3 GDI + 1 user objects per cursor
+            this.Cursors[baseName] := this.LoadFileCursor(A_LoopFileFullPath) ; 3 gdi resources per cursor
+            ; logGDI("Cursor File " A_LoopFileFullPath)
+         }
+      }
+      ; logGDI(I " Cursor Files Loaded") ; 3 gdi per cursor
+      ; If custom cursors have shape names then use them, otherwise default to standard pointer
+      For shapeNum, shName in Shapes.ShapeName {
+         shName := Trim(StrSplit(shName, "-")[1])
+         this.Cursors[shapeNum] := this.Cursors.Get(shName, this.Cursors["Pointer"])
+      }
+      this.Cursors["Text"] := this.Cursors.Get("Text", this.Cursors["Pointer"])
+      
+      ; Some defaults if custom cursors not available
+      SetDefCursor("Select","HandPin") ; if open hand cursor isn't available, substitute with finger/person built-in
+      SetDefCursor("Move","SizeAll") ; if grip move isn't available, substitute with Sizeall built-in
+      SetDefCursor("AltCross","Cross")
+
+      ; default for face of snip
+      this.Cursors[0] := this.Cursors["Pointer"] ; (Changed: was Select)
+      ; NOTE - 2.1 Alpha 7+ has GuiOrCtrlObj.OnMessage(MsgNumber, Callback [, AddRemove])
+      ;        So each gui/control can have its own callback.
+      OnMessage(0x020, Cursor.WM_SETCURSOR.bind(this), 2) 
+      Return
+
+      SetDefCursor(key, replace) {
+         If NOT this.Cursors.Has(key)
+            this.Cursors[key] := this.Cursors[replace]
+      }
+
+   }
+   ;----------------------------------------------------------------------
+   ; Callback for when the cursor needs to change 
+   ; Return of non-zero means we didn't change the cursor, non-zero means we did
+   ; change it If an application processes this message, it should return TRUE
+   ; to halt further processing or FALSE to continue to default processing. NOTE
+   ; wParam is the picture control handle when it is hovering over it, so if it
+   ; is different than hWnd we are over the child control
+   ;----------------------------------------------------------------------
+   Static WM_SETCURSOR(wParam, lParam, msg, hWnd) {
+      Static lastControl := ""
+      ; debug(wParam ", " lParam ", " msg ", " hWnd)
+      If (hWnd = Snips.guiSSR.hWnd) {
+         ; Selection GUI active
+         Switch Snips.SnipMode {
+            Case 0, 1:
+               Return this.SetCursor("AltCross") ;
+            Default:
+               Return this.SetCursor("OCR") ;
+         }
+      } Else If Snips.IsValid(hWnd) {
+         ; As we enter this window, if there is a pending command then queue it up
+         If (cmd := ButtonBar.GetQueuedCommand()) {
+            ; Convert command text name into command number used here
+            if (idx := Shapes.NameToNumber(cmd)) {
+               Snips.SetDrawMode(idx, hWnd)
+            }
+         }
+         ; Check for pending color change
+         If (color := ButtonBar.GetQueuedColor()) {
+            Snips.SetSnipBorderColor(color, hWnd)
+            Shapes.globalShapeColor := RGBval(color)
+         }
+         Tooltip ; turn off if we moved over the snip
+         ; ctrl := GuiCtrlFromHwnd(wParam)
+         ; (Change) returning 0 (default cursor) if we are not over a shape
+         Return this.SetCursor(this.MoveResizeCursor, Snips.GetGuiObj(hWnd).DrawMode, (wParam = hWnd ? 0 : wParam))
+      } Else If (hwnd = ButtonBar.bbGUI.hWnd) {
+         ; Button Bar, get the control hWnd
+         ; Show a tooltip for the button if we have one
+         If (wParam = lastControl) {
+            ; nothing
+         } else if (wParam AND ButtonBar.buttonTips.Has(wParam) And WinActive("ahk_class AutoHotkeyGUI")) { ; active menus have a class #32768
+            Tooltip " " . ButtonBar.buttonTips[wParam] . " "
+            SetTimer(ToolTip,-1500)
+            lastControl := wParam
+         } else {
+            ; Left the button, clear tooltip now
+            Tooltip
+            lastControl := wParam
+         }
+         ; Always use a standard pointer
+         Return this.setCursor("Pointer") ; (Change)
+      } Else {
+         ; Will happen if drawing overlay is up while drawing/re-drawing while moving
+         ; Also if the text edit window is up
+         Return  ; No parameter will allow standard cursor handling (ignores this callback instance)
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Set the current move/resizer cursor for adjusting shapes
+   ;----------------------------------------------------------------------
+   Static SetCursorMode(cursor := 0) {
+      oldMode := this.MoveResizeCursor
+      this.MoveResizeCursor := cursor
+      this.SetCursor(this.MoveResizeCursor)
+      Return oldMode
+   }
+   ;----------------------------------------------------------------------
+   ; Set cursor depending on mode, have to clear the cursor class for the shape first
+   ; Return 1 if we set the cursor, 0 if we skipped it (let parent decide)
+   ;----------------------------------------------------------------------
+   Static SetCursor(resizeCursor, drawModeCursor := 0, shapehWnd := 0) {
+      ; These need to be tested in a priority order
+      if (resizeCursor) {
+         ; resizeCursor/move/Select mode takes precedence
+         ; 30us to call
+         ; debug(drawModeCursor " " shapehWnd " " resizeCursor)
+         DllCall(this.SetCur, "Ptr", this.Cursors[resizeCursor])
+         Return 1 
+      } else If (shapehWnd and drawModeCursor = 0) {
+         ; Hovering over shape, set the cursor depending on where we are over the shape
+         focusBorder.ShowFocus(shapehWnd)
+         DllCall(this.SetCur, "Ptr", this.MouseOnEdge(shapehWnd))
+         Return 1
+      } else If (drawModeCursor = 0 OR Shapes.ShapeName.Has(drawModeCursor)) {
+         ; Over the drawing suface, use the draw mode cursor as appropriate
+         ; Ctrl key is temp move, so check for it here
+         ; NOTE - after we let go of a shape (but still over it), this will also be called with shapehWnd=0
+         DllCall(this.SetCur, "Ptr", this.Cursors[GetKeyState("Ctrl", "P") ? 0 : drawModeCursor])  ;, debug("Draw Mode " drawMode)
+         focusBorder.HideFocus()
+         Return 1
+      } else {
+         focusBorder.HideFocus()
+         ; None of these cases, we didn't do anything
+         Return 0
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Return the appropriate cursor depending on where the mouse is
+   ; When it is over a shape
+   ; GuiCtrlFromHwnd will retrieve the object
+   ;----------------------------------------------------------------------
+   Static MouseOnEdge(shapehWnd) {
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&mX, &mY)
+      ShapeObj := GuiCtrlFromHwnd(shapehWnd)
+      CI := ShapeObj.CornerInfo(mX,mY)
+      cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
+      Return this.Cursors[Cur]
+   }
+   ;----------------------------------------------------------------------
+   ; Load a stock cursor by number
+   ;----------------------------------------------------------------------
+   Static LoadStockCursor(num) {
+      Static IMAGE_CURSOR    := 2
+      Static LR_DEFAULTSIZE  := 0x00000040
+      Static LR_SHARED       := 0x00008000
+      return DllCall("User32.dll\LoadImage", "Ptr", 0, "Ptr", num, "UInt", IMAGE_CURSOR, "Int", 0, "Int", 0, "UInt", LR_DEFAULTSIZE | LR_SHARED, "Ptr")
+   }
+   ;----------------------------------------------------------------------
+   ; Load a Cursor from an ico file
+   ;----------------------------------------------------------------------
+   Static LoadFileCursor(fName) {
+      Static IMAGE_CURSOR    := 2
+      Static LR_DEFAULTSIZE  := 0x00000040
+      Static LR_SHARED       := 0x00008000
+      Static LR_LOADFROMFILE := 0x00000010
+      ; Docs say do not use LR_SHARED for images loaded from files
+      Return DllCall("User32.dll\LoadImage", "Ptr", 0, "Str", fName, "UInt", IMAGE_CURSOR, "Int", 0, "Int", 0, "UInt", LR_LOADFROMFILE | LR_DEFAULTSIZE, "Ptr")
+      ; Return DllCall("User32.dll\LoadImage", "Ptr", 0, "Str", fName, "UInt", IMAGE_CURSOR, "Int", 0, "Int", 0, "UInt", LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED, "Ptr")
+   }
+}
+/***********
+ * Class to show a focus rectangle along with resizer squares when the shape has the cursor over it
+ * Or moving/resizing the shape.
+ * This can be tricky due to cursor callbacks happening quickly. To handle
+ * 1. Have a blocking mode that prohibits turning off the focus rectangle while it is blocked
+ * 2. In Move/Resize force this block and only turn it off after 20ms
+ */
+Class focusBorder {
+   Static __New() {
+      ; WS_EX_CLICKTHROUGH := 0x20
+      this.BW            := 1.0 * activeDPIFactor() ; dash rectangle width
+                         ; click thru, no sys menu, layered
+      this.focusBorderGui         := Gui("+E0x20 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale")  ; -0x20000
+      this.lastHwnd      := 0
+      this.Block         := false
+      this.W             := 0
+      this.H             := 0
+      this.wX            := 0 ; Snip Window offset
+      this.wY            := 0 ; Snip Window offset
+      this.wW            := 0
+      this.wH            := 0
+      this.ShapeObj      := 0 ; Save the last know shapeObj
+      if (Snips.focusRectangle)
+         this.focusBorderGui.Show('NA')
+
+   }
+   ;----------------------------------------------------------------------
+   ; Called when moving or resizing the shape
+   ; Position relative to snip
+   ; requires startup/shutdown by the caller
+   ; ALso assumes the focus gui is alread active
+   ;----------------------------------------------------------------------
+   Static Move(X, Y, W?, H?) {
+      If (Snips.focusRectangle) {
+         if (this.RenderFocusRect(this.wX + X, this.wY + Y, W ?? this.W, H ?? this.H))
+            Warning("Failed to move focus border")
+      }
+   }
+   Static Sync() {
+      If (Snips.focusRectangle) {
+         C := this.ShapeObj.shapeCoord
+         if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
+            Warning("Failed to Sync Focus border")
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Close the active shape
+   ;----------------------------------------------------------------------
+   Static RemoveShapeIfFocused() {
+      If this.IsShown {
+         This.ShapeObj.Close()
+         this.ShapeObj := 0
+         this.HideFocus()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Called in cursor callback, handles repeats to reduce flicker
+   ; Also call this once before move/shapeshift/resize events (in a loop)
+   ;----------------------------------------------------------------------
+   Static ShowFocus(hWnd, Block:=0) {
+      If (Snips.focusRectangle AND (this.IsNotShown OR this.lastHwnd != hWnd OR Block)) {
+         This.ShapeObj := GuiCtrlFromHwnd(hWnd)
+         If WinActive(This.ShapeObj.Gui) {
+            C := This.ShapeObj.shapeCoord
+            ; Get and save the Snip window coordinates for offsets
+            this.ShapeObj.Gui.GetPos(&this.wX, &this.wY, &this.wW, &this.wH)
+            if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
+               warning("Failed to Show Focus Border")
+            this.focusBorderGui.Show('NA')
+            this.lastHwnd     := hWnd
+            focusBorder.Block := Block
+         }
+      }
+   }
+   Static IsShown => IsWindowVisible(this.focusBorderGui.hWnd)
+   Static IsNotShown => (NOT IsWindowVisible(this.focusBorderGui.hWnd))
+   ;----------------------------------------------------------------------
+   ; Hide the focus window
+   ;----------------------------------------------------------------------
+   Static HideFocus(Force := false) {
+      If (Snips.focusRectangle and this.IsShown) {
+         If (Force) {
+            this.focusBorderGui.Hide()
+            focusBorder.Block := false
+         } else if (NOT focusBorder.Block) {
+            this.focusBorderGui.Hide()
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Unblock the HideFocus after a short interval to prevent flashes
+   ; due to the cursor callbacks happening rapidly
+   ;----------------------------------------------------------------------
+   Static UnBlockMe() {
+      SetTimer((*) => focusBorder.Block := false, -20)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Show the focus border and resize points at some location
+   ; Used internally
+   ; Coordinate parameters are screen units
+   ; Requires GDI+ be started external to this
+   ; Takes a couple ms on Niwot
+   ;----------------------------------------------------------------------
+   Static RenderFocusRect(x, y, w, h) {
+      Static PointsF := stPointF()
+      Static Rect    := stRECTI()
+      Critical("On")
+      RW := Cursor.ResizeBox
+      If (Min(w, h) < RW * 2) ; small box for small shapes
+         RW := RW * 2 / 3
+      RW2 := RW / 2
+      ; Can get interupted above
+      dW := Round(w + RW * 2)
+      dH := Round(h + RW * 2)
+      ; NOTE - Update layered window will need the DIBSection so can't just use only GDI+
+      ihdc := GDI.CreateCompatibleDC()
+      ihbm := GDI.CreateDIBSection(dW, dH, ihdc)
+      iobm := GDI.SelectObject(ihdc, ihbm)
+      ; Can get an async error where we don't have a GDIStartup running when this is called
+      If (G := GDIp.GraphicsFromHDC(ihdc)) {
+         ; Set so faster render modes
+         GDIp.SetSmoothingMode(G, 2) ; quality for the grab circles
+         GDIp.SetInterpolationMode(G, 2)
+         GDIp.SetCompositingMode(G, 0)
+         ; Color that shows up on any background (pinkish)
+         cColor := Complementary(this.ShapeObj.Color)
+         ; Two rectangles black base and dotted white on top
+         ; Will show up on any surface
+         dashPen := GDIp.CreatePen(0xFF000000, this.BW)
+         GDIp.SetPenAlignment(dashPen, 0)
+         ; Solid black
+         GDIp.SetPenDashStyle(dashPen, 0)
+         GDIp.DrawRectangle(G, dashPen, RW, RW, w, h)
+         ; Solid White overlay
+         GDIp.SetPenColor(dashPen, 0xFFFFFFFF)
+         ; Even spaced dash line on top of solid line so it shows on any background
+         PointsF.Init(RW2 / 2, RW2 / 2)
+         ; NumPut("Float", RW2 / 2, "Float", RW2 / 2, PointsF.Ptr)
+         DllCall("gdiplus\GdipSetPenDashArray", "Ptr", dashPen, "Ptr", PointsF, "int", 2)
+         GDIp.DrawRectangle(G, dashPen, RW, RW, w, h)
+         ; Put appropriate resize points
+         compBrush := GDIp.BrushCreateSolid(0xC4000000 | cColor)
+         colorPen  := GDIp.CreatePen(0xFF000000 | this.ShapeObj.Color, this.BW)
+         GDIp.SetPenAlignment(colorPen, 0)
+
+         ; NOTE - we rely on the shapeobj coordinated being updated first (H/W that is)
+         ;----------------------------------------------------------------------
+         ; Draw the 8 focus square or 2 circle depending on what the shape wants
+         ; Ignore if we are outside the shape Rect
+         ;----------------------------------------------------------------------
+         Rect.Init(this.wX, this.wY, this.wX + this.wW, this.wY + this.wH)
+         fn := this.ShapeObj.FocusSquare ? resizeSquare : resizeCircle
+         For objFP in this.ShapeObj.FocusPoints() {
+            ; Don't draw the grap points if they are off the shape, only the rectangle
+            If DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", (Round(y + objFP.Y) << 32 | Round(x + objFP.X)), "Uint")
+               fn(objFP.X, objFP.Y)
+         }
+         ; Show the updates
+         GDI.UpdateLayeredWindow(this.focusBorderGui.hWnd, ihdc, Round(x - RW), Round(y - RW), dW, dH)
+         ; Save the latest width for move functions
+         this.W := w
+         this.H := h
+         ; Cleanup
+         GDIp.DeletePen(dashPen)
+         GDIp.DeletePen(colorPen)
+         GDIp.DeleteBrush(compBrush)
+         GDIp.DeleteGraphics(G)
+         Result := 0
+      } Else {
+         warning("!Failed to return a graphics object from HDC - is GDI+ Started?")
+         Result := 1
+      }
+      ; Shutdown DIB
+      GDI.SelectObject(ihdc, iobm)
+      GDI.DeleteObject(ihbm)
+      GDI.DeleteDC(ihdc)
+
+      Critical("Off")
+      Return Result
+      ;----------------------------------------------------------------------
+      ; Draw square/circle resize points, all done in screen coordinates
+      ;----------------------------------------------------------------------
+      resizeCircle(inX, inY) {
+         GDIp.FillEllipse(G, compBrush, inX + RW2, inY + RW2, RW, RW)
+         GDIp.DrawEllipse(G, colorPen, inX + RW2, inY + RW2, RW, RW)
+      } 
+      resizeSquare(inX, inY) {
+         GDIp.FillRectangle(G, compBrush, inX + RW2, inY + RW2, RW, RW)
+         GDIp.DrawRectangle(G, colorPen, inX + RW2, inY + RW2, RW, RW)
+      } 
+
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

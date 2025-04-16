@@ -1,0 +1,74 @@
+{
+	"files": [
+		{
+			"path": "Lib/clsShapes.ahk2",
+			"bookmarks": [
+				{
+					"line": 1702,
+					"column": 1,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsSnips.ahk2",
+			"bookmarks": [
+				{
+					"line": 151,
+					"column": 51,
+					"label": ""
+				},
+				{
+					"line": 189,
+					"column": 27,
+					"label": ""
+				},
+				{
+					"line": 328,
+					"column": 12,
+					"label": ""
+				},
+				{
+					"line": 451,
+					"column": 32,
+					"label": ""
+				},
+				{
+					"line": 688,
+					"column": 61,
+					"label": ""
+				},
+				{
+					"line": 804,
+					"column": 10,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsMenus.ahk2",
+			"bookmarks": [
+				{
+					"line": 80,
+					"column": 39,
+					"label": ""
+				},
+				{
+					"line": 188,
+					"column": 29,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "SnipShape.ahk2",
+			"bookmarks": [
+				{
+					"line": 219,
+					"column": 9,
+					"label": ""
+				}
+			]
+		}
+	]
+}

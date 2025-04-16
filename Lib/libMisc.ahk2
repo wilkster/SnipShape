@@ -1,0 +1,900 @@
+#Requires AutoHotkey v2.1-
+#include Theming.ahk2
+/************************************************************************
+ * @description Various Functions use in this script
+ * @file libMisc.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/20
+ * @version 1.0.0
+ ***********************************************************************/
+;@include-winapi
+;======================================================================
+;     M I S C   F U N C T I O N S    B E L O W
+;======================================================================
+;
+;======================================================================
+; Theme Related
+;======================================================================
+/*
+   Does the window also need WS_EX_NOREDIRECTIONBITMAP
+*/
+Mica11Backdrop(hWnd) {
+   bd := 2
+   DllCall("dwmapi\DwmSetWindowAttribute"
+      , "Ptr", hWnd
+      , "UInt", 38 ; 38 or 1029
+      , "Int*", bd
+      , "UInt", 4)
+
+}
+/**
+ * Round the corners around the GUI for windows 10, after posting GUI.
+ * 
+ * Should not be used if borders are enabled since they will be cutoff in the corners.
+ * @param hWnd - Handle to window to operate on
+ */
+win11RoundCorners(hWnd) {
+   static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
+   if (WinVer > 10)
+      DllCall("Dwmapi\DwmSetWindowAttribute", "Ptr", hWnd, "UInt", 33, "Ptr*", 3, "UInt", 4)
+}
+/**
+ * Round the corners of Windows 10 windows by setting a windows region
+ * @param hWnd - Handle to window to operate on
+ * @param {Integer} Scale 
+ */
+win10RoundCorners(hWnd, Scale := 1) {
+   Static CRadius := 4 * Scale
+   static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
+ 
+   if (WinVer < 11) {
+      try {
+         WinGetPos(, , &W, &H, hWnd)
+         radius := round(CRadius * Scale)
+         WinSetRegion("0-0 W" W + 1 " H" H + 1 " R" radius "-" radius, hWnd)
+      } catch as e {
+         OutputDebug("Error:" e.Message ", at " e.What " line " e.Line)
+      }
+   }
+}
+
+;======================================================================
+; Window Related
+;======================================================================
+EnumChildWindows(hWnd, mcb, params := 0) => DllCall("User32.dll\EnumChildWindows", "Ptr", hWnd, "Ptr", mcb, "Ptr", params)
+IsWindowVisible(hwndTry) => DllCall("User32.dll\IsWindowVisible", "Ptr", hwndTry)
+SetWindowPos(hWnd, wx, wy, ww, wh, flag) {
+   Static SetWindowPos := GetModHandle("SetWindowPos", "User32.dll")
+
+   ; error on return type yere
+   Return DllCall(SetWindowPos
+      , "Ptr", hWnd
+      , "Ptr", 0	; hWndInsertAfter, using HWND_TOP
+      , "Int", wx
+      , "Int", wy
+      , "Int", ww
+      , "Int", wh
+      , "UInt", flag
+   )
+
+}
+;----------------------------------------------------------------------
+; Return a window above the current, 0 if already on top
+;----------------------------------------------------------------------
+GetTopWindow(hWnd) => DllCall("User32\GetWindow", "Ptr", hWnd, "Uint", 3)
+;----------------------------------------------------------------------
+; Return the parent window for a child window
+;----------------------------------------------------------------------
+GetParent(hWnd) => DllCall("User32.dll\GetParent", "Ptr", hWnd)
+GetParentOnly(hWnd) => DllCall("User32.dll\GetAncestor", "Ptr", hWnd, "UInt", 1, "Ptr")
+GetRootOwner(thisID) => DllCall("User32.dll\GetAncestor", "Ptr", thisID, "UInt", 3, "Ptr")
+;----------------------------------------------------------------------
+; set it topmost, helps with flicker, can get rid of bthWnd
+;----------------------------------------------------------------------
+SetWindowTop(hWnd, flag:=0x0013) {
+   if (GetTopWindow(hWnd))
+      Return DllCall("User32\SetWindowPos"
+         , "Ptr", hWnd
+         , "Ptr", 0
+         , "Int", 0
+         , "Int", 0
+         , "Int", 0
+         , "Int", 0
+         , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+      )
+}
+;----------------------------------------------------------------------
+; set it bottom most
+;----------------------------------------------------------------------
+SetWindowBottom(hWnd, flag:=0x0013) {
+   Return DllCall("User32\SetWindowPos"
+      , "Ptr", hWnd
+      , "Ptr", 1
+      , "Int", 0
+      , "Int", 0
+      , "Int", 0
+      , "Int", 0
+      , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+   )
+}
+;----------------------------------------------------------------------
+; Push a layered shape object down one in the stack
+;----------------------------------------------------------------------
+PeerCount(shapeObj) {
+   WinCount := 0
+   CWCB := CallbackCreate(SiblingList, "Fast", 2)
+   EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
+   CallbackFree(CWCB)
+   Return WinCount
+
+   SiblingList(hWnd, Cont) {
+      ex := WinGetExStyle(hWnd) & 0x00080000
+      vs := WinGetStyle(hWnd)   & 0x10000000
+      If (ex AND vs) {
+         WinCount++
+      }
+      Return true
+   }
+}
+;----------------------------------------------------------------------
+; Push the layered shape one down in the Z-Order
+;----------------------------------------------------------------------
+PushShapeDownOne(shapeObj) {
+   CWCB := CallbackCreate(SiblingList, "Fast", 2)
+   haveOwnWindow := false
+   AfterWin := 0
+   EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
+   CallbackFree(CWCB)
+
+   If (AfterWin) {
+      DllCall("SetWindowPos"
+         , "Ptr", shapeObj.hWnd ; window
+         , "Ptr", AfterWin ; InsertAfter
+         , "Int", 0 ; X
+         , "Int", 0 ; Y
+         , "Int", 0 ; cX
+         , "Int", 0 ; cY
+         , "UInt", 0x0013 ;flags SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+      )
+   }
+   Return AfterWin
+
+   SiblingList(hWnd, Cont) {
+      if (hWnd = shapeObj.hWnd)
+         haveOwnWindow := true
+      else If haveOwnWindow = true {
+         ex := WinGetExStyle(hWnd) & 0x00080000
+         vs := WinGetStyle(hWnd)   & 0x10000000
+         If (ex AND vs) {
+            AfterWin := hWnd
+            Return false
+         }
+      }
+      Return true
+   }
+}
+;----------------------------------------------------------------------
+; Put the shape object on the top of the stack
+;----------------------------------------------------------------------
+ShapeOnTop(shapeObj) {
+   If (GetTopWindow(shapeObj.hWnd)) {
+      res := DllCall("User32\SetWindowPos"
+         , "Ptr", shapeObj.hWnd, "Ptr", 0
+         , "Int", 0, "Int", 0, "Int", 0, "Int", 0
+         , "UInt", 0x0013 ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+      )
+      return res
+   }
+}
+; SetWindowLong(hWnd,opCode, Value) => DllCall("SetWindowLong", "int", hwnd, "int", opCode, "int", Value)
+; GetWindowLong(hWnd,opCode) => DllCall("GetWindowLong", "Ptr", hWnd, "Uint", opCode, "Uint")
+GetModHandle(strModule, strDLL) => 
+   DllCall("GetProcAddress", "PTR", DllCall("GetModuleHandle", "Str", strDLL, "PTR"), "AStr", strModule, "PTR")
+; Returns prior parent or NULL if failed, To get extended error information, call GetLastError
+SetParent(child, parent) => DllCall("SetParent", "Ptr", child, "Ptr", parent,"Uint")
+;----------------------------------------------------------------------
+; Return the client dimensions without the invisible border Use with
+; DwmGetWindowAttribute. Retrieves the extended frame bounds rectangle in screen
+; space. The retrieved value is of type RECT.
+;----------------------------------------------------------------------
+WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
+   static DWMWA_EXTENDED_FRAME_BOUNDS:=9
+   If (hWindow) {
+      RECTi := stRECTI()
+      DWMRC := DllCall("dwmapi\DwmGetWindowAttribute"
+         , "Ptr", hWindow                        ;-- hwnd
+         , "UInt", DWMWA_EXTENDED_FRAME_BOUNDS    ;-- dwAttribute
+         , "Ptr", RECTi.Ptr                       ;-- pvAttribute
+         , "UInt", RECTi.Size)                     ;-- cbAttribute
+      X      := RECTi.X1
+      Y      := RECTi.Y1
+      Right  := RECTi.X2
+      Bottom := RECTi.Y2
+      W      := RECTi.W
+      H      := RECTi.H
+      Return true
+   } else 
+      Return false
+}
+; Based on WinGetClientPos by dd900 and Frosti - https://www.autohotkey.com/boards/viewtopic.php?t=484
+; Same as WinGetPos results
+WinGetRect( hwnd, &x?, &y?, &w?, &h?) {
+	DllCall("user32\GetWindowRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
+	x := NumGet(winRect,  0, "UInt")
+	y := NumGet(winRect,  4, "UInt")
+	w := NumGet(winRect,  8, "UInt") - x
+	h := NumGet(winRect, 12, "UInt") - y
+}
+;----------------------------------------------------------------------
+; Gets window position relative to 0,0
+;----------------------------------------------------------------------
+GetClientRect( hwnd, &x?, &y?, &w?, &h?) {
+	DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
+	x := NumGet(winRect,  0, "UInt")
+	y := NumGet(winRect,  4, "UInt")
+	w := NumGet(winRect,  8, "UInt") - x
+	h := NumGet(winRect, 12, "UInt") - y
+}
+/**
+ * Return the cursor location in raw screen coordinates
+ * @param X Return X location
+ * @param Y Return Y location
+ * @returns {Integer} GetCursorPos Result 
+ */
+GetCursorPos(&X, &Y) {
+   static pt  := stPointI()
+   res := DllCall("User32\GetCursorPos", "Ptr", pt)
+   X   := pt.X ; NumGet(pt, 0, "uint")
+   Y   := pt.Y ;NumGet(pt, 4, "uint")
+   return res
+}
+/**
+ * Move the cursor in screen coordinates
+ * @param X location
+ * @param Y location
+ * @returns {Integer} SetCursorPos Result 
+ */
+SetCursorPos(X, Y) {
+   Return DllCall("User32\SetCursorPos", "int", X, "int", Y)
+}
+/**
+ * Return the DPI for the monitor under the mouse
+ * @param useMouse - 1 if using mouse, 0 if primary monitor 
+ * @returns DPI Scale vs 96 
+ */
+activeMonDPIFactor(useMouse := 1) {
+   Static MDT_EFFECTIVE_DPI := 0
+   ; Make sure monitor info is up to date
+   If (useMouse) {
+      GetCursorPos(&Mx, &My)
+   } Else {
+      Mx := My := 0  ; primary monitor is always 0,0 for upper left corner
+   }
+   ; Get Monitor under cursor pack a POINT structure
+   point := (Mx & 0xFFFFFFFF) | (My << 32)
+   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", point, "UInt", 0, "Ptr")
+   DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", MDT_EFFECTIVE_DPI, "Ptr*", &dpiX := 0, "Ptr*", &dpiY := 0)
+   Factor := (Sqrt(dpiX * dpiY))/96
+   return Factor
+}
+/**
+ * Return the DPI for the monitor under some window
+ * Not necessarly the same as WinDPI (for non-DPI aware apps)
+ * @param useMouse - 1 if using mouse, 0 if primary monitor 
+ * @returns DPI Scale vs 96 
+ */
+MonDPIunderWindow(hWnd) {
+   Static MDT_EFFECTIVE_DPI := 0
+   ; Make sure monitor info is up to date
+   hMonitor := DllCall("User32\MonitorFromWindow", "Ptr", hWnd, "UInt", 2, "Ptr")
+   DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", MDT_EFFECTIVE_DPI, "Ptr*", &dpiX := 0, "Ptr*", &dpiY := 0)
+   DPI := (Sqrt(dpiX * dpiY))
+   return DPI
+}
+WinDPI(hWnd)       => DllCall("User32\GetDpiForWindow", "Ptr", hWnd)
+/*
+DPI_AWARENESS_CONTEXT_UNAWARE              (-1)
+DPI_AWARENESS_CONTEXT_SYSTEM_AWARE         (-2)
+DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE    (-3)
+DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 (-4)
+DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED    (-5)
+*/
+GetDPIContext()    => DllCall("GetThreadDpiAwarenessContext","Ptr")
+SetDPIContext(val) => DllCall("SetThreadDpiAwarenessContext", "Ptr", val, "Ptr")
+/**
+ * Better replacement for A_ScreenDPI
+ * @returns {Number} 
+ */
+activeDPIFactor() {
+   ; TODO - save this as a global? Issue is it may not have changed before we need it.
+   Static DPIFactor
+   If ( NOT IsSet(DPIFactor)) {
+      DPIFactor := A_ScreenDPI/96
+      OnMessage(0x02E0, WM_DPICHANGED)
+   }
+   Return DPIFactor
+   ;----------------------------------------------------------------------------
+   ; Will trigger when the show gui is called
+   ;----------------------------------------------------------------------------
+   WM_DPICHANGED(wParam, *) {
+      ; Getting the DPI works
+      dpiX := wParam & 0xffff ; new horizontal dpi
+      dpiY := (wParam >> 16) & 0xffff ; new vertical dpi
+      ; debug("DPI Changed to " dpiX " " dpiY)
+      DPIFactor := (Sqrt(dpiX * dpiY))/96
+      Return 0
+   }
+
+}
+GetLastError() => DllCall("kernel32.dll\GetLastError")
+/**
+ * Return an outline color the opposite of the input color
+ * 
+ * https://stackoverflow.com/questions/1855884/determine-font-color-based-on-background-color
+ * @param rgb - Hex RGB value
+ * @param black - Optional value to use for black
+ * @param white - Optional value to use for white
+ * @returns {Integer} 
+ */
+BlackOrWhite(rgb, black?, white?) {
+   If (Luminosity(rgb)) < 128 {
+      Return white ?? 0xFFFFFF
+   } Else {
+      Return black ?? 0x000000
+   }
+}
+/**
+ * Return the luminosity/brightness of an RGB value
+ * @param rgb - Hex RGB value
+ */
+Luminosity(rgb) {
+   r := (rgb >>> 16) & 0xFF
+   g := (rgb >>> 8) & 0xFF
+   b := (rgb >>> 0) & 0xFF
+   Return (0.299 * r + 0.587 * g + 0.114 * b)
+}
+;----------------------------------------------------------------------
+; Return a complementary color for picking an outline color
+; Allows for desaturation of the result as well satFactor = 0 for no adjustment
+;----------------------------------------------------------------------
+/**
+ * 
+ * @param rgb hex value of input color to adjust
+ * @param {Float} satFactor 0 to 100% value on saturation to remove (desaturate)
+ * @returns {Number} Desaturated complementary color
+ */
+Complementary(rgb, satFactor := 0.3) {
+   a := rgb & 0xFF000000
+   r := (rgb >>> 16) & 0xFF
+   g := (rgb >>> 8) & 0xFF
+   b := rgb & 0xFF
+   gray := 0.2989 * r + 0.5870 * g + 0.1140 * b ; //weights from CCIR 601 spec
+   ; if close to gray aready, then force the color to black
+   If Within(98, 158, r) AND Within(98, 158, g) and Within(98, 158, b)
+      r := 255, g := 255, b := 255
+   ; adjust for saturation and complementary color
+   ; This may not be perfect, but it is close
+   r := Round(255 - (gray * satFactor + r * (1 - satFactor))), r := Constrain(0, 255, r)
+   g := Round(255 - (gray * satFactor + g * (1 - satFactor))), g := Constrain(0, 255, g)
+   b := Round(255 - (gray * satFactor + b * (1 - satFactor))), b := Constrain(0, 255, b)
+   Return a | r << 16 | g << 8 | b
+}
+/**
+ * Return HSL object from an RGB input
+ * @param rgb RGB Input value
+ * @returns {Object} Containing H/S/L properties 
+ */
+RGBToHLS(rgb) {
+	static Shlwapi := DllCall("LoadLibrary", "Str", "Shlwapi.dll", "Ptr")
+	static ColorRGBToHLS := DllCall("GetProcAddress", "Ptr", Shlwapi, "AStr", "ColorRGBToHLS", "Ptr")
+
+   ; swap R/B
+	r := (rgb & 0xFF0000) >> 16
+	g := (rgb & 0x00FF00)
+	b := (rgb & 0x0000FF) << 16
+	bgr := b | g | r ; COLORREF format is 0x00BBGGRR
+
+	DllCall(ColorRGBToHLS, "UInt", bgr, "UShort*", &h := 0, "UShort*", &l := 0, "UShort*", &s := 0)
+   Return {H:h, S:s, L:l}
+}
+/**
+ * Convert HSL to RGB (0-240)
+ * @param objHLS Object containing H/S/L properties
+ * @returns {Number} RGB value
+ */
+HLStoRGB(objHLS) {
+   ; 240 is the max value for each
+	static Shlwapi := DllCall("LoadLibrary", "Str", "Shlwapi.dll", "Ptr")
+	static ColorHLStoRGB := DllCall("GetProcAddress", "Ptr", Shlwapi, "AStr", "ColorHLSToRGB", "Ptr")
+	bgr := DllCall(ColorHLStoRGB, "UShort", objHLS.H, "UShort", objHLS.L, "UShort", objHLS.S, "Uint")
+   rbg := ((BGR & 0xFF) << 16) | (BGR & 0xFF00) | ((BGR >> 16) & 0xFF)
+   Return rbg
+}
+/**
+ * Adjust the luminence of an RGB Value
+ * @param {Integer} rgb RBG Value
+ * @param {Integer} adjustment in .1% (0 to 1000)
+ * @param {Boolean} scale, true = adjust, false=set new value
+ * @returns {Object} 
+ */
+RGBAdjustLuma(rgb, adjust:=0, scale:=true) {
+	static Shlwapi := DllCall("LoadLibrary", "Str", "Shlwapi.dll", "Ptr")
+	static ColorAdjustLuma := DllCall("GetProcAddress", "Ptr", Shlwapi, "AStr", "ColorAdjustLuma", "Ptr")
+   ; swap R/B
+	r := (rgb & 0xFF0000) >> 16
+	g := (rgb & 0x00FF00)
+	b := (rgb & 0x0000FF) << 16
+	bgr := b | g | r ; COLORREF format is 0x00BBGGRR
+
+	bgr := DllCall(ColorAdjustLuma, "UInt", bgr, "Int", adjust, "Uint", scale)
+   rbg := ((BGR & 0xFF) << 16) | (BGR & 0xFF00) | ((BGR >> 16) & 0xFF)
+   Return rbg
+}
+;======================================================================
+; Color Related
+;======================================================================
+;----------------------------------------------------------------------
+; Provied a clean RBG value in hex (as a number)
+; cFFFFFF, FFFFFF, 0xFFFFFF, 123456
+; Suitable for both AHK colors as well as DLLCALL colors
+; https://htmlcolorcodes.com/color-names/
+; https://www.computerhope.com/htmcolor.htm
+;----------------------------------------------------------------------
+RGBval(rgb) {
+   Static cMap := Map(
+      'BLACK',                      '0x000000',
+      'GRAY',                       '0x808080',
+      'METAL',                      '0xB6B6B6',
+      'SILVER',                     '0xC0C0C0',
+      'BLUE GRAY',                  '0x98AFC7',
+      'NAVY',                       '0x000080',
+      'BLUE',                       '0x0000FF',
+      'CORNFLOWERBLUE',             '0x6495ED',
+      'DEEPSKYBLUE',                '0x00BFFF',
+      'CYAN',                       '0x00FFFF',
+      'BRIGHT TEAL',                '0x01F9C6',
+      'LIGHTSEAGREEN',              '0x20B2AA',
+      'TEAL',                       '0x008080',
+      'DARK GREEN BLUE',            '0x1F6357',
+      'SEAGREEN',                   '0x2E8B57',
+      'OLIVE',                      '0x808000',
+      'IRISH GREEN',                '0x08A04B',
+      'GREEN',                      '0x008000',
+      'DARK FOREST GREEN',          '0x254117',
+      'LIME',                       '0x00FF00',
+      'CHARTREUSE',                 '0x7FFF00',
+      'PARCHMENT',                  '0xFFFFC2',
+      'ANTIQUEWHITE',               '0xFAEBD7',
+      'YELLOW',                     '0xFFFF00',
+      'GOLD',                       '0xFFD700',
+      'DEEP YELLOW',                '0xF6BE00',
+      'BRONZE',                     '0xCD7F32',
+      'DARK HAZEL BROWN',           '0x473810',
+      'GINGER RED',                 '0xB83C08',
+      'RED GOLD',                   '0xEB5406',
+      'ORANGE',                     '0xFFA500',
+      'NEON ORANGE',                '0xFF6700',
+      'BRIGHT ORANGE',              '0xFF5F1F',
+      'DARKORANGE',                 '0xFF8C00',
+      'ORANGERED',                  '0xFF4500',
+      'RED',                        '0xFF0000',
+      'NEON RED',                   '0xFD1C03',
+      'CRANBERRY',                  '0x9F000F',
+      'MAROON',                     '0x800000',
+      'PLUM VELVET',                '0x7D0552',
+      'BRIGHT PINK',                '0xFF007F',
+      'DEEPPINK',                   '0xFF1493',
+      'RASPBERRY',                  '0xE30B5D',
+      'CRIMSON',                    '0xDC143C',
+      'BRIGHT NEON PINK',           '0xF433FF',
+      'AQUA',                       '0x00FFFF',
+      'MAGENTA',                    '0xFF00FF',
+      'MEDIUMSLATEBLUE',            '0x7B68EE',
+      'PURPLE',                     '0x800080',
+      'DARKVIOLET',                 '0x9400D3',
+      'WHITE',                      '0xFFFFFF',
+      'FUCHSIA',                    '0xFF00FF'
+   )
+   try {
+      Switch Type(rgb) {
+         Case "Integer":
+            Return rgb
+         Case "String":
+            If (rgb) {
+               ; Note we have to handle FF00FF hex numbers without leading 0x, so just check for integers here
+               If IsInteger(rgb) ; Was, IsInteger vs IsXDigit : could be a string format of an integer or hex
+                  return rgb
+               else
+                  Return Integer(cMap.Get(StrUpper(rgb), "0x" SubStr(rgb, -6)))
+            } else
+               Return 0
+         Default:
+      }
+   } catch as e {
+      elog(e)
+      MsgBox("Error Finding Color '" rgb "' , defaulting to Red")
+      rgb := 0xFF0000
+   }
+   Return rgb
+}
+;----------------------------------------------------------------------
+; Format needed by Text/Button Control
+;----------------------------------------------------------------------
+RGBHex(val) {
+   if NOT IsInteger(val)
+      val := RGBval(val)
+   Return Format("{:X}", val)
+}
+commify(x, s:=",") {
+	return RegExReplace(x, "\G\d+?(?=(\d{3})+(?:\D|$))", "$0" s)
+}
+;======================================================================
+; Logging/Notification Related
+;======================================================================
+Range(Start, Stop, Step := 1) => (&n) => (n := Start, Start += Step, Step > 0 ? n <= Stop : n >= Stop)
+/**
+ * Constains a number between two limits
+ * @param l Lower value
+ * @param r upper value
+ * @param a input value
+ */
+Constrain(l, r, a) => (a > r ? r : (a < l ? l : a))
+Within(l, r, a) => (a > l AND a < r)
+
+
+hex(val)        =>   Format("0x{:X}", val)
+debug(stuff, back := 0) {
+   OutputDebug("(D) AHK2 [" Error("", -3 - back).what "@" Error("", -2 - back).line " -> (" BFN(Error("", -1 - back).File) ") " Error("", -2 - back).what "@" Error("", -1 - back).line "] " stuff)
+}
+dlog(stuff)     =>   OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " stuff)
+warning(stuff)  =>   OutputDebug("(W) AHK2 (" Error("", -4).what "@" Error("", -3).line " => (" Error("", -3).what "@" Error("", -2).line " -> (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+logError(stuff) =>   OutputDebug("(E) AHK2 (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+elog(e, extra := "") {
+   OutputDebug("(E) AHK2 " (extra ? extra " " : "") e.Message ", from " e.What " @ line " e.Line)
+   ; OutputDebug("    AHK2 File " e.file)
+   If (e.extra)
+      OutputDebug(" AHK2 Specifically " e.extra)
+   For line in StrSplit(e.Stack, '`n') {
+      If (line := Trim(line, ' `n'))
+         OutputDebug(" -> (" A_Index ") Stack:" line)
+   }
+   qTrayTip("AHK Error: " e.Message ", from " e.What " @ line " e.Line, 3 ,"SnipShape Error")
+}
+;----------------------------------------------------------------------
+; Log the current gdi/user object count for debugging
+;----------------------------------------------------------------------
+logGDI(txt:="",&gdi?, &user?) {
+   Static hProcess := DllCall("GetCurrentProcess","Ptr")
+   gdiCount      := DllCall("GetGuiResources","Ptr",hProcess,"Int", 0)
+   gdiPeakCount  := DllCall("GetGuiResources","Ptr",hProcess,"Int", 2)
+   userCount     := DllCall("GetGuiResources","Ptr",hProcess,"Int", 1)
+   userPeakCount := DllCall("GetGuiResources","Ptr",hProcess,"Int", 4)
+   gdiStr       := txt " gdi=" gdiCount ", gdiPeak=" gdiPeakCount ", user=" userCount ", userPeak=" userPeakCount
+   OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " gdiStr)
+   if (IsSet(gdi))
+      gdi := gdiCount
+   if (IsSet(user))
+      gdi := userCount
+}
+logGDI(BFN(Error("", -1).File) " loaded...")
+;----------------------------------------------------------------------
+; Quicker Tray Tip (by default)
+; Icon Code : 1 = Info, 2 = Warning, 3 = Error, 4 = This Icon
+;----------------------------------------------------------------------
+qTrayTip(Message, Code:=4, Title := "SnipShape", Timeout:=2000) {
+   ; Need a small timer to delay message on windows 11
+   TrayTip() ; hide any existing/pending tips
+   SetTimer(TrayTip.Bind(Message, Title, Code | 0x30), -100)
+   SetTimer(TrayTip, -Timeout)
+   dlog(Message)
+}
+
+;======================================================================
+; File Name/Path Related
+;======================================================================
+;----------------------------------------------------------------------
+; Full path name from relative path
+;----------------------------------------------------------------------
+GetFullPathName(path) {
+   cc := DllCall('GetFullPathNameW', 'str', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
+   buf := Buffer(cc * 2)
+   DllCall('GetFullPathNameW', 'str', path, 'uint', cc, 'ptr', buf, 'ptr', 0, 'uint')
+   Return StrGet(buf)
+}
+;----------------------------------------------------------------------
+; Base File Name from a path
+;----------------------------------------------------------------------
+BFN(fpath) {
+   SplitPath(fpath, &fName)
+   Return fName
+}
+
+/**
+ * Checks whether two rectangles intersect and if they do, then returns an object containing the
+ * rectangle of the intersection: {l:left, t:top, r:right, b:bottom}  
+ * Note 1: Overlapping area must be at least 1 unit.  
+ * Note 2: Second rectangle starting at the edge of the first doesn't count as intersecting:  
+ *     {l:100, t:100, r:200, b:200} does not intersect {l:200, t:100, 400, 400}
+ * @param l1 x-coordinate of the upper-left corner of the first rectangle
+ * @param t1 y-coordinate of the upper-left corner of the first rectangle
+ * @param r1 x-coordinate of the lower-right corner of the first rectangle
+ * @param b1 y-coordinate of the lower-right corner of the first rectangle
+ * @param l2 x-coordinate of the upper-left corner of the second rectangle
+ * @param t2 y-coordinate of the upper-left corner of the second rectangle
+ * @param r2 x-coordinate of the lower-right corner of the second rectangle
+ * @param b2 y-coordinate of the lower-right corner of the second rectangle
+ * @returns {Object}
+ */
+IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
+    Static rect1 := Buffer(16), rect2 := Buffer(16)
+    rectOut := stRECTI()
+    NumPut("int", l1, "int", t1, "int", r1, "int", b1, rect1)
+    NumPut("int", l2, "int", t2, "int", r2, "int", b2, rect2)
+    if DllCall("user32\IntersectRect", "Ptr", rectOut, "Ptr", rect1, "Ptr", rect2)
+        Return { l: rectOut.X1, t: rectOut.Y1, r: rectOut.X2, b: rectOut.Y2 }
+}
+/**
+ * The InflateRect function increases or decreases the width and height of the specified rectangle
+ * @param lprc Buffer object (rectangle), assumes X1/Y1/X2/Y2 stored in rectangle
+ * @param dx + num to enlarge on both sides
+ * @param dy + num to enlarge top and bottom
+ * @returns {Float | Integer | String} 
+ */
+InflateRect(lprc, dx, dy) {
+   return DllCall("user32\InflateRect", "ptr", lprc, "int", dx, "int", dy)
+}
+;----------------------------------------------------------------------
+; Clone an existing buffer, including it's contents
+;----------------------------------------------------------------------
+CloneBuffer(pSource, newSize?) {
+   xBytes := newSize ?? pSource.Size
+   newBuffer := Buffer(xBytes)
+   DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", newBuffer, "Ptr", pSource, "Ptr", xBytes)	;Ptr for Length??
+   return newBuffer
+}
+;----------------------------------------------------------------------
+; Merge in the properties of srcObj into tgtObj, replacing or adding
+; as necessary
+;----------------------------------------------------------------------
+objMerge(tgtObj, srcObj) {
+   For key, value in srcObj.OwnProps() {
+      tgtObj.%key% := srcObj.%key%
+   }
+}
+; =============================================================================================
+; https://github.com/TheArkive/ColorPicker_ahk2/blob/master/_Color_Picker_Dialog.ahk
+; Credit: TheArkive
+; Parameters
+; =============================================================================================
+; Color           = Start color (0 = black) - Format = 0xRRGGBB
+; hwnd            = Parent window
+; custColorObj    = Array() to load/save custom colors, must be &VarRef
+; disp            = 1=full / 0=basic ... full displays custom colors panel, basic does not
+; =============================================================================================
+; All params are optional.  With no hwnd the dialog will show at top left of screen.  Use an
+; object serializer (like JSON) to save/load custom colors to/from disk.
+; =============================================================================================
+
+ColorSelectDialog(Color := 0, hwnd := 0, custColorObj := Array(), disp := false) {
+   Static p := A_PtrSize
+   disp := disp ? 0x3 : 0x1 ; init disp / 0x3 = full panel / 0x1 = basic panel
+
+   If (custColorObj.Length > 16)
+      Throw Error("Too many custom colors.  The maximum allowed values is 16.")
+
+   Loop (16 - custColorObj.Length)
+      custColorObj.Push(0) ; fill out custColorObj to 16 values
+
+   CUSTOM      := Buffer(16 * 4, 0) ; init custom colors obj
+   CHOOSECOLOR := Buffer((p = 4) ? 36 : 72, 0) ; init dialog
+   If (IsObject(custColorObj)) {
+      Loop 16 {
+         custColor := RGB_BGR(custColorObj[A_Index])
+         NumPut "UInt", custColor, CUSTOM, (A_Index - 1) * 4
+      }
+   }
+
+   NumPut "UInt", CHOOSECOLOR.size, CHOOSECOLOR, 0             ; lStructSize
+   NumPut "UPtr", hwnd,             CHOOSECOLOR, p             ; hwndOwner
+   NumPut "UInt", RGB_BGR(Color),   CHOOSECOLOR, 3 * p         ; rgbResult
+   NumPut "UPtr", CUSTOM.ptr,       CHOOSECOLOR, 4 * p         ; lpCustColors
+   NumPut "UInt", disp,             CHOOSECOLOR, 5 * p         ; Flags
+
+   If !DllCall("comdlg32\ChooseColor", "UPtr", CHOOSECOLOR.ptr, "UInt")
+      Return -1
+
+   custColorObj := []
+   Loop 16 {
+      newCustCol := NumGet(CUSTOM, (A_Index - 1) * 4, "UInt")
+      custColorObj.InsertAt(A_Index, RGB_BGR(newCustCol))
+   }
+
+   Color := NumGet(CHOOSECOLOR, 3 * A_PtrSize, "UInt")
+   Return Format("0x{:06X}", RGB_BGR(Color))
+
+   RGB_BGR(c) {
+      Return ((c & 0xFF) << 16 | c & 0xFF00 | c >> 16)
+   }
+}
+GetProcessMemoryInfo(Units := "M") {
+   ;-------------------------------------------------------------------------------
+   PID := WinGetPID(A_ScriptHwnd)
+   is64 := (A_PtrSize = 8)
+   Size := 8 + A_PtrSize * 9
+   MEM := Buffer(Size, 0) ; make MEM ; V1toV2: if 'MEM' is a UTF-16 string, use 'VarSetStrCapacity(&MEM, Size)'
+   NumPut("Uint",Size,Mem)
+   hProcess := DllCall("OpenProcess", "UInt", 0x410, "Int", 0, "Ptr", PID, "Ptr")
+
+   If (hProcess) {
+      If DllCall("psapi.dll\GetProcessMemoryInfo", "Ptr", hProcess, "Ptr", MEM, "UInt", Size)
+         memory := NumGet(MEM, 8 + A_PtrSize * 8, "Uint")
+      DllCall("CloseHandle", "Ptr", hProcess)
+   }
+
+   Return Units == "B" ? (memory) " Bytes"
+      : Units == "K" ? (memory // 1024) " KBytes"
+         : Units == "M" ? (memory // 1024 // 1024) " MBytes"
+            : "I am never reached"
+}
+
+/**
+ * Return the ArcTang in deg of a H/W
+ * @param H Height
+ * @param W Width
+ * @returns {Number} 
+ */
+; Atan2Deg(H, W) {
+;    Static FromPi := 180 / 3.14159265
+;    Return DllCall("msvcrt\atan2", "Double", H, "Double", W, "CDECL Double") * FromPi
+; }
+; AngleDifference(angle1, angle2) {
+;     diff := Mod(angle2 - angle1 + 180, 360) - 180
+;     return diff
+; }
+; myAngle(H, W) {
+;    Static FromPi := 180 / 3.14159265
+;    if ((Ang := DllCall("msvcrt\atan2", "Double", H, "Double", W, "CDECL Double") * FromPi) < 0)
+;       Ang += 360
+;    Return Ang
+; }
+/**
+ * Return the angle between H/W, similar to Atan2 (2.1)
+ * @param H Height
+ * @param W Width
+ * @returns {Number} 
+ */
+myAngle(H, W) {
+   Static FromPi := 180 / 3.14159265
+   if ((Ang := Atan2(H, W) * FromPi) < 0)
+      Ang += 360
+   Return Ang
+}
+/**
+ * Compute the difference between two angles that are in the range 0-360
+ * @param ang1 Angle 1
+ * @param ang2 Angle 2
+ * @returns {Float | Integer} 
+ */
+; angleDiff(ang1, ang2) {
+;    diff := abs(ang1 - ang2)
+;    Return Min(diff, 360 - diff)
+; }
+/**
+ * Enable visual styles/themes for some window or control
+ * @param hwnd handle to window or control
+ * @param stMode Theme to apply e.g. DarkMode_Explorer, Explorer. " " to prevent visual styles, 
+ */
+SetControlTheme(hwnd, stMode) {
+   DllCall("uxtheme\SetWindowTheme", "ptr", hwnd, "str", stMode, "ptr", 0)
+}
+
+/**
+ * Class Wrapper for ImageLists, can store like sized bitmaps in memory without using GDI resources
+ * When one is needed it doles out a copy (for menus and such)
+ */
+Class ImageList extends map {
+   /**
+    * Created a mapped imagelist to hold a large number of icons without tieing up
+    * GDI resources to keep them around
+    * Access like you do a map. Retriving an icon will automatically provide a copy
+    * that can later be discarded when done (e.g. closing a menu after a show)
+    * @param {Integer} LargeIcons =1 for large icons, 0 (default) for normal size
+    * @param {Integer} group default 1, defines which icon in a group of icons
+    */
+   __New(largeIcon:=0) {
+      this.iList := IL_Create(10, 10, largeIcon)
+      If ((res := DllCall("Comctl32\ImageList_GetIconSize", "PTR", this.iList, "Int*", &W := 0, "Int*", &H := 0)) == 0)
+         warning("Failed to get the default dimensions of the ImageList")
+      ; NOTE - default size will be small or large icon system size, call Size to change prior to adding any images
+      W := this.Size
+      this.Width  := W
+      this.Height := W
+   }
+   /**
+    * Size of Images, by default either system large/small 
+    * @param {Integer} pixelSize of the height/width of each image
+    */
+   Size {
+      Get {
+         If ((res := DllCall("Comctl32\ImageList_GetIconSize", "PTR", this.iList, "Int*", &W := 0, "Int*", &H := 0)) == 0)
+            warning("Failed to get the default dimensions of the ImageList")
+         return W
+      }
+      Set {
+         this.Width  := value
+         this.Height := value
+         if ((res := DllCall("Comctl32\ImageList_SetIconSize", "PTR", this.iList, "Int", value, "Int", value)) == 0 )
+            warning("Failed to set the default dimensions of the ImageList")
+         return res
+      }
+   }
+   __Delete() {
+      IL_Destroy(this.iList)
+   }
+   ; [item] properties override
+   __Item[tag] {
+      get {
+         Index := super.get(tag, 0) ;1..N
+         If (Index) {
+            Flags := 0
+            ; This returns a copy of the icon in the image list, useful for menus
+            ; TODO - should we prepend with HICON / HBITMAP and such depending on the type?
+            If ((val := DllCall("Comctl32\ImageList_GetIcon", "Ptr", this.iList, "Int", Index - 1, "UInt", Flags, "UPtr")) == 0)
+               warning("Failed to retrive an icon with tag " tag " and index " Index " from the image list")
+            Return val
+         } else {
+            Return 0
+         } 
+      }  
+      set {
+         ; list[tag] := value
+         ; TODO ImageList_ReplaceIcon or ImageList_Replace can replace one entry
+         If (tag) {
+            If (super.has(tag)) {
+               If (Value == "") {
+                  warning("Removing " tag " from the imagelist")
+                  super.delete(tag)
+                  Return
+               } Else {
+                  warning(tag " already exists in the image list, the imag will be replaced")   
+               }
+            }
+
+            If (Value == "")
+               Return
+               
+            If IsInteger(Value) { ; raw icon
+               idx := IL_Add(this.iList, "HICON:" Value, , true)
+            } Else { ; assume file force to icon
+               idx := IL_Add(this.iList, Value, , true)
+            }
+
+            If (idx) {
+               super[tag] := idx
+            } Else {
+               warning("Failed to add hicon " Value " with tag " tag " to the image list")
+            }
+         }
+      } 
+   }
+   /**
+    * Retrive a hicon from an image list
+    * @param {String} tag Tag used to add the hicon
+    * @param {Integer} Flags optional used for getting icon
+    * @returns {Handle} Hicon handle
+    */
+   GetIcon(tag, Flags := 0) {
+      ; HIL    - The handle (ID) of the image list.
+      ; Index  - The 0-based index of the image.
+      ; Flags  - A combination of flags that specify the drawing style. Masking and other
+      ; https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-imagelist_draw
+      Index := this.get(tag, 0)
+      If (Index) {
+         If ((val := DllCall("ImageList_GetIcon", "Ptr", this.iList, "Int", Index - 1, "UInt", Flags, "UPtr")) == 0)
+            warning("Failed to retrive an icon with tag " tag " and index " Index " from the image list")
+         Return val
+      } else 
+         Return 0
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

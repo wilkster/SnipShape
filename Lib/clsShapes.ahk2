@@ -1,0 +1,1421 @@
+/************************************************************************
+ * @description Class to draw shapes on a snip
+ * @file clsShapes.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/19
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2
+#include clsGDIp.ahk2
+; #include clsText.ahk2
+#include clsBitmap.ahk2
+#include LibMisc.ahk2
+#include StopWatch.ahk2
+#include Shapes\clsCommonShape.ahk2
+#include Shapes\clsBodyShape.ahk2
+#include Shapes\clsTextShape.ahk2
+#include Shapes\clsLineShape.ahk2
+#include Shapes\clsFreehandShape.ahk2
+#include Shapes\clsObscureShape.ahk2
+#include Shapes\clsToolShape.ahk2
+
+/**
+ * Shape class to draw various shapes, load pictures and show text
+ */
+Class Shapes {
+   i := 0
+   ; Enum of the shapes
+   Static SHAPE_PICTURE := 0 ; Imported picture
+   Static DrawActive := false
+   Static ColorQueue := Array()
+   Static DIBPad := 250
+
+   Static DefaultColorNames := [
+      "Red", "Blue","Yellow", "Lime", "Aqua","Fuchsia", "Orange", "Black", "White"
+   ]
+
+   ; List of all installed fonts
+   Static FontNames := Array()
+   Static InstalledFonts := GetInstalledFontNames()
+   Static FontStyles := ["Normal", "Bold", "Italic", "BoldItalic", "Underline", "Strikeout"]
+   Static Alignments := ["Left","Center","Right"]
+
+
+   ;----------------------------------------------------------------------
+   ; Get session defaults from the INI file
+   ;----------------------------------------------------------------------
+   Static __New() {
+      this.ShapeName := Array()
+      this.ShapeCat  := Map()
+      ; Shape Databased ObjectVal, Name - hotkey, menu category
+      /*
+         1. Insert row below to hold the shape ID, menu entry (icon name & shortcut key), and category for button bar
+            The order shown will be the order in the buttonbar menu (for each category)
+         2. Make sure a cursor file exists in the cursors subfolder matching the name part below
+         3. Ensure the shape is covered by one of the nested shape classes starting with clsCommonShape.
+         4. Look for instances of the other IDs in the code below and handle them as needed
+            Generally if they fall into a certain category then they would be handled there.
+      */
+     ;     Convert into number   Name of Icon file - hotkey    Buttonbar icon
+      shapeDb := [
+         ["SHAPE_ARROW"        , "Arrow - V"                 , "Arrows"],
+         ["SHAPE_TAPARROW"     , "Tapered Arrow - \"         , "Arrows"],
+         ["SHAPE_ARCARROW"     , "Arc Arrow - J"             , "Arrows"],
+         ["SHAPE_OARROW"       , "Outlined Arrow - A"        , "Arrows"],
+         ["SHAPE_ODARROW"      , "Outlined Double Arrow - /" , "Arrows"],
+         ["SHAPE_LINE"         , "Line - L"                  , "Shapes"],
+         ["SHAPE_RECT"         , "Rectangle - R"             , "Shapes"],
+         ["SHAPE_RORECT"       , "Rounded Rectangle - D"     , "Shapes"],
+         ["SHAPE_ELLIPSE"      , "Ellipse - E"               , "Shapes"],
+         ["SHAPE_BRACKET"      , "Bracket - ]"               , "Shapes"],
+         ["SHAPE_PEN"          , "Pen - P"                   , "Free Hand"],
+         ["SHAPE_WIDEPEN"      , "Wide Pen - M"              , "Free Hand"],
+         ["SHAPE_HILITER"      , "Highlighter Pen - H"       , "Highlighters"],
+         ["SHAPE_HILITE"       , "Block Highlight - Y"       , "Highlighters"],
+         ["SHAPE_WHITEOUT"     , "Whiteout Pen - W"          , "Redact"],
+         ["SHAPE_REDAC"        , "Redact - X"                , "Redact"],
+         ["SHAPE_PIXELATE"     , "Pixelate - I"              , "Redact"],
+         ["SHAPE_BLUR"         , "Blur - B"                  , "Redact"],
+         ["SHAPE_GAUS_BLUR"    , "Gaussian Blur - G"         , "Redact"],
+         ["SHAPE_CROP"         , "Crop - C"                  , "Tool"],
+         ["SHAPE_OCR"          , "OCR - O"                   , "Tool"],
+         ["SHAPE_TEXT"         , "Text - T"                  , "Text"],
+         ["SHAPE_FILLTEXT"     , "Fill Text - F"             , "Text"],
+         ["SHAPE_OLTEXT"       , "Outline Text - U"          , "Text"],
+         ["SHAPE_TAG"          , "Tag - N"                   , "Text"],
+         ["SHAPE_LEFTARROWTEXT", "Left Arrow Text - <"       , "Text"],
+         ["SHAPE_RIGHTARROWTEXT", "Right Arrow Text - >"     , "Text"]
+      ]
+      ;----------------------------------------------------------------------
+      ; Build the required data for drawing/menus/buttonbar
+      ;----------------------------------------------------------------------
+      for I, V in shapeDb {
+         ; Shape type Property to check while drawing, has unique value for switch statements
+         this.%v[1]% := I
+         ; Hotkeys & Menus
+         this.ShapeName.Push(V[2])
+         ; Buttonbar Categories
+         cat := V[3]
+         if NOT this.ShapeCat.Has(cat)
+            this.ShapeCat[cat] := Array()
+         this.ShapeCat[cat].Push(V[2])
+      }
+      ; Non-drawn shapes
+      this.SHAPE_FILE := -1
+      this.SHAPE_BITMAP := -2
+      ;----------------------------------------------------------------------
+      ; Read Ini settings
+      ;----------------------------------------------------------------------
+      ;Common Shapes
+      this.outlineColor       := RGBval(IniReadValue("User Shape Color", "Outline Color", "Silver")) ; Not currently set by menu
+      this.outlineOpacity     := IniReadValue("Common Shape", "Outline Opacity", 160)
+      this.rawLineThickness   := IniReadValue("Common Shape", "Line Thickness", 3)
+      this.outlineThickFactor := IniReadValue("Common Shape", "Outline Thickness Factor", 3)
+      this.globalShapeColor   := RGBval(IniReadValue("Common Shape", "Default Shape Color", 0xFF0000))
+      this.shapeOpacity       := IniReadValue("Common Shape", "Shape Opacity", 0xFF)
+      ; Arrows
+      this.arrowLineThickness := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
+      this.ArrowSmoothFactor  := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "Very High")
+      this.arrowOpacity       := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
+      ; Body
+      this.fillOpacity        := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
+      ; Freehand
+      this.penLineThickness   := IniReadValue("Freehand Shape", "Pen Thickness", 3)
+      this.widePenThickness   := IniReadValue("Freehand Shape", "Wide Pen Thickness", 14)
+      this.penOpacity         := IniReadValue("Freehand Shape", "Pen Opacity", 0xFF)
+      this.PenSmoothFactor    := IniReadValue("Freehand Shape", "Pen Smoothing Factor", "Low")
+      ; Highlighters / Redact
+      this.highLightThickness    := IniReadValue("Highlight Shape", "Highlight/Whiteout Factor", 18)
+      this.HighlightSmoothFactor := IniReadValue("Highlight Shape", "Highlight/Whiteout Smoothing Factor", "High")
+      this.highlightOpacity      := IniReadValue("Highlight Shape", "Highlighter Opacity", 160)
+      this.highlightColor        := IniReadValue("Highlight Shape", "Highlighter Color", 0xFFFF00)
+      ; Obscuring
+      this.PixelateBlockSize     := IniReadValue("Obscure Shape", "Pixelate Block Size", 4)
+      this.BlurDivisor           := IniReadValue("Obscure Shape", "Blur Factor", 10)
+
+      ; Text
+      this.TagReset           := 1
+      ; Line
+      ; Blur / Redact / Highlight
+      ;----------------------------------------------------------------------
+      ; Make sure the standard fonts below really exist, and discard if not
+      ;----------------------------------------------------------------------
+      _FontNames := [
+      "Arial", "Arial Black", "Calibri", "Cambria", "Candara", "Century",  
+      "Century Gothic", "Comic Sans MS", "Consolas", "Franklin Gothic Medium", "Impact", "Segoe UI", "Segoe UI Emoji", 
+      "Segoe UI Symbol", "Segoe Print", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana"
+      ]
+      dlog("Reading System Fonts")
+      tHash := Map()
+      for fnt in this.InstalledFonts
+         tHash[fnt] := 1
+
+      for fnt in _fontNames {
+         if tHash.has(fnt)
+            this.fontNames.push(fnt)
+         else
+            dlog("Discarding unavailable font " fnt)
+      }
+      logGDI("Complete reading system fonts")
+      ; Sub Menus
+      this.shapeBBMenu := Menu()
+      this.hlColorMenu := Menu()
+      ; NOTE - Not currently used, migrate so each shape type has its own opacity
+      this.MshapeOpacity := this.valMenu([128, 200, 250, 255], &Shapes.shapeOpacity)
+      this.MpenOpacity   := this.valMenu([128, 200, 250, 255], &Shapes.penOpacity)
+      this.MarrowOpacity := this.valMenu([128, 200, 250, 255], &Shapes.arrowOpacity)
+      this.MtextOpacity  := this.valMenu([128, 200, 250, 255], &TextShape.textOpacity)
+
+      ; Build up the sub menus here
+      this.MrawLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.rawLineThickness)
+      this.MpenLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.penLineThickness)
+      this.MarrowLineThickness    := this.valMenu([2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20],   &Shapes.arrowLineThickness)
+      this.MwidePenThickness      := this.valMenu([2, 4, 6, 8, 10, 12, 14, 18, 24,30],  &Shapes.widePenThickness)
+      this.MhighlightThickness    := this.valMenu([10, 12, 14, 16, 18, 20, 24, 28, 32, 36],  &Shapes.highLightThickness)
+      this.MoutlineThickFactor    := this.valMenu([1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6],       &Shapes.outlineThickFactor)
+      this.MfillOpacity           := this.valMenu([0, 1, 4, 8, 16, 32, 48, 64, 96, 128],   &Shapes.fillOpacity)
+      this.MhighlightOpacity      := this.valMenu([8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], &Shapes.highlightOpacity)
+      this.MoutlineOpacity        := this.valMenu([0, 16, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&Shapes.outlineOpacity)
+      this.MArrowSmoothFactor     := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"], &Shapes.ArrowSmoothFactor)
+      this.MPenSmoothFactor       := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.PenSmoothFactor)
+      this.MHighlightSmoothFactor := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.HighlightSmoothFactor)
+      this.MPixelateBlockSize     := this.valMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], &Shapes.PixelateBlockSize)
+      this.MBlurDivisor           := this.valMenu([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 30, 40], &Shapes.BlurDivisor)
+      ; Not currently used
+      this.MfontSize           := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32], &Shapes.fontSize)
+      this.MfontName           := this.valMenu(this.FontNames, &Shapes.fontName)
+
+      this.MTagReset           := this.valMenu([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],&Shapes.TagReset)
+      this.MTagfontName        := this.valMenu(this.FontNames, &TextShape.TagFontName)
+      this.MTagfontStyle       := this.valMenu(this.FontStyles, &TextShape.TagFontStyle)
+      this.MTagFontSize        := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.TagFontSize)
+      this.MTCOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.TCOpacity)
+      ;Not currently used
+      this.MFillfontName       := this.valMenu(this.FontNames, &TextShape.FillFontName)
+      this.MFillfontStyle      := this.valMenu(this.FontStyles, &TextShape.FillFontStyle)
+
+      this.MFillAlignment      := this.valMenu(this.Alignments, &TextShape.FillAlignment)
+      this.MFillFontSize       := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.FillFontSize)
+      this.MFTOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOpacity)
+      this.MFTOLOpacity        := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOLOpacity)
+
+      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle","None"], &TextShape.FillOutline)
+
+      this.MOLFontName         := this.valMenu(this.FontNames, &TextShape.OLFontName)
+      ;Not currently used
+      this.MOLfontStyle        := this.valMenu(this.FontStyles, &TextShape.OLFontStyle)
+      
+      this.MOLAlignment        := this.valMenu(this.Alignments, &TextShape.OLAlignment)
+      this.MOLFontSize         := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.OLFontSize)
+      this.MOLOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.OLOpacity)
+      this.MOLBlur             := this.valMenu([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25],&TextShape.OLBlur)
+      this.MOLFillThickness    := this.valMenu([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],&TextShape.OLFillThickness)
+   }
+   ;----------------------------------------------------------------------
+   ; Build the submenu here
+   ;----------------------------------------------------------------------
+   Static valMenu(Values, &GlobName) {
+      M := Menu()
+      For Val in Values {
+         M.Add(val, this.ButtonMenu_Handler.bind(this, &GlobName))
+      }
+      Return M
+   }
+
+   ;----------------------------------------------------------------------
+   ; Shape button bar RMB handler, push the shape onto the queue
+   ; Post the various submenus that are applicable to this mode
+   ;----------------------------------------------------------------------
+   Static _cmdRMBHandler(btn, key, ctl, item, IsRightClick, X, Y) {
+      this.shapeBBMenu.Delete()
+      Switch btn {
+         ;--------------------------------------------------------
+         ; These are unique for shape categories on the button bar
+         ; TODO - should this be moved to either buttonbar or the clsMenus
+         ;--------------------------------------------------------
+         Case "Arrows":
+            this.MenuCheckCurrent("Arrow Line Width", this.MarrowLineThickness, this.arrowLineThickness)
+            this.MenuCheckCurrent("Outline Thickness Factor", this.MoutlineThickFactor, this.outlineThickFactor)
+            this.MenuCheckCurrent("Arc Arrow Smoothing Factor", this.MArrowSmoothFactor, this.ArrowSmoothFactor)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Arrow Opacity", this.MarrowOpacity, this.arrowOpacity)
+            this.MenuCheckCurrent("Outline Opacity", this.MoutlineOpacity, this.outlineOpacity)
+         Case "Shapes":
+            this.MenuCheckCurrent("Base Line Width", this.MrawLineThickness, this.rawLineThickness)
+            this.MenuCheckCurrent("Outline Thickness Factor", this.MoutlineThickFactor, this.outlineThickFactor)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Outline Opacity", this.MoutlineOpacity, this.outlineOpacity)
+            this.MenuCheckCurrent("Shape Opacity", this.MshapeOpacity, this.shapeOpacity)
+            this.MenuCheckCurrent("Shape Fill Opacity", this.MfillOpacity, this.fillOpacity)
+         Case "Free Hand":
+            this.MenuCheckCurrent("Pen Width", this.MpenLineThickness, this.penLineThickness)
+            this.MenuCheckCurrent("Wide Pen Width", this.MwidePenThickness, this.widePenThickness)
+            this.MenuCheckCurrent("Pen Smoothing Factor", this.MPenSmoothFactor, this.PenSmoothFactor)
+            this.MenuCheckCurrent("Pen Opacity", this.MpenOpacity, this.penOpacity)
+          Case "Highlighters":
+            this.MenuCheckCurrent("Highlighter Thickness", this.MhighlightThickness, this.highLightThickness)
+            this.MenuCheckCurrent("Highlight Smoothing Factor", this.MHighlightSmoothFactor, this.HighlightSmoothFactor)
+            this.MenuCheckCurrent("Highlight Opacity", this.MhighlightOpacity, this.highlightOpacity)
+            this.shapeBBMenu.Add('')
+            ; Set default highlighter color
+            this.shapeBBMenu.Add("Set Highlighter Color", this.hlColorMenu)
+            this.shapeBBMenu.SetIcon("Set Highlighter Color", Settings_CursorPath . "colors.ico" )
+            for menName in ButtonBar.colorNameArray {
+               this.hlColorMenu.Add(menName, this.HKColor_Handler.bind(this, ButtonBar.colorCodeMap[menName]))
+               this.hlColorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
+            }
+        Case "Redact":
+            this.MenuCheckCurrent("Whiteout Thickness", this.MhighlightThickness, this.highLightThickness)
+            this.MenuCheckCurrent("Whiteout Smoothing Factor", this.MHighlightSmoothFactor, this.HighlightSmoothFactor)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Pixelate Block Size", this.MPixelateBlockSize, this.PixelateBlockSize)
+            this.MenuCheckCurrent("Blur Amount", this.MBlurDivisor, this.BlurDivisor)
+         Case "Text" :
+            this.MenuCheckCurrent("Tag Font Name", this.MTagfontName, TextShape.TagFontName)
+            this.MenuCheckCurrent("Tag Font Style", this.MTagfontStyle, TextShape.TagFontStyle)
+            this.MenuCheckCurrent("Tag Font Size", this.MTagFontSize, TextShape.TagFontSize)
+            this.MenuCheckCurrent("Tag Center Opacity", this.MTCOpacity, TextShape.TCOpacity)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Fill/Arrow Font Name", this.MFillFontName, TextShape.FillFontName)
+            this.MenuCheckCurrent("Fill/Arrow Font Style", this.MFillFontStyle, TextShape.FillFontStyle)
+            this.MenuCheckCurrent("Fill/Arrow Font Alignment", this.MFillAlignment, TextShape.FillAlignment)
+            this.MenuCheckCurrent("Fill/Arrow Font Size", this.MFillFontSize, TextShape.FillFontSize)
+            this.MenuCheckCurrent("Fill/Arrow Fill Opacity", this.MFTOPacity, TextShape.FTOpacity)
+            this.MenuCheckCurrent("Fill/Arrow Outline Opacity", this.MFTOLOPacity, TextShape.FTOLOpacity)
+            this.MenuCheckCurrent("Fill Text Outline", this.MFillOutline, TextShape.FillOutline)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Outline Font Name", this.MOLFontName, TextShape.OLFontName)
+            this.MenuCheckCurrent("Outline Font Style", this.MOLFontStyle, TextShape.OLFontStyle)
+            this.MenuCheckCurrent("Outline Font Alignment", this.MOLAlignment, TextShape.OLAlignment)
+            this.MenuCheckCurrent("Outline Font Size", this.MOLFontSize, TextShape.OLFontSize)
+            this.MenuCheckCurrent("Outline Edge Opactiy", this.MOLOpacity, TextShape.OLOpacity)
+            this.MenuCheckCurrent("Outline Edge Blur", this.MOLBlur, TextShape.OLBlur)
+            this.MenuCheckCurrent("Outline Width Percent", this.MOLFillThickness, TextShape.OLFillThickness)
+            this.shapeBBMenu.Add('')
+            this.MenuCheckCurrent("Text Opacity", this.MtextOpacity, TextShape.textOpacity)
+         Case "Tool":
+            ; TODO - OCR capture default
+      }
+      this.shapeBBMenu.Show()
+      ; Blocks here
+      this.shapeBBMenu.Delete()
+      this.hlColorMenu.Delete()
+   }
+   ;----------------------------------------------------------------------
+   ; Change the highlighter color
+   ;----------------------------------------------------------------------
+   Static HKColor_Handler(colorCode, ItemName, ItemPos, MyMenu) {
+      this.highlightColor := colorCode
+      MyMenu.delete()
+   }   
+   ;----------------------------------------------------------------------
+   ; Need to loop through each entry and if it matches value then check it, otherwise uncheck
+   ; Value is current value to put a check next to
+   ;----------------------------------------------------------------------
+   static MenuCheckCurrent(Title, objMenu, value) {
+      static MF_BYPOSITION := 0x00000400
+      res := VarSetStrCapacity(&menuText:=0, 512)
+      count := DllCall("GetMenuItemCount", "ptr", objMenu.Handle)
+      loop DllCall("GetMenuItemCount", "ptr", objMenu.Handle) {
+         DllCall("GetMenuString", "Ptr", objMenu.Handle, "UInt", A_Index - 1, "Str", menuText, "Int", 128, "UInt", MF_BYPOSITION)
+         if menuText = value
+            objMenu.Check(menuText)
+         else
+            objMenu.UnCheck(menuText)
+
+      }
+      this.shapeBBMenu.Add(Title, objMenu)
+
+   }
+   ;----------------------------------------------------------------------
+   ; Menu Callback Handler, common to multiple sub-menus
+   ;----------------------------------------------------------------------
+   Static ButtonMenu_Handler(&GlobVal, ItemName, ItemPos, MyMenu) {
+      GlobVal := ItemName
+   }
+
+   ;----------------------------------------------------------------------
+   ; Indicates move/resize in progress so don't process WM_CURSOR messages
+   ;----------------------------------------------------------------------
+   Static NameToNumber(name) {
+      For sn in this.ShapeName {
+         sn := Trim(StrSplit(sn, "-")[1])
+         If (sn = name) {
+            Return A_Index
+         }
+      }
+      Return 0
+   }
+   ;----------------------------------------------------------------------
+   ; Callback for click event on a shape
+   ; If we are actively drawing, then continue to do so
+   ;----------------------------------------------------------------------
+   Static ShapeClickHandler(Key, ShapeObj, *) {
+      ; make sure mouse key is pressed down NOTE - A key may not be down if
+      ; clicking from another active window, get two events, one with mouse up
+      If GetKeyState(Key,"P") {
+         If (ShapeObj.GUI.DrawMode and NOT GetKeyState("Ctrl","P")) {
+            this.InitateDrawHandler(ShapeObj.Gui)
+         } Else {
+            this.MoveSize(Key, ShapeObj)
+         }
+      }
+   }
+   /**
+    * Called from lButton callback if we have an active Snip
+    * and a drawing mode is active.
+    * 
+    * Calls either the Draw function or differernt Text functions
+    * @param SnipObj - Snip Object that is currently active
+    */
+   Static InitateDrawHandler(SnipObj) {
+      Static WM_NCLBUTTONDOWN := 0xA1
+      DrawMode         := SnipObj.DrawMode
+      hWnd             := SnipObj.hWnd
+      changed          := 0
+      Factor           := GetKeyState("Alt", "P") ? 2 : 1
+      ; These assume right hand mouse for ease of use
+      If (GetKeyState("Ctrl", "P"))   ; Temp allow Snip movement if in draw mode
+         DrawMode := 0
+      Switch DrawMode {
+         Case 0:
+            ; Make it seem the caption was clicked so dragging will work.
+            Cursor.SetCursor("SizeAll") ; (Changed: was Move)
+            PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
+         Case Shapes.SHAPE_CROP    : 
+            changed := Shapes.Draw(SnipObj,DrawMode)
+            Snips.SetDrawMode(0)
+         Case Shapes.SHAPE_TAG:
+            changed := Shapes.DrawTag(SnipObj, Shapes.globalShapeColor, Factor)
+         Case Shapes.SHAPE_FILLTEXT,Shapes.SHAPE_TEXT,Shapes.SHAPE_LEFTARROWTEXT,Shapes.SHAPE_RIGHTARROWTEXT,Shapes.SHAPE_OLTEXT:
+            changed := Shapes.AddDispText(SnipObj.hWnd, DrawMode, , Factor)
+
+         Default : ; All other shapes
+            changed := Shapes.Draw(SnipObj, DrawMode, Factor)
+      }
+      ; Update the clipboard automatically if that mode is enabled
+      If (changed AND Snips.UpdateClipboard) {
+         Snips.Snip2Clipboard(this.borderWithCopy, hWnd)
+         Snips.flashBorder(hWnd)
+      }
+      Return
+   }
+   ;----------------------------------------------------------------------
+   ; Paste a shape if possible from the clipboard
+   ; IDEA - ask if both text and bitmap available?
+   ; Clipboard.hasText(), Clipboard.hasImage()
+   ;----------------------------------------------------------------------
+   Static PasteNewShape(tryText :=1, tryImage :=1, wX?, wY?) {
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&X, &Y, &mhWnd)
+      lX := wx ?? X
+      lY := wy ?? Y
+      SnipObj  := GuiFromHwnd(WinActive("A"))
+      ; Prefer text if desired and available
+      If (tryText AND Clipboard.hasText()) {
+         If NOT (Shapes.InsertText(SnipObj, lX, lY, A_Clipboard)) {
+            qTrayTip("Failed to paste Text found from Clipboard",2)
+         }
+         Return
+      }
+      ; Paste image if desired and available
+      If (tryImage AND Clipboard.hasImage()) {
+         hBitmap := Clipboard.HBITMAPFromClipboard(&W:=0, &H:=0)
+         If (hBitmap) {
+            If NOT (SnipObj := Shapes.CreatePicFromSource(SnipObj, "HBITMAP:*" hBitmap, lX, lY)) {
+               qTrayTip("Failed to paste Bitmap found from Clipboard", 2)
+            }
+            GDI.DeleteObject(hBitmap)
+         } Else {
+            qTrayTip("Failed to get Image Clipboard",2)
+         }
+      } Else {
+         qTrayTip("Nothing suitable found on Clipboard",2)
+      }
+   }
+   /**
+    * Optional pass in existing shape and if so hide it then replace layer
+    * In that case also the mouse start/end positions that are the shape boundaries
+    * So we start off with a sized shape same as the passed in shape
+    * 
+    * Essentially this will also be the resize code for drawn shapes.
+    * 
+    * Text is not drawn here
+    * 
+    * @param SnipObj Object Handle for the snip
+    * @param ShapeObj Canned Shape Number or Existing Shape Object
+    * @param baseThicknessOrFactor Factor to pass to shape (thickness, blur values...)
+    * @returns Nothing
+    */
+   Static Draw(SnipObj, ShapeObj, baseThicknessOrFactor := 1) {
+      Static canvasGui := Gui('+E0x20 -Caption -Border +E0x80000 +ToolWindow +AlwaysOnTop -DPIScale')
+      ; All window relative
+      Static shapeStart := {X:0, Y:0} ; Location where first click is done (window)
+      Static mouseNew   := {X:0, Y:0} ; location of mouse in real time (window)
+      Static mouseOld   := {X:0, Y:0} ; Copy of prior mouseNew, used to detect delta movement
+      Static pressedKey :="lButton"
+      this.ColorQueue.Length := 0
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&shapeStart.X, &shapeStart.Y)
+      WinGetPosEx(&winX, &winY, &winW, &winH, SnipObj.hWnd)
+      DPIFactor      := WinDPI(SnipObj.hWnd)/96
+      snapGrid       := DPIFactor * 10
+      reverseLine    := false
+      ; As we draw, we draw on this temp GUI DIB, later we draw on a picturecontrol  on the snip
+      canvasGui.Show("NA W0 H0")
+
+      ;@region check 
+      ;----------------------------------------------------------------------
+      ; If pre-existing shape to resize, then pull properties from the shape
+      ;----------------------------------------------------------------------
+      If IsObject(ShapeObj) {
+         coord                 := ShapeObj.shapeCoord
+         Shape                 := ShapeObj.Shape
+         ; shapeColor            := ShapeObj.Color
+         ShapeStart.W          := coord.W
+         ShapeStart.H          := coord.H
+         ;----------------------------------------------------------------------
+         ; Lines complicate this logic because they have a direction
+         ;----------------------------------------------------------------------
+         Switch Shape {
+            Case this.SHAPE_LINE, this.SHAPE_ARROW, this.SHAPE_OARROW, this.SHAPE_ODARROW, this.SHAPE_TAPARROW, this.SHAPE_BRACKET:
+               Switch ShapeObj.Corner {
+                  Case 1, 2: start := 3, reverseLine := true
+                  Case 4, 6: start := 0
+                  Default: start := 0
+               }
+            Default:
+               Switch ShapeObj.Corner {
+                  Case 1, 7, 8: start := 3 ; UL 3 points
+                  Case 3, 4, 5: start := 0 ; LR 3 points
+                  Case 2: start := 2 ; LL
+                  Case 6: start := 1 ; UR
+                  Default: start := 0
+               }
+         }
+         ;----------------------------------------------------------------------
+         ; Depending on start corner, have to conifgure the shape
+         ; starting layout because we essentially resume a draw
+         ;----------------------------------------------------------------------
+         Switch start {
+            Case 0: shapeStart.X := coord.X1, shapeStart.Y := coord.Y1 ; no swap ;UL
+            Case 1: shapeStart.X := coord.X2, shapeStart.Y := coord.Y1 ; swap X ;UR
+            Case 2: shapeStart.X := coord.X1, shapeStart.Y := coord.Y2 ; swap Y;LL
+            Case 3: shapeStart.X := coord.X2, shapeStart.Y := coord.Y2 ; swap both;LR
+            Default:
+         }
+         ;----------------------------------------------------------------------
+         ; Some defaults in case the mouse isn't down
+         ; Arrows can be in either direction
+         ;----------------------------------------------------------------------
+         W  := Round(coord.W), H  := Round(coord.H)
+         X  := coord.X,        Y  := coord.Y
+         X1 := coord.X1,       Y1 := coord.Y1
+         X2 := coord.X2,       Y2 := coord.Y2
+
+         ResizeMode := True
+      } else if (ShapeObj) {
+         ; No passed in Shape, just the Shape type, so create one
+         Shape := ShapeObj
+         ShapeObj         := SnipObj.AddNewShape(Shape, baseThicknessOrFactor)
+         ShapeObj.Visible := false
+         ; In case key is no longer pressed on a draw
+         X := Y := W := H := X1 := X2 := Y1 := Y2 :=0
+         ResizeMode := False
+      } Else {
+         qTrayTip("Draw Function has no shape parameter",2)
+         Return
+      }
+      ;@endregion
+      ;-----------------------------------------------------------------------
+      ; Create a drawing surface for the temp GUI
+      ; Draw onto a separate GUI slightly larger than the snip to allow shape overflow
+      ;-----------------------------------------------------------------------
+      surfSource := GDIp.DIBSurface(winW, winH, canvasGui.hWnd, this.DIBPad)
+      ; Needed for complex shape opacity
+      ; Gdip.SetCompositingMode(surfSource.G,1)
+
+      ; Force 0,0 to be inside the DIB to allow coloring outside the lines a a bit
+      surfSource.Translate(this.DIBPad, this.DIBPad)
+      ; Initialize loop variables
+      mouseOld := shapeStart.Clone()
+      ; Number of segments added (freehand)
+      AddedPoints := 0 
+      ;----------------------------------------------------------------------
+      ; Create all the pens, arrow heads and brushes
+      ; Adjust transparancy as needed
+      ;----------------------------------------------------------------------
+      Try {
+         ; May be a slight lag on older computers while initializing texture
+         BlockInput("MouseMove")
+         ShapeObj.Startup()
+      } Catch As e {
+         elog(e)
+      } Finally {
+         BlockInput("MouseMoveOff")
+      }
+            ; We don't want an error while mouse is locked out
+
+      local useLines := false
+      ;----------------------------------------------------------------------
+      ; Start the drawing loop if the mouse button is held down
+      ; Otherwise draw the shape (e.g. for a duplicate action)
+      ;----------------------------------------------------------------------
+      lastShiftKey := GetKeyState("Shift","P")
+      CoordMode('Mouse', 'Window')
+      if (pressedKey) {
+         this.DrawActive := True
+         If (ResizeMode) {
+            focusBorder.ShowFocus(ShapeObj.hWnd, True)
+         }
+         ;----------------------------------------------------------------------
+         ; Drawing Loop starts here
+         ;----------------------------------------------------------------------
+         While GetKeyState(pressedKey, 'p') {
+            If GetKeyState("Esc", "P") {
+               AddedPoints := W := H := 0
+               focusBorder.HideFocus(true)
+               Break
+            }
+            
+            Sleep(10)
+            MouseGetPos(&mouseNew.X, &mouseNew.Y)
+            dX := mouseNew.X - mouseOld.X, dY := mouseNew.Y - mouseOld.Y
+
+            ;----------------------------------------------------------------------
+            ; Set the real-time pen/brush color key if pressed
+            ; use the shape.Color to compare to
+            ;----------------------------------------------------------------------
+            If (this.ColorQueue.Length) {
+               ShapeObj.SetColor(this.ColorQueue.Pop())
+            ;----------------------------------------------------------------------
+            ; Arrow key can real time change the width of the pens
+            ;----------------------------------------------------------------------
+            } else if (GetKeyState("Up","P")) {
+               ShapeObj.ChangeThickness(+.03)
+            } else if (GetKeyState("Down","P")) {
+               ShapeObj.ChangeThickness(-.03)
+            } else if (lastShiftKey != (lks := GetKeyState("Shift","P"))) {
+               ; If shift key toggled while looping in place, keep processing
+               lastShiftKey := lks
+            } else if ((Abs(dx) + Abs(dy)) = 0) {
+               ; No movement or adjustments, don't draw just keep looping
+               Continue
+            }
+            ;----------------------------------------------------------------------
+            ; Shift the starting position when Space Bar is down
+            ;----------------------------------------------------------------------
+            If (GetKeyState("Space","P")) {
+               shapeStart.X += dX
+               shapeStart.Y += dY
+            }
+            ;----------------------------------------------------------------------
+            ; Compute the new unadjusted shape dimensions
+            ; Account for non down/right drags
+            ;----------------------------------------------------------------------
+            W := Abs(shapeStart.X - mouseNew.X)
+            H := Abs(shapeStart.Y - mouseNew.Y)
+            X := Min(shapeStart.X, mouseNew.X)
+            Y := Min(shapeStart.Y, mouseNew.Y)
+            
+            surfSource.GraphicsClear(0)
+            ;----------------------------------------------------------------------
+            ; Make real-time adjustments based on shape and shift key
+            ; Also draw the apprpriate shape
+            ;----------------------------------------------------------------------
+            Switch ShapeObj.Source {
+               Case "LineShape":
+                  ;----------------------------------------------------------------------
+                  ; Adjust the mouseNew position
+                  ; Soft Snap to 0/90/180/270 degrees
+                  ;----------------------------------------------------------------------
+                  If (W < snapGrid) {
+                     mouseNew.X := shapeStart.X
+                     ; W := 0
+                  } else If (H < snapGrid) {
+                     mouseNew.Y := shapeStart.Y
+                     ; H := 0
+                  } else If (Abs(H - W) < snapGrid) {
+                     maxDel     := max(W,H)
+                     mouseNew.Y := shapeStart.Y + (mouseNew.Y > shapeStart.Y ? maxDel : -maxDel)
+                     mouseNew.X := shapeStart.X + (mouseNew.X > shapeStart.X ? maxDel : -maxDel)
+                  }
+                  ; Recompute the new coordinates in case we snapped
+                  X := Min(shapeStart.X, mouseNew.X)
+                  Y := Min(shapeStart.Y, mouseNew.Y)
+                  W := Abs(shapeStart.X - mouseNew.X) 
+                  H := Abs(shapeStart.Y - mouseNew.Y) 
+                  ;----------------------------------------------------------------------
+                  ; For lines, need to determine direction (for arrow head)
+                  ;----------------------------------------------------------------------
+                  if reverseLine {
+                     x1 := mouseNew.X, x2 :=shapeStart.X
+                     y1 := mouseNew.Y, y2 :=shapeStart.Y
+                  } else {
+                     x2 := mouseNew.X, x1 :=shapeStart.X
+                     y2 := mouseNew.Y, Y1 :=shapeStart.Y
+                  }
+                  ;----------------------------------------------------------------------
+                  ; Draw Line Shapes
+                  ;----------------------------------------------------------------------
+                  ShapeObj.Draw(surfSource.G, X1, Y1, X2, Y2)
+
+               Case "BodyShape", "BlurShape", "ToolShape":
+                  ; If on a middle grab then lock the opposing edge
+                  Switch ShapeObj.Corner {
+                     Case 5:
+                        ; Grab bottom middle, Lock the right edge
+                        W := shapeStart.W
+                     Case 8:
+                        ; Grab top middle, Lock the right edge
+                        W := shapeStart.W
+                        X := shapeStart.X - W ; drawn reverse
+                     Case 3:
+                        ; Grab right middle, Lock the Height
+                        H := shapeStart.H
+                     Case 7:
+                        ; Grab left middle, Lock the Height
+                        H := shapeStart.H
+                        Y := shapeStart.Y - H ; drawn reverse
+                     Default:
+                        ; If we are on a corner, check for shift key to maintain square shape
+                        If (GetKeyState("Shift", "P")) {
+                           H := W := Max(H,W)
+                           ; If U/L from start then lock the other side
+                           if (mouseNew.X < shapeStart.X)
+                              X := shapeStart.X - W
+                           if (mouseNew.Y < shapeStart.Y)
+                              Y := shapeStart.Y - H
+                        } 
+                  }
+                  ;-------------------------------------------------------
+                  ; Ellipse is drawn from center out, but resized normally
+                  ;-------------------------------------------------------
+                  If (NOT ResizeMode AND Shape = this.SHAPE_ELLIPSE) {
+                     X := round(shapeStart.X - W)
+                     Y := round(shapeStart.Y - H)
+                     W *= 2, H *= 2
+                  }
+                  ;----------------------------------------------------------------------
+                  ; Draw 2-D Shapes
+                  ;----------------------------------------------------------------------
+                  ShapeObj.Draw(surfSource.G, X, Y, W, H)
+
+               Case "FreeHand":
+                  ;----------------------------------------------------------------------
+                  ; Draw straight lines when shift is down
+                  ;----------------------------------------------------------------------
+                  if (GetKeyState("Shift", "P")) {
+                     ; useLines will stick for the reset of the shape
+                     useLines := true
+                     ; Pass in long gap to force straight lines
+                     AddedPoints := ShapeObj.Draw(surfSource.G, mouseNew.X, mouseNew.Y, useLines, 50000)
+                  } else {
+                     AddedPoints := ShapeObj.Draw(surfSource.G, mouseNew.X, mouseNew.Y, useLines)
+                  }
+
+               Default:
+                  warning("Unhandled Shape:" Shape " with source:" ShapeObj.Source)
+            }
+            mouseOld := mouseNew.Clone()
+            ;----------------------------------------------------------------------
+            ; Update the drawing window with the new locations
+            ;----------------------------------------------------------------------
+            surfSource.UpdateLayer(winX - this.DIBPad, winY - this.DIBPad)
+            ;----------------------------------------------------------------------
+            ; Hide the old picture if it was visible after we update once to the new GUI for a
+            ; seamless transition (needed if re-sizing shape)
+            ;----------------------------------------------------------------------
+            if (ShapeObj.Visible) {
+               ShapeObj.Visible := false
+            }
+            ;----------------------------------------------------------------------
+            ; Sync the focus border
+            ;----------------------------------------------------------------------
+            if (ResizeMode)
+               focusBorder.Move(X, Y, W, H)
+         }
+         this.DrawActive := false
+         if (ResizeMode) {
+            ; Unlock the focusBorder after the next unfocus
+            focusBorder.UnBlockMe()
+         }
+      } else {
+         ;----------------------------------------------------------------------
+         ; We used to one-off draw here, but shouldn't need anymore
+         ;----------------------------------------------------------------------
+         dlog("We shouldn't be getting here for " ShapeObj.Source)
+         qTrayTip("We shouldn't be getting here for " ShapeObj.Source, 2)
+      }
+      ;----------------------------------------------------------------------
+      ; Ready to transfer over to the Snip Window
+      ; Ignore baby or escaped shapes
+      ; X/Y are the mouse and not the constrained values
+      ; Freehand shapes have one final draw to last point and compute their coordinates
+      ;----------------------------------------------------------------------
+      if (ResizeMode OR (W > 25 OR H > 25) OR AddedPoints > 2) {
+         If (ShapeObj.Source = "FreeHand") {
+            ; Some freehand shapes will close if start/end points are close to each other
+            ShapeObj.CloseCurve(surfSource.G, useLines)
+            ; Padding is not used for this shape
+            bndBx := ShapeObj.saveCoords(surfSource)
+         } Else {
+            ;----------------------------------------------------------------------
+            ; Compute the actual extent used so we don't clip when cropped
+            ; GetPathWorldBoundsI would work if we always had a path and knew the widest pen
+            ; Even then, the boundary is a bit too large
+            ; Example, rounded rectangle is drawn with outline that extends beyound he coordinates
+            ; both size of the drawing coordinates, thus the need for DIBPadding
+            ;----------------------------------------------------------------------
+            bndBx := surfSource.FindExtent(X, Y, W, H, 5)
+            ; Save the padding (if shape used it) so we know the shape vs window
+            ; size differences for moving
+            ShapeObj.savePadding(bndBx.L, bndBx.T, bndBx.R, bndBx.B)
+         }
+         ;----------------------------------------------------------------------
+         ; Update the shape window with a portion of the DIB to reduce any padding
+         ; Can we use one updatelayer with optional offset (or retrieve the offset in the object)
+         ;----------------------------------------------------------------------
+         surfSource.UpdateShapeWindow(ShapeObj.hwnd, bndBx.X1, bndBx.Y1, bndBx.W, bndBx.H, this.DIBPad)
+         ShapeOnTop(ShapeObj)
+         SnipObj.Dirty++
+
+         ;----------------------------------------------------------------------
+         ; Show shape over the draw window, then hide the draw window (flicker free)
+         ;----------------------------------------------------------------------
+         if NOT ShapeObj.Visible 
+            ShapeObj.Visible := true
+         canvasGui.Hide()
+         ;----------------------------------------------------------------------
+         ; Special shape handling after drawing
+         ;----------------------------------------------------------------------
+         Switch Shape {
+            Case this.SHAPE_CROP:
+               ; Crop the selection
+               this.Crop(ShapeObj, Snips.UpdateClipboard)
+               ShapeObj.Close()
+            Case this.SHAPE_OCR:
+               ; OCR the selection
+               this.OCRShape(ShapeObj)
+               ShapeObj.Close()
+            Default:
+         }
+         ; Done with drawing now
+         ShapeObj.Cleanup()
+      } else {
+         ;----------------------------------------------------------------------
+         ; Not valid shape, reset draw mode and hide this shape if visible. We
+         ; can fall through here with a visible shape if we only click on the
+         ; surface to exit draw mode. Control will be recycled. Normally not
+         ; used since shape shouldn't be visible yet anyway.
+         ;----------------------------------------------------------------------
+         If IsSet(ShapeObj) {
+            ShapeObj.Close()
+         }
+         Snips.SetDrawMode(0)
+         ShapeObj.Cleanup()
+      }
+      ;----------------------------------------------------------------------
+      ; All done, tidy up
+      ; Destroy the writing surface & temp GUI, sleep Helps with flash/flicker
+      ;----------------------------------------------------------------------
+      surfSource := ""
+      Sleep(-1) 
+      ; Remove the overlay that we just drew to be seamless (it now aligns with shape window)
+      canvasGui.Hide()
+      return 1
+   }
+   /**
+    * Click on an object to move it, corner to resize it
+    * Responds to a click on the existing control (OnEvent click)
+    * Drawn shapes are resized by re-drawing them
+    * 
+    * @param Key - mouse lbutton
+    * @param ShapeObj - Existing Shape Object
+    */
+   Static MoveSize(Key, ShapeObj) {
+      Static mouseStart    := {X:0, Y:0} ; Location where first click is done (window)
+      Static mouseNew      := {X:0, Y:0} ; location of mouse in real time (window)
+      Static mouseOld      := {X:0, Y:0}
+      Static mouseDiff     := {X:0, Y:0}
+      Static mouseLast     := {X:0, Y:0}
+      Static controlStart  := {X:0, Y:0, W:0, H:0}
+      Static controlOffset := {X:0, Y:0}
+      this.ColorQueue.Length := 0
+      If (GetKeyState("Alt", "P")) {
+         ; Hide the shape, it will be recycled if needed
+         ; ShapeObj.Close()
+         ; Push the shape down one
+         ShapeObj.PushDown()
+         Return
+      } Else If (GetKeyState("Ctrl", "P")) {
+         ; Duplicate the shape
+         Shapes.Duplicate(Key, ShapeObj)
+         Return
+      } Else If (GetKeyState("Shift", "P") AND ShapeObj.Source = "Text") {
+         ShapeObj.EditDispText()
+         Return
+      }
+
+      ; Latest control clicked will be on top of others (shapes are always over bitmaps for some reason)
+      ShapeOnTop(ShapeObj) ; true
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&mouseStart.X, &mouseStart.Y)
+
+      ; outer coordinates used for moving and box size
+      ShapeObj.GetPos(&controlStart.X, &controlStart.Y, &controlStart.W, &controlStart.H)
+      ; Box size to see if we are close to a corner/middle
+      coord := ShapeObj.shapeCoord
+      ; debug("Coord  =" coord.X1 " " coord.Y1 " " coord.X2 - coord.X1 " " coord.Y2 - coord.Y1 " " ShapeObj.Shape)
+      ; Get start/end points of the shape (may be different than the picture size due to padding)
+      ; See if we are near upper right/lower left corner (or line/arrow end-points)
+      CI := ShapeObj.CornerInfo(mouseStart.X, mouseStart.Y)
+      cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Move" 
+      ; cur is text version of Move, SizeNWSE and so on
+      Cursor.SetCursorMode(cur)
+      corner := CI.C
+      ; Snap to the center of the resize point
+      ccX := coord.X + CI.X
+      ccY := coord.Y + CI.Y
+      ;-----------------------------------------------------
+      ; Resize or Redraw Loop Starts Here
+      ;-----------------------------------------------------
+      If (corner) {
+         MouseMove(ccX, ccY)
+         ; Close to the corner, then resize
+         if ShapeObj.Source ~= "Shape" {
+            ;-----------------------------------------------------
+            ; If registered shape, then redraw it instead of resizing it
+            ;-----------------------------------------------------
+            ShapeObj.Corner := corner
+            this.Draw(ShapeObj.Gui, ShapeObj)
+         } else {
+            ;-----------------------------------------------------
+            ; Resize The Non-Shape Control (Text, File, Clip, Freehand)
+            ;-----------------------------------------------------
+            ; Determine if text box with text in it
+            If (ShapeObj.Source = "Text") {
+               cFact := 1
+               fSize := ShapeObj.FontSize
+            }
+            ;-----------------------------------------------------
+            ; Initialize some variables with starting info
+            ;-----------------------------------------------------
+            Aspect := controlStart.H / controlStart.W
+            MouseGetPos(&mouseStart.X, &mouseStart.Y)
+            W := controlStart.W, H := controlStart.H
+            mouseLast := mouseStart.Clone()
+
+            ;-----------------------------------------------------
+            ; Resize Non shape items like text, freehand or pictures
+            ;-----------------------------------------------------
+            focusBorder.ShowFocus(ShapeObj.hWnd, true)
+            ; All but free hand shapes are redrawn vs resized, but pictures/Text are resized here also
+            ShapeObj.Startup()
+            Loop {
+               ; NOTE - shapes don't auto refresh when color/thickness changed,
+               ; we also do this in draw mode
+               Sleep(10)
+               If (this.ColorQueue.Length) {
+                  ShapeObj.SetColor(this.ColorQueue.Pop())  ; works on active pen
+                  ShapeObj.Refresh()           ; not needed for all shapes
+               }
+               ;----------------------------------------------------------------------
+               ; Arrow key can real time change the width of the pens
+               ;----------------------------------------------------------------------
+               If (GetKeyState("Up","P")) {
+                  ShapeObj.ChangeThickness(+0.03)
+                  ShapeObj.Refresh()
+               } Else If (GetKeyState("Down","P")) {
+                  ShapeObj.ChangeThickness(-0.03)
+                  ShapeObj.Refresh()
+               }
+               
+               MouseGetPos(&mouseNew.X, &mouseNew.Y)
+               dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
+
+               if ((abs(dx) + abs(dy)) > 0) {
+                  mouseDiff.X := mouseNew.X - mouseStart.X
+                  mouseDiff.Y := mouseNew.Y - mouseStart.Y
+                  ; Adjust dimensions depending on the corner
+                  Switch corner {
+                     ; Corners maintain aspect ratio
+                     Case 1: ;UL 
+                        q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
+                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
+                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y)
+                     Case 2: ;UR
+                        q := (Aspect * mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
+                        X := controlStart.X,               W := Abs(controlStart.W + mouseDiff.X)
+                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y)
+                     Case 6: ;LL
+                        q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
+                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
+                        Y := controlStart.Y,               H := Abs(controlStart.H + mouseDiff.Y)
+                     Case 4: ;LR
+                        q := (Aspect * mouseDiff.X > mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
+                        X := controlStart.X, W := Abs(controlStart.W + mouseDiff.X)
+                        Y := controlStart.Y, H := Abs(controlStart.H + mouseDiff.Y)
+                        
+                     Case 3: ;Right Middle
+                        X := controlStart.X, W := Abs(controlStart.W + mouseDiff.X)
+                        Y := controlStart.Y, H := controlStart.H
+                     Case 5: ;Bottom Middle
+                        X := controlStart.X, W := controlStart.W
+                        Y := controlStart.Y, H := Abs(controlStart.H + mouseDiff.Y)
+                     Case 7: ;left Middle
+                        X := mouseNew.X,     W := Abs(controlStart.W - mouseDiff.X)
+                        Y := controlStart.Y, H := controlStart.H
+                     Case 8: ;top Middle
+                        X := controlStart.X, W := controlStart.W
+                        Y := mouseNew.Y,     H := Abs(controlStart.H - mouseDiff.Y) 
+                     Default: ; not a corner, won't happen
+                        X := Min(controlStart.X, mouseNew.X), W := Abs(mouseDiff.X)
+                        Y := Min(controlStart.Y, mouseNew.Y), H := Abs(mouseDiff.Y)
+                  }
+
+                  ; Space adjusts the offset while resizing
+                  if (GetKeyState("Space","P")) {
+                     ; These kick in the next loop
+                     mouseStart.X   += dX, mouseStart.Y   += dY
+                     controlStart.X += dX, controlStart.Y += dY
+                     ShapeObj.Move(X, Y)
+                  } else If (ShapeObj.Source = "Text") {
+                     If (Abs(W / controlStart.W - cFact) > 0.001) {
+                        ; W is new width, controlStart.W is og width 
+                        cFact := W / controlStart.W
+                        ; ALso shift the control up/down to maintain the centerline
+                        deltaY := controlStart.H * (1 - cFact) / 2
+                        ShapeObj.Move(Round(X), Round(controlStart.Y + deltaY), Round(fSize * cFact, 2))
+                     }
+                  } Else {
+                     ; Resize the shape
+                     ; pictures are done here along with freehand
+                     ShapeObj.Move(X, Y, W, H)
+                  }
+                  focusBorder.Sync()
+               }
+               mouseLast := mouseNew.Clone()
+
+            } Until !GetKeyState(Key, 'p')
+
+            ShapeObj.CleanUp()
+            ; Unlock the focusBorder after the next unfocus
+            focusBorder.UnBlockMe()
+         }
+      } Else {
+         ;-----------------------------------------------------
+         ;               Move the control
+         ;-----------------------------------------------------
+         C := ShapeObj.shapeCoord
+         controlOffset.X := controlStart.X - mouseStart.X
+         controlOffset.Y := controlStart.Y - mouseStart.Y
+
+         MouseGetPos(&mouseNew.X, &mouseNew.Y)
+         mouseLast := mouseNew.Clone()
+         focusBorder.ShowFocus(ShapeObj.hWnd, true)
+         ;----------------------------------------------------------------------
+         ; Move only Loop starts here
+         ;----------------------------------------------------------------------
+         Loop {
+            Sleep(10)
+            MouseGetPos(&mouseNew.X, &mouseNew.Y)
+            dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
+            if ((abs(dx) + abs(dy)) > 0) {
+               ShapeObj.Move(mouseNew.X + controlOffset.X, mouseNew.Y + controlOffset.Y)
+               focusBorder.Sync()
+            } 
+            ;----------------------------------------------------------------------
+            ; Handle color changes and redraw shape
+            ;----------------------------------------------------------------------
+            If (this.ColorQueue.Length) {
+               ; NOTE SetColor requires GDI+ running, which we don't have here
+               ShapeObj.Color := this.ColorQueue.Pop()
+               ShapeObj.Refresh()
+            }
+            ;----------------------------------------------------------------------
+            ; Arrow key can real time change the width of the pens
+            ; NOTE - easy to clip when enlarging body shapes
+            ; IDEA - Factor could be shape specifc
+            ;----------------------------------------------------------------------
+            If (GetKeyState("Up","P")) {
+               ShapeObj.shapeThickness *= 1.02 ; line/shape borders
+               ShapeObj.Factor         *= 1.05 ; blur/pixelate
+               ShapeObj.Refresh()
+               focusBorder.Sync()
+            } Else If (GetKeyState("Down","P")) {
+               ShapeObj.shapeThickness *= .98 ; line/shape borders
+               ShapeObj.Factor         *= .95 ; blur/pixelate
+               ShapeObj.Refresh()
+               focusBorder.Sync()
+            }
+            mouseLast := mouseNew.Clone()
+
+         } Until !GetKeyState(Key, 'p')
+         ; Done
+         focusBorder.UnBlockMe()
+      }
+
+      ; Restore active cursor
+      Cursor.MoveResizeCursor := 0 ; HACK - why is this also needed for correct behaviour?
+      Cursor.SetCursor("Select") ; not really needed
+      ; Snapshot clipboard if enabled
+      If (Snips.UpdateClipboard) {
+         Snips.flashBorder(ShapeObj.Gui.hWnd)
+         Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeObj.Gui.hWnd)
+      }
+      ShapeObj.Gui.Dirty++
+      Return
+
+      distance(x, y) => Sqrt(x ** 2 + y ** 2)
+   }
+   /**
+    * Duplicate an object
+    * @param key - 'lbutton' 
+    * @param GuiCtrlObj - Picture control object 
+    * @returns Nothing 
+    */
+   Static Duplicate(key, ShapeObj) {
+      ; Needs file name for picture control
+      ; GetPos is shifted by Margin I think, where coords are not??
+      ShapeObj.GetPos(&csX, &csY, &cW, &cH)
+      SnipObj := ShapeObj.Gui
+      Switch ShapeObj.Source {
+         Case "File", "Clip":
+            ; png file
+            CoordMode('Mouse', 'Window')
+            MouseGetPos(&mouseStartX, &mouseStartY)
+            CloneObj := this.CreatePicFromSource(SnipObj, ShapeObj.FileName, mouseStartX, mouseStartY)
+            ; IDEA - better detection/handling when importing hBitmaps so we don't have to force File
+            CloneObj.Move(csX, csY + cH, cW, cH)
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
+            vShift                  := round(random(10,100)) ; must round to whole number
+            CloneObj                := SnipObj.AddNewShape(ShapeObj.Shape)
+            CloneObj.Shape          := ShapeObj.Shape
+            CloneObj.Color          := ShapeObj.Color
+            CloneObj.Factor         := ShapeObj.Factor
+            CloneObj.shapeThickness := ShapeObj.shapeThickness
+            CloneObj.shapeOpacity   := ShapeObj.shapeOpacity ; freehand specific
+            CloneObj.outlineOpacity := ShapeObj.outlineOpacity ; freehand specific
+            CloneObj.shapeCoord     := ShapeObj.shapeCoord.clone()
+            CloneObj.sPad           := ShapeObj.sPad.clone()
+            Switch ShapeObj.Source {
+               Case "BlurShape":
+                  CloneObj.hasImage := 0
+               Case "FreeHand":
+                  ; FreeHand specific properties
+                  CloneObj.hasImage := 0
+                  CloneObj.drawFunction := ShapeObj.drawFunction ; GDIp draw function
+                  CloneObj.Points       := ShapeObj.Points ; will clone on set
+                  CloneObj.OG           := ShapeObj.OG.clone() ; Original size
+            }
+            ; Move then redraw the cloned shape
+            CloneObj.Move(csX, csY + vShift, cW, cH)
+            ShapeOnTop(CloneObj)
+            
+         Case "Text":
+            CloneObj                := SnipObj.AddNewShape(ShapeObj.Shape)
+            CloneObj.shapeThickness := ShapeObj.shapeThickness
+            vShift                  := round(random(10,100)) ; must round to whole number
+
+            If (CloneObj.DrawText(csX, csY + vShift, ShapeObj.FontSize, ShapeObj.Text, ShapeObj.FontName, ShapeObj.Alignment, ShapeObj.FontStyle, ShapeObj.Color, ShapeObj.BGColor)) {
+               ShapeOnTop(CloneObj)
+               ShapeObj.Gui.Dirty++
+            }
+         Default:
+      }
+      Return
+   }
+
+   /**
+    * OCR the image to one of the drawn shapes/pictures
+    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @returns Nothing 
+    * OCR.FromRect(X, Y, W, H, lang?, scale:=1) will work on the snip itself
+    */
+   Static OCRShape(ShapeCropObj) {
+      ; Need the screen coordinates of the shape and the GUI
+      ShapeCropObj.Gui.GetPos(&gX1, &gY1, &gW, &gH)
+      ShapeCropObj.GetPos(&cX1, &cY1, &cW, &cH)
+      If (cW < 25 OR cH < 25)
+         Return
+      ; Do the OCR from the window rectangle
+      Result := OCR.FromRect(gx1 + cx1, gy1 + cy1, cW, cH)
+      Cluster := OCR.Cluster(Result.Words)
+      For rowWords in Cluster {
+         LineText .= rowWords.Text . "`n"
+      } Else
+         LineText := ""
+      try {
+         A_Clipboard := LineText
+         qTrayTip("Clipped " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
+      } catch as e {
+         qTrayTip("Error Clipping " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
+      }
+   }
+
+   /**
+    * Crop the image to one of the drawn shapes/pictures
+    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @returns Nothing 
+    */
+   Static Crop(ShapeCropObj, Clipboard := false) {
+      myGUI := ShapeCropObj.Gui
+      myPic := ShapeCropObj.Gui.Pic
+      If (hBitmap := myPic.handle) {
+         ; Get various dimensions
+         ; TODO - could probably use the intersectrect function here (IntersectRect)
+         myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border I think
+         ShapeCropObj.GetPos(&cX1, &cY1, &cW, &cH)
+         cX2 := cX1 + cW, cY2 := cY1 + cH
+         ; Get the raw picture dimensions
+         myPic.GetPos(&pX1, &pY1, &pW, &pH)
+         pX2 := pX1 + pW, pY2 := pY1 + pH
+         ; Limit to visible bounding regions, crop tool can get way beyound picture boundaries
+         cX1 := Max(cX1, pX1), cX2 := Min(cX2, pX2)
+         cY1 := Max(cY1, pY1), cY2 := Min(cY2, pY2)
+         ; Since pX1 started at Borderwidth and not 0, have to remove one
+         ; borderwidth when computing the width, pX1/pY1 will be the BW
+         cW := cX2 - cX1 - pX1, cH := cY2 - cY1 - pY1
+         If (cW < 25 OR cH < 25)
+            Return
+         ; This destroys the existing snip bitmap and creates a new one
+         hBitmap := BitMap.CropHBITMAP(hBitmap, cX1, cY1, cW, cH)
+         ; Hide the flash when we replace the bitmap
+         myGUI.Move(-20000,-20000) 
+         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         myPic.Handle := hBitmap  ; This will free hBitmap
+         ; Shift and resize GUI to contain the new crop coordinates
+         myGUI.Move(gX1 + cX1, gY1 + cY1, cW + Snips.BorderWidth * 2, cH + Snips.BorderWidth * 2)
+         ; Shift all of the controls so they stay in same place
+         For Ctrl in myGUI {
+            If Ctrl.Visible and A_Index > 1 {
+               Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.Move(X - cX1, Y - cY1)
+            }
+         }
+         ButtonBar.Show()
+         if Clipboard {
+            Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeCropObj.Gui.hWnd)
+         }
+      }
+   }
+
+
+   /**
+    * Add a picture or icon to the image for annotation
+    * @param hWnd Handle to window
+    * @param Key the button key that is pressed
+    */
+   Static AddPictureFromFile(hWnd, key, letter) {
+      Global Settings_SavePath_Icons
+      SnipObj := Snips.GetGuiObj(hWnd)
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&sX, &sY)
+      KeyWait(letter,"t3") ; wait for key to not be pressed
+      SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+      SelectedFile := FileSelect(, Settings_SavePath_Icons, "Select Picture to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      if (FileExist(SelectedFile)) {
+         if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, sX, sY)) {
+            SplitPath(SelectedFile,,&Settings_SavePath_Icons)  ; Save new location for snips
+            ShapeObj.Gui.Dirty++
+         }
+         Return ShapeObj
+      } else {
+         Return 0
+      }
+   }
+   Static CreatePicFromClipboard(SnipObj, sX, sY) {
+   }
+
+   ;----------------------------------------------------------------------
+   ; Create a picture from a file name or HBITMAP
+   ;----------------------------------------------------------------------
+   Static CreatePicFromSource(SnipObj, SelectedFileOrBitmap, sX, sY) {
+      If (FileExist(SelectedFileOrBitmap) OR SelectedFileOrBitmap ~= "HBITMAP") {
+         Shape := FileExist(SelectedFileOrBitmap) ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
+         ; BUG - layered windows are always on top of other pictures like this, work around would be to 
+         ;       save the image and draw into a layered window. Would have to handle resizing manually
+         ShapeObj := SnipObj.AddNewBitmap(Shape,"+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap) ; NOTE +E0x80000 hides the image
+         ShapeObj.SaveSize(SelectedFileOrBitmap)
+         ShapeOnTop(ShapeObj)
+         ShapeObj.Gui.Dirty++
+         Return ShapeObj
+      } Else {
+         Warning("Did not Find Existing " SelectedFileOrBitmap)
+         Return 0
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Set the common shape color
+   ;----------------------------------------------------------------------
+   Static setShapeColor(val,*) {
+      nc := RGBval(val)
+      this.ColorQueue.push(nc)
+      If (nc != this.globalShapeColor) {
+         this.globalShapeColor := nc
+         Snips.SetSnipBorderColor(val)
+         ButtonBar.BackColor := nc
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Associate a bitmap for the static control
+   ; Returns the prior image
+   ;----------------------------------------------------------------------
+   Static SetImage(hwnd, hBitmap) {
+      ; STM_SETIMAGE
+      _E := DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x172, "UInt", 0x0, "Ptr", hBitmap)
+      if (_E)
+         GDI.DeleteObject(_E)      
+      Return _E
+   }
+   ;----------------------------------------------------------------------
+   ; Return the number of visible text shapes in this snip
+   ;----------------------------------------------------------------------
+   Static VisibleTextShapes(hWnd := 0) {
+      if NOT hWnd
+         hWnd := WinExist("A")
+      Count := 0
+      For Ctrl in Snips.GetGuiObj(hWnd) {
+         If Ctrl.Visible and Ctrl.Source = "Text" {
+            Count++
+         }
+      }
+      Return Count
+   }
+
+   ;----------------------------------------------------------------------
+   ; Draw a numbered tag in unicode
+   ;----------------------------------------------------------------------
+   Static DrawTag(SnipObj, fColor, Factor:=1) {
+      if (this.VisibleTextShapes(SnipObj.hWnd) = 0)
+         SnipObj.Counter := 0
+      next := ++SnipObj.Counter
+      nextChar := Format("{:d}", next) ; Numbers cause an issue for render
+
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&mX, &mY)
+      BGColor := SnipObj.BackgroundPICColorFromXY(mX, mY, 50)
+      TextObj := SnipObj.AddNewShape(Shapes.SHAPE_TAG)
+      TextObj.Visible := false
+      ; No size until rendered, so BackgroundColorFromShape won't work here
+
+      If (TextObj.DrawText(mX, mY, TextShape.TagFontSize * Factor, nextChar, TextShape.TagFontName, "Center", TextShape.TagFontStyle, RGBval(fColor), BGColor)) {
+         S := TextObj.shapeCoord
+         ; Adjust for center of tag vs upper left
+         dx := -S.W / 2, dy := -S.H / 2
+         TextObj.Move(mX + dx, mY + dy)
+         ShapeOnTop(TextObj)
+         TextObj.Visible := true
+         TextObj.Gui.Dirty++
+      }
+      Return 1
+   }
+   ;----------------------------------------------------------------------
+   ; Insert text, typically from clipboard
+   ; Coordinates are window relative
+   ;----------------------------------------------------------------------
+   Static InsertText(SnipObj, wX, wY, Text) {
+      ; Keep the text on the GUI
+      SnipObj.GetPos(&gX, &gY, &gW, &gH)
+      CoordMode('Mouse', 'Screen')
+      MouseGetPos(&mX, &mY)
+      GDIp.CreateRect(&Rect, 0, 0, gW, gH)
+      Pt := wY << 32 | wX
+      If ( NOT DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", Pt, "Uint")) {
+         wX := round(0.5 * gW)
+         wY := round(0.5 * gH)
+      }
+      ; Use fill text as a default, translate CRLF to just LF
+      Text := StrReplace(Text,"`r`n","`n")
+      BGColor := SnipObj.BackgroundPICColorFromXY(wX, wY, 32)
+      TextObj := SnipObj.AddNewShape(Shapes.SHAPE_FILLTEXT)
+      If (TextObj.DrawText(wX, wY, TextShape.FillFontSize, Trim(Text, " `n"), TextShape.FillFontName, , , Shapes.globalShapeColor, BGColor)) {
+         qTrayTip("Inserting text: " Text)
+         ShapeOnTop(TextObj)
+         SnipObj.Dirty++
+         Return TextObj
+      } Else {
+         qTrayTip("Failed to Insert Text")
+         Return 0
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Add user prompted text 
+   ;----------------------------------------------------------------------
+   Static AddDispText(hWnd, Shape, letter := "", factor := 1) {
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&sX, &sY)
+      ; Commpute the appropriate background color
+      if (letter)
+         KeyWait(letter, "t2") ; wait for key to not be pressed (repeats)
+      SnipObj := Snips.GetGuiObj(hWnd)
+      SnipObj.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
+      ; Background is fill for tags and fill style
+      BGColor := SnipObj.BackgroundPICColorFromXY(sX, sY, 100)
+      TextObj := SnipObj.AddNewShape(Shape)
+      Switch Shape {
+         Case Shapes.SHAPE_TAG:
+            TextObj.FontName  := TextShape.TagFontName
+            TextObj.FontStyle := TextShape.TagFontStyle
+            TextObj.FontSize  := TextShape.TagFontSize * factor
+         Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT, Shapes.SHAPE_TEXT:
+            TextObj.FontName  := TextShape.FillFontName
+            TextObj.FontStyle := TextShape.FillFontStyle
+            TextObj.Alignment := TextShape.FillAlignment
+            TextObj.FontSize  := TextShape.FillFontSize * factor
+         Case Shapes.SHAPE_OLTEXT:
+            TextObj.FontName  := TextShape.OLFontName
+            TextObj.FontStyle := TextShape.OLFontStyle
+            TextObj.Alignment := TextShape.OLAlignment
+            TextObj.FontSize  := TextShape.OLFontSize * factor
+         Default:
+      }
+      TextObj.Color := Shapes.globalShapeColor
+      Obj := TextInputBox(TextObj, "Enter Text to Add (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", "")
+      If (WinExist(hWnd)) {
+         SnipObj.Opt("-OwnDialogs -Disabled") ; forces to grab the top focus
+         If (Obj.Result = "OK") {
+            If (TextObj.DrawText(sX, sY, Obj.Size, Trim(Obj.Value, " `n"), Obj.Font, Obj.ALignment, Obj.FontStyle, RGBval(Obj.Color), BGColor)) {
+               ShapeOnTop(TextObj)
+               SnipObj.Dirty++
+               ; Shift up so it is centered on the mouse location
+               TextObj.GetPos(, , &W, &H)
+               dy := -H / 2
+               TextObj.Move(sX, SY + dy)
+               Return 1
+            } Else
+               Return 0
+         } Else {
+            ; zombie text will be recycled
+            Return 0
+         }
+      } Else {
+         Return 0
+      }
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")
+
+
+;----------------------------------------------------------------------
+; Class to get Font Info from GetObject
+;----------------------------------------------------------------------
+; Class tagLOGFONTA {
+;   lfHeight               : i32
+;   lfWidth                : i32
+;   lfEscapement           : i32
+;   lfOrientation          : i32
+;   lfWeight               : i32
+;   lfItalic               : u8
+;   lfUnderline            : u8
+;   lfStrikeOut            : u8
+;   lfCharSet              : u8
+;   lfOutPrecision         : u8
+;   lfClipPrecision        : u8
+;   lfQuality              : u8
+;   lfPitchAndFamily       : u8
+;   _lfFaceName            : 32 ; string pointer
+;   lfFaceName =>   StrGet(this._lfFaceName, 32)
+; }

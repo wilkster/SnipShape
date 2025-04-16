@@ -1,0 +1,581 @@
+#Requires AutoHotkey v2.0 
+#include ..\clsShapes.ahk2
+; Add new command to Gui object for adding shapes
+Gui.Prototype.AddNewShape := AddNewShape
+; Alls GDI+ Shapes ahve the same options
+AddNewShape(guiObj, Shape, Factor:=1) {
+   Return AddNewShapeOrBitmap(guiObj, Shape, "+E0x80000 +BackgroundTrans",,Factor)
+}
+; Bitmaps pass in the options and filename
+Gui.Prototype.AddNewBitmap := AddNewShapeOrBitmap
+/**
+ * Add a new shape and establish a base class to handle it
+ * @param guiObj 
+ * @param Shape 
+ * @param {String} sOptions 
+ * @param {String} sPicFile 
+ */
+AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1) {
+   ;----------------------------------------------------------------------
+   ; Reuse any hidden shapes that match this one
+   ; Non-layered windows have pictures attached to them, normal shapes are layered.
+   ;----------------------------------------------------------------------
+   isLayered := sPicSource ? false : true
+   For ctrl in guiObj {
+      ; Have to match layered vs non-layered (i.e. options)
+      If ( NOT ctrl.Visible AND ctrl.layered = isLayered) {
+         pObj := ctrl
+         pObj.Enabled := true
+         ; debug(A_Index " Reusing Shape " pObj.Shape ", Source=" pObj.Source ", Pic Source=" sPicSource)
+         ;----------------------------------------------------------------------
+         ; Reusing true pictures, set the background to new hBitmap or File
+         ;----------------------------------------------------------------------
+         if (Shape = Shapes.SHAPE_BITMAP OR Shape = Shapes.SHAPE_FILE)
+            pObj.Value := "*W0 *H0 " sPicSource
+         Break
+      }
+   }
+   If ( NOT IsSet(pObj)) {
+      ; NOTE - Bitmaps are loaded/passed in here to AddPicture if sPicSource is not blank
+      pObj := guiObj.AddPicture(sOptions, sPicSource) ; OK, this is GUI vs PicPlus
+   }
+   ; Depending on the shape, alter its base to point to the inherited shape
+   Switch Shape {
+      Case Shapes.SHAPE_HILITER, Shapes.SHAPE_PEN, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_ARCARROW, Shapes.SHAPE_WIDEPEN:
+         pObj.Source := "FreeHand"
+         pObj.base  := FreeHandShape.Prototype
+      Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_LINE, Shapes.SHAPE_TAPARROW, Shapes.SHAPE_BRACKET:
+         pObj.Source := "LineShape"
+         pObj.base  := LineShape.Prototype
+      Case Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_REDAC, Shapes.SHAPE_HILITE:
+         pObj.Source := "BlurShape"
+         pObj.base  := ObscureShape.Prototype
+      Case Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT, Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_HILITE:
+         pObj.Source := "BodyShape"
+         pObj.base  := BodyShape.Prototype
+      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP:
+         ; NOTE - The objects are setup based on Gui.PIC so not sure a way around this short of creating a brand
+         ; new class NOT based on Gui.PIC that includes all the GDI calls. Not worth it since controls are recycled.
+         pObj.Source := "ToolShape"
+         pObj.base  := ToolShape.Prototype
+      Case Shapes.SHAPE_FILE:
+         pObj.Source := "File"
+         pObj.base  := BitmapShape.Prototype 
+      Case Shapes.SHAPE_BITMAP:
+         pObj.Source := "Clip"
+         pObj.base  := BitmapShape.Prototype 
+      Case Shapes.SHAPE_TEXT, Shapes.SHAPE_FILLTEXT,Shapes.SHAPE_OLTEXT, Shapes.SHAPE_TAG, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
+         pObj.Source := "Text"
+         pObj.base  := TextShape.Prototype
+      Default: ; Other shape
+         pObj.Source := "Other"
+         pObj.base  := BitmapShape.Prototype
+         MsgBox("Unknown Shape Requested:" Shape)
+   }
+   pObj.Shape   := Shape
+   pObj.Factor  := Factor
+   pObj.Options := sOptions
+   pObj.Init(sPicSource)
+   Return pObj ; ⇦ Will this always force the base object?
+}
+/**
+ * Base class derived from Picture control for use in creating shapes
+ */
+Class commonShape extends Gui.Pic {
+   Source := "" ; for lint, not called
+   Shape  := 0 ; for lint, not called
+   ; Reuse  := 0 ; for lint, not called
+   Options := ""
+   Factor := 1 ;Lint
+
+   ;----------------------------------------------------------------------
+   ; Called on shape creation (__New is NOT called)
+   ;----------------------------------------------------------------------
+   Init(sPicImage:="") {
+      this.fName          := sPicImage
+      this.layered        := true
+      ; Defaults will be overridden
+      this.Color          := Shapes.globalShapeColor ; Access via Color methods
+      this.shapeThickness := Shapes.rawLineThickness
+      this.shapeOpacity   := Shapes.ShapeOpacity
+      this.outlineOpacity := Shapes.outlineOpacity
+      
+      this.Corner         := 0
+      this.shapeCoord     := { X1: 0, Y1: 0, X2: 0, Y2: 0}
+      this.sPad           := { L: 0, T: 0, R: 0, B: 0}
+      ; this.W              := 0
+      ; this.H              := 0
+      this.Started        := false
+      this.OG             := {}
+      this.ClearCursorClass()
+      ; Event Menus/Actions
+      this.bindMenu       := ShapeMenus.ShapeRMB.Bind(Shapes)
+      this.bindClick      := Shapes.ShapeClickHandler.Bind(Shapes, "lButton")
+      ; NOTE - since we automatically add OnEvents, even transient click shapes have to be closed propertly
+      this.OnEvent("ContextMenu",this.bindMenu)
+      this.OnEvent("Click", this.bindClick)
+      this.Visible   := true
+      this.DPIFactor := activeDPIFactor()
+      this.ShapeName := Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1])
+      this.PIC       := this.GUI.PIC.Handle
+      this.SnipObj   := this.GUI
+
+   }
+   DPI => WinDPI(this.hWnd)
+   DPIScale => WinDPI(this.hWnd) / 96
+   ;//////////////////////////////////////////////////////////////////////
+   ;            Shape Unique
+   ;//////////////////////////////////////////////////////////////////////
+   /**
+    * Prepare to draw (commmon to all shapes)
+    */
+   Startup() {
+      this.myBrushes            := GDIp.Brushes()
+      this.myPens               := GDIp.Pens()
+      this.DPIFactor            := activeDPIFactor()
+      this.myPens.baseThickness := this.shapeThickness
+      this.pPrime               := this.myPens.Add(this.shapeOpacity << 24 | this.Color, this.shapeThickness)
+      ; Empty pen to help with grabbing empty shapes
+      Static GrabPad := 15 * activeDPIFactor()
+      ; Keep out of pens collection since we don't want it to scale
+      this.pGrab := this.myPens.Add(0x01000000, GrabPad)
+      GDIp.SetPenAlignment(this.pGrab, 0)
+      ; Brush to fill in behind free hand
+      this.bGrab := this.myBrushes.Add(0x01000000)
+      this.blankBrush := this.myBrushes.Add(0x00000000)
+
+      this.Started := true
+   }
+   /**
+    * Wrap up pens and brushes after drawing, release GDIp objects used
+    */
+   CleanUp() {
+      If (this.myPens.Length > 0)
+         this.myPens.Reset()
+      If (this.myBrushes.Length > 0)
+         this.myBrushes.Reset()
+      this.Started := false
+   }
+   ;----------------------------------------------------------------------
+   ; Push to the bottom of the Z-Order just above the picture
+   ;----------------------------------------------------------------------
+   PushToBottom() {
+      SetWindowBottom(this.hWnd)
+   }
+   PushDown() {
+      PushShapeDownOne(this)
+   }
+   
+   ; Shape Specific
+   FileName {
+      set => this.fname := Value
+      get => this.fname
+   }
+   ; Shape Specific, not for clips/files
+   Color {
+      set => this._Color := RGBval(Value) & 0xFFFFFF
+      get => this._Color
+   }
+
+   ClearCursorClass() => DllCall("SetClassLongPtrW", "Ptr", this.hWnd, "Int", -12, "Ptr", 0, "Ptr") ; GCLP_HCURSOR
+   ; Save shape information for later retrieval
+   shapeCoord {
+      get => this.sCoord
+      set {
+         this.sCoord := Value
+         ; Coordinates are endpoint-exclusive per microsoft
+         this.sCoord.W := Abs(this.sCoord.X1 - this.sCoord.X2)
+         this.sCoord.H := Abs(this.sCoord.Y1 - this.sCoord.Y2)
+         this.sCoord.X := Min(this.sCoord.X1, this.sCoord.X2)
+         this.sCoord.Y := Min(this.sCoord.Y1, this.sCoord.Y2)
+      }
+   }
+   UpdateCoord() {
+      ; Hopefully not called for drawn shapes
+      ; debug("Picture Updating Coordinates")
+      this.GetPos(&X, &Y, &W, &H)
+      this.sCoord := { X1: X, Y1: Y, X2: X + W, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+   }
+   Refresh() {
+      ; Shape specific
+   }
+   GrabProcessedBitmap() {
+      ; Shape specific
+   }
+   ;----------------------------------------------------
+   ; Move the shape and update the internal coordinates
+   ; Account for internal padding (window vs shape coordinates)
+   ;----------------------------------------------------
+   /**
+    * 
+    * @param wX Optional, new X location
+    * @param wY Optional, new Y location
+    * @param wW Optional, new width
+    * @param wH Optional, new height
+    * @param {Integer} okMove false to just compute new location, caller will do the move, true to move
+    */
+   Move(wX?, wY?, wW?, wH?, okMove := true) {
+      ; First actually move the shape as specified
+      if (okMove)
+         super.Move(wX?, wY?, wW?, wH?)
+      ; Account for the padding (window vs coordiantes)
+      c := this.sCoord ; shape coordinates, inside window
+      p := this.sPad ; padding between shape and window edge L/T is positive, B=R/B is negative
+      ; always compute as L→R, T→B
+      X1 := IsSet(wX) ? wX + p.L : c.X1
+      Y1 := IsSet(wY) ? wY + p.T : c.Y1
+      W  := IsSet(wW) ? wW - Abs(p.L) - Abs(p.R) : c.W
+      H  := IsSet(wH) ? wH - Abs(p.T) - Abs(p.B) : c.H
+      X2 := X1 + W , Y2 := Y1 + H 
+      ; Arrows have a direction
+      SwapIf(c.X1 > c.X2, &X1, &X2)
+      SwapIf(c.Y1 > c.Y2, &Y1, &Y2)
+      ; Replace coordinates with appropriate direction for lines
+      this.sCoord := { X1: X1, Y1: Y1, X2: X2, Y2: Y2, W: W, H: H, X: Min(X1, X2), Y: Min(Y1, Y2) }
+      ; If we set the width or height, then refresh the shape
+      If (IsSet(wW) or IsSet(wH)) {
+         this.Refresh()
+      }
+
+      Return
+      ;----------------------------------------------------------------------
+      ; Swap by reference if a condition is met
+      ; This would only be for lines
+      ;----------------------------------------------------------------------
+      SwapIf(test, &L, &R) {
+         If (test) {
+            T := L
+            L := R
+            R := T
+         }
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; Call this when closing a Snip to get rid of the bitmap if used
+   ;----------------------------------------------------------------------
+   Close() {
+      this.Value := ""   ; Release any hbitmaps if associated with the picture
+      this.Visible := false
+      this.Enabled := false
+      this.OnEvent("ContextMenu",this.bindMenu, false)
+      this.OnEvent("Click", this.bindClick, false)
+; debug("UnBound Events for " hex(this.hWnd) ", Source =" this.Source)
+
+      ; If layered window we want to blank it also
+      If (this.Options ~= "E0x80000") {
+         this.getPos(&iX, &iY, &iW, &iH)
+         If (iW > 0 AND iH > 0) {
+            Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+            Surf.UpdateLayer(iX, iY)
+            Surf := ""
+         }
+      }
+   }
+
+   /*
+         1------------------------8------------------------2
+         |                                                 |
+         |                                                 |
+         |                                                 |
+         7                  Body Corners                   3
+         |                                                 |
+         |                                                 |
+         |                                                 |
+         6-----------------------5-------------------------4
+
+         Lines have corners of 1/4 or 4/1 2/6, 6/2 depending on their
+         orientation and direction.
+   */
+   ;----------------------------------------------------------------------
+   ; Return shape informatoin for focus points and corner mouse is over
+   ;----------------------------------------------------------------------
+   FocusSquare => true
+   FocusPoints() {
+      ; ResizePoints := Array() ; NOTE these need to offset relative to shape not window
+      C := this.shapeCoord
+      ; Body/freehand shapes get all the points
+      ;ResizePoints.push(
+      return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
+              { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
+              { c: 5, X: C.w / 2, Y: C.h }, { C: 6, x: 0, Y: C.h }, 
+              { C: 7, X: 0, Y: C.h/2 },     { C: 8, x: C.W/2, Y: 0 }]
+   }
+   ;----------------------------------------------------------------------
+   ; Return Focus Point Info based on mouse location
+   ;----------------------------------------------------------------------
+   CornerInfo(mX, mY) {
+      ; Check if mouse is in one of the resize points
+      smX := mX - this.sCoord.X
+      smY := mY - this.sCoord.Y
+      For obj in this.FocusPoints() {
+         If (IsInBox(smX - obj.X, smY - obj.Y)) {
+            return obj
+         }
+      }
+      Return { C: 0, X: smX, Y: smY }
+      IsInBox(x, y) => (Sqrt(x ** 2 + y ** 2) < Cursor.ResizeBox)
+   }
+   /**
+    * Adjust the shape thickness dynamically
+    * @param amt % of change
+    */
+   ChangeThickness(amt) {
+      Return this.shapeThickness := this.myPens.ChangeThickness(amt)
+   }
+
+   /**
+    * SetColor - Set a new color for the shape
+    * @param newColor New RGB color to use
+    */
+   SetColor(newColor) {
+      GDIp.SetPenColor(this.pPrime, this.shapeOpacity << 24 | newColor)
+      this.Color         := newColor
+      this.Gui.BackColor := newColor
+   }
+   SaveSize(fname?) {
+   }
+   IsOverSnip() {
+      C := this.sCoord
+      this.Gui.PIC.GetPos(,,&pW,&pH)
+      ; extract area wherepredominant  shape intersects with the snip and use it
+      Return iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)
+   }
+   /**
+    * After we find extents, save the padding since it is non-zero
+    * 
+    * NOTE - Used for Line and Body shapes
+    * @param L Left padding amount in pixels
+    * @param T Top padding amount in pixels
+    * @param R Right padding amount in pixels
+    * @param B Bottom padding amount in pixels
+    */
+   savePadding(L, T, R, B) {
+      this.sPad := { L: L, T: T, R: R, B: B }
+   }
+   /**
+    * Return a shape pBitmap that Highlights with the passed in color (blocks
+      the complementary channel) Works with dark backgrounds as well (making
+      them a bit lighter)
+    * @param pInputBitmap 
+    * @param hlColor - Color to use as the highlighting
+    * @returns brush -Texture brush with the process image applied
+    */
+   HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?, Percent?) {
+      bgColor := userBgColor ?? this.GetCroppedBackgroundColor(TpInputBitmap, &Percent := 0)
+      If (bgColor >= 0) {
+         GDIp.GetImageDimensions(TpInputBitmap, &sWidth, &sHeight)
+         attrib := GDIp.CreateImageAttributes()
+         cr     := ((hlColor >>> 16) & 0xFF) / 255
+         cg     := ((hlColor >>> 8) & 0xFF) / 255
+         cb     := (hlColor & 0xFF) / 255
+         opac   := Constrain(0, 255, hlOpacity) / 255
+         scale  := 0.25 ; how much to blend the complement highlight color into the background
+         ; https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-recoloring-use
+         ; If background is dark, then replace the background color with something a big lighter
+         ; 50 is a threshold indicating a pretty dark background where text is most likely white or light
+         ; High Percent indicates a solid background (like text), vs a photo or texture
+         If ((lv := Luminosity(bgColor)) < 64 AND Percent > 0.10) {
+            ; TODO - Figure out how to apply hlOpacity to the dark mode case
+            ; This looks better as it retains the highlight colors more accuratly
+            ; Flip the highlight color as we will flip it back when we invert
+            InvHlColor := Round((1 - cr) * 255 * scale) << 16 | Round((1 - cg) * 255 * scale) << 8 | Round((1 - cb) * 255 * scale)
+            ; Map table to replace the background with an inverted highlight color
+            NumPut("Uint", 0xFF000000 | bgColor, "Uint", 0xFF000000 | InvHlColor, cMap := Buffer(4 * 2))
+            GDIp.SetImageAttributesRemapTable(attrib, 1, 1, 1, cMap)
+            ; This will invert the colors so the highlighter color is retained
+            ; Below along will work, but since the background wasn't remapped to pure
+            ; highlight color above, the re-inverted highlight background color won't be 100% corect.
+            contrast := -1.3 ; Brings out more contrast
+            colorMatrixVals := [
+               contrast, 0.0, 0.0, 0.0, 0.0,
+               0.0, contrast, 0.0, 0.0, 0.0,
+               0.0, 0.0, contrast, 0.0, 0.0,
+               0.0, 0.0, 0.0, 1.0, 0.0, ;⇦ the 1 here is alpha (opacity dims the inverted colors)
+               cr, cg, cb, 0.0, 1.0] ;⇦ Can adjust overall brightness (offset values), all 1's would just invert the colors
+         } Else {
+            ; Text is primarly black so darker colors won't be effected like the light background
+            ; eg if yellow, blue channel will be blocked
+            ; https://docs.rainmeter.net/tips/colormatrix-guide/
+            /*   R   G  B  A  W
+            R →  Rx  0  0  0  0
+            G →  0   Gx 0  0  0
+            B →  0   0  Bx 0  0
+            A →  0   0  0  Ax 0
+            W →  R+  G+ B+ 0  1  ← % used to add/offset each channel
+            */
+            ; RGB of highlight color will scale the image colors
+            ; e.g. if Yellow, then the cb channel will be 0 blocking blues
+            colorMatrixVals := [
+               cr , 0.0, 0.0, 0.0 , 0.0,
+               0.0, cg , 0.0, 0.0 , 0.0,
+               0.0, 0.0, cb , 0.0 , 0.0,
+               0.0, 0.0, 0.0, opac, 0.0, ;⇦ the 1 here is alpha
+               0.0, 0.0, 0.0, 0.0 , 1.0] ;⇦ Can adjust overall brightness (offset result)
+         }
+         ColorMatrixBuf := GDIp.GetMatrixBuffer(colorMatrixVals)
+         GDIp.SetImageAttributesColorMatrixf(attrib, ColorMatrixBuf, 1)
+         ; Create a text brush from the original image with the attributes applied
+         fbrush := GDIp.CreateTextureIA(TpInputBitmap, 0, 0, sWidth, sHeight, attrib)
+         GDIp.DisposeImage(TpInputBitmap)
+         GDIp.DisposeImageAttributes(attrib)
+         Return fbrush
+      } Else {
+         Return 0
+      }
+   }
+
+   /**
+    * Return the background/common color underneath some shape
+    * @param {Bitmap} optional bitmap to use instead of grabbing one here, not modified
+    * @param {Float} Returned % of use of the background color
+    * @returns {Number} RGB common color (no alpha)
+    */
+   GetCroppedBackgroundColor(pBit?, &Perc?) {
+      pBitmap := pBit ?? this.pBitmapUnderShape()
+      If (pBitmap) {
+         C := this.sCoord
+         this.Gui.PIC.GetPos(,,&pW,&pH)
+         ; extract area wherepredominant  shape intersects with the snip and use it
+         If (iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)) {
+            ; If we are partially off snip, then crop out that section of the bitmap
+            If (Abs(iRect.l - C.X1) > 1 OR Abs(iRect.t - C.Y1) > 1 OR Abs(iRect.r - C.X2) > 1 or Abs(iRect.b - C.Y2) > 1) {
+               L := Round(iRect.l - C.X1)
+               T := Round(iRect.t - C.Y1)
+               ; Trim of off snip parts on either side
+               W := round(C.W - (C.X2 - iRect.r) - L)
+               H := round(C.H - (C.Y2 - iRect.b) - T)
+               ; pBitmap is removed here
+               cBitmap := BitMap.CropPBitmap(pBitmap, L, T, W, H)
+               If (NOT cBitmap) {
+                  Warning("Error cropping L=" L ", T=" T ", W=" W ", H=" H)
+                  Return -1
+               }
+               CC := BitMap.GetBackgroundColor(cBitmap, &Perc)
+               GDIp.DisposeImage(cBitmap)
+            } Else {
+               CC := BitMap.GetBackgroundColor(pBitmap, &Perc)
+            }
+            ; Non-user passed in bitmap, clean up here
+            if (NOT IsSet(pBit))
+               GDIp.DisposeImage(pBitmap)
+         } Else {
+            debug("Shape is off the snip")
+            Return -1
+         }
+         Return CC
+      } Else {
+         Return -1
+      }
+   }
+   /**
+    * Return a pBitmap of the image below the passed in shape
+    * Offsnip areas will return black
+    * No cropping is done but CropHBitmap still handles it
+    * Amount 1ms on modern computer
+    * @param  Cin Optional coordinates to use instead of the picture 
+    * @Returns pBitmap
+    */
+   pBitmapUnderShape(Cin?) {
+      ; Get the snips base snip handle
+      hBitmap := this.PIC
+      If (hBitmap) {
+         C := Cin ?? this.sCoord
+         If (C.W > 0 AND C.H > 0) {
+            this.Gui.PIC.GetPos(&pX1, &pY1, &pW, &pH)
+            ; Get a cropped copy of the image under the shape (compensated by border offset)
+            picHBitmap := BitMap.CropHBITMAP(hBitmap, C.X1 - pX1, C.Y1 - pY1, C.W, C.H, 1)
+            ; Get a pBitmap version for GDI+
+            If (picHBitmap) {
+               picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
+               ; Done with picHBitmap
+               GDI.DeleteObject(picHBitmap)
+               Return picPBitmap
+            } Else {
+               warning("Failed to return a cropped handle from snip picture")
+               Return 0
+            }
+         } Else {
+            warning("Shape coordinates have no width/height specified")
+            Return 0
+         }
+      } Else {
+         warning("Failed to return a handle from snip picture")
+         Return 0
+      }
+   }
+   /**
+    * Return the highlighted snip for use in textures/pens
+    * @returns {Handle} Snip PBitmap highlighted
+    * NOTE: The bitmap will be shifted by Snips.BorderWidth so take that into account
+    */
+   getHighlightedSnipBrush(color, opacity := 0xFF) {
+      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+         CC     := BitMap.GetBackgroundColor(pBitInput, &Perc := 0)
+         tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC, Perc)
+         GDIp.TranslateTextureBrush(tBrush, Snips.BorderWidth, Snips.BorderWidth)
+         Return tBrush
+      } else
+         Return 0
+   }
+      ;----------------------------------
+   ; Get the background color where the cursor is
+   ;----------------------------------
+   GetCursorBGColor(SnipObj, extent := 24, YOffset := 0) {
+      try {
+         BlockInput("MouseMove") ; very fast now, prob not needed
+         CoordMode('Mouse', 'Window')
+         MouseGetPos(&wX, &wY)
+         Color := SnipObj.BackgroundPICColorFromXY(wX, wY + YOffset, extent)
+      } catch as e {
+         elog(e)            
+      } Finally {
+         ; We don't want an error while mouse is locked out
+         BlockInput("MouseMoveOff")
+      }
+      Return Color
+   }
+
+}
+
+/**
+ * BitmapShape class
+ * Pictures and clips would use this
+ */
+Class BitmapShape extends commonShape {
+   Init(sPicImage := "") {
+      Super.Init(sPicImage)
+      this.layered := false
+   }
+   ; These are NOOP for this shape
+   SetColor(*)        => {}
+   ChangeThickness(*) => {}
+   Startup(*) =>{}
+   CleanUp(*) =>{}
+
+   /**
+    * Save OG size/filename for pictures for reset
+    * Only needed for file based bitmaps
+    * @param {number} param
+    * @returns {number} returns nothing
+    */
+   SaveSize(fname?) {
+      this.GetPos(&X, &Y, &W, &H)
+      ; OG info
+      this.OG.W      := W
+      this.OG.H      := H
+      ; Current Info
+      this.sCoord := { X1: X, Y1: Y, X2: X + W, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+      If (IsSet(fname))
+         this.fname := fname
+   }
+   /**
+    * Reset the size, for pictures/Freehand only now
+    * @param Nothing
+    * @returns Nothing
+    */
+   ResetSize() {
+      super.Move(, , this.OG.W, this.OG.H)
+      this.UpdateCoord()
+   }
+}
+

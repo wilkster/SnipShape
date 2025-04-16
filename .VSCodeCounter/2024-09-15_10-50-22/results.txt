@@ -1,0 +1,56 @@
+Date : 2024-09-15 10:50:22
+Directory : c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape
+Total : 28 files,  8783 codes, 3052 comments, 558 blanks, all 12393 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| AutoHotkey2        |         13 |      6,658 |      3,052 |        557 |     10,267 |
+| Ini                |         14 |      2,117 |          0 |          1 |      2,118 |
+| JSON with Comments |          1 |          8 |          0 |          0 |          8 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                          | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                             |         28 |      8,783 |      3,052 |        558 |     12,393 |
+| . (Files)                                                                     |         16 |      2,409 |        298 |         31 |      2,738 |
+| Lib                                                                           |         12 |      6,374 |      2,754 |        527 |      9,655 |
++-------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                      | language           | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\OCR.ahk2             | AutoHotkey2        |      1,067 |        402 |        108 |      1,577 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\StopWatch.ahk2       | AutoHotkey2        |         75 |          7 |          3 |         85 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsBitmap.ahk2       | AutoHotkey2        |        421 |        206 |         52 |        679 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsButtonBar.ahk2    | AutoHotkey2        |        216 |        109 |         15 |        340 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsClipboard.ahk2    | AutoHotkey2        |         61 |         17 |         11 |         89 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsCursor.ahk2       | AutoHotkey2        |        245 |        145 |         17 |        407 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsGDIp.ahk2         | AutoHotkey2        |        941 |        477 |         80 |      1,498 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsMenus.ahk2        | AutoHotkey2        |        143 |         63 |         11 |        217 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsShapes.ahk2       | AutoHotkey2        |      1,396 |        580 |         90 |      2,066 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsSnips.ahk2        | AutoHotkey2        |        847 |        343 |         41 |      1,231 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\clsText.ahk2         | AutoHotkey2        |        538 |        216 |         56 |        810 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\Lib\libMisc.ahk2         | AutoHotkey2        |        424 |        189 |         43 |        656 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Niwot-2.ini    | Ini                |        167 |          0 |          0 |        167 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Niwot-3.ini    | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Niwot-4.ini    | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Niwot.ini      | Ini                |        121 |          0 |          0 |        121 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Pika-2.ini     | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Pika-3.ini     | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-Pika.ini       | Ini                |        121 |          0 |          0 |        121 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-orka-2.ini     | Ini                |        171 |          0 |          0 |        171 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-orka-3.ini     | Ini                |        171 |          0 |          0 |        171 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-orka-4.ini     | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-orka-5.ini     | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape-orka.ini       | Ini                |        121 |          0 |          0 |        121 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape.ahk2           | AutoHotkey2        |        284 |        298 |         30 |        612 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape.code-workspace | JSON with Comments |          8 |          0 |          0 |          8 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\SnipShape.ini            | Ini                |        177 |          0 |          0 |        177 |
+| c:\Users\tom\OneDrive\Code\AutoHotKey\Toms\SnipShape\desktop.ini              | Ini                |          6 |          0 |          1 |          7 |
+| Total                                                                         |                    |      8,783 |      3,052 |        558 |     12,393 |
++-------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

@@ -1,0 +1,94 @@
+{
+	"files": [
+		{
+			"path": "Lib/clsSnips.ahk2",
+			"bookmarks": [
+				{
+					"line": 631,
+					"column": 15,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsMenus.ahk2",
+			"bookmarks": [
+				{
+					"line": 121,
+					"column": 39,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsGDIp.ahk2",
+			"bookmarks": [
+				{
+					"line": 513,
+					"column": 11,
+					"label": ""
+				},
+				{
+					"line": 1048,
+					"column": 10,
+					"label": ""
+				},
+				{
+					"line": 1443,
+					"column": 7,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsShapes.ahk2",
+			"bookmarks": [
+				{
+					"line": 600,
+					"column": 47,
+					"label": ""
+				},
+				{
+					"line": 1233,
+					"column": 6,
+					"label": ""
+				},
+				{
+					"line": 1572,
+					"column": 1,
+					"label": ""
+				},
+				{
+					"line": 1578,
+					"column": 22,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsText.ahk2",
+			"bookmarks": [
+				{
+					"line": 260,
+					"column": 57,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "Lib/clsBitmap.ahk2",
+			"bookmarks": [
+				{
+					"line": 114,
+					"column": 17,
+					"label": ""
+				},
+				{
+					"line": 266,
+					"column": 17,
+					"label": ""
+				}
+			]
+		}
+	]
+}
