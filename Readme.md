@@ -1,7 +1,7 @@
 # SnipShape Screen Capture and Annotation Tool
 
 AutoHotkey alternate to Windows Snipping Tool with additional features
-Creates Gui of Snip that can be manipulated onscreen
+Creates Gui of Snip that can be manipulated onscreen with shapes and annotation tools added to it.
 
 ## Credits
 
