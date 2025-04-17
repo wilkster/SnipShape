@@ -12,10 +12,10 @@ Many of them listed in the threads below:
 
 | Script | Link |
 | ------ | ------ |
-|Screen Clipping|https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088|
-|Gdip|https://www.autohotkey.com/boards/viewtopic.php?t=72011|
-|Snipper|https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622|
-|UWP OCR Library|https://github.com/Descolada/OCR|
+|Screen Clipping|<https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088>|
+|Gdip|<https://www.autohotkey.com/boards/viewtopic.php?t=72011>|
+|Snipper|<https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622>|
+|UWP OCR Library|<https://github.com/Descolada/OCR>|
 
 ## Requirements
 
@@ -110,7 +110,7 @@ Press one of the keys below to change into a drawing mode, the border color will
 |Highlighters||
 |H|Free-Hand Highlighter starting in yellow, shift to stay on an axis|
 |Y|Yellow highlighter block|
-|Redaction-Obfuscation|
+|Redaction-Obfuscation||
 |W|Free-Hand White Out Pen in background color, shift to stay on an axis|
 |X|Block/Redact rectangle with color under the cursor|
 |I|Pixelate Rectangle, good for text obscurring|
@@ -124,16 +124,15 @@ Press one of the keys below to change into a drawing mode, the border color will
 |T|Add Text to cursor location|
 |U|Add Outline Text to cursor location|
 |F|Add Text with adaptive translucent background to stand out from busy backgrounds|
-|<|Text inside a left point arrow
-|>|Text inside a right point arrow
+|<|Text inside a left point arrow|
+|>|Text inside a right point arrow|
 |Colors||
-|1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.
+|1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
 ### Shape Notes
 
 - When you hover over a shape a focus rectangle/line will appear over it allowing you to move or resize it.
 - When the focus rectangle is active over a shape you may use the right mouse button to bring up a shape dependent menu or use shortcut keys to perform operations on the shape as described below
-
 
 ## Hotkeys on Shapes
 
@@ -198,4 +197,3 @@ Resizing Shapes
 - Include Border With File Save (toggle)
 - Open Saved Snips to retrieve a prior saved snip
 - Edit Settings File to edit additional settings
-
