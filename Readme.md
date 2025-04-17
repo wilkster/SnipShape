@@ -8,7 +8,7 @@ Creates Gui of Snip that can be manipulated onscreen with shapes and annotation 
 Credits:
 Fanatic Guru / SKAN / iseahound plus
 The work of dozens of people inspired this script.
-Many of them listed in the threads below:
+Many of them sited/listed in the source code:
 
 | Script | Link |
 | ------ | ------ |
