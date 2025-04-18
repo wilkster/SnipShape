@@ -6,7 +6,7 @@
  * @version 1.0.0
  ***********************************************************************/
 
-#Requires AutoHotkey v2
+#Requires AutoHotkey v2.1-
 #DllLoad "Gdi32.dll" 
 #DllLoad "GdiPlus.dll" 
 #DllLoad "Shcore.dll"
