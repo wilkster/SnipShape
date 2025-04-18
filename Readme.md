@@ -60,18 +60,6 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 - Holding space bar down will allow shifting of the entire box as you draw it
 - Holding right mouse button down will allow shifting of the entire box as you draw it
 
-### Hotkeys on Snip Surface
-
-- Hold Alt key down when drawing shape to get a 2x a thicker border or pen/text size on most shapes
-- When drawing or resizing, hold space bar to shift start location with mouse (except free hand)
-- When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines
-- When drawing free-hand shapes, Shift key will keep ling straigt until shift key is let go, this
-  can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
-  before continuing.
-- When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square)
-- While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode
-- While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
-
 ## Buttonbar - F1 to toggle while snip active
 
 A toolbar will optionally appear above each active snip to provide a list of actions grouped into the following. You can toggle the visibility of the toolbar with the F1 key (while snip is active), or the leftmost X button. Left mouse button on each button will select the shape to draw next. Right mouse button will allow you to set options for each of the shapes via a menu. The buttonbar is usefull in case you cannot remember the various shape shortcut keys.
@@ -129,10 +117,23 @@ Press one of the keys below to change into a drawing mode, the border color will
 |Colors||
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
+### Hotkeys on Snip Surface
+
+- Hold Alt key down when drawing shape to get a 2x a thicker border or pen/text size on most shapes
+- When drawing or resizing, hold space bar to shift start location with mouse (except free hand)
+- When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines
+- When drawing free-hand shapes, Shift key will keep ling straigt until shift key is let go, this
+  can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
+  before continuing.
+- When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square)
+- While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode
+- While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
+- While drawing line or arrow shapes, the shape will snap at 45° angles.
+
 ### Shape Notes
 
 - When you hover over a shape a focus rectangle/line will appear over it allowing you to move or resize it.
-- When the focus rectangle is active over a shape you may use the right mouse button to bring up a shape dependent menu or use shortcut keys to perform operations on the shape as described below
+- When the focus rectangle is active over a shape and you click on the shape, you may use the right mouse button to bring up a shape dependent menu or use shortcut keys to perform operations on the shape as described below
 
 ## Hotkeys on Shapes
 
