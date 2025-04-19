@@ -21,6 +21,10 @@ Many of them sited/listed in the source code:
 
 Autohotkey 2.1 Alpha 14 or later
 
+## Installation
+
+Clone the repository to a local folder. If you have ank2 associated with Autohotkey 2.1 alpha then just click on the SnipShape.ahk2 file in the base folder. You may rename the SnipShape.ahk2 extension to something else if you are using a different file association.
+
 ## Snipping Overview
 
 ### One step - hold down activation keys
@@ -130,12 +134,12 @@ Press one of the keys below to change into a drawing mode, the border color will
 - While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
 - While drawing line or arrow shapes, the shape will snap at 45° angles.
 
-### Shape Notes
+## Shape Notes
 
 - When you hover over a shape a focus rectangle/line will appear over it allowing you to move or resize it.
 - When the focus rectangle is active over a shape and you click on the shape, you may use the right mouse button to bring up a shape dependent menu or use shortcut keys to perform operations on the shape as described below
 
-## Hotkeys on Shapes
+### Hotkeys on Shapes
 
 - Ctrl-C to copy the snip and shapes to the clipboard (minimizing snip)
 - Ctrl-S to save the snip and shapes to the a file
@@ -183,7 +187,7 @@ Resizing Shapes
 
 - Shift-Del will remove all the shapes on a Snip
 
-### Tray Menu options
+## Tray Menu options
 
 - Initiate snip or clipboard selection
 - OCR selection to clipboard (Words, Lines or Table)
@@ -198,3 +202,12 @@ Resizing Shapes
 - Include Border With File Save (toggle)
 - Open Saved Snips to retrieve a prior saved snip
 - Edit Settings File to edit additional settings
+
+## Configuration Files
+
+- By default a coniguration file called SnipShape.ini is created in your local AppData folder.
+- Most of the options are set via the Tray Menu and Button bar, however some options may be modified by editing the file.
+  - [User Shape Color], custom colors 1 through 20
+  - [User Snips], location of the cursor files, saved snip files and icon clips that are available from the snip menu.
+  - [User Button Bar], size of the button bar font/buttons
+  - The Tray menu allows you to edit these directly in Notepad.
