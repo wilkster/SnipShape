@@ -1,11 +1,15 @@
 # SnipShape Screen Capture and Annotation Tool
 
-AutoHotkey 2.1 alternate to Windows Snipping Tool with additional features and lower system impact.
-Creates Gui of Snip that can be manipulated onscreen with shapes and annotation tools added to it.
+AutoHotkey 2.1 alternate to Windows Snipping Tool with additional features and
+lower system impact. Creates a overlay Gui of Sniped area that can be
+manipulated onscreen with shapes and annotation tools added to it. Based on
+Autohotkey Snipper tool that places the snip GUI directly over the snipped area vs
+the more complex methods of using external windows or retrieving from the
+clipboard. Small buttonbar is available to assist with annotation and other tools.
 
 ## Credits
 
-Credits:
+**Credits:**
 Fanatic Guru / SKAN / iseahound plus
 The work of dozens of people inspired this script.
 Many of them sited/listed in the source code:
@@ -23,7 +27,10 @@ Autohotkey 2.1 Alpha 14 or later
 
 ## Installation
 
-Clone the repository to a local folder. If you have ank2 associated with Autohotkey 2.1 alpha then just click on the SnipShape.ahk2 file in the base folder. You may rename the SnipShape.ahk2 extension to something else if you are using a different file association.
+Clone the repository to a local folder. If you have ank2 associated with
+Autohotkey 2.1 alpha then just click on the SnipShape.ahk2 file in the base
+folder. You may rename the SnipShape.ahk2 extension to something else if you are
+using a different file association.
 
 ## Snipping Overview
 
@@ -31,7 +38,7 @@ Clone the repository to a local folder. If you have ank2 associated with Autohot
 
 Current key assignments for screen selection (can be modified in the SnipShape.ahk2 file)
 
-| HotKey | Action |
+| **HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
 | Alt-Win  | Then drag a selection to copy to the clipboard directly |
@@ -41,16 +48,16 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 - Activation will change cursor (and optionally dim/freeze screen)
 - Selection is done with mouse button-drag-release
 
-| HotKey | Action |
+| **HotKey** | **Action** |
 | ------ | ------ |
-| AppsKey | Initiates a snip and changes the cursor to indicate. |
-| Left Win-s | Initiates a snip and changes the cursor to indicate. |
+| Left Win-s | Initiates a snip and changes the cursor to a cross. |
+| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse. |
 | Left Win-z | Initiates a snip to copy to the clipboard (like built in capability). |
 | Left Win-o | Initiates a OCR of the user selection |
 
 ### Other snipping actions
 
-| HotKey | Action |
+| **HotKey** | **Action** |
 | ------ | ------ |
 | Shift-PrtScn | To capture current window to the clipboard |
 | Alt-PrtScn   | To create a snip of the current window |
@@ -61,12 +68,77 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 ### While dragging the mouse to create a snip
 
 - Holding shift key down forces a square capture
-- Holding space bar down will allow shifting of the entire box as you draw it
-- Holding right mouse button down will allow shifting of the entire box as you draw it
+- Holding space bar or right mouse button down will allow shifting of the entire box as you draw it
+
+### Hotkeys on Snip Surface
+
+- Ctrl-C to copy the snip and shapes to the clipboard (minimizing snip)
+- Ctrl-X to cut the snip and shapes to the clipboard (closing snip)
+- Ctrl-S to save the snip and shapes to the a file in the Screenshot folder
+- Ctrl-V on a snip will try to paste a new picture shape from the clipboard as
+  either a bitmap (if available), or text (if btimap not available)
+- Ctrl-D to clone the current snip if on snip background, if focus is on a
+  shape, it will duplicate the shape
+- Shift-Del will remove all the shapes on a Snip
+- RMB Over Snip blank area should show a menu of various snip actions
+- Ctrl-O on Snip to OCR the text to lines of text
+- Ctrl-T on Snip to OCR the text to html table
+
+## Drawing on snips
+
+A number of drawing shapes are provided to cover most of the actions a user
+would need. Press one of the keys below to change into a drawing mode, the
+border color will change, also on Button Bar After drawing hitting the space bar
+or deactivating the window will cancel drawing mode. These options are also
+available from the Buttonbar described below.
+
+| **HotKey** | **Action** |
+| ------ | ------ |
+|**Arrows**||
+|V |Creates an arrow from end to arrow-head|
+|&#92;|Creates an tapered outline arrow from end to arrow-head|
+|J |Creates a freehand arc arrow (with slow bends)|
+|A|Creates an outlined arrow from end to arrow-head|
+|/|Creates a double outline arrow|
+|**Shapes**||
+|L|Creates a line, shift to keep on an axis|
+|R|Creates an outlined rectangle, shift to keep square|
+|D|Creates an outlined rounded rectangle, shift to keep square|
+|E|Creates an outlined ellipse/circle, shift to keep a circle|
+|]|Creates an bracket/brace|
+|**Free Hand**||
+|P|Free-hand Pen in current color, shift to stay on an axis|
+|M|Free-hand Wide (Marker) Pen in current color, shift to stay on an axis|
+|**Highlighters**||
+|H|Free-Hand Highlighter starting in yellow, shift to stay on an axis|
+|Y|Yellow highlighter block|
+|**Redaction-Obfuscation**||
+|W|Free-Hand White Out Pen in background color, shift to stay on an axis|
+|X|Block/Redact rectangle with color under the cursor|
+|I|Pixelate Rectangle, good for text obscurring|
+|B|Blur Rectangle, good for photo obscurring|
+|G|Gaussian Blur Rectangle, good for text obscurring|
+|**Tools**||
+|C|Cropping rectangle to make the current snip smaller by cropping it to selection|
+|O|OCR the selected area|
+|**Text**||
+|N|Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size|
+|T|Add Text to cursor location|
+|U|Add Outline Text to cursor location|
+|F|Add Text with adaptive translucent background to stand out from busy backgrounds|
+|<|Text inside a left point arrow|
+|>|Text inside a right point arrow|
+|**Colors**||
+|1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
 ## Buttonbar - F1 to toggle while snip active
 
-A toolbar will optionally appear above each active snip to provide a list of actions grouped into the following. You can toggle the visibility of the toolbar with the F1 key (while snip is active), or the leftmost X button. Left mouse button on each button will select the shape to draw next. Right mouse button will allow you to set options for each of the shapes via a menu. The buttonbar is usefull in case you cannot remember the various shape shortcut keys.
+A toolbar will optionally appear above each active snip to provide a list of
+actions grouped into the following. You can toggle the visibility of the toolbar
+with the F1 key (while snip is active), or the leftmost X button. Left mouse
+button on each button will select the shape to draw next. Right mouse button
+will allow you to set options for each of the shapes via a menu. The buttonbar
+is usefull in case you cannot remember the various shape shortcut keys.
 
 - Arrow Shapes
 - Line/Rectangle/Ellipse Shapes/Bracket
@@ -77,51 +149,7 @@ A toolbar will optionally appear above each active snip to provide a list of act
 - Text shapes (text/tag/fill/outline/arrow text)
 - Color menu
 
-## Drawing on snips
-
-A number of drawing shapes are provided to cover most of the actions a user would need.
-Press one of the keys below to change into a drawing mode, the border color will change, also on Button Bar After drawing hitting the space bar or deactivating the window will cancel drawing mode
-
-| HotKey | Action |
-| ------ | ------ |
-|Arrows||
-|V |Creates an arrow from end to arrow-head|
-|&#92;|Creates an tapered outline arrow from end to arrow-head|
-|J |Creates a freehand arc arrow (with slow bends)|
-|A|Creates an outlined arrow from end to arrow-head|
-|/|Creates a double outline arrow|
-|Shapes||
-|L|Creates a line, shift to keep on an axis|
-|R|Creates an outlined rectangle, shift to keep square|
-|D|Creates an outlined rounded rectangle, shift to keep square|
-|E|Creates an outlined ellipse/circle, shift to keep a circle|
-|]|Creates an bracket/brace|
-|Free Hand||
-|P|Free-hand Pen in current color, shift to stay on an axis|
-|M|Free-hand Wide (Marker) Pen in current color, shift to stay on an axis|
-|Highlighters||
-|H|Free-Hand Highlighter starting in yellow, shift to stay on an axis|
-|Y|Yellow highlighter block|
-|Redaction-Obfuscation||
-|W|Free-Hand White Out Pen in background color, shift to stay on an axis|
-|X|Block/Redact rectangle with color under the cursor|
-|I|Pixelate Rectangle, good for text obscurring|
-|B|Blur Rectangle, good for photo obscurring|
-|G|Gaussian Blur Rectangle, good for text obscurring|
-|Tools||
-|C|Cropping rectangle to make the current snip smaller by cropping it to selection|
-|O|OCR the selected area|
-|Text||
-|N|Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size|
-|T|Add Text to cursor location|
-|U|Add Outline Text to cursor location|
-|F|Add Text with adaptive translucent background to stand out from busy backgrounds|
-|<|Text inside a left point arrow|
-|>|Text inside a right point arrow|
-|Colors||
-|1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
-
-### Hotkeys on Snip Surface
+### Drawing/Resizing Shapes
 
 - Hold Alt key down when drawing shape to get a 2x a thicker border or pen/text size on most shapes
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand)
@@ -137,19 +165,13 @@ Press one of the keys below to change into a drawing mode, the border color will
 ## Shape Notes
 
 - When you hover over a shape a focus rectangle/line will appear over it allowing you to move or resize it.
-- When the focus rectangle is active over a shape and you click on the shape, you may use the right mouse button to bring up a shape dependent menu or use shortcut keys to perform operations on the shape as described below
+- When the focus rectangle is active over a shape and you click on the shape,
+  you may use the right mouse button to bring up a shape dependent menu or use
+  shortcut keys to perform operations on the shape as described below
 
-### Hotkeys on Shapes
+### Hotkeys on Snips
 
-- Ctrl-C to copy the snip and shapes to the clipboard (minimizing snip)
-- Ctrl-S to save the snip and shapes to the a file
-- Ctrl-X to cut the snip and shapes to the clipboard (closing snip)
-- Ctrl-V on a snip will paste a new picture shape from the clipboard as either a bitmap (if available),
-  or text (if available)
-- Ctrl-D to clone the current snip if on snip background, if focus is on a shape, it will clone the shape
-- RMB Over Snip blank area should show a menu of various snip actions
-- Ctrl-O on Snip to OCR the text to lines of text
-- Ctrl-T on Snip to OCR the text to html table
+- Ctrl-Click or Ctrl-D on a shape to duplicate it
 
 ### Text / Graphics
 
@@ -164,8 +186,7 @@ Moving Shapes
 - If focus rectangle is active and a shape is highlighted then Del key will remove it
 - Alt-Click on a shape will remove it
 - Shift-Del will remove all shapes on a ship
-- RMB on Snip area, select Clear all Shapes in the menu selection
-Resizing Shapes
+- RMB on Snip area, select Clear all Shapes in the menu selection Resizing Shapes
 - Enabling focus rectangle will help locate edges and resize points
 - Grab corner to resize in that direction, shift key maintains aspect ratio or square/linear
 - While resizing shapes you can use up/down to change the line thickness (when it applies)
@@ -183,10 +204,6 @@ Resizing Shapes
   - Read table text attempting to create an HTML table that represents each cell (with limitations)
   - Press O (or button-bar icon) to select a region of a snip to put the OCR on the clipboard
 
-### Other
-
-- Shift-Del will remove all the shapes on a Snip
-
 ## Tray Menu options
 
 - Initiate snip or clipboard selection
@@ -197,10 +214,10 @@ Resizing Shapes
 - Snips Always On Top (toggle)
 - Confirm Snip Close if it has Shapes (toggle)
 - Auto Update Clipboard on snip (toggle)
-- Auto Save Clips to File (toggle)
+- Auto Save Clips to File on snip (toggle)
 - Include Border With Clipboard Copy (toggle)
 - Include Border With File Save (toggle)
-- Open Saved Snips to retrieve a prior saved snip
+- Open Saved Snips dialog to retrieve a prior saved snip or screenshot
 - Edit Settings File to edit additional settings
 
 ## Configuration Files
@@ -209,5 +226,16 @@ Resizing Shapes
 - Most of the options are set via the Tray Menu and Button bar, however some options may be modified by editing the file.
   - [User Shape Color], custom colors 1 through 20
   - [User Snips], location of the cursor files, saved snip files and icon clips that are available from the snip menu.
+    - **SnipPath** - default is user\Screenshots folder
+    - **IconPath** - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
+    - **CursorPath** - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program
+    - **Border Width** is used to draw borders on snips
+    - **Vertical Sync on Select** - only needed on slow computers and over-stressed graphics cards, set to 1 to prevent choppy rectangles when drawing.
   - [User Button Bar], size of the button bar font/buttons
+    - **Font Size** - increase or decrease to change the default size of the button bar icons (restart required)
   - The Tray menu allows you to edit these directly in Notepad.
+
+## Limiations
+
+- Saves snips with shapes are not later editable
+- Undo has not been implemented
