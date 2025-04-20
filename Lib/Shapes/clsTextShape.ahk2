@@ -173,6 +173,15 @@ Class TextShape extends CommonShape {
       ; Don't specify alignment, use top/left
       RCText := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
       GDIp.DeleteGraphics(G)
+      If (Lines == 0) {
+         qTrayTip("No text found on clipboard")
+         ; Unwind
+         GDI.ReleaseDC(isdc, this.GUI.hWnd)
+         GDIpText.DeleteStringFormat(hFormat)
+         GDIpText.DeleteFont(hFont)
+         GDIpText.DeleteFontFamily(hFamily)
+         Return 0
+      }
       ;----------------------------------------------------------------------
       ; Get initial coordinates of the required rectangle for the text
       ;----------------------------------------------------------------------
