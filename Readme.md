@@ -17,7 +17,7 @@ Many of them sited/listed in the source code:
 | Script | Link |
 | ------ | ------ |
 |Screen Clipping|<https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088>|
-|Gdip|<https://www.autohotkey.com/boards/viewtopic.php?t=72011>|
+|GDIp|<https://www.autohotkey.com/boards/viewtopic.php?t=72011>|
 |Snipper|<https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622>|
 |UWP OCR Library|<https://github.com/Descolada/OCR>|
 
@@ -82,7 +82,7 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 - Ctrl-X to cut the snip and shapes to the clipboard (closing snip)
 - Ctrl-S to save the snip and shapes to the a file in the Screenshot folder
 - Ctrl-V on a snip will try to paste a new picture shape from the clipboard as
-  either a bitmap (if available), or text (if btimap not available)
+  either a bitmap (if available), or text (if bitmap not available)
 - Ctrl-D to clone the current snip if on snip background, if focus is on a
   shape, it will duplicate the shape
 - Shift-Del will remove all the shapes on a Snip
@@ -121,9 +121,9 @@ available from the Buttonbar described below.
 |**Redaction-Obfuscation**||
 |W|Free-Hand White Out Pen in background color, shift to stay on an axis|
 |X|Block/Redact rectangle with color under the cursor|
-|I|Pixelate Rectangle, good for text obscurring|
-|B|Blur Rectangle, good for photo obscurring|
-|G|Gaussian Blur Rectangle, good for text obscurring|
+|I|Pixelate Rectangle, good for text obscuring|
+|B|Blur Rectangle, good for photo obscuring|
+|G|Gaussian Blur Rectangle, good for text obscuring|
 |**Tools**||
 |C|Cropping rectangle to make the current snip smaller by cropping it to selection|
 |O|OCR the selected area|
@@ -138,6 +138,7 @@ available from the Buttonbar described below.
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
 ## Buttonbar - F1 to toggle while snip active
+
 ![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
 
 A toolbar will optionally appear above each active snip to provide a list of
@@ -145,7 +146,7 @@ actions grouped into the following. You can toggle the visibility of the toolbar
 with the F1 key (while snip is active), or the leftmost X button. Left mouse
 button on each button will select the shape to draw next. Right mouse button
 will allow you to set options for each of the shapes via a menu. The buttonbar
-is usefull in case you cannot remember the various shape shortcut keys.
+is useful in case you cannot remember the various shape shortcut keys.
 
 - Arrow Shapes
 
@@ -174,7 +175,7 @@ is usefull in case you cannot remember the various shape shortcut keys.
 - Crop tool/OCR tool
 
 ![image](https://github.com/user-attachments/assets/357bf8ca-aaad-4d69-ab2e-02bbf337079d)
- 
+
 - Color menu
 
 ![image](https://github.com/user-attachments/assets/97f64679-f106-48a0-8c6e-cc46c0344220)
@@ -184,7 +185,7 @@ is usefull in case you cannot remember the various shape shortcut keys.
 - Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
 - When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
-- When drawing free-hand shapes, Shift key will keep ling straigt until shift key is let go, this
+- When drawing free-hand shapes, Shift key will keep ling straight until shift key is let go, this
   can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
   before continuing.
 - When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square).
@@ -203,6 +204,10 @@ is usefull in case you cannot remember the various shape shortcut keys.
 - When the focus rectangle is active over a shape and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
   shortcut keys to perform operations on the shape as described below
+  
+Focus Rectangle
+
+![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
 
 ### Hotkeys on Snips
 
@@ -258,7 +263,7 @@ Moving Shapes
 
 ## Configuration Files
 
-- By default a coniguration file called SnipShape.ini is created in your local AppData folder.
+- By default a configuration file called SnipShape.ini is created in your local AppData folder.
 - Most of the options are set via the Tray Menu and Button bar, however some options may be modified by editing the file.
   - [User Shape Color], custom colors 1 through 20
   - [User Snips], location of the cursor files, saved snip files and icon clips that are available from the snip menu.
@@ -271,12 +276,7 @@ Moving Shapes
     - **Font Size** - increase or decrease to change the default size of the button bar icons (restart required)
   - The Tray menu allows you to edit these directly in Notepad.
 
-## Limiations
+## Limitations
 
 - Saves snips with shapes are not later editable
 - Undo has not been implemented
-
-Focus Rectangle
-
-![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
-
