@@ -7,6 +7,8 @@ Autohotkey Snipper tool that places the snip GUI directly over the snipped area 
 the more complex methods of using external windows or retrieving from the
 clipboard. Small buttonbar is available to assist with annotation and other tools.
 
+![image](https://github.com/user-attachments/assets/e6880adf-ea85-4092-90e4-1d82a0d5de41)
+
 ## Credits
 
 **Credits:**
