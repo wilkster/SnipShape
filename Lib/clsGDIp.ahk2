@@ -26,26 +26,21 @@ Class GDI {
    ; https://stackoverflow.com/questions/59632643/transparency-on-a-32-bit-bmp-doesnt-do-anything
    ; https://en.wikipedia.org/wiki/BMP_file_format
    ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapv4header
-   /*
-   typedef struct tagBITMAPINFOHEADER {
-   DWORD biSize; 4
-   LONG  biWidth; 4
-   LONG  biHeight; 4
-   WORD  biPlanes; 2
-   WORD  biBitCount; 2
-   DWORD biCompression; 4
-   DWORD biSizeImage; 4
-   LONG  biXPelsPerMeter; 4
-   LONG  biYPelsPerMeter; 4
-   DWORD biClrUsed; 4
-   DWORD biClrImportant; 4
-} BITMAPINFOHEADER, *LPBITMAPINFOHEADER, *PBITMAPINFOHEADER;
-   */
+   /**
+    * @overload CreateDIBSection(w,h)
+    * @param {Integer} w - Integer Width of section
+    * @param {Integer} h - Integer height of section, negative for top-down, positive for bottom up
+    * @param {Pointer} hdc "" if using default DC
+    * @param {Integer} bpp 32 ARGB=32
+    * @param {Pointer} ppvBits A pointer to a variable that receives a pointer to the location of the DIB bit values
+    * @param {Integer} Usage The type of data contained in the bmiColors, typically 0
+    * @param {Integer} hSection A handle to a file-mapping object that the function will use to create the DIB, typically 0
+    * @param {Integer} Offset The offset from the beginning of the file-mapping object referenced by hSection, 0 if not used
+    * @returns {Float | Integer | String} 
+    */
    Static CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0, Usage := 0, hSection := 0, Offset := 0) {
       hdc2 := hdc ?? this.GetDC()
-      static bi := Buffer(40, 0) ; BITMAPINFO
-      ; NOTE - will a negative h value create a top-down DIB? Yes it should
-      ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader
+      bi := Buffer(40, 0) ; BITMAPINFO
    ;                 0                4          8            12            14          16
       NumPut("UInt", bi.size, "Int", w, "Int", h, "UShort", 1, "UShort", bpp, "UInt", 0, bi)
 
@@ -113,84 +108,139 @@ Class GDI {
    }
    ;
    ; BitBlt
-   Static BitBlt(ddc, dx, dy, dw, dh, sdc, sx, sy, raster?) {
+   /**
+    * Perform GDI BitBlt pixel copy
+    * @param {pointer} ddc Destination DC
+    * @param {Integer} dx Destination X
+    * @param {Integer} dy Destination Y
+    * @param {Integer} dw Destination Width
+    * @param {Integer} dh Destination Height
+    * @param {pointer} sdc Source DC
+    * @param {Integer} sx Optional Source X
+    * @param {Integer} sy Optional Source Y
+    * @param {Integer} raster Rastor Op, 0x00CC0020 by default
+    * @returns {Integer} Result
+    */
+   Static BitBlt(ddc, dx, dy, dw, dh, sdc, sx := 0, sy := 0, raster := 0x00CC0020) {
       Return DllCall("gdi32\BitBlt"
          , "Ptr", ddc
          , "int", dx, "int", dy
          , "int", dw, "int", dh
          , "Ptr", sdc
          , "int", sx, "int", sy
-         , "uint", raster ?? 0x00CC0020) ; SRCCOPY by default
+         , "uint", raster) ; SRCCOPY by default
    }
-   Static AlphaBlend(ddc, dx, dy, dw, dh, sdc, sx, sy) {
-      ; BlendFunction := 0x01FF0000
-      Return DllCall("Msimg32\AlphaBlend"
-         , "Ptr", ddc
-         , "int", dx, "int", dy
-         , "int", dw, "int", dh
-         , "Ptr", sdc
-         , "int", sx, "int", sy
-         , "int", dw, "int", dw
-         , "Uint", 255 << 16 | 1 << 24) ; BLENDFUNCTION
-   }
-   Static TransparentBlt(ddc, dx, dy, dw, dh, sdc, sx, sy, tranColor := 0) {
-      Return DllCall("Msimg32\TransparentBlt"
-         , "Ptr", ddc
-         , "int", dx, "int", dy
-         , "int", dw, "int", dh
-         , "Ptr", sdc
-         , "int", sx, "int", sy
-         , "int", dw, "int", dh
-         , "uint", tranColor) ;Transparent Color
-   }
+   ; Static AlphaBlend(ddc, dx, dy, dw, dh, sdc, sx:=0, sy:=0) {
+   ;    ; BlendFunction := 0x01FF0000
+   ;    Return DllCall("Msimg32\AlphaBlend"
+   ;       , "Ptr", ddc
+   ;       , "int", dx, "int", dy
+   ;       , "int", dw, "int", dh
+   ;       , "Ptr", sdc
+   ;       , "int", sx, "int", sy
+   ;       , "int", dw, "int", dw
+   ;       , "Uint", 255 << 16 | 1 << 24) ; BLENDFUNCTION
+   ; }
+   ; Static TransparentBlt(ddc, dx, dy, dw, dh, sdc, sx, sy, tranColor := 0) {
+   ;    Return DllCall("Msimg32\TransparentBlt"
+   ;       , "Ptr", ddc
+   ;       , "int", dx, "int", dy
+   ;       , "int", dw, "int", dh
+   ;       , "Ptr", sdc
+   ;       , "int", sx, "int", sy
+   ;       , "int", dw, "int", dh
+   ;       , "uint", tranColor) ;Transparent Color
+   ; }
+   /**
+    * Create a bitmap compatible with the passed in DC
+    * @param hdc DC for the bitmap
+    * @param w Width
+    * @param h Height
+    * @returns {Number} Result
+    */
    Static CreateCompatibleBitmap(hdc, w, h) {
       if (res := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", hdc, "int", w, "int", h, "Ptr") = 0)
          warning("Failed to Create Compatible Bitmap " res)
       return res
    }
+    /**
+    * The GetDC function retrieves a handle to a device context (DC) 
+    * for the client area of a specified window or for the entire screen. 
+    * You can use the returned handle in subsequent GDI functions to draw 
+    * in the DC. The device context is an opaque data structure, whose 
+    * values are used internally by GDI.
+    * @param {number} 
+    * @returns {number} 
+    */
+   Static GetDC(hwnd := 0) => DllCall("User32\GetDC", "Ptr", hwnd)
+   /**
+    * Release a DC previously got from GetDC
+    * @param {Pointer} hdc DC to release
+    * @param {Pointer} hwnd of the Optional associated window
+    */
    Static ReleaseDC(hdc, hwnd := 0) {
       if ((res := DllCall("User32\ReleaseDC", "Ptr", hwnd, "Ptr", hdc)) != 1)
          Warning("Failed to release DC " res)
    }
+   /**
+    * Delete a DC previously created with CreateCompatibleDC
+    * @param {pointer} hdc handle to delete
+    */
    Static DeleteDC(hdc) {
       if NOT (res:= DllCall("Gdi32\DeleteDC", "Ptr", hdc))
          warning("Failed to delete DC " res)
    }
+   /**
+    * Delete a GDI object that was previously created
+    * @param {pointer} hObject Handle of object
+    * @returns {Integer} 
+    */
    Static DeleteObject(hObject) {
       If NOT (res := DllCall("Gdi32\DeleteObject", "Ptr", hObject))
          warning("Failed to Delete Object " hObject)
       return res
    }
+   /**
+    * Destroy an icon previously created or loaded from a file
+    * @param {pointer} hImg Icon Handle
+    * @returns {Integer} Status
+    */
    Static DestroyIcon(hImg) {
       if NOT (res:= DllCall("User32\DestroyIcon", "Ptr", hImg))
          warning("Failed to Destroy Icon " hImg)
       return res
    }
+   /**
+    * Destroy a Cursor previously created or loaded from file
+    * @param {pointer} hImg Cursor handle
+    * @returns {Integer} Status
+    */
    Static DestroyCursor(hImg) {
       if NOT (res:= DllCall("User32\DestroyCursor", "Ptr", hImg))
          warning("Failed to Destroy Cursor " hImg)
       return res
    }
+   /**
+    * Deletes a Bitmap/Icon/Cursor image
+    * @param {pointer} hImg Bitmap/Icon/Cursor Handle to delete
+    * @param {inter} ImgType Image type
+    */
    Static DeleteImage(hImg, ImgType) {
       Static IMAGE_BITMAP :=0, IMAGE_ICON:=1, IMAGE_CURSOR := 2
-               
-      ; debug("Bitmap=" GDI.DeleteObject(hImg) " " ImgType)
-      ; debug("Icon=" GDI.DestroyIcon(hImg))
-      ; debug("Cursor=" GDI.DestroyCursor(hImg))
       If (hImg) {
          Switch ImgType {
             Case IMAGE_BITMAP: ; bitmap
-               GDI.DeleteObject(hImg)
+               Return GDI.DeleteObject(hImg)
             Case IMAGE_ICON:
-               GDI.DestroyIcon(hImg)
+               Return GDI.DestroyIcon(hImg)
             Case IMAGE_CURSOR:
-               GDI.DestroyCursor(hImg)
+               Return GDI.DestroyCursor(hImg)
             Case -1:
                warning("Found an old button image without known type:" hImg)
             Default:
          }
       }
-
+      Return -1
    }
 /*
 int DrawText(
@@ -230,6 +280,14 @@ int DrawText(
    #define DT_HIDEPREFIX               0x00100000
    #define DT_PREFIXONLY               0x00200000
 */
+   /**
+    * 
+    * @param {pointer} hDC DC to draw Text into
+    * @param {pointer} lpchText Text String to draw
+    * @param {pointer} lpRect Rectangle in DC to draw on
+    * @param {Integer} uFormat The method of formatting the text DT_* values
+    * @returns {Integer} Operation result 
+    */
    Static DrawText(hDC, lpchText, lpRect, uFormat := 0) {
       return DllCall("User32\DrawText", "ptr", hDC, "Str", lpchText, "int", -1, "ptr", lpRect, "uint", uFormat, "int")
    }
@@ -270,10 +328,10 @@ int DrawText(
    }
    /**
     * The TextOut function writes a character string at the specified location, using the currently selected font, background color, and text color.
-    * @param hDC DC of the graphics
-    * @param X location
-    * @param Y location
-    * @param lpchText Text to write
+    * @param {Pointer} hDC DC of the graphics
+    * @param {Integer} X location
+    * @param {Integer} Y location
+    * @param {String} lpchText Text to write
     * @returns {Float | Integer | String} 
     */
    Static TextOut(hDC,X,Y, lpchText) => DllCall("Gdi32\TextOut", "ptr", hDC, "Int", X, "Int", Y, "Str", lpchText, "int", StrLen(lpchText), "int")
@@ -322,16 +380,6 @@ int DrawText(
    Static GetObject(hObj, Size, Buf) => DllCall("Gdi32\GetObject", "Ptr", hObj, "int", Size, "Ptr", Buf)
    Static GetWindowDC(hWnd) => DllCall("User32\GetWindowDC", "Ptr",hWnd)
 
-   /**
-    * The GetDC function retrieves a handle to a device context (DC) 
-    * for the client area of a specified window or for the entire screen. 
-    * You can use the returned handle in subsequent GDI functions to draw 
-    * in the DC. The device context is an opaque data structure, whose 
-    * values are used internally by GDI.
-    * @param {number} 
-    * @returns {number} 
-    */
-   Static GetDC(hwnd := 0) => DllCall("User32\GetDC", "Ptr", hwnd)
    /*
    typedef struct _BLENDFUNCTION {
    BYTE BlendOp; := AC_SRC_OVER := 0
@@ -341,6 +389,19 @@ int DrawText(
    } BLENDFUNCTION, *PBLENDFUNCTION; AlphaFormat | SourceConstantAlpha | BlendFlags | BlendOp
    */
    ; UpdateLayeredWindow
+   /**
+    * Update a previoulsy created layered windows with the contents of a passed in memory DC
+    * @overload UpdateLayeredWindow(hwnd, hdcSrc)
+    * @param {Pointer} hwnd Window handle to update
+    * @param {Pointer} hdcSrc DC of the screen (usually 0 for default palette matching)
+    * @param {Integer} x X Postion of Window
+    * @param {Integer} y Y Position of Window
+    * @param {Integer} w Width of Window
+    * @param {Integer} h Height of Window
+    * @param {Integer} Alpha Alpha of the windows, default is opaque
+    * @param {Integer} hdcDst Source DC of the bitmap
+    * @returns {Integer} Operation result
+    */
    Static UpdateLayeredWindow(hwnd, hdcSrc, x := 0, y := 0, w := 0, h := 0, Alpha := 0xFF, hdcDst := 0) {
       Static ULW_ALPHA := 2, AC_SRC_ALPHA := 1 << 24, AC_SRC_OVER := 0
       Static ptDst     := stPointI()
@@ -374,6 +435,14 @@ int DrawText(
      LPVOID bmBits; 20
    } BITMAP, *PBITMAP, *NPBITMAP, *LPBITMAP;
    */
+   /**
+    * Retrieve the dimensions and depot of an hBitmap
+    * @param hBitmap Handle to bitmap
+    * @param W Optional Returned Width
+    * @param H Optional Returned Height
+    * @param BPP Optional Returned Bits per Pixel
+    * @returns {Float | Integer | String} 
+    */
    Static GetHBitmapDimensions(hBitmap, &W?, &H?, &BPP?) {
       ; buf := Buffer(24 + A_PtrSize)
       buf := tagBITMAP()
@@ -815,6 +884,13 @@ Class GDIp {
    ; Class to provide a drawing surface compatible with layered windows and other
    ;----------------------------------------------------------------------
    ; Width, Height, optional GUI Handle
+   /**
+    * Create a DIBSection and provide methods to use it
+    * @param {Integer} W Width in pixels
+    * @param {Integer} H Height in pixels
+    * @param {Integer} _hWnd Handle to associated window (if desired)
+    * @param {Integer} DIBPadding Padding around the W/H specified
+    */
    Class DIBSurface {
       __New(W, H, _hWnd:=0, DIBPadding:=0) {
          this.hWnd := _hWnd
