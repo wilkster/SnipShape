@@ -1,7 +1,7 @@
 # SnipShape Screen Capture and Annotation Tool
 
 AutoHotkey 2.1 alternate to Windows Snipping Tool with additional features and
-lower system impact. Creates a overlay Gui of Sniped area that can be
+lower system impact. Creates a overlay Gui of Snipped area that can be
 manipulated onscreen with shapes and annotation tools added to it. Based on
 Autohotkey Snipper tool that places the snip GUI directly over the snipped area vs
 the more complex methods of using external windows or retrieving from the
@@ -27,7 +27,7 @@ Autohotkey 2.1 Alpha 14 or later
 
 ## Installation
 
-Clone the repository to a local folder. If you have ank2 associated with
+Clone the repository to a local folder. If you have ahk2 associated with
 Autohotkey 2.1 alpha then just click on the SnipShape.ahk2 file in the base
 folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
@@ -94,11 +94,11 @@ available from the Buttonbar described below.
 
 | **HotKey** | **Action** |
 | ------ | ------ |
-|**Arrows**||
+|**Arrows**|**Arrowheads are draw at the finish point**|
 |V |Creates an arrow from end to arrow-head|
 |&#92;|Creates an tapered outline arrow from end to arrow-head|
-|J |Creates a freehand arc arrow (with slow bends)|
-|A|Creates an outlined arrow from end to arrow-head|
+|J |Creates a freehand outlined arc arrow (with slow bends)|
+|A|Creates a single outlined arrow|
 |/|Creates a double outline arrow|
 |**Shapes**||
 |L|Creates a line, shift to keep on an axis|
@@ -121,7 +121,7 @@ available from the Buttonbar described below.
 |**Tools**||
 |C|Cropping rectangle to make the current snip smaller by cropping it to selection|
 |O|OCR the selected area|
-|**Text**||
+|**Text**|Text is entered via a dialog box allowing you set text options|
 |N|Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size|
 |T|Add Text to cursor location|
 |U|Add Outline Text to cursor location|
@@ -151,20 +151,25 @@ is usefull in case you cannot remember the various shape shortcut keys.
 
 ### Drawing/Resizing Shapes
 
-- Hold Alt key down when drawing shape to get a 2x a thicker border or pen/text size on most shapes
-- When drawing or resizing, hold space bar to shift start location with mouse (except free hand)
-- When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines
+- Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
+- When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
+- When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
 - When drawing free-hand shapes, Shift key will keep ling straigt until shift key is let go, this
   can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
   before continuing.
-- When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square)
-- While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode
+- When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square).
+- While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode.
 - While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
 - While drawing line or arrow shapes, the shape will snap at 45° angles.
 
 ## Shape Notes
 
-- When you hover over a shape a focus rectangle/line will appear over it allowing you to move or resize it.
+- When you hover over a shape a focus rectangle/line will appear over it
+  allowing you to move or resize it (cursor will change to a resize). If you see
+  a focus circle (lines) or rectangle (other shapes), you can click those points
+  to resize the shape. All shapes/text can be resized.
+- When the cursor changes to a hand you can click then move the shape around the
+  snip.
 - When the focus rectangle is active over a shape and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
   shortcut keys to perform operations on the shape as described below
@@ -195,6 +200,7 @@ Moving Shapes
 
 - Alt-click to remove the object
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
+- Click on a shape and the up/down arrow key will adjust border thickness, blur amount
 - RMB on text will edit the text
 - RMB over inserted picture will reset to original size
 - RMB on other shapes will send them to the bottom of the stack / z-order
