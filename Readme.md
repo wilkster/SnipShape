@@ -7,8 +7,6 @@ Autohotkey Snipper tool that places the snip GUI directly over the snipped area 
 the more complex methods of using external windows or retrieving from the
 clipboard. Small buttonbar is available to assist with annotation and other tools.
 
-![image](https://github.com/user-attachments/assets/e6880adf-ea85-4092-90e4-1d82a0d5de41)
-
 ## Credits
 
 **Credits:**
@@ -35,6 +33,12 @@ folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
 
 ## Snipping Overview
+
+Examples
+
+![image](https://github.com/user-attachments/assets/ece03063-d5aa-4dce-80de-072a4a18135b)
+
+![image](https://github.com/user-attachments/assets/87f51e88-ba56-4d64-b8b0-69a68a69bff2)
 
 ### One step - hold down activation keys
 
@@ -134,6 +138,7 @@ available from the Buttonbar described below.
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
 ## Buttonbar - F1 to toggle while snip active
+![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
 
 A toolbar will optionally appear above each active snip to provide a list of
 actions grouped into the following. You can toggle the visibility of the toolbar
@@ -143,13 +148,36 @@ will allow you to set options for each of the shapes via a menu. The buttonbar
 is usefull in case you cannot remember the various shape shortcut keys.
 
 - Arrow Shapes
+
+![image](https://github.com/user-attachments/assets/52e39453-5b3c-44cc-9ab4-9742365aa83f)
+
 - Line/Rectangle/Ellipse Shapes/Bracket
+
+![image](https://github.com/user-attachments/assets/69155d3f-5b60-42d5-bc2d-de9dd64c3a67)
+
 - Free pen shapes
+
+![image](https://github.com/user-attachments/assets/c49524e1-227b-44f9-9916-aa8157d11b46)
+
 - Highlighter shapes
+
+![image](https://github.com/user-attachments/assets/b86dd264-367f-41db-94ae-c72ef5dc9270)
+
 - Redact/Obfuscate shapes
-- Crop tool/OCR tool
+
+![image](https://github.com/user-attachments/assets/9667cbaa-f684-47ad-8e70-90a6224a73d0)
+
 - Text shapes (text/tag/fill/outline/arrow text)
+
+![image](https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d)
+
+- Crop tool/OCR tool
+
+![image](https://github.com/user-attachments/assets/357bf8ca-aaad-4d69-ab2e-02bbf337079d)
+ 
 - Color menu
+
+![image](https://github.com/user-attachments/assets/97f64679-f106-48a0-8c6e-cc46c0344220)
 
 ### Drawing/Resizing Shapes
 
@@ -247,3 +275,8 @@ Moving Shapes
 
 - Saves snips with shapes are not later editable
 - Undo has not been implemented
+
+Focus Rectangle
+
+![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
+
