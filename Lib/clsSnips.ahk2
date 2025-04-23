@@ -37,31 +37,31 @@ Class Snips {
       this.UpdateClipboard := IniReadValue("Snips", "Auto Update Clipboard", false)
       this.borderWithCopy  := IniReadValue("Snips", "Border With Copy", false)
       this.borderWithSave  := IniReadValue("Snips", "Border With Save", false)
-      this.focusRectangle  := True ; IniReadValue("Snips","Focus Rectangle", true)
+      this.focusRectangle  := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
       this.autoSaveToFile  := IniReadValue("Snips", "Auto Save Clips to File", false)
       this.minimizeOnSnip  := IniReadValue("Snips", "Minimize On Snip", false)
       this.confirmClose    := IniReadValue("Snips", "Confirm Snip Close if it has Shapes", true)
       this.dimScreen       := IniReadValue("Snips", "Dim Screen When Selecting", false)
       this.snipGuides      := IniReadValue("Snips", "Snip Guides When Selecting", false)
-      ; this.allScreens      := IniReadValue("Snips","Snip Across Monitors", false)
       this.captureStatic   := IniReadValue("Snips", "Capture Static Screen", false)
       this.topMost         := IniReadValue("Snips", "Keep Snip Always On Top", true)
       this.updateInterval  := 10
       ; +E0x20 doesn't trigger cursor
-      ; WS_EX_LAYERED     := +E0x80000 - required for DrawBorder, helps with dragging text around also
+      ; WS_EX_LAYERED     := +E0x80000 - required for DrawBorder,                                         helps with dragging text around also
       ; WS_EX_TRANSPARENT := +E0x20 - Prevents any mouse/key events from interactive with the window
       ; WS_EX_COMPOSITED  := +E0x02000000 - Prevents splatter when resizing & drawing (this is critical), prevents using GDI+
       ; WS_NOTIFY         := +0x0100 - so events get captured
-      this.guiSSR          := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
-      this.OCRMenu := Menu()
+      this.guiSSR   := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
+      ; Custom Tray Menu
       this.TrayMenu := Menu()
       this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
-      ; Requires the guiSSR to be active
-      ; A_TrayMenu.Add()  ; Creates a new menu item.
-      this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Snip Selection", Settings_CursorPath . "SnipShape.ico")
       this.TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
-      ; A_TrayMenu.Add("OCR Region Words", this.startOCR.bind(this,2))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Clipboard Selection", Settings_CursorPath . "Clipboard.ico")
+      ; OCR Submenu
+      this.OCRMenu  := Menu()
       this.TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
+      this.TrayMenu.SetIcon("OCR to Clipboard", Settings_CursorPath . "OCR.cur")
       this.OCRMenu.Add("Selection Words", this.startOCR.bind(this,12))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Lines", this.startOCR.bind(this,15))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Table", this.startOCR.bind(this,14))  ; Creates a new menu item.
@@ -93,8 +93,7 @@ Class Snips {
       OnMessage(0x006, this.WM_ACTIVATE.Bind(this), 1)
       ; Handle mouse clicks for various purposes
       OnMessage(0x201, this.WM_LBUTTONDOWN.Bind(this),1)
-      ; OnMessage(0x203, this.WM_LBUTTONDBLCLK.Bind(this),1)
-
+      ; Size/Move of a Snip
       OnMessage(0x0231, this.WM_SIZEEMOVE.Bind(this),1) ;WM_ENTERSIZEMOVE 
       OnMessage(0x0232, this.WM_SIZEEMOVE.Bind(this),1) ;WM_EXITSIZEMOVE  
       OnMessage(0x0216, this.WM_SIZEEMOVE.Bind(this),1) ; WM_MOVING
@@ -399,9 +398,6 @@ Class Snips {
          }
          return 1
       }
-   }
-   Static WM_LBUTTONDBLCLK(wParam, lParam, msg, hWnd) {
-      debug("Double Click")
    }
    ;-----------------------------------------------
    ; Used to initiate drawing on the surface or drag the snip around
