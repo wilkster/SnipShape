@@ -9,10 +9,9 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
 
 ## Credits
 
-**Credits:**
-Fanatic Guru / SKAN / iseahound plus
-The work of dozens of people inspired this script.
-Many of them sited/listed in the source code:
+Fanatic Guru / SKAN / iseahound / Descolada plus
+the work of dozens of people inspired this script.
+Many more of them sited/listed in the source code:
 
 | Script | Link |
 | ------ | ------ |
@@ -23,7 +22,7 @@ Many of them sited/listed in the source code:
 
 ## Requirements
 
-Autohotkey 2.1 Alpha 14 or later
+Autohotkey 2.1 Alpha 14 or later (some 2.1 features are used including structures)
 
 ## Installation
 
@@ -32,9 +31,8 @@ Autohotkey 2.1 alpha then just click on the **SnipShape.ahk2** file in the base
 folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
 
-A tray icon like below should appear. You can right-mouse-button to bring up some actions or use hotkeys as described below.
-
-![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176)
+A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to unhide it in the tray.
+You can right-mouse-button on the tray icon to bring up some actions or use hotkeys as described below. Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options).
 
 ## Snipping Overview
 
@@ -53,7 +51,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | **HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
-| Alt-Win  | Then drag a selection to copy to the clipboard directly. You can click the tray message to edit the snip if desired or directly paste into your application. |
+| Alt-Win  | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
 
 #### Two Step - Don't have to hold down activation keys, similar to built-in snipper
 
@@ -63,7 +61,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | **HotKey** | **Action** |
 | ------ | ------ |
 | Left Win-s | Initiates a snip and changes the cursor to a cross. |
-| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse.  You may want to comment this one out if you otherwise use the AppsKey.|
+| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse. <br>You may want to comment this one out if you otherwise use the AppsKey.|
 | Left Win-z | Initiates a snip to copy to the clipboard (like built in capability). |
 | Left Win-o | Initiates a OCR of the user selection |
 
