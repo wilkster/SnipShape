@@ -14,12 +14,12 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
   - [Snipping Overview](#snipping-overview)
     - [Snip Annotation Examples](#snip-annotation-examples)
     - [One step - hold down activation keys](#one-step---hold-down-activation-keys)
-      - [Two Step - Don't have to hold down activation keys, similar to built-in snipper](#two-step---dont-have-to-hold-down-activation-keys-similar-to-built-in-snipper)
+    - [Two Step - Don't have to hold down activation keys, similar to built-in snipper](#two-step---dont-have-to-hold-down-activation-keys-similar-to-built-in-snipper)
     - [While dragging the mouse to create a snip](#while-dragging-the-mouse-to-create-a-snip)
     - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
-  - [Drawing on snips](#drawing-on-snips)
   - [Buttonbar - F1 to toggle while snip active](#buttonbar---f1-to-toggle-while-snip-active)
+  - [Drawing on snips](#drawing-on-snips)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
   - [Shape Notes](#shape-notes)
     - [Hotkeys on Snips](#hotkeys-on-snips)
@@ -77,7 +77,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | Ctrl-Win | Then drag selection to create a snip |
 | Alt-Win  | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
 
-#### Two Step - Don't have to hold down activation keys, similar to built-in snipper
+### Two Step - Don't have to hold down activation keys, similar to built-in snipper
 
 - Activation will change cursor (and optionally dim/freeze screen)
 - Selection is done with mouse button-drag-release
@@ -119,6 +119,17 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 - RMB Over Snip blank area should show a menu of various snip actions
 - Ctrl-O on Snip to OCR the text to lines of text
 - Ctrl-T on Snip to OCR the text to html table
+  
+## Buttonbar - F1 to toggle while snip active
+
+![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
+
+A toolbar will optionally appear above each active snip to provide a list of
+actions grouped into the following. You can toggle the visibility of the toolbar
+with the F1 key (while snip is active), or the leftmost X button. Left mouse
+button on each button will select the shape to draw next. Right mouse button
+will allow you to set options for each of the shapes via a menu. The buttonbar
+is useful in case you cannot remember the various shape shortcut keys.
 
 ## Drawing on snips
 
@@ -166,17 +177,6 @@ available from the Buttonbar described below.
 |>|Text inside a right point arrow|
 |**Colors**||
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
-
-## Buttonbar - F1 to toggle while snip active
-
-![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
-
-A toolbar will optionally appear above each active snip to provide a list of
-actions grouped into the following. You can toggle the visibility of the toolbar
-with the F1 key (while snip is active), or the leftmost X button. Left mouse
-button on each button will select the shape to draw next. Right mouse button
-will allow you to set options for each of the shapes via a menu. The buttonbar
-is useful in case you cannot remember the various shape shortcut keys.
 
 - Arrow Shapes
 
