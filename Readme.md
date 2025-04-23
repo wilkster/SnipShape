@@ -221,6 +221,8 @@ available from the Buttonbar described below.
 
 ### Drawing/Resizing Shapes
 
+- Extra padding is provided outside the snip surface to allow shapes to extend beyound the snip. Once drawn
+  only the portion enclosed within the snip will be show.
 - Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
 - When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
@@ -231,6 +233,7 @@ available from the Buttonbar described below.
 - While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode.
 - While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
 - While drawing line or arrow shapes, the shape will snap at 45° angles.
+- When drawing freehand Pen shapes, if you stop the path near the start of the path, the path will enclose itself as if a circle was intended.
 
 ## Shape Notes
 
