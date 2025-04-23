@@ -133,6 +133,9 @@ button on each button will select the shape to draw next. Right mouse button
 will allow you to set options for each of the shapes via a menu. The buttonbar
 is useful in case you cannot remember the various shape shortcut keys.
 
+When the focus changes to a different Snip, the button bar will jump to that Snip. If the 
+focus shifts to another non-SnipShape window then the button bar will disappear.
+
 ## Drawing on snips
 
 A number of drawing shapes are provided to cover most of the actions a user
