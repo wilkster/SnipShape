@@ -74,7 +74,7 @@ method (similar to windows snipping) where you initiate the snip with one hotkey
 
 Current key assignments for screen selection (can be modified in the **SnipShape.ahk2** file)
 
-| **HotKey** | **Action** |
+| **Global HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
 | Alt-Win  | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
@@ -84,7 +84,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 - Activation will change cursor (and optionally dim/freeze screen)
 - Selection is done with mouse button-drag-release
 
-| **HotKey** | **Action** |
+| **Global HotKey** | **Action** |
 | ------ | ------ |
 | Left Win-s | Initiates a snip and changes the cursor to a cross. |
 | AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse. <br>You may want to comment this one out if you otherwise use the AppsKey.|
@@ -100,7 +100,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 
 ### Other snipping actions that don't use the mouse
 
-| **HotKey** | **Action** |
+| **Global HotKey** | **Action** |
 | ------ | ------ |
 | Shift-PrtScn | To capture current window to the clipboard |
 | Alt-PrtScn   | To create a snip of the current window |
@@ -110,18 +110,27 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 
 ### Hotkeys on Snip Surface
 
-- Ctrl-C to copy the snip and shapes to the clipboard (minimizing snip)
-- Ctrl-X to cut the snip and shapes to the clipboard (closing snip)
-- Ctrl-S to save the snip and shapes to the a file in the Screenshot folder
-- Ctrl-V on a snip will try to paste a new picture shape from the clipboard as
-  either a bitmap (if available), or text (if bitmap not available)
-- Ctrl-D to clone the current snip if on snip background, if focus is on a
-  shape, it will duplicate the shape
-- Shift-Del will remove all the shapes on a Snip
-- RMB Over Snip blank area should show a menu of various snip actions
-- Ctrl-O on Snip to OCR the text to lines of text
-- Ctrl-T on Snip to OCR the text to html table
-  
+Right-mouse-button click over Snip blank area should show a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
+
+| **Snip HotKey** | **Snip Action** |
+| ------ | ------ |
+| Ctrl-C |Copy the snip and shapes to the clipboard (minimizing snip)|
+| Ctrl-X |Cut the snip and shapes to the clipboard (closing snip)|
+| Ctrl-S |Save the snip and shapes to the a file in the Screenshot folder|
+| Ctrl-V |Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available)|
+| Ctrl-P |Open a dialog box to add a picture from a file as a new shape|
+| Ctrl-D |Clone the current snip if on snip background, if focus is on a shape, it will duplicate the shape|
+| Del |will remove all the shapes on a Snip|
+| Shift-Del |will remove all the shapes on a Snip|
+| Ctrl-O | OCR the text to lines of text|
+| Ctrl-T | OCR the text to html table|
+| Ctrl-Down|Minimize all Snips|
+| **Snip HotKey** | **Scaling Action** |
+|=     | Duplicate and 2x the size of the current snip (without shapes)|
+|Alt=  | Duplicate and 2.5x the size of the current snip (without shapes)|
+|Ctrl-=| Duplicate and 3x the size of the current snip (without shapes)|
+|-     | Duplicate and 1/2x the size of the current snip (without shapes)|
+
 ## Buttonbar - F1 to toggle while snip active
 
 ![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
@@ -146,7 +155,7 @@ available from the Buttonbar described below.
 
 ### Hotkeys to create shapes
 
-| **HotKey** | **Action** |
+| **Snip HotKey** | **Action** |
 | ------ | ------ |
 |**Arrows**|**Arrowheads are draw at the finish point**|
 |V |Creates an arrow from end to arrow-head|
@@ -222,7 +231,7 @@ available from the Buttonbar described below.
 ### Drawing/Resizing Shapes
 
 - Extra padding is provided outside the snip surface to allow shapes to extend beyound the snip. Once drawn
-  only the portion enclosed within the snip will be show.
+  only the portion enclosed within the snip will be shown.
 - Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
 - When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
@@ -251,9 +260,10 @@ Focus Rectangle Example
 
 ![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
 
-### Hotkeys on Snips
+### Hotkeys on Shapes
 
 - Ctrl-Click or Ctrl-D on a shape to duplicate it
+- Del key to remove a shape
 
 ### Text / Graphics
 
@@ -291,7 +301,7 @@ Moving Shapes
 
 Left clicking on the SnipShape Tray Icon brings up the following choices
 
-![image](https://github.com/user-attachments/assets/f3f0dbf5-70ee-4284-8948-84553124262a)
+![image](https://github.com/user-attachments/assets/5f01e6b9-d382-43d4-89cf-f2237b70b69a)
 
 - Initiate snip or clipboard selection
 - OCR selection to clipboard (Words, Lines or Table)
@@ -301,11 +311,11 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 - Snips Always On Top (toggle)
 - Confirm Snip Close if it has Shapes (toggle)
 - Auto Update Clipboard on snip (toggle)
-- Auto Save Clips to File on snip (toggle)
+- Auto Save clips to cile on snip (toggle)
 - Include Border With Clipboard Copy (toggle)
 - Include Border With File Save (toggle)
 - Open Saved Snips dialog to retrieve a prior saved snip or screenshot
-- Edit Settings File to edit additional settings
+- Edit Settings File in Notepad to edit additional settings
 
 ## Configuration Files
 
