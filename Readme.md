@@ -20,6 +20,8 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
   - [Buttonbar - F1 to toggle while snip active](#buttonbar---f1-to-toggle-while-snip-active)
   - [Drawing on snips](#drawing-on-snips)
+    - [Hotkeys to create shapes](#hotkeys-to-create-shapes)
+    - [Buttonbar Menus to create shapes](#buttonbar-menus-to-create-shapes)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
   - [Shape Notes](#shape-notes)
     - [Hotkeys on Snips](#hotkeys-on-snips)
@@ -139,6 +141,8 @@ border color will change, also on Button Bar After drawing hitting the space bar
 or deactivating the window will cancel drawing mode. These options are also
 available from the Buttonbar described below.
 
+### Hotkeys to create shapes
+
 | **HotKey** | **Action** |
 | ------ | ------ |
 |**Arrows**|**Arrowheads are draw at the finish point**|
@@ -177,6 +181,8 @@ available from the Buttonbar described below.
 |>|Text inside a right point arrow|
 |**Colors**||
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
+
+### Buttonbar Menus to create shapes
 
 - Arrow Shapes
 
