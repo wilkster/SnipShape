@@ -7,6 +7,29 @@ Autohotkey Snipper tool that places the snip GUI directly over the snipped area 
 the more complex methods of using external windows or retrieving from the
 clipboard. Small buttonbar is available to assist with annotation and other tools.
 
+- [SnipShape Screen Capture and Annotation Tool](#snipshape-screen-capture-and-annotation-tool)
+  - [Credits](#credits)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Snipping Overview](#snipping-overview)
+    - [Snip Annotation Examples](#snip-annotation-examples)
+    - [One step - hold down activation keys](#one-step---hold-down-activation-keys)
+      - [Two Step - Don't have to hold down activation keys, similar to built-in snipper](#two-step---dont-have-to-hold-down-activation-keys-similar-to-built-in-snipper)
+    - [While dragging the mouse to create a snip](#while-dragging-the-mouse-to-create-a-snip)
+    - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
+    - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
+  - [Drawing on snips](#drawing-on-snips)
+  - [Buttonbar - F1 to toggle while snip active](#buttonbar---f1-to-toggle-while-snip-active)
+    - [Drawing/Resizing Shapes](#drawingresizing-shapes)
+  - [Shape Notes](#shape-notes)
+    - [Hotkeys on Snips](#hotkeys-on-snips)
+    - [Text / Graphics](#text--graphics)
+    - [Deleting Shapes](#deleting-shapes)
+    - [Clicking on Shapes](#clicking-on-shapes)
+  - [Tray Menu options](#tray-menu-options)
+  - [Configuration Files](#configuration-files)
+  - [Limitations](#limitations)
+
 ## Credits
 
 Fanatic Guru / SKAN / iseahound / Descolada plus
@@ -31,8 +54,9 @@ Autohotkey 2.1 alpha then just click on the **SnipShape.ahk2** file in the base
 folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
 
-A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to unhide it in the tray.
-You can right-mouse-button on the tray icon to bring up some actions or use hotkeys as described below. Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options).
+A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to un-hide it in the tray.
+You can right-mouse-button on the tray icon to bring up some actions or use hotkeys as described below.
+Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options).
 
 ## Snipping Overview
 
