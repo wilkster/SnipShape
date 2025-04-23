@@ -27,27 +27,33 @@ Autohotkey 2.1 Alpha 14 or later
 
 ## Installation
 
-Clone the repository to a local folder. If you have ahk2 associated with
-Autohotkey 2.1 alpha then just click on the SnipShape.ahk2 file in the base
+Clone or download a zip of the repository to a local folder. If you have ahk2 associated with
+Autohotkey 2.1 alpha then just click on the **SnipShape.ahk2** file in the base
 folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
 
+A tray icon like below should appear. You can right-mouse-button to bring up some actions or use hotkeys as described below.
+
+![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176)
+
 ## Snipping Overview
 
-Examples
+### Snip Annotation Examples
 
-![image](https://github.com/user-attachments/assets/ece03063-d5aa-4dce-80de-072a4a18135b)
+|![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)|
+![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
 
-![image](https://github.com/user-attachments/assets/87f51e88-ba56-4d64-b8b0-69a68a69bff2)
+There are two ways to initiate a Snip. The One step method where you press a hotkey and click-drag the mouse. The other is a two step
+method (similar to windows snipping) where you initiate the snip with one hotkey then later click-drag the mouse. Both are described below.
 
 ### One step - hold down activation keys
 
-Current key assignments for screen selection (can be modified in the SnipShape.ahk2 file)
+Current key assignments for screen selection (can be modified in the **SnipShape.ahk2** file)
 
 | **HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
-| Alt-Win  | Then drag a selection to copy to the clipboard directly |
+| Alt-Win  | Then drag a selection to copy to the clipboard directly. You can click the tray message to edit the snip if desired or directly paste into your application. |
 
 #### Two Step - Don't have to hold down activation keys, similar to built-in snipper
 
@@ -57,11 +63,18 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 | **HotKey** | **Action** |
 | ------ | ------ |
 | Left Win-s | Initiates a snip and changes the cursor to a cross. |
-| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse. |
+| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse.  You may want to comment this one out if you otherwise use the AppsKey.|
 | Left Win-z | Initiates a snip to copy to the clipboard (like built in capability). |
 | Left Win-o | Initiates a OCR of the user selection |
 
-### Other snipping actions
+### While dragging the mouse to create a snip
+
+- Holding shift key down forces a square capture
+- Holding space bar or right mouse button down will allow shifting of the entire box as you draw it
+- Esc key will abort the snipping operation
+- If the selected area is very small the snip will be ignored.
+
+### Other snipping actions that don't use the mouse
 
 | **HotKey** | **Action** |
 | ------ | ------ |
@@ -70,11 +83,6 @@ Current key assignments for screen selection (can be modified in the SnipShape.a
 | Ctrl-PrtScn  | To create a snip of the current monitor screen |
 | Shift-Win-e  | To create a snip of the current clipboard (if it has a bitmap) |
 | Shift-Win-c  | To copy the selection to the clipboard and create a snip of it (if it has a  bitmap). |
-
-### While dragging the mouse to create a snip
-
-- Holding shift key down forces a square capture
-- Holding space bar or right mouse button down will allow shifting of the entire box as you draw it
 
 ### Hotkeys on Snip Surface
 
