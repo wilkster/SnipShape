@@ -57,7 +57,7 @@ folder. You may rename the SnipShape.ahk2 extension to something else if you are
 using a different file association.
 
 A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to un-hide it in the tray.
-You can right-mouse-button on the tray icon to bring up some actions or use hotkeys as described below.
+You can click on the tray icon to bring up some actions or use hotkeys as described below. The right-mouse-button brings up the default Autohotkey menu.
 Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options).
 
 ## Snipping Overview
@@ -285,6 +285,10 @@ Moving Shapes
   - Press O (or button-bar icon) to select a region of a snip to put the OCR on the clipboard
 
 ## Tray Menu options
+
+Left clicking on the SnipShape Tray Icon brings up the following choices
+
+![image](https://github.com/user-attachments/assets/f3f0dbf5-70ee-4284-8948-84553124262a)
 
 - Initiate snip or clipboard selection
 - OCR selection to clipboard (Words, Lines or Table)
