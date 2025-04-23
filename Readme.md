@@ -227,15 +227,15 @@ available from the Buttonbar described below.
 
 - When you hover over a shape a focus rectangle/line will appear over it
   allowing you to move or resize it (cursor will change to a resize). If you see
-  a focus circle (lines) or rectangle (other shapes), you can click those points
-  to resize the shape. All shapes/text can be resized.
-- When the cursor changes to a hand you can click then move the shape around the
+  small focus circle (lines) or rectangle (other shapes), you can click those points
+  to resize the shape. All shapes/text can be resized in this manner.
+- While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
   snip.
-- When the focus rectangle is active over a shape and you click on the shape,
+- When the focus rectangle is active over a shape, and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
   shortcut keys to perform operations on the shape as described below
   
-Focus Rectangle
+Focus Rectangle Example
 
 ![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
 
