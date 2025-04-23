@@ -24,7 +24,7 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
     - [Buttonbar Menus to create shapes](#buttonbar-menus-to-create-shapes)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
   - [Shape Notes](#shape-notes)
-    - [Hotkeys on Snips](#hotkeys-on-snips)
+    - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
     - [Deleting Shapes](#deleting-shapes)
     - [Clicking on Shapes](#clicking-on-shapes)
@@ -142,7 +142,7 @@ button on each button will select the shape to draw next. Right mouse button
 will allow you to set options for each of the shapes via a menu. The buttonbar
 is useful in case you cannot remember the various shape shortcut keys.
 
-When the focus changes to a different Snip, the button bar will jump to that Snip. If the 
+When the focus changes to a different Snip, the button bar will jump to that Snip. If the
 focus shifts to another non-SnipShape window then the button bar will disappear.
 
 ## Drawing on snips
@@ -230,7 +230,7 @@ available from the Buttonbar described below.
 
 ### Drawing/Resizing Shapes
 
-- Extra padding is provided outside the snip surface to allow shapes to extend beyound the snip. Once drawn
+- Extra padding is provided outside the snip surface to allow shapes to extend beyond the snip. Once drawn
   only the portion enclosed within the snip will be shown.
 - Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
@@ -291,7 +291,7 @@ Moving Shapes
 - RMB on text will edit the text
 - RMB over inserted picture will reset to original size
 - RMB on other shapes will send them to the bottom of the stack / z-order
-- OCR - Uses Descolas OCR engine to read text from snip
+- OCR - Uses Descolada's OCR engine to read text from snip
   - Read lines of text, with line breaks as shown
   - Read words of text, that only have line breaks at paragraph breaks, good of pasting
   - Read table text attempting to create an HTML table that represents each cell (with limitations)
@@ -311,7 +311,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 - Snips Always On Top (toggle)
 - Confirm Snip Close if it has Shapes (toggle)
 - Auto Update Clipboard on snip (toggle)
-- Auto Save clips to cile on snip (toggle)
+- Auto Save clips to the screenshot folder on snip (toggle)
 - Include Border With Clipboard Copy (toggle)
 - Include Border With File Save (toggle)
 - Open Saved Snips dialog to retrieve a prior saved snip or screenshot
