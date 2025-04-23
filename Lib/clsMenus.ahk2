@@ -230,13 +230,20 @@ Class SnipMenus {
 		   return
       Switch lParam {
          Case 0x202:   ; user left-clicked tray icon
+            ; TODO show a different menu
+            /*
+               m := Menu()
+               m.Add(name, callback)
+               m.SetIcon() ; as needed
+            */
+           Snips.TrayMenu.Show()
             ; Comment out if not debugging
-            ToolTip("Reloading")
-            Reload
-            ; If reload failed it will pass thru here
-            Sleep(6000)
-            TrayTip("Reload Failed")
-            SetTimer(TrayTip,-3000)
+            ; ToolTip("Reloading")
+            ; Reload
+            ; ; If reload failed it will pass thru here
+            ; Sleep(6000)
+            ; TrayTip("Reload Failed")
+            ; SetTimer(TrayTip,-3000)
             ; SoundBeep(600, 200)
          Case 0x203:   ; user double left-clicked tray icon
          Case 0x204:   ; user right-clicked tray icon

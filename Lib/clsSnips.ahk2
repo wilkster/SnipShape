@@ -54,25 +54,27 @@ Class Snips {
       ; WS_NOTIFY         := +0x0100 - so events get captured
       this.guiSSR          := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
       this.OCRMenu := Menu()
+      this.TrayMenu := Menu()
+      this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
       ; Requires the guiSSR to be active
-      A_TrayMenu.Add()  ; Creates a new menu item.
-      A_TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
-      A_TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
+      ; A_TrayMenu.Add()  ; Creates a new menu item.
+      this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
+      this.TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
       ; A_TrayMenu.Add("OCR Region Words", this.startOCR.bind(this,2))  ; Creates a new menu item.
-      A_TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
+      this.TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
       this.OCRMenu.Add("Selection Words", this.startOCR.bind(this,12))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Lines", this.startOCR.bind(this,15))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Table", this.startOCR.bind(this,14))  ; Creates a new menu item.
       ; A_TrayMenu.Add("OCR Region Table", this.startOCR.bind(this,2))  ; Creates a new menu item.
-      A_TrayMenu.Add()  ; Creates a new menu item.
+      this.TrayMenu.Add()  ; Creates a new menu item.
 
       this.AddMenuCheck("Freeze Active Screen Before Selection", "captureStatic")
       this.AddMenuCheck("Dim Screen When Selecting", "dimScreen")
       this.AddMenuCheck("Snip Guides When Selecting", "snipGuides")
-      A_TrayMenu.Add()
+      this.TrayMenu.Add()
       this.AddMenuCheck("Snips Always On Top", "topMost")
       this.AddMenuCheck("Confirm Snip Close if it has Shapes", "confirmClose") 
-      A_TrayMenu.Add()  ; Creates a new menu item.
+      this.TrayMenu.Add()  ; Creates a new menu item.
       this.AddMenuCheck("Auto Update Clipboard", "UpdateClipboard")
       this.AddMenuCheck("Auto Save Snips to File", "autoSaveToFile")
       this.AddMenuCheck("Minimize Snip After Capture", "minimizeOnSnip") 
@@ -80,12 +82,12 @@ Class Snips {
       this.AddMenuCheck("Include Border With File Save", "borderWithSave")  
       ; this.AddMenuCheck("Show Focus Rectangle", "focusRectangle")  
 
-      A_TrayMenu.Add()
-      A_TrayMenu.Add("Open Saved Snips", Snips.OpenSnipDialog.Bind(this))  ; Creates a new menu item.
-      A_TrayMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
-      A_TrayMenu.Add()
-      A_TrayMenu.Add("Edit Settings File", (*) => Run(Settings_File))  ; Creates a new menu item.
-      A_TrayMenu.SetIcon("Edit Settings File", Settings_CursorPath . "Settings.ico")
+      this.TrayMenu.Add()
+      this.TrayMenu.Add("Open Saved Snips", Snips.OpenSnipDialog.Bind(this))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
+      this.TrayMenu.Add()
+      this.TrayMenu.Add("Edit Settings File", (*) => Run(Settings_File))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Edit Settings File", Settings_CursorPath . "Settings.ico")
 
       ; Track activation for border colors and draw mode
       OnMessage(0x006, this.WM_ACTIVATE.Bind(this), 1)
@@ -454,8 +456,8 @@ Class Snips {
    ; Menu items for on/off settings
    ;----------------------------------------------------------------------
    Static AddMenuCheck(ItemName, VarName) {
-      A_TrayMenu.Add(ItemName, Snips.MenuHandler.Bind(this, VarName))  ; Creates a new menu item.
-      this.SetMenuCheck(VarName, ItemName, A_TrayMenu)
+      this.TrayMenu.Add(ItemName, Snips.MenuHandler.Bind(this, VarName))  ; Creates a new menu item.
+      this.SetMenuCheck(VarName, ItemName, this.TrayMenu)
    }
    Static MenuHandler(VarName, ItemName, ItemPos, MyMenu) {
       this.%VarName% := !this.%VarName%
