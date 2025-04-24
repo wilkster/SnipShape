@@ -111,6 +111,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 ### Hotkeys on Snip Surface
 
 Right-mouse-button click over Snip blank area should show a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
+One option is to paste in a small picture from the Stickies subfolder of the distribution. You can add/remove your own bitmaps here.
 
 | **Snip HotKey** | **Snip Action** |
 | ------ | ------ |
@@ -130,6 +131,7 @@ Right-mouse-button click over Snip blank area should show a menu of various snip
 |Alt=  | Duplicate and 2.5x the size of the current snip (without shapes)|
 |Ctrl-=| Duplicate and 3x the size of the current snip (without shapes)|
 |-     | Duplicate and 1/2x the size of the current snip (without shapes)|
+|RMB (Right Mouse Button)|Will bring up a menu with additional options for the snip|
 
 ## Buttonbar - F1 to toggle while snip active
 
@@ -261,9 +263,11 @@ Focus Rectangle Example
 ![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
 
 ### Hotkeys on Shapes
-
-- Ctrl-Click or Ctrl-D on a shape to duplicate it
-- Del key to remove a shape
+| **Snip HotKey** | **Action** |
+| ------ | ------ |
+|Ctrl-Click<br>Ctrl-D|Duplicate the shape|
+|Del | Remove the shape|
+|1 to 9| Apply the associated color to the shape|
 
 ### Text / Graphics
 
