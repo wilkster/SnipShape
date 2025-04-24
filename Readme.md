@@ -149,11 +149,12 @@ focus shifts to another non-SnipShape window then the button bar will disappear.
 
 ## Drawing on snips
 
-A number of drawing shapes are provided to cover most of the actions a user
-would need. Press one of the keys below to change into a drawing mode, the
-border color will change, also on Button Bar After drawing hitting the space bar
-or deactivating the window will cancel drawing mode. These options are also
-available from the Buttonbar described below.
+A number of drawing shapes are provided to cover most of the annotations a user
+would need. Use the Buttonbar menus or press one of the keys below to change
+into a drawing mode. The cursor will change to the shape you are drawing and
+snip border color will change to the active color. After drawing pressing the
+space bar or Esc key will cancel drawing mode. These
+options are also available from the Buttonbar described below.
 
 ### Hotkeys to create shapes
 
@@ -218,7 +219,7 @@ available from the Buttonbar described below.
 
 ![image](https://github.com/user-attachments/assets/9667cbaa-f684-47ad-8e70-90a6224a73d0)
 
-- Text shapes (text/tag/fill/outline/arrow text)
+- Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.
 
 ![image](https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d)
 
