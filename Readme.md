@@ -263,6 +263,7 @@ Focus Rectangle Example
 ![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
 
 ### Hotkeys on Shapes
+
 | **Snip HotKey** | **Action** |
 | ------ | ------ |
 |Ctrl-Click<br>Ctrl-D|Duplicate the shape|
