@@ -1,5 +1,4 @@
-desktop.ini
-Cursors/desktop.ini
-CloneToStable.bat
 .gitignore
+*.bat
 *.json
+*.ini
