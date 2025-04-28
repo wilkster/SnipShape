@@ -41,9 +41,6 @@ Class Cursor {
       }
       ; Load custom cursors by file name
       ; logGDI("Loading Cursor Files")
-      ; I := 0
-      ; TODO - can I use the same image list as for the button bar menus?
-      ; One issue is imagelist won't save the cursor hotspot
       Loop Files Settings_CursorPath . "*.*" {
          If (A_LoopFileExt ~= "i)cur|ani") {
             SplitPath(A_LoopFileFullPath, &fileName, , , &baseName)

@@ -290,7 +290,7 @@ Class PicButton extends Gui.Button {
    */
    ;----------------------------------------------------------------------
    ; Method Called in the button context, this = button
-   ; TODO - detect if not a file, then skip the LoadPicture stuff (HICON/HBITMAP)
+   ; IDEA - detect if not a file, then skip the LoadPicture stuff (HICON/HBITMAP)
    ;        comes into play when wer build the images directly and pass them in
    ;----------------------------------------------------------------------
    SetImg(sFile, sOptions := "") {      ; input params exact same as first 2 params of LoadPicture()

@@ -47,19 +47,21 @@ Suspend(1)
 GDIp.SystemStartup()
 
 ;-----------------------------------------------
-;; DEFAULT SETTING - VARIABLES
+; DEFAULT SETTING - VARIABLES
 ;-----------------------------------------------
-; TODO - create a folder under AppData
-Global Settings_File               := A_AppData "\SnipShape.ini"
+Global Settings_Path               := A_AppData "\SnipShape"
+Global Settings_File               := Settings_Path "\SnipShape.ini"
 Global Settings_CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
 ; Use same folder as Windows Snipper
 Global Settings_SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
 Global Settings_SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
 Global Settings_SavePath_Icons     := IniReadValue("User Snips","IconPath",GetFullPathName('.\Stickies\'))
-If !FileExist(Settings_SavePath_Icons)
-   DirCreate(Settings_SavePath_Icons)
+If !FileExist(Settings_Path)
+   DirCreate(Settings_Path)
 If !FileExist(Settings_SavePath_Image)
    DirCreate(Settings_SavePath_Image)
+If !FileExist(Settings_SavePath_Icons)
+   DirCreate(Settings_SavePath_Icons)
 
 ;-----------------------------------------------
 ; INITIALIZATION - VARIABLES

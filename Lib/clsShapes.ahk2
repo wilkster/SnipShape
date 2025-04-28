@@ -231,7 +231,6 @@ Class Shapes {
       Switch btn {
          ;--------------------------------------------------------
          ; These are unique for shape categories on the button bar
-         ; TODO - should this be moved to either buttonbar or the clsMenus
          ;--------------------------------------------------------
          Case "Arrows":
             this.MenuCheckCurrent("Arrow Line Width", this.MarrowLineThickness, this.arrowLineThickness)
@@ -294,7 +293,7 @@ Class Shapes {
             this.shapeBBMenu.Add('')
             this.MenuCheckCurrent("Text Opacity", this.MtextOpacity, TextShape.textOpacity)
          Case "Tool":
-            ; TODO - OCR capture default
+            ; TODO - OCR capture default (lines/rows/table)
       }
       this.shapeBBMenu.Show()
       ; Blocks here

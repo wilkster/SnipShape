@@ -571,7 +571,6 @@ Class Snips {
          BW      := this.BorderWidth 
          ; for slower computers grab the mouse start before any delays
          If (mode = 3) {
-            ; CoordMode('Mouse', 'Screen')
             GetCursorPos(&sX, &sY)
          }
          ; If we want a static overlay, then put it up now
@@ -1015,28 +1014,6 @@ Class Snips {
          qTrayTip("Did not find a valid bitmap to load", 2)
       }
    }
-   /**
-    * OCR Some Lines from a selection area
-    * @param Area Object containing rectangle
-    */
-   ; Static OCRFromArea(Area) {
-   ;    Result := OCR.FromRect(Area.X, Area.Y, Area.W, Area.H)
-   ;    Cluster := OCR.Cluster(Result.Words)
-   ;    For rowWords in Cluster {
-   ;       LineText .= rowWords.Text . "`n"
-   ;    } Else
-   ;       LineText := ""
-   ;    try {
-   ;       A_Clipboard := LineText
-   ;       qTrayTip("Clipped " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters")
-   ;    } catch as e {
-   ;       qTrayTip("Error Clipping " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters")
-   ;    }
-   ; }
-   ;----------------------------------------------------------------------
-   ; Use OCR Extension to grab text from the snip
-   ; TODO - blend this and above together, pass in an Area or a handle.
-   ;----------------------------------------------------------------------
    /**
     * Copy the snip text to the clipboard
     * @param hWnd - Window handle to OCR from

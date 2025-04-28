@@ -306,7 +306,6 @@ SetDPIContext(val) => DllCall("SetThreadDpiAwarenessContext", "Ptr", val, "Ptr")
  * @returns {Number} 
  */
 activeDPIFactor() {
-   ; TODO - save this as a global? Issue is it may not have changed before we need it.
    Static DPIFactor
    If ( NOT IsSet(DPIFactor)) {
       DPIFactor := A_ScreenDPI/96
@@ -838,7 +837,6 @@ Class ImageList extends map {
          If (Index) {
             Flags := 0
             ; This returns a copy of the icon in the image list, useful for menus
-            ; TODO - should we prepend with HICON / HBITMAP and such depending on the type?
             If ((val := DllCall("Comctl32\ImageList_GetIcon", "Ptr", this.iList, "Int", Index - 1, "UInt", Flags, "UPtr")) == 0)
                warning("Failed to retrive an icon with tag " tag " and index " Index " from the image list")
             Return val
@@ -848,7 +846,7 @@ Class ImageList extends map {
       }  
       set {
          ; list[tag] := value
-         ; TODO ImageList_ReplaceIcon or ImageList_Replace can replace one entry
+         ; IDEA ImageList_ReplaceIcon or ImageList_Replace can replace one entry
          If (tag) {
             If (super.has(tag)) {
                If (Value == "") {

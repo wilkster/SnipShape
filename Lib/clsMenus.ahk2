@@ -210,7 +210,7 @@ Class SnipMenus {
 
    ;----------------------------------------------------------------------
    ; Called just before a menu is posted
-   ; TODO - on very slow computers there is a white flash on the menu
+   ; NOTE - on very slow computers there is a white flash on the menu
    ;        in dark mode, this could potentially be used to prevent that flash
    ;----------------------------------------------------------------------
    Static WM_INITMENUPOPUP(wParam, lParam, uMsg, hWnd) {
@@ -230,29 +230,23 @@ Class SnipMenus {
 		   return
       Switch lParam {
          Case 0x202:   ; user left-clicked tray icon
-            ; TODO show a different menu
-            /*
-               m := Menu()
-               m.Add(name, callback)
-               m.SetIcon() ; as needed
-            */
            Snips.TrayMenu.Show()
             ; Comment out if not debugging
-            ; ToolTip("Reloading")
-            ; Reload
-            ; ; If reload failed it will pass thru here
-            ; Sleep(6000)
-            ; TrayTip("Reload Failed")
-            ; SetTimer(TrayTip,-3000)
-            ; SoundBeep(600, 200)
          Case 0x203:   ; user double left-clicked tray icon
+            ToolTip("Reloading")
+            Reload
+            ; If reload failed it will pass thru here
+            Sleep(6000)
+            TrayTip("Reload Failed")
+            SetTimer(TrayTip,-3000)
+            SoundBeep(600, 200)
          Case 0x204:   ; user right-clicked tray icon
          Case 0x208:   ; user middle-clicked tray icon
          Case 1026:  ; NIN_BALLOONSHOW - Sent when the balloon is shown (balloons are queued)
          Case 1027:  ; NIN_BALLOONHIDE - Sent when the balloon automatically disappears
          Case 1028:  ; NIN_BALLOONTIMEOUT - Notification timed out or was closed or right-clicked
          Case 1029:  ; NIN_BALLOONUSERCLICK - User clicked on the notification
-            ; TODO - this should only apply for screen captures
+            ; TODO - this should only apply for screen captures, how do we know?
             If ( NOT (hWnd := Snips.Clipboard2Snip())) {
                qTrayTip("No image on the clipboard to edit", 2)
             } Else {
@@ -423,6 +417,5 @@ Class ShapeMenus {
       MyMenu.delete()
    }
 }
-; TODO - ButtonBar menus class
 logGDI(BFN(Error("", -1).File) " loaded...")
 
