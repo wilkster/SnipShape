@@ -663,7 +663,6 @@ Class Snips {
             ; If the mouse moved, then redraw
             if ((Abs(dx) + Abs(dy)) > 0) {
                ; Shift the starting position when Space Bar is down
-; StopWatch.Start()
                If (GetKeyState("Space","P") OR GetKeyState("RButton","P")) {
                   sX += dX, sY += dY
                }
@@ -676,7 +675,6 @@ Class Snips {
                ; Shift forces square region
                If (GetKeyState("Shift","P"))
                   W := H := Min(W, H)
-; StopWatch.lapText("GraphicsClear")
                If (this.snipGuides) {
                   ; Clear the whole DIB with the fill color (can be slow on older computers with multiple 4K displays)
                   selSurf.GraphicsClear(fill) 
@@ -703,13 +701,11 @@ Class Snips {
                   
                ; Update the GUI with the DIB
                selSurf.UpdateLayer(winX, winY) ; This is where all the time is now
-; StopWatch.lapText("Layered Update")
                ; Sync with vertical refresh to prevent tearing (needed on slower computers)
                if (this.vertSync)
                   DllCall("Dwmapi\DwmFlush", "Int")
                else
                   Sleep(-1)
-; StopWatch.lapText("Flush")
             } Else {
                dur := A_TickCount - now ; 16 ms on niwot 16-32 on Okra
                Sleep(Max(0, this.updateInterval - dur))
@@ -751,19 +747,15 @@ Class Snips {
    }
    ;----------------------------------------------------------------------
    ; Capture a a static screen(s) without border, used for selection
-   ; Helpful if the screen content is changing during selection
+   ; Helpful if the screen content is changing during selection, this will freeze it
    ;----------------------------------------------------------------------
    Class OverlayScreen {
       __New(Area) {
          ; now := A_TickCount +E0x20  for not selectable
          this.SnipObj := Gui("+E0x20 +E0x80000 -Caption +AlwaysOnTop +ToolWindow +OwnDialogs -Border -DPIScale", "tempWindow")
          this.SnipObj.Show("NA W0 H0") ; unhide without activating
-         ; 1ms to here
-         ; The bitblt is nearly all of the time, haven't found a faster method
-         ; StopWatch.Start()
+         ; The screen capture bitblt is nearly all of the time, haven't found a faster method
          BitMap.OverlayToLayeredWindow(Area, this.SnipObj.hWnd)
-         ; StopWatch.cumText("Done")
-         ; 144ms to here (orka)
       }
       __Delete() {
          this.SnipObj.Destroy()
@@ -1394,7 +1386,7 @@ Class SnipPicture extends Gui.Pic {
    ; Static so this is executed at file parse time, before execution starts
    Static AddPicture := 0 ; fix lint issue
    Static __New() {
-      ; New command to call a static method here to add the picture
+      ; Create wew GUI sub-command AddSnipPic to call a static method here to add the picture
       Gui.Prototype.AddSnipPic := this.AddSnipPic
    }
    ;----------------------------------------------------------------------

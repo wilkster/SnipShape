@@ -5,7 +5,6 @@
 ; Body related shapes
 ;----------------------------------------------------------------------
 Class BodyShape extends commonShape {
-   ; outlineOpacity := 0 ; lint
    Init(*) {
       Super.Init()
       this.outlineColor       := Shapes.outlineColor

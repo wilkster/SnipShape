@@ -242,7 +242,7 @@ HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
       }
    }
 HotIfWinActive   
-; Spare bar as multiple uses, constrain it for active mode to cancel action
+; Spare bar has multiple uses, constrain it for active mode to cancel action
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND NOT Shapes.DrawActive
    Space:: Snips.SetDrawMode(0)
 

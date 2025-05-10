@@ -82,11 +82,8 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
  * Base class derived from Picture control for use in creating shapes
  */
 Class commonShape extends Gui.Pic {
-   Source := "" ; for lint, not called
    Shape  := 0 ; for lint, not called
-   ; Reuse  := 0 ; for lint, not called
    Options := ""
-   Factor := 1 ;Lint
 
    ;----------------------------------------------------------------------
    ; Called on shape creation (__New is NOT called)

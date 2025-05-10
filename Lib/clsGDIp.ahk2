@@ -837,6 +837,9 @@ Class GDIp {
          Return this.baseThickness
       }
    }
+   /**
+    * Class to hold and dispose of brushes
+    */
    Class Brushes extends Array {
       __New() {
       }
@@ -853,13 +856,17 @@ Class GDIp {
       ; Length => super.Length
       Add(color) {
          brush := GDIp.BrushCreateSolid(color)
-         super.push(brush) ;, logGDI("  +Add Brush:" hex(brush))
+         super.push(brush) 
          Return brush
       }
+      /**
+       * Create a texture brush
+       * Caller must dispose of the pBitmap
+       * @param pBitmap Bitmpa to use for the texture brush
+       */
       AddTexture(pBitmap) {
          brush := GDIp.BrushCreateTexture(pBitmap)
-         ; TODO - dispose of pBitmap now?
-         super.push(brush) ;, logGDI("  +Add Brush:" hex(brush))
+         super.push(brush) 
          Return brush
       }
    }
