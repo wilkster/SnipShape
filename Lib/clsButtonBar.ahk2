@@ -34,8 +34,7 @@ Class ButtonBar {
    Static colorCodeMap   := Map()
    Static colorIconsObj  := ImageList()
    Static __New() {
-      Global Settings_File    
-      Global Settings_CursorPath
+      Global SETTINGS
       logGDI("Building ButtonBar")
       ; 0x08000000 not foreground
       this.Enabled         := IniReadValue("Button Bar", "Enabled", 1)
@@ -57,7 +56,7 @@ Class ButtonBar {
       ; Close Bar Button
       ;----------------------------------------------------------------------
       cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" this.Margin * 3, Settings_CursorPath . "BBClose.ico", "W" cH " H" cH)
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" this.Margin * 3, SETTINGS.CursorPath . "BBClose.ico", "W" cH " H" cH)
 
       ; logGDI("Buttons Done")
       ; Return
@@ -91,7 +90,7 @@ Class ButtonBar {
       ; Build a button or menu entry for each color in settings
       ;----------------------------------------------------------------------
       this.MenuColors := Menu()
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, Settings_CursorPath . "colors.ico", "W" bs " H" bs)
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "colors.ico", "W" bs " H" bs)
       this.buttonCallbacks[b.hWnd] := this.PostColorMenu.bind(this) ; this.PostColors.bind(this) ; callback is mouse down not a full click
       this.buttonTips[b.hWnd] := "Set Shape Colors (1-9)"
       this.colorIconsObj.Size := bs
@@ -102,7 +101,7 @@ Class ButtonBar {
       For idx, defColor in Shapes.DefaultColorNames {
          cName := IniReadValue("User Shape Color", "Color " idx, 123)
          If cName = 123 ; Create default setting if not already done
-            IniWrite(defColor, Settings_File, "User Shape Color", "Color " idx)
+            IniWrite(defColor, SETTINGS.File, "User Shape Color", "Color " idx)
       }
       ; logGDI("ButtonBar Colors")
       ; This are the background colors for the light/dark windows menus
@@ -142,7 +141,7 @@ Class ButtonBar {
       ;----------------------------------------------------------------------
       ; Minimize Snip Button
       ;----------------------------------------------------------------------
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, Settings_CursorPath . "Minimize.ico", "W" cH " H" cH)
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Minimize.ico", "W" cH " H" cH)
 
       b.OnEvent("Click", this.MinimizeSnip.bind(this,0))
       this.buttonTips[b.hWnd] := "Minimize Active Snip (⌄)"
@@ -151,7 +150,7 @@ Class ButtonBar {
       ;----------------------------------------------------------------------
       ; Close Snip Button
       ;----------------------------------------------------------------------
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, Settings_CursorPath . "Close.ico", "W" ch " H" ch)
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, SETTINGS.CursorPath . "Close.ico", "W" ch " H" ch)
       b.OnEvent("Click", this.CloseSnip.bind(this))
       ; Also handle Escape
       this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
@@ -177,7 +176,7 @@ Class ButtonBar {
    ;----------------------------------------------------------------------
    Static BuildShapeButtons(Button, SubButtons,pad:=3) {
       static key      := "lButton"
-      fileName := Settings_CursorPath . "Menu\" . Button . ".png"
+      fileName := SETTINGS.CursorPath . "Menu\" . Button . ".png"
       b        := this.bbGui.AddPicButton("Y" this.Margin " X+" . pad, fileName, "W" this.ButSize " H" this.ButSize) ; 4 obj
       ; Left click handler
       this.buttonCallbacks[b.hWnd] := this.PostShapeMenu.bind(this, SubButtons) ; callback is mouse down not a full click
@@ -190,7 +189,7 @@ Class ButtonBar {
          sna      := StrSplit(Button, "-")
          baseName := Trim(sna[1])
          key      := Trim(sna[2])
-         fileName := Settings_CursorPath . baseName ".cur"
+         fileName := SETTINGS.CursorPath . baseName ".cur"
          If (FileExist(fileName)) {
             butName := baseName . " (" . key . ")"
             this.shapeIconsObj[butName] := fileName  ; Load into image list          

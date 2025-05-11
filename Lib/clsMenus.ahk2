@@ -17,9 +17,7 @@ Class SnipMenus {
    Static SnipMenu := Menu()
    Static ResizeMenu := Menu()
    Static __New() {
-      Global SnipShapeIcon
-      Global Settings_CursorPath
-      Global Settings_SavePath_Image
+      Global SETTINGS
       ;------------------------------
       ; RMB Menus
       ;-----------------------------------------------
@@ -50,12 +48,12 @@ Class SnipMenus {
       ; IDEA - Can we inhibit paste text/bitmap if none is available on the clipboard     
       ; this.AddEntry("Paste Shape from Clipboard (Ctrl-V)","Paste.ico")
       this.csMenu.Add("Insert Picture Shapes",this.PictMenu)
-      this.csMenu.SetIcon("Insert Picture Shapes", Settings_CursorPath . "Shapes.ico")
+      this.csMenu.SetIcon("Insert Picture Shapes", SETTINGS.CursorPath . "Shapes.ico")
       this.csMenu.Add('') ;16
       this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
-      this.csMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
+      this.csMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
       this.csMenu.Add("Clone and Resize Snip",this.ResizeMenu)
-      this.csMenu.SetIcon("Clone and Resize Snip", Settings_CursorPath . "Resize.ico")
+      this.csMenu.SetIcon("Clone and Resize Snip", SETTINGS.CursorPath . "Resize.ico")
       ; Resize Submenu
       For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
          this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
@@ -83,9 +81,9 @@ Class SnipMenus {
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           
          Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(WinExist("A"),14)                           
          Case ItemName ~= "Edit:": 
-            Snips.MSPaint(Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave))
+            Snips.MSPaint(Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave))
             Snips.Close()
-         Case ItemName ~= "Save:": Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave)                            
+         Case ItemName ~= "Save:": Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)                            
          Case ItemName ~= "Duplicate": Snips.CloneAndScaleSnip(WinExist("A"), 1.0)
          Case ItemName ~= "Minimize This": Snips.Minimize()
          Case ItemName ~= "Minimize All": Snips.MinimizeAll()                                                   
@@ -127,11 +125,11 @@ Class SnipMenus {
       ; Add Menu entries and icons only if we have that format available
       If Clipboard.hasText() {
          this.csMenu.Insert("17&", "Paste Clipboard Text",this.ContextSnipMenu_Handler.bind(this))
-         this.csMenu.SetIcon("Paste Clipboard Text", Settings_CursorPath . "Paste.ico")
+         this.csMenu.SetIcon("Paste Clipboard Text", SETTINGS.CursorPath . "Paste.ico")
       }
       If Clipboard.hasImage() {
          this.csMenu.Insert("17&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
-         this.csMenu.SetIcon("Paste Clipboard Image", Settings_CursorPath . "Paste.ico")
+         this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
       }
       ; Keep positional rename since menu is renamed dynamically
       this.csMenu.Rename('9&', "Edit: "  SnipObj.BaseName)
@@ -150,7 +148,7 @@ Class SnipMenus {
    ;----------------------------------------------------------------------
    Static AddEntry(title, icon) {
       this.csMenu.Add(Title, this.ContextSnipMenu_Handler.bind(this))    ;1
-      this.csMenu.SetIcon(title, Settings_CursorPath . icon)
+      this.csMenu.SetIcon(title, SETTINGS.CursorPath . icon)
    }
    ;----------------------------------------------------------------------
    ; Check/unCheck menu entry for button bar tied to its state
@@ -179,7 +177,7 @@ Class SnipMenus {
       if (iconObj.Count == 0)
          iconObj.Size := butSize
       ; Make sure the icon imagelist is up to date
-      Loop Files Settings_SavePath_Icons . "*.*", "F" {
+      Loop Files SETTINGS.SavePath_Icons . "*.*", "F" {
          If (A_LoopFileExt ~= "i)ico|png|bmp|gif|jpg|wmf") {
             if NOT iconObj.Has(A_LoopFileFullPath)
                iconObj[A_LoopFileFullPath] :=A_LoopFileFullPath
@@ -293,7 +291,7 @@ Class ShapeMenus {
             ; Special case for fill text
             If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
                shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
-               shapeMenu.SetIcon("Change " ShapeObj.ShapeName " Outline", Settings_CursorPath . "Outline.ico" ) 
+               shapeMenu.SetIcon("Change " ShapeObj.ShapeName " Outline", SETTINGS.CursorPath . "Outline.ico" ) 
                for idx, menName in ["Rectangle", "Rounded Rectangle", "None"] {
                   outlineMenu.Add(menName, OutlineType.bind(menName))
                   if (ShapeObj.FillOutline = menName)
@@ -313,25 +311,25 @@ Class ShapeMenus {
       Switch ShapeObj.Source {
          Case "BlurShape": 
             shapeMenu.Add(ShapeObj.ShapeName . " Amount", subMenu)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Amount", Settings_CursorPath . "Menu\Redact.png" )
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Amount", SETTINGS.CursorPath . "Menu\Redact.png" )
             subMenu.Add("Increase (Up)",blurFactor.bind(+.5))
-            subMenu.SetIcon("Increase (Up)", Settings_CursorPath . "Plus.ico")
+            subMenu.SetIcon("Increase (Up)", SETTINGS.CursorPath . "Plus.ico")
             subMenu.Add("Decrease (Down)",blurFactor.bind(-.5))
-            subMenu.SetIcon("Decrease (Down)", Settings_CursorPath . "Minimize.ico")
+            subMenu.SetIcon("Decrease (Down)", SETTINGS.CursorPath . "Minimize.ico")
          Case "BodyShape", "LineShape", "FreeHand":
             shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", Settings_CursorPath . "Menu\Shapes.png" )
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", SETTINGS.CursorPath . "Menu\Shapes.png" )
             subMenu.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
-            subMenu.SetIcon("Increase Thickness (Up)", Settings_CursorPath . "Plus.ico")
+            subMenu.SetIcon("Increase Thickness (Up)", SETTINGS.CursorPath . "Plus.ico")
             subMenu.Add("Decrease Thickness (Down)",LineThickness.bind(-.5))
-            subMenu.SetIcon("Decrease Thickness (Down)", Settings_CursorPath . "Minimize.ico")
+            subMenu.SetIcon("Decrease Thickness (Down)", SETTINGS.CursorPath . "Minimize.ico")
       }
       ; Color Sub Menu
       Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             cn := "Change " . ShapeObj.ShapeName . " Color"
             shapeMenu.Add(cn, colorMenu)
-            shapeMenu.SetIcon(cn, Settings_CursorPath . "colors.ico" )
+            shapeMenu.SetIcon(cn, SETTINGS.CursorPath . "colors.ico" )
             ; Reuse hicons from buttonbar creation
             for menName in ButtonBar.colorNameArray {
                colorMenu.Add(menName, ShapeMenus.Color_Handler.bind(this, ShapeObj, ButtonBar.colorCodeMap[menName]))
@@ -371,10 +369,10 @@ Class ShapeMenus {
    ; Add a menu entry along with a icon if needed
    ;----------------------------------------------------------------------
    Static AddEntry(Menu, shapeObj, title, icon:="") {
-      Global Settings_CursorPath
+      Global SETTINGS
       Menu.Add(Title, ShapeMenus.ContextShapeMenu_Handler.bind(this, shapeObj))    ;1
       if (icon)
-         Menu.SetIcon(title, Settings_CursorPath . "\" . icon)
+         Menu.SetIcon(title, SETTINGS.CursorPath . "\" . icon)
    }
    ;----------------------------------------------------------------------
    ; Handle callback for the RMB menu

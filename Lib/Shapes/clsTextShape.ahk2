@@ -770,7 +770,7 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
       Default:
    }
    ; Color Button to select custom button
-   oColButton := textGui.AddPicButton("YP HP W" butH btBG, Settings_CursorPath . "colors.ico", "W" butH * Scale - 4 " H" butH * Scale - 4)
+   oColButton := textGui.AddPicButton("YP HP W" butH btBG, SETTINGS.CursorPath . "colors.ico", "W" butH * Scale - 4 " H" butH * Scale - 4)
    oColButton.OnEvent("Click", PickColor)
    Color := ShapeObj.Color
    ;----------------------------------------------------------------------

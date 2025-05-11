@@ -33,7 +33,7 @@ Class Cursor {
       ;----------------------------------------------------------------------
       ; Load all of the cursors we will use for dynamic cursor updates
       ;----------------------------------------------------------------------
-      Global Settings_CursorPath
+      Global SETTINGS
       ; https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
       ; Load the stock cursors by name and by ID
       for name, ID in this.CL {
@@ -41,7 +41,7 @@ Class Cursor {
       }
       ; Load custom cursors by file name
       ; logGDI("Loading Cursor Files")
-      Loop Files Settings_CursorPath . "*.*" {
+      Loop Files SETTINGS.CursorPath . "*.*" {
          If (A_LoopFileExt ~= "i)cur|ani") {
             SplitPath(A_LoopFileFullPath, &fileName, , , &baseName)
             ; 3 GDI + 1 user objects per cursor

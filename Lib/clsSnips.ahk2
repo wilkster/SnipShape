@@ -30,7 +30,7 @@ Class Snips {
    ; Read in the settings and add some tray menu run-time settings
    ;----------------------------------------------------------------------
    Static __New() {
-      Global Settings_File
+      Global SETTINGS
       logGDI("Building Snip Menus")
       this.rawBorderWidth  := IniReadValue("User Snips", "Border Width",2)
       this.vertSync        := IniReadValue("User Snips", "Vertical Sync on Select", false)
@@ -55,13 +55,13 @@ Class Snips {
       ; Custom Tray Menu
       this.TrayMenu := Menu()
       this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Snip Selection", Settings_CursorPath . "SnipShape.ico")
+      this.TrayMenu.SetIcon("Snip Selection", SETTINGS.CursorPath . "SnipShape.ico")
       this.TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Clipboard Selection", Settings_CursorPath . "Clipboard.ico")
+      this.TrayMenu.SetIcon("Clipboard Selection", SETTINGS.CursorPath . "Clipboard.ico")
       ; OCR Submenu
       this.OCRMenu  := Menu()
       this.TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
-      this.TrayMenu.SetIcon("OCR to Clipboard", Settings_CursorPath . "OCR.cur")
+      this.TrayMenu.SetIcon("OCR to Clipboard", SETTINGS.CursorPath . "OCR.cur")
       this.OCRMenu.Add("Selection Words", this.startOCR.bind(this,12))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Lines", this.startOCR.bind(this,15))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Table", this.startOCR.bind(this,14))  ; Creates a new menu item.
@@ -84,10 +84,10 @@ Class Snips {
 
       this.TrayMenu.Add()
       this.TrayMenu.Add("Open Saved Snips", Snips.OpenSnipDialog.Bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Open Saved Snips", Settings_CursorPath . "Shapes.ico")
+      this.TrayMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
       this.TrayMenu.Add()
-      this.TrayMenu.Add("Edit Settings File", (*) => Run(Settings_File))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Edit Settings File", Settings_CursorPath . "Settings.ico")
+      this.TrayMenu.Add("Edit Settings File", (*) => Run(SETTINGS.File))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Edit Settings File", SETTINGS.CursorPath . "Settings.ico")
 
       ; Track activation for border colors and draw mode
       OnMessage(0x006, this.WM_ACTIVATE.Bind(this), 1)
@@ -469,11 +469,11 @@ Class Snips {
    ; File dialog to open a snip
    ;----------------------------------------------------------------------
    Static OpenSnipDialog(*) {
-      Global Settings_SavePath_Image
+      Global SETTINGS
       If (SnipObj := Snips.IsValid(WinActive("A"))) {
          SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
       }
-      SelectedFile := FileSelect(, Settings_SavePath_Image, "Select Screenshot to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      SelectedFile := FileSelect(, SETTINGS.SavePath_Image, "Select Screenshot to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
       ; IDEA - save last folder in settings?
       if (FileExist(SelectedFile)) {
          Snips.CreateSnipFromFile(SelectedFile)
@@ -765,7 +765,7 @@ Class Snips {
    ; Called after drag is complete to show the image and/or put to clipboard
    ;----------------------------------------------------------------------
    Static SnipArea(Area, SetClipboard := false, SaveFile := false, CreateSnip := true, SnipObj := false) {
-      global Settings_SavePath_Image
+      global SETTINGS
       If (Area.W > 15 and Area.H > 15) {
 
          ; hBitmap will be the responsibility for the clipboard/gui to clean up
@@ -789,7 +789,7 @@ Class Snips {
             ; Shifting by neg border width will align the snip exactly over the screen capture region
             SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + BW * 2 " H" Area.H + BW * 2) ; NA -> want active
             If (SaveFile) {
-               this.Snip2File(Settings_SavePath_Image, this.borderWithSave)
+               this.Snip2File(SETTINGS.SavePath_Image, this.borderWithSave)
                Snips.flashBorder(SnipObj.hWnd)
             }
             If Snips.minimizeOnSnip {
@@ -806,7 +806,7 @@ Class Snips {
             GDI.GetHBitmapDimensions(hBitmap, &W, &H)
             If (SaveFile) {
                msg := "Clipped Area to Clipboard/File: " W " x " H " pixels"
-               this.SaveHBitMapFile(hBitmap, Settings_SavePath_Image)
+               this.SaveHBitMapFile(hBitmap, SETTINGS.SavePath_Image)
             } Else {
                msg := "Clipped Area to Clipboard: " W " x " H " pixels"
             }
@@ -880,7 +880,7 @@ Class Snips {
             GDIp.GetImageDimensions(pBitmap, &W, &H)
             baseName := Snips.timeTag . ' (' W 'x' H ')'
          }
-         FileName := SavePath . baseName . "." . Settings_SavePath_Image_Ext
+         FileName := SavePath . baseName . "." . SETTINGS.SavePath_Image_Ext
          If FileExist(FileName) {
             If (ans := MsgBox("The File Exists, do you want to replace it?", FileName, 0x1024) = "Yes") {
                Try {

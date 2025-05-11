@@ -258,7 +258,7 @@ Class Shapes {
             this.shapeBBMenu.Add('')
             ; Set default highlighter color
             this.shapeBBMenu.Add("Set Highlighter Color", this.hlColorMenu)
-            this.shapeBBMenu.SetIcon("Set Highlighter Color", Settings_CursorPath . "colors.ico" )
+            this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico" )
             for menName in ButtonBar.colorNameArray {
                this.hlColorMenu.Add(menName, this.HKColor_Handler.bind(this, ButtonBar.colorCodeMap[menName]))
                this.hlColorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
@@ -1207,16 +1207,16 @@ Class Shapes {
     * @param Key the button key that is pressed
     */
    Static AddPictureFromFile(hWnd, key, letter) {
-      Global Settings_SavePath_Icons
+      Global SETTINGS
       SnipObj := Snips.GetGuiObj(hWnd)
       CoordMode('Mouse', 'Window')
       MouseGetPos(&sX, &sY)
       KeyWait(letter,"t3") ; wait for key to not be pressed
       SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
-      SelectedFile := FileSelect(, Settings_SavePath_Icons, "Select Picture to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      SelectedFile := FileSelect(, SETTINGS.SavePath_Icons, "Select Picture to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
       if (FileExist(SelectedFile)) {
          if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, sX, sY)) {
-            SplitPath(SelectedFile,,&Settings_SavePath_Icons)  ; Save new location for snips
+            SplitPath(SelectedFile,,&SETTINGS.SavePath_Icons)  ; Save new location for snips
             ShapeObj.Gui.Dirty++
          }
          Return ShapeObj

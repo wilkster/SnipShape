@@ -49,26 +49,28 @@ GDIp.SystemStartup()
 ;-----------------------------------------------
 ; DEFAULT SETTING - VARIABLES
 ;-----------------------------------------------
-Global Settings_Path               := A_AppData "\SnipShape"
-Global Settings_File               := Settings_Path "\SnipShape.ini"
-Global Settings_CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
+Global SETTINGS := Object()
+SETTINGS.Path               := A_AppData . "\SnipShape"
+SETTINGS.File               := SETTINGS.Path . "\SnipShape.ini"
+SETTINGS.CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
 ; Use same folder as Windows Snipper
-Global Settings_SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
-Global Settings_SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
-Global Settings_SavePath_Icons     := IniReadValue("User Snips","IconPath",GetFullPathName('.\Stickies\'))
-If !FileExist(Settings_Path)
-   DirCreate(Settings_Path)
-If !FileExist(Settings_SavePath_Image)
-   DirCreate(Settings_SavePath_Image)
-If !FileExist(Settings_SavePath_Icons)
-   DirCreate(Settings_SavePath_Icons)
+SETTINGS.SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
+SETTINGS.SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
+SETTINGS.SavePath_Icons     := IniReadValue("User Snips", "IconPath",GetFullPathName('.\Stickies\'))
+
+If !FileExist(SETTINGS.Path)
+   DirCreate(SETTINGS.Path)
+If !FileExist(SETTINGS.SavePath_Image)
+   DirCreate(SETTINGS.SavePath_Image)
+If !FileExist(SETTINGS.SavePath_Icons)
+   DirCreate(SETTINGS.SavePath_Icons)
 
 ;-----------------------------------------------
 ; INITIALIZATION - VARIABLES
 ;-----------------------------------------------
-Global SnipShapeIcon := Settings_CursorPath "\SnipShape.ico"
+SETTINGS.SnipShapeIcon := SETTINGS.CursorPath "\SnipShape.ico"
 A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area Only "
-TraySetIcon(SnipShapeIcon) ; Scissors
+TraySetIcon(SETTINGS.SnipShapeIcon) ; Scissors
 ; =====================================================================
 ;                          I N C L U D E S
 ; =====================================================================
@@ -234,7 +236,7 @@ HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
       for _idx, _defColor in Shapes.DefaultColorNames {
          _cName := IniReadValue("User Shape Color", "Color " _idx, 123)
          if _cName = 123 
-            IniWrite(_defColor, Settings_File, "User Shape Color", "Color " _idx)
+            IniWrite(_defColor, SETTINGS.File, "User Shape Color", "Color " _idx)
          else
             _defColor := _cName
          if _idx < 10
@@ -271,7 +273,7 @@ HotIfWinActive
       }
    }
    ^s:: {
-      Snips.Snip2File(Settings_SavePath_Image, Snips.borderWithSave)
+      Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
       Snips.flashBorder(WinExist("A"))
    }
    ^D:: {
@@ -359,21 +361,20 @@ HotIfWinActive
 ; IniWriteValue - Setting is changed herein
 ;----------------------------------------------------------------------
 IniWriteIfBlank(V, Section, Parameter) {
-   If IniRead(Settings_File, Section, Parameter, "XX") = "XX"
-      IniWrite(V, Settings_File, Section, Parameter)
+   If IniRead(SETTINGS.File, Section, Parameter, "XX") = "XX"
+      IniWrite(V, SETTINGS.File, Section, Parameter)
 }
 IniWriteValue(V, Section, Parameter) {
-   IniWrite(V, Settings_File, Section, Parameter)
+   IniWrite(V, SETTINGS.File, Section, Parameter)
 }
-IniReadValue(Section,Item, Default) => IniRead(Settings_File, Section, Item, Default)
+IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Default)
 Suspend(0)
 
 /**
  * Exit Handler
  */
 Exiting(ExitReason, ExitCode) {
-   Global Settings_SavePath_Icons
-   Global Settings_SavePath_Image
+   Global SETTINGS
 
    ; Shut down messages
    OnMessage(0x201, Snips.WM_LBUTTONDOWN, 0)
@@ -389,9 +390,9 @@ Exiting(ExitReason, ExitCode) {
    ; Snips
    IniWriteIfBlank(Snips.rawBorderWidth, "User Snips", "Border Width")
    IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
-   IniWriteIfBlank(Settings_SavePath_Icons, "User Snips", "IconPath")
-   IniWriteIfBlank(Settings_SavePath_Image, "User Snips", "SnipPath")
-   IniWriteIfBlank(Settings_CursorPath, "User Snips", "CursorPath")
+   IniWriteIfBlank(SETTINGS.SavePath_Icons, "User Snips", "IconPath")
+   IniWriteIfBlank(SETTINGS.SavePath_Image, "User Snips", "SnipPath")
+   IniWriteIfBlank(SETTINGS.CursorPath, "User Snips", "CursorPath")
 
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
    IniWriteValue(Snips.BorderWithCopy,  "Snips", "Border With Copy")
