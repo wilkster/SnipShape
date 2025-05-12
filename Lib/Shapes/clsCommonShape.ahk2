@@ -113,7 +113,7 @@ Class commonShape extends Gui.Pic {
       this.OnEvent("Click", this.bindClick)
       this.Visible   := true
       this.DPIFactor := activeDPIFactor()
-      this.ShapeName := Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1])
+      this.ShapeName := this.Shape > 0 ? Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1]) : "Picture"
       this.PIC       := this.GUI.PIC.Handle
       this.SnipObj   := this.GUI
 
