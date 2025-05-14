@@ -115,7 +115,7 @@ Class Shapes {
       this.shapeOpacity       := IniReadValue("Common Shape", "Shape Opacity", 0xFF)
       ; Arrows
       this.arrowLineThickness := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
-      this.ArrowSmoothFactor  := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "Very High")
+      this.ArrowSmoothFactor  := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "High")
       this.arrowOpacity       := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
       ; Body
       this.fillOpacity        := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
