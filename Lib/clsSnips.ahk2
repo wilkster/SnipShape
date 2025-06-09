@@ -54,16 +54,16 @@ Class Snips {
       this.guiSSR   := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
       ; Custom Tray Menu
       this.TrayMenu := Menu()
-      this.TrayMenu.Add("Snip Selection", this.startSnip.bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Snip Selection", SETTINGS.CursorPath . "SnipShape.ico")
-      this.TrayMenu.Add("Clipboard Selection", this.StartClipboard.bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Clipboard Selection", SETTINGS.CursorPath . "Clipboard.ico")
+      this.TrayMenu.Add("Snip Selection (Win-S)", this.startSnip.bind(this))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Snip Selection (Win-S)", SETTINGS.CursorPath . "SnipShape.ico")
+      this.TrayMenu.Add("Clipboard Selection (Win-Z)", this.StartClipboard.bind(this))  ; Creates a new menu item.
+      this.TrayMenu.SetIcon("Clipboard Selection (Win-Z)", SETTINGS.CursorPath . "Clipboard.ico")
       ; OCR Submenu
       this.OCRMenu  := Menu()
       this.TrayMenu.Add("OCR to Clipboard",this.OCRMenu)
       this.TrayMenu.SetIcon("OCR to Clipboard", SETTINGS.CursorPath . "OCR.cur")
       this.OCRMenu.Add("Selection Words", this.startOCR.bind(this,12))  ; Creates a new menu item.
-      this.OCRMenu.Add("Selection Lines", this.startOCR.bind(this,15))  ; Creates a new menu item.
+      this.OCRMenu.Add("Selection Lines (Win-O)", this.startOCR.bind(this,15))  ; Creates a new menu item.
       this.OCRMenu.Add("Selection Table", this.startOCR.bind(this,14))  ; Creates a new menu item.
       ; A_TrayMenu.Add("OCR Region Table", this.startOCR.bind(this,2))  ; Creates a new menu item.
       this.TrayMenu.Add()  ; Creates a new menu item.

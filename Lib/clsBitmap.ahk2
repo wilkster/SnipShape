@@ -249,12 +249,10 @@ Class BitMap {
    ;----------------------------------------------------------------------
    Static HBitmapFromScreen(Area) {
       hdcScreen := GDI.GetDC(0) ; 0 makes no difference than GetDesktopWindow
-      ; hdcScreen := GDI.GetDC(DllCall("GetDesktopWindow", "Ptr"))
       ; Using either a DIB or Compatible bitmap is about the same, 60ms on fast computer
-      hdcMem := GDI.CreateCompatibleDC(hdcScreen)
-      ; hBitmap := Gdip.CreateCompatibleBitmap(hdcScreen, Area.W, Area.H) ; the same but do we need GetDIBits also?
+      hdcMem  := GDI.CreateCompatibleDC(hdcScreen)
       hBitmap := GDI.CreateDIBSection(Area.W, Area.H, hdcMem)
-      ogBM := GDI.SelectObject(hdcMem, hBitmap)
+      ogBM    := GDI.SelectObject(hdcMem, hBitmap)
       ; Copy over screen bits to memdc (all of the time is here) (get any layers as well)
       ; 4k monitor takes 60ms which is really slow
       ; 70 ms on orka
@@ -269,13 +267,10 @@ Class BitMap {
    ;----------------------------------------------------------------------
    Static OverlayToLayeredWindow(Area, hWnd, getWin := 0) {
       ;HBitmapToLayeredWindow Grab the Screen
-      if (getWin)
-         hBitmap := this.HBitmapFromHWND(WinActive("A") ,0) 
-      else ; get screen
-         hBitmap := this.HBitmapFromScreen(Area)
+      hBitmap := getWin ? this.HBitmapFromHWND(WinActive("A") ,0) : this.HBitmapFromScreen(Area)
       ; Create a new DC based on hBitmap and display it
-      hdcMem := GDI.CreateCompatibleDC()
-      ogBM := GDI.SelectObject(hdcMem, hBitmap)
+      hdcMem  := GDI.CreateCompatibleDC()
+      ogBM    := GDI.SelectObject(hdcMem, hBitmap)
       GDI.UpdateLayeredWindow(hWnd, hdcMem, Area.X, Area.Y, Area.W, Area.H)
       ; clean up
       GDI.SelectObject(hdcMem, ogBM)
