@@ -222,11 +222,8 @@ Class ObscureShape extends commonShape {
     * Refill the face with the current brush
     */
    RefillFace() {
-      ; BUG - this can be a little jumpy when moving/refreshing the face. Not sure why
-      ; It looks like sometimes the window is moved THEN is is refreshed so we see a flicker
       C := this.sCoord
       ; imageBrush will be 0 if not used
-      ; Critical("On")
       If (this.imageBrush) {
          ; Brush sits over SNIP so we have to translate it to line up with the shape < 2ms
          GDIp.ResetTextureTransform(this.imageBrush)
@@ -240,9 +237,10 @@ Class ObscureShape extends commonShape {
       ; This can take 5-10ms, probably due to the texture brush
       GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
       ; GDIp.FillRectangle(mysurf.G, brush, 0, 0, C.W, C.H) ; not any faster
+      ; FIX for flickering on move, flush before update
+      DllCall("Dwmapi\DwmFlush", "Int")
       Surf.UpdateLayer(C.X1, C.Y1)
       Surf := ""
-      ; Critical("Off")
    }
    /**
     * Adjust the shape factoru dynamically while drawing
