@@ -592,7 +592,7 @@ Class Snips {
          GDIp.SetSmoothingMode(selSurf.G,1)
          GDIp.SetInterpolationMode(selSurf.G,1)
          ; To dim or not dim, that is the question
-         fill := dimScreen ? 0x90000000 : 0x01000000 ; need some opacity for the mouse to change
+         fill := dimScreen ? 0x60000000 : 0x01000000 ; need some opacity for the mouse to change
          if NOT dimScreen
             BW *=2
          selSurf.GraphicsClear(fill) ; 10ms
