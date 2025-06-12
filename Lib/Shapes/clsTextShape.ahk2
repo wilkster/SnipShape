@@ -374,7 +374,8 @@ Class TextShape extends CommonShape {
                pBlur := BitMap.BlurBitmap(pFull, round(this.OLBlur * emVal/128))
                ; write blur back into graphics
                GDIp.GraphicsClear(G)   ; remove old outline
-               GDIp.DrawImage(G, pBlur, 0, 0, txt.W, txt.H, 0, 0, txt.W, txt.H)
+               ; txt.W/H is slightly larger than mrSurf.Width/Height
+               GDIp.DrawImage(G, pBlur, 0, 0, mySurf.Width, mySurf.Height, 0, 0, mySurf.Width, mySurf.Height)
                ; cleanup
                GDIp.DisposeImage(pBlur)
                ; Also look at gradient brushes (PathGradientBrush) where the outside color is the background color
