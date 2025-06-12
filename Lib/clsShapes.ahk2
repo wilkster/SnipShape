@@ -915,6 +915,7 @@ Class Shapes {
                ; NOTE - shapes don't auto refresh when color/thickness changed,
                ; we also do this in draw mode
                Sleep(10)
+               
                If (this.ColorQueue.Length) {
                   ShapeObj.SetColor(this.ColorQueue.Pop())  ; works on active pen
                   ShapeObj.Refresh()           ; not needed for all shapes

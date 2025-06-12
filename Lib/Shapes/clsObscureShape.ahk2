@@ -227,7 +227,7 @@ Class ObscureShape extends commonShape {
       If (this.imageBrush) {
          ; Brush sits over SNIP so we have to translate it to line up with the shape < 2ms
          GDIp.ResetTextureTransform(this.imageBrush)
-         GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ; This seems to cause the jumpiness
+         GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth)
          brush := this.imageBrush
       } Else {
          brush := this.redactBrush
@@ -237,7 +237,7 @@ Class ObscureShape extends commonShape {
       ; This can take 5-10ms, probably due to the texture brush
       GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
       ; GDIp.FillRectangle(mysurf.G, brush, 0, 0, C.W, C.H) ; not any faster
-      ; FIX for flickering on move, flush before update
+      ; FIX for flickering on move, DWM vsync/flush just before update
       DllCall("Dwmapi\DwmFlush", "Int")
       Surf.UpdateLayer(C.X1, C.Y1)
       Surf := ""
