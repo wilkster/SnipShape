@@ -327,15 +327,20 @@ Class ShapeMenus {
       ; Color Sub Menu
       Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
-            cn := "Change " . ShapeObj.ShapeName . " Color"
-            shapeMenu.Add(cn, colorMenu)
-            shapeMenu.SetIcon(cn, SETTINGS.CursorPath . "colors.ico" )
-            ; Reuse hicons from buttonbar creation
-            for menName in ButtonBar.colorNameArray {
-               colorMenu.Add(menName, ShapeMenus.Color_Handler.bind(this, ShapeObj, ButtonBar.colorCodeMap[menName]))
-               colorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
+            Switch ShapeObj.Shape {
+               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR:
+               Default:
+                  cn := "Change " . ShapeObj.ShapeName . " Color"
+                  shapeMenu.Add(cn, colorMenu)
+                  shapeMenu.SetIcon(cn, SETTINGS.CursorPath . "colors.ico")
+                  ; Reuse hicons from buttonbar creation
+                  For menName in ButtonBar.colorNameArray {
+                     colorMenu.Add(menName, ShapeMenus.Color_Handler.bind(this, ShapeObj, ButtonBar.colorCodeMap[menName]))
+                     colorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
+                  }
+                  shapeMenu.Add()
+
             }
-            shapeMenu.Add()
          Default:
       }
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
