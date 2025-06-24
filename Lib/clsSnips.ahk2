@@ -136,7 +136,7 @@ Class Snips {
          if (val) 
             SnipObj.BackColor := Shapes.globalShapeColor
          else
-            SnipObj.BackColor := RGBval("c0x05a605")
+            SnipObj.BackColor := RGBval("c0x00ca00")
       } else
          Warning("Did not see " hex(hwnd) " in the snip list")
    }
@@ -356,7 +356,7 @@ Class Snips {
          Switch (wParam &= 0xFF) {
             Case 0:  ; Deactivate
                Snips.SetDrawMode(0, hWnd)
-               SnipObj.BackColor := RGBval("c0x3b8181") ; Not Active
+               SnipObj.BackColor := RGBval("c0x6d7f7f") ; Not Active
                Sleep(50) ; let it Deactivate first so we know where it is
                ; lParam is 0 if non AHK gui was activated
                if (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
@@ -972,6 +972,8 @@ Class Snips {
          SnipObj         := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          SnipObj.MarginX := BW, SnipObj.MarginY := BW
          SnipObj.Pic     := SnipObj.AddSnipPic(hBitmap)
+         ; Minimize existing snip
+         this.GetGuiObj(hWnd).Minimize()
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
          SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
       } else {
