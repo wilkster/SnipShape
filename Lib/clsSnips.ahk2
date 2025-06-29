@@ -627,8 +627,9 @@ Class Snips {
          ; Set composting mode so we overwrite the dimming in the middle, not merge with it
          Gdip.SetCompositingMode(selSurf.G, 1)
          ; don't make the punched whole transparent or the cursor will go to default when sizing smaller
-         bClear := myBrushes.Add(0x01000000) 
-         bFill  := myBrushes.Add(fill)
+         bClearish := myBrushes.Add(0x01000000)
+         bClear    := myBrushes.Add(0x00000000)
+         bFill     := myBrushes.Add(fill)
          ; Use the mouse from step 1 if mode = 1 or 3
          if (NOT IsSet(sX)) {
             ; CoordMode('Mouse', 'Screen')
@@ -692,7 +693,7 @@ Class Snips {
                }
                ; Below two are instataneous
                ; punch a hole in the surface to show the selection
-               GDIp.FillRectangle(selSurf.G, bClear, Xv, Yv, W, H)
+               GDIp.FillRectangle(selSurf.G, bClearish, Xv, Yv, W, H)
                ; draw the bounding box, offset by window borders
                GDIp.DrawRectangle(selSurf.G, pBorder, Xv, Yv, W, H)
 ; StopWatch.lapText("Draw/Fill Rectangle")
@@ -711,7 +712,13 @@ Class Snips {
                Sleep(Max(0, this.updateInterval - dur))
             }
          } Until !GetKeyState(Key, 'p')
-         ; DllCall("Winmm\timeEndPeriod", "UInt", 1)
+         ; Remove slight alpha channel overlay before capture
+         If (W) {
+            GDIp.FillRectangle(selSurf.G, bClear, Xv, Yv, W, H)
+            GDIp.DrawRectangle(selSurf.G, pBorder, Xv, Yv, W, H)
+            selSurf.UpdateLayer(winX, winY) ; This is where all the time is now
+         }
+         ; Clear out GDI+ stuff
          Cleanup()
          ;----------------------------------------------------------------------
          ; If we have a viable area, then snip it
@@ -927,9 +934,12 @@ Class Snips {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
             } Else {
                ; No way to know the position of the bitmap on the screen
-               X -= W / Random(2, 8), Y -= H / Random(2, 8)
+               ; X -= W / Random(2, 8), Y -= H / Random(2, 8)
+               ; TODO - relative to this monitor
+               X := 0, Y:= 0
             }
             Area              := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
+            ; BUG - very large bitmaps are clipped where they are offscreen
             SnipObj           := this.GuiSnip(Area)
             SnipObj.MarginX   := BW, SnipObj.MarginY := BW
             SnipObj.BackColor := BorderColor
