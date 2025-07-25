@@ -306,6 +306,9 @@ HotIfWinActive
    ^Down:: {
       Snips.MinimizeAll()
    }
+   ^Up:: {
+      Snips.RestoreAll()
+   }
    ;----------------------------------------------------------------------
    ; Reduce and Enlarge to a new snip
    ; Also on RMB Menu on Snip

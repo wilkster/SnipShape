@@ -38,6 +38,7 @@ Class SnipMenus {
       this.csMenu.Add()
       this.AddEntry("Minimize This Snip (Down)", "Minimize.ico")
       this.AddEntry("Minimize All Snips (Ctrl-Down)", "Minimize.ico")
+      this.AddEntry("Restore All Snips (Ctrl-Up)", "Restore.ico")
       this.csMenu.Add() ;12
       this.AddEntry("Clear all Shapes (Shift-Del)", "Clear.ico")
       this.csMenu.Add() ;14
@@ -87,6 +88,7 @@ Class SnipMenus {
          Case ItemName ~= "Duplicate": Snips.CloneAndScaleSnip(WinExist("A"), 1.0)
          Case ItemName ~= "Minimize This": Snips.Minimize()
          Case ItemName ~= "Minimize All": Snips.MinimizeAll()                                                   
+         Case ItemName ~= "Restore": Snips.RestoreAll()                                                   
          Case ItemName ~= "Clear all": Snips.ClearAllShapes()                                                   
          Case ItemName ~= "Button Bar": 
             if ButtonBar.Enabled {
