@@ -156,33 +156,52 @@ Class BitMap {
    ; Works for windows with DPI support
    ; Gets black screen for child windows
    ; Need to scale smaller windows on higher DPI screens (looks crappy after)
+   ; BUG - this only works if the window and monitor dpi are the same, some legacy
+   ;       windows won't scale properly on PrintWindow
    ;----------------------------------------------------------------------
-   Static HBitmapFromHWNDtest(hWnd, skipBorders := 1) {
+   Static HBitmapFromHWNDPW(hWnd, skipBorders := 1) {
       Static PW_RENDERFULLCONTENT := 0x2
-      If (skipBorders = 1)
-         WinGetPosEx(&X, &Y, &Width, &Height, hWnd)
-      Else
-         WinGetPos(&X, &Y, &Width, &Height, hWnd)
+      ; If (skipBorders = 1)
+      ;    WinGetPosEx(&X, &Y, &W, &H, hWnd)
+      ; Else
+      ;    WinGetPos(&X, &Y, &W, &H, hWnd)
          
-      dpi         := WinDPI(hWnd)
-      myDPI       := MonDPIunderWindow(hWnd)
-      hdc         := GDI.GetDC(hWnd)
-      hdcMem      := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
-      hBitmap     := GDI.CreateDIBSection(Width, Height, hdcMem)
-      obm         := GDI.SelectObject(hdcMem, hBitmap)
-      ; If the flag  = 0x1 it seems the picture but not the shapes get copied
-      this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT | (skipBorders & 0x1))
-      ; Stretch in situ if the dpi is lower than current
-      ; HACK - we get a blurry screen if we scale it, maybe fallback to screen capture?
-      If (dpi < myDPI) {
-         rat := dpi/myDPI
-         debug("Need to stretch with ratio" rat)
-         DllCall("Gdi32\SetStretchBltMode", "Ptr", hdcMem, "Int", 4) ; HALFTONE = 4, COLORONCOLOR = 3
-         DllCall("Gdi32\StretchBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", Width, "Int", Height, "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", Ceil(Width * rat), "Int", Ceil(Height * rat), "UInt", 0x00CC0020)
+      hWndDpi   := WinDPI(hWnd)
+      monDpi    := MonDPIunderWindow(hWnd)
+      ; BUG - Legacy windows use the clunkly HBitmapFromScreen method
+      ;       Since PrintWindow and PW_RENDERFULLCONTENT won't support transform scaling
+      WinGetPosEx(&X, &Y, &W, &H, hWnd)
+      If (hWndDpi != monDpi) {
+         If (W > 0 AND H > 0) {
+            Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H}
+            debug("DPI Different, using HBitmapFromScreen " hWndDpi " vs " monDpi)
+            Return this.HBitmapFromScreen(Area)
+         } Else {
+            warning("Failed to retrive window position for " hex(hWnd))
+            Return 0
+         }
       }
+      ; Try Printwindow Method
+      ; WinGetPosEx(&X, &Y, &W, &H, hWnd)
+      ; WinGetPos(&X, &Y, &W, &H, hWnd)
+      hdc      := GDI.GetDC(hWnd)
+      hdcMem   := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
+      hBitmap  := GDI.CreateDIBSection(W, H, hdcMem)
+      obm      := GDI.SelectObject(hdcMem, hBitmap)
+      DllCall("PatBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", W, "Int", H, "UInt", 0x00F00021) ; PATCOPY (white)
+
+      ; If the flag  = 0x1 it seems the picture but not the shapes get copied
+      ; success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT | (skipBorders & 0x1))
+      ; PW_CLIENTONLY = 1, excludes the caption
+      ; BUG - Legacy apps are shift to the right by 11 pixels and down by a 1/2 pixels
+      success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT)
       GDI.SelectObject(hdcMem, obm)
       Gdi.DeleteDC(hdcMem)
       GDI.ReleaseDC(hdc)
+      If ( NOT success) {
+         MsgBox("Failed to Print Window Properly")
+         Return 0
+      }
       Return hBitmap
    }
    ;----------------------------------------------------------------------
@@ -197,7 +216,7 @@ Class BitMap {
     * NOTE - This will find most prevalent R & B & B independently, not necessary in the same pixel
     * @param pBitmap 
     */
-   Static GetBackgroundColor(pBitmap, &percent?) {
+ Static GetBackgroundColor(pBitmap, &percent?) {
       Static sizeofUInt         := 4
       Static HistogramFormatRGB := 2 ; RGB
       ; HistogramFormats := {ARGB: 0, PARGB: 1, RGB: 2, Gray: 3, B: 4, G: 5, R: 6, A: 7}
@@ -207,28 +226,38 @@ Class BitMap {
       ch1 := Buffer(numEntries * sizeofUInt, 0) ;G
       ch2 := Buffer(numEntries * sizeofUInt, 0) ;B
       rCnt := DllCall("gdiplus\GdipBitmapGetHistogram", "Ptr", pBitmap, "UInt", HistogramFormatRGB, "UInt", numEntries, "Ptr", ch0.ptr, "Ptr", ch1.ptr, "Ptr", ch2.ptr, "Ptr", 0, "Uint")
-      rMax := -1, gMax := -1, bMax := -1
+      rMax := gMax := bMax := -1
+      totalR := totalG := totalB := 0
       Loop numEntries {
          i := A_Index - 1
          idx := i * sizeofUInt
          ; Get the number hits for this color I (in each channel)
-         ; NOTE - doesn't get the the combined RGB colors, just individual channels
          rCnt := NumGet(ch0, idx, "UInt")
+         ; Compute the numerator for the average
+         totalR += rCnt * i
          if (rCnt > rMax)
             rMax := rCnt, rVal := i
-
+ 
          gCnt := NumGet(ch1, idx, "UInt")
+         totalG += gCnt * i
          if (gCnt > gMax)
             gMax := gCnt, gVal := i
 
          bCnt := NumGet(ch2, idx, "UInt")
+         totalB += bCnt * i
          if (bCnt > bMax)
             bMax := bCnt, bVal := i
       }
       ; Return the % used for this color
-      If IsSet(percent) {
-         GDIp.GetImageDimensions(pBitmap, &W, &H)
-         percent := ((rMax + gMax + bMax) / 3) / (W * H)
+      ; NOTE if all three are close to the same value then we probably got it right
+      GDIp.GetImageDimensions(pBitmap, &W, &H)
+      pCount := W * H
+      percent := ((rMax + gMax + bMax) / 3) / pCount
+      ; For photos, the percent will typically be < 1%, in those cases use the average instead
+      If (percent <= 0.10) {
+         rVal := round(totalR/pCount)
+         gVal := round(totalG/pCount)
+         bVal := round(totalB/pCount)
       }
       Return rVal <<16 | gVal << 8 | bVal
    }
