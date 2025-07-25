@@ -18,6 +18,7 @@ Class FreeHandShape extends commonShape {
       this.ArrowSmoothFactor     := Shapes.ArrowSmoothFactor
       this.HighlightSmoothFactor := Shapes.HighlightSmoothFactor
       this.highlightOpacity      := Shapes.highlightOpacity
+      this.scaleFreeHand         := SETTINGS.Scale_Freehand
       this.imageBrush            := 0
       this.hasImage              := false
       this.lastColor             := -1
@@ -82,8 +83,6 @@ Class FreeHandShape extends commonShape {
             GDIp.SetPenStartCap(this.pPrime, 3) ; triangle
             this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 3) ; Grey thickness/color of the outer border
             GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded, 3=triangle, round the outline only
-
-            ; TODO - add outline pen
             this.OkToClose := false
          Case Shapes.SHAPE_PEN, Shapes.SHAPE_WIDEPEN:
             GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; rounded
@@ -316,12 +315,11 @@ Class FreeHandShape extends commonShape {
                ; Scale pen size as well
                ; NOTE - we may or may not want to change thickness as well
                ; If we do scale the pen width we probably won't clip
-               If (true) {
+               If (this.scaleFreeHand) {
                   pRatio := (C.W * C.H) / (ogSize.W * ogSize.H)
                   GDIp.SetPenWidth(this.pPrime, pRatio * this.shapeThickness)
                   if (this.pOutline)
                      GDIp.SetPenWidth(this.pOutline, pRatio * this.shapeThickness * this.outlineThickFactor / 3)
-                  ; TODO - Scale the outline for ArcArrow as well
                }
                ; NOTE - if reducing size it may clip arrowheads and thick lines
                ; This method will also maintain the arrow head size
@@ -608,7 +606,7 @@ Class FreeHandShape extends commonShape {
                ; without a pen we get a very tight rectangle (at the center line), se we need to search out a bit
                C := oPath.GetPathWorldBoundsI()
                oPath := ""
-               ; TODO - adding hard coded pad, we could add a penwidth or account for arrow heads
+               ; NOTE - adding hard coded pad, we could add a penwidth or account for arrow heads
                Return surface.FindExtent(C.X, C.Y, C.W, C.H, 10) ; include padding for later pen width increase
             }
          } Else {

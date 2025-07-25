@@ -57,6 +57,7 @@ SETTINGS.CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullP
 SETTINGS.SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
 SETTINGS.SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
 SETTINGS.SavePath_Icons     := IniReadValue("User Snips", "IconPath",GetFullPathName('.\Stickies\'))
+SETTINGS.Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
 
 If !FileExist(SETTINGS.Path)
    DirCreate(SETTINGS.Path)
@@ -100,11 +101,11 @@ OnExit(Exiting)
 ;----------------------------------------------------------------------
 +PrintScreen:: {
    if( hWnd := WinExist("A") ) {
-
-      hBitmap := BitMap.HBitmapFromHWNDtest(hWnd, 0)
+      ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
+      hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
       Clipboard.SetHBITMAPToClipboard(hBitmap)
 
-      qTrayTip("Captured Active Window to clipboard")
+      qTrayTip("Captured Active Window to clipboard",4,,5000)
    } else {
       qTrayTip("Did not find an active window")
    }
@@ -112,7 +113,15 @@ OnExit(Exiting)
 !PrintScreen:: {
    if( hWnd := WinExist("A") ) {
       Area := Snips.getWindowArea(hWnd)
-      Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
+      If (false) {
+         ; This method will handle partially ofscreen windows
+         hBitmap := BitMap.HBitmapFromHWND(hWnd, 0)
+         ; TODO - Make sure this method works well
+         Snips.CreateSnipFromHBitmap(hBitmap, Area)
+         ; TODO - handle clipbard, autosave to file
+      } Else {
+         Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
+      }
       qTrayTip("Captured Active Window")
    } else {
       qTrayTip("Did not find an active window")
@@ -393,7 +402,8 @@ Exiting(ExitReason, ExitCode) {
    IniWriteIfBlank(SETTINGS.SavePath_Icons, "User Snips", "IconPath")
    IniWriteIfBlank(SETTINGS.SavePath_Image, "User Snips", "SnipPath")
    IniWriteIfBlank(SETTINGS.CursorPath, "User Snips", "CursorPath")
-
+   IniWriteIfBlank(SETTINGS.Scale_Freehand, "User Shapes", "ScaleFreehand")
+   
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
    IniWriteValue(Snips.BorderWithCopy,  "Snips", "Border With Copy")
    IniWriteValue(Snips.BorderWithSave,  "Snips", "Border With Save")
