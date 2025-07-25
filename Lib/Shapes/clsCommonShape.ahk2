@@ -82,9 +82,10 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
  * Base class derived from Picture control for use in creating shapes
  */
 Class commonShape extends Gui.Pic {
-   Shape  := 0 ; for lint, not called
-   Options := ""
-
+   Shape     := 0 ; for lint, not called
+   Options   := ""
+   myBrushes := ""
+   Factor    := 1
    ;----------------------------------------------------------------------
    ; Called on shape creation (__New is NOT called)
    ;----------------------------------------------------------------------
@@ -382,13 +383,13 @@ Class commonShape extends Gui.Pic {
             ; This will invert the colors so the highlighter color is retained
             ; Below along will work, but since the background wasn't remapped to pure
             ; highlight color above, the re-inverted highlight background color won't be 100% corect.
-            contrast := -1.3 ; Brings out more contrast
+            cct := -1.3 ; Brings out more contrast
             colorMatrixVals := [
-               contrast, 0.0, 0.0, 0.0, 0.0,
-               0.0, contrast, 0.0, 0.0, 0.0,
-               0.0, 0.0, contrast, 0.0, 0.0,
+               cct, 0.0, 0.0, 0.0, 0.0,
+               0.0, cct, 0.0, 0.0, 0.0,
+               0.0, 0.0, cct, 0.0, 0.0,
                0.0, 0.0, 0.0, 1.0, 0.0, ;⇦ the 1 here is alpha (opacity dims the inverted colors)
-               cr, cg, cb, 0.0, 1.0] ;⇦ Can adjust overall brightness (offset values), all 1's would just invert the colors
+               cr , cg , cb , 0.0, 1.0] ;⇦ Can adjust overall brightness (offset values), all 1's would just invert the colors
          } Else {
             ; Text is primarly black so darker colors won't be effected like the light background
             ; eg if yellow, blue channel will be blocked
@@ -406,7 +407,7 @@ Class commonShape extends Gui.Pic {
                cr , 0.0, 0.0, 0.0 , 0.0,
                0.0, cg , 0.0, 0.0 , 0.0,
                0.0, 0.0, cb , 0.0 , 0.0,
-               0.0, 0.0, 0.0, opac, 0.0, ;⇦ the 1 here is alpha
+               0.0, 0.0, 0.0, opac, 0.0, ;⇦ the opac here is alpha
                0.0, 0.0, 0.0, 0.0 , 1.0] ;⇦ Can adjust overall brightness (offset result)
          }
          ColorMatrixBuf := GDIp.GetMatrixBuffer(colorMatrixVals)

@@ -62,7 +62,7 @@ Class Clipboard {
       }
       oi := Buffer((A_PtrSize = 8) ? 104 : 84, 0) ; tagDIBSECTION , nested structures
       DllCall("Gdi32\GetObject", "Ptr", hBitmap, "int", oi.size, "Ptr", oi.ptr)
-      ; TODO - oi should be a structure
+      ; TODO - oi could be a structure
       ; oi := tagBITMAP()
       dwBytes := 40 + NumGet(oi, off1, "UInt")
       hdib := DllCall("GlobalAlloc", "uint", 2, "Ptr", dwBytes, "Ptr")

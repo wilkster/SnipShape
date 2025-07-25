@@ -565,7 +565,7 @@ Class Snips {
          ActiveState := mode
          ; Get Region 
          this.SnipMode := SnipMode   ; for cursor detection
-         ; TODO - for now use active monitor since it is slower by Nx for N monitors
+         ; NOTE - for now use active monitor since it is slower by Nx for N monitors
          ; MonInfo := this.allMonArea()
          MonInfo := this.activeMonArea(0)
          BW      := this.BorderWidth 
@@ -929,16 +929,19 @@ Class Snips {
          BW := this.BorderWidth
          If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
             CoordMode('Mouse', 'Screen')
-            MouseGetPos(&X, &Y)
+            ; MouseGetPos(&X, &Y)
             If (hWnd) {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
+               Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             } Else {
-               ; No way to know the position of the bitmap on the screen
-               ; X -= W / Random(2, 8), Y -= H / Random(2, 8)
-               ; TODO - relative to this monitor
-               X := 0, Y:= 0
+               monArea := Snips.activeMonArea()
+               ; debug("CB=" W " " H)
+               ; GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+               ; debug("BM=" W " " H)
+               X := monArea.W > W ? monArea.X + (monArea.W - W) / 2 : monArea.X
+               Y := monArea.H > H ? monArea.Y + (monArea.H - H) / 2 : monArea.Y
+               Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             }
-            Area              := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             ; BUG - very large bitmaps are clipped where they are offscreen
             SnipObj           := this.GuiSnip(Area)
             SnipObj.MarginX   := BW, SnipObj.MarginY := BW
@@ -1010,6 +1013,31 @@ Class Snips {
          Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          SnipObj := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          SnipObj.FileName := sFile
+         SnipObj.MarginX  := BW, SnipObj.MarginY := BW
+         SnipObj.Pic      := SnipObj.AddSnipPic(hBitmap)
+         ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
+         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
+      } else {
+         qTrayTip("Did not find a valid bitmap to load", 2)
+      }
+   }
+      /**
+    * Load a file and create a new Snip from it
+    * @param sFile File to load
+    */
+   Static CreateSnipFromHBitmap(hBitmap, useArea?) {
+      if (hBitmap) {
+         MonInfo := this.activeMonArea(1)
+         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         BW := this.BorderWidth
+         ; Center image
+         X := MonInfo.X + MonInfo.W/2 - W/2
+         Y := MonInfo.Y + MonInfo.H/2 - H/2
+         ; Setup the new Snip information
+         Area := useArea ?? { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         ; Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         SnipObj := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+         ; SnipObj.FileName := sFile
          SnipObj.MarginX  := BW, SnipObj.MarginY := BW
          SnipObj.Pic      := SnipObj.AddSnipPic(hBitmap)
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen

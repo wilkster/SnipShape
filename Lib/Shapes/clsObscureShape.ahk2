@@ -16,7 +16,6 @@ Class ObscureShape extends commonShape {
       this.redactBrush       := 0
       this.hasImage          := 0
       Switch this.Shape {
-         ; TODO - Maybe don't use Factor* instead a different variable
          Case Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_BLUR:
             this.Factor *= Shapes.BlurDivisor
          Case Shapes.SHAPE_PIXELATE:
