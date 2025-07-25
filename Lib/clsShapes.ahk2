@@ -876,11 +876,15 @@ Class Shapes {
       ; Snap to the center of the resize point
       ccX := coord.X + CI.X
       ccY := coord.Y + CI.Y
+
       ;-----------------------------------------------------
       ; Resize or Redraw Loop Starts Here
       ;-----------------------------------------------------
       If (corner) {
          MouseMove(ccX, ccY)
+         If ShapeObj.Source = "FreeHand" {
+            ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
+         }
          ; Close to the corner, then resize
          if ShapeObj.Source ~= "Shape" {
             ;-----------------------------------------------------

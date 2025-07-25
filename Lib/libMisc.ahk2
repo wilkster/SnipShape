@@ -218,7 +218,7 @@ WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
 }
 ; Based on WinGetClientPos by dd900 and Frosti - https://www.autohotkey.com/boards/viewtopic.php?t=484
 ; Same as WinGetPos results
-WinGetRect( hwnd, &x?, &y?, &w?, &h?) {
+WinGetRect(&x?, &y?, &w?, &h?, hWnd) {
 	DllCall("user32\GetWindowRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
 	x := NumGet(winRect,  0, "UInt")
 	y := NumGet(winRect,  4, "UInt")
@@ -228,7 +228,7 @@ WinGetRect( hwnd, &x?, &y?, &w?, &h?) {
 ;----------------------------------------------------------------------
 ; Gets window position relative to 0,0
 ;----------------------------------------------------------------------
-GetClientRect( hwnd, &x?, &y?, &w?, &h?) {
+GetClientRect(&x?, &y?, &w?, &h?, hWnd) {
 	DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
 	x := NumGet(winRect,  0, "UInt")
 	y := NumGet(winRect,  4, "UInt")
