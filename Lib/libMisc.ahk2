@@ -198,7 +198,7 @@ SetParent(child, parent) => DllCall("SetParent", "Ptr", child, "Ptr", parent,"Ui
 ; space. The retrieved value is of type RECT.
 ;----------------------------------------------------------------------
 WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
-   static DWMWA_EXTENDED_FRAME_BOUNDS:=9
+   Static DWMWA_EXTENDED_FRAME_BOUNDS := 9
    If (hWindow) {
       RECTi := stRECTI()
       DWMRC := DllCall("dwmapi\DwmGetWindowAttribute"
@@ -218,22 +218,30 @@ WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
 }
 ; Based on WinGetClientPos by dd900 and Frosti - https://www.autohotkey.com/boards/viewtopic.php?t=484
 ; Same as WinGetPos results
-WinGetRect(&x?, &y?, &w?, &h?, hWnd) {
-	DllCall("user32\GetWindowRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
-	x := NumGet(winRect,  0, "UInt")
-	y := NumGet(winRect,  4, "UInt")
-	w := NumGet(winRect,  8, "UInt") - x
-	h := NumGet(winRect, 12, "UInt") - y
+WinGetRect(&x?, &y?, &w?, &h?, hWnd:=0) {
+   If (hWnd) {
+      DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
+      x := NumGet(winRect, 0, "UInt")
+      y := NumGet(winRect, 4, "UInt")
+      w := NumGet(winRect, 8, "UInt") - x
+      h := NumGet(winRect, 12, "UInt") - y
+      Return true
+   } else
+      Return false
 }
 ;----------------------------------------------------------------------
 ; Gets window position relative to 0,0
 ;----------------------------------------------------------------------
-GetClientRect(&x?, &y?, &w?, &h?, hWnd) {
-	DllCall("user32\GetClientRect", "Ptr", hwnd, "Ptr", winRect := Buffer(16,0) )
-	x := NumGet(winRect,  0, "UInt")
-	y := NumGet(winRect,  4, "UInt")
-	w := NumGet(winRect,  8, "UInt") - x
-	h := NumGet(winRect, 12, "UInt") - y
+GetClientRect(&x?, &y?, &w?, &h?, hWnd := 0) {
+   If (hWnd) {
+      DllCall("user32\GetClientRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
+      x := NumGet(winRect, 0, "UInt")
+      y := NumGet(winRect, 4, "UInt")
+      w := NumGet(winRect, 8, "UInt") - x
+      h := NumGet(winRect, 12, "UInt") - y
+      Return true
+   } Else
+      Return false
 }
 /**
  * Return the cursor location in raw screen coordinates
@@ -251,7 +259,7 @@ GetCursorPos(&X, &Y) {
 /**
  * Move the cursor in screen coordinates
  * @param X location
- * @param Y location
+ * @param Y location 
  * @returns {Integer} SetCursorPos Result 
  */
 SetCursorPos(X, Y) {
