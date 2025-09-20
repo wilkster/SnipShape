@@ -19,7 +19,7 @@ Class LineShape extends commonShape {
          Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
             this.shapeOpacity := Shapes.arrowOpacity
             this.shapeThickness := Shapes.arrowLineThickness * this.Factor * this.DPIFactor
-         Case Shapes.SHAPE_LINE, Shapes.SHAPE_BRACKET:
+         Case Shapes.SHAPE_LINE, Shapes.SHAPE_BRACKET, Shapes.SHAPE_CONNECT:
             this.shapeThickness := Shapes.rawLineThickness * this.Factor * this.DPIFactor
          Default:
       }
@@ -61,6 +61,10 @@ Class LineShape extends commonShape {
 
          Case Shapes.SHAPE_LINE:
             GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
+         Case Shapes.SHAPE_CONNECT:
+            GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
+            GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
+            GDIp.SetPenLineCaps(this.pPrime, 0x12, 0x12) ; triangles
       }
    }
    /**
@@ -115,11 +119,37 @@ Class LineShape extends commonShape {
             Ang := myAngle(Y2 - Y1, X2 - X1)
             oPath.TranslateRotatePath(Ang, X1, Y1)
             ; HACK - we center on the path, so we overlap it by half. Which is ok for opacity=255, but we get blending otherwise
-            if (this.shapeOpacity < 255)
+            If (this.shapeOpacity < 255)
                GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
             ; oPath.WidenPath(this.pOutline) ; Leaves a hole in the middle since the path is replaced by the outline of the pen
-            oPath.DrawPath(this.pOutline) 
+            oPath.DrawPath(this.pOutline)
             oPath.FillPath(this.fBrush)
+            oPath := ""
+
+         Case Shapes.SHAPE_CONNECT:
+            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2) ; grab points
+            ; Initial drawing direction is saved for reuse
+            If (this.HasOwnProp("InitXY")) {
+               dx := Abs(X2 - this.InitXY.X1)
+               dy := Abs(Y2 - this.InitXY.Y1)
+               ; Wait untill we have a clear direction
+               If ( Not this.HasOwnProp("HasDirection") AND (dx > 50 OR dy > 50)) {
+                  this.HasDirection := dx > dy
+               }
+            } Else {
+               this.InitXY := { X1: X1, X2: X2, Y1: Y1, Y2: Y2 }
+            }
+            ; Orientation depends on initial drawing direction
+            If (this.HasDirection ?? true) {
+               X50 := X1 + (X2 - X1) / 2
+               pArray := [[X1, Y1], [X50, Y1], [X50, Y2], [X2, Y2]]
+            } Else {
+               Y50 := Y1 + (Y2 - Y1) / 2
+               pArray := [[X1, Y1], [X1, Y50], [X2, Y50], [X2, Y2]]
+            }
+            oPath := GDIp.Path(G)
+            oPath.AddPathArray(pArray, 0)
+            oPath.DrawPath(this.pPrime) 
             oPath := ""
 
          Case Shapes.SHAPE_BRACKET:

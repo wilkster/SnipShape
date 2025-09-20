@@ -64,6 +64,7 @@ Class Shapes {
          ["SHAPE_OARROW"       , "Outlined Arrow - A"        , "Arrows"],
          ["SHAPE_ODARROW"      , "Outlined Double Arrow - /" , "Arrows"],
          ["SHAPE_LINE"         , "Line - L"                  , "Shapes"],
+         ["SHAPE_CONNECT"      , "Connector - ["             , "Shapes"],
          ["SHAPE_RECT"         , "Rectangle - R"             , "Shapes"],
          ["SHAPE_RORECT"       , "Rounded Rectangle - D"     , "Shapes"],
          ["SHAPE_ELLIPSE"      , "Ellipse - E"               , "Shapes"],
@@ -477,7 +478,7 @@ Class Shapes {
          ; Lines complicate this logic because they have a direction
          ;----------------------------------------------------------------------
          Switch Shape {
-            Case this.SHAPE_LINE, this.SHAPE_ARROW, this.SHAPE_OARROW, this.SHAPE_ODARROW, this.SHAPE_TAPARROW, this.SHAPE_BRACKET:
+            Case this.SHAPE_LINE, this.SHAPE_CONNECT, this.SHAPE_ARROW, this.SHAPE_OARROW, this.SHAPE_ODARROW, this.SHAPE_TAPARROW, this.SHAPE_BRACKET:
                Switch ShapeObj.Corner {
                   Case 1, 2: start := 3, reverseLine := true
                   Case 4, 6: start := 0

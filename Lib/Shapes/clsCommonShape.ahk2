@@ -44,7 +44,7 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
       Case Shapes.SHAPE_HILITER, Shapes.SHAPE_PEN, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_ARCARROW, Shapes.SHAPE_WIDEPEN:
          pObj.Source := "FreeHand"
          pObj.base  := FreeHandShape.Prototype
-      Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_LINE, Shapes.SHAPE_TAPARROW, Shapes.SHAPE_BRACKET:
+      Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_LINE, Shapes.SHAPE_TAPARROW, Shapes.SHAPE_BRACKET, Shapes.SHAPE_CONNECT:
          pObj.Source := "LineShape"
          pObj.base  := LineShape.Prototype
       Case Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_REDAC, Shapes.SHAPE_HILITE:
