@@ -96,10 +96,26 @@ OnExit(Exiting)
 ; Win-PrintScreen default captures window
 ; PrintScreen or Win-Shift-S default snipper
 ;======================================================================
+/*
+[Hotkey]
+ClipActiveWindow=+PrintScreen
+SnipActiveWindow=!PrintScreen
+SnipActiveMonitor=^PrintScreen
+EditClipboard=+#e
+SnipAndEditClipboard=+#c
+ShowHideAllSnips=!F12
+SnipArea2Step1=<#S
+SnipArea2Step2=AppsKey => I use for mouse extra key
+ClipArea2Step=<#Z
+OCRArea2Step1=<#O
+SnipArea1Step1=^#Lbutton
+ClipArea1Step1=!#Lbutton
+*/
 ;----------------------------------------------------------------------
 ; Create Snip from Active window and optionally put in clipboard
 ;----------------------------------------------------------------------
-+PrintScreen:: {
+Hotkey(IniReadValue("HotKey", "ClipActiveWindow", "+PrintScreen"), ClipActiveWindow.Bind())
+ClipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
       hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
@@ -110,18 +126,11 @@ OnExit(Exiting)
       qTrayTip("Did not find an active window")
    }
 }
-!PrintScreen:: {
+Hotkey(IniReadValue("HotKey", "SnipActiveWindow", "!PrintScreen"), SnipActiveWindow.Bind())
+SnipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       Area := Snips.getWindowArea(hWnd)
-      If (false) {
-         ; This method will handle partially ofscreen windows
-         hBitmap := BitMap.HBitmapFromHWND(hWnd, 0)
-         ; TODO - Make sure this method works well
-         Snips.CreateSnipFromHBitmap(hBitmap, Area)
-         ; TODO - handle clipbard, autosave to file
-      } Else {
-         Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
-      }
+      Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
       qTrayTip("Captured Active Window")
    } else {
       qTrayTip("Did not find an active window")
@@ -131,7 +140,8 @@ OnExit(Exiting)
 ; Capture the entire monitor, can crop later
 ; Do not put on the clipboard if if that is enabled
 ;----------------------------------------------------------------------
-^PrintScreen:: {
+Hotkey(IniReadValue("HotKey", "SnipActiveMonitor", "^PrintScreen"), SnipActiveMonitor.Bind())
+SnipActiveMonitor(*) {
    Area := Snips.activeMonArea()
    Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)
    qTrayTip("Captured Active Monitor")
@@ -139,7 +149,8 @@ OnExit(Exiting)
 ;----------------------------------------------------------------------
 ; Edit Clipboard if in proper format
 ;----------------------------------------------------------------------
-+#e:: {
+Hotkey(IniReadValue("HotKey", "EditClipboard", "+#e"), EditClipboard.Bind())
+EditClipboard(*) {
    If ( NOT Snips.Clipboard2Snip()) {
       qTrayTip("No image on the clipboard to edit",2)
    }
@@ -149,7 +160,8 @@ OnExit(Exiting)
 ; Used for editing existing images in apps like OneNote
 ; Restores the clipboard
 ;----------------------------------------------------------------------
-+#c:: {
+Hotkey(IniReadValue("HotKey", "SnipAndEditClipboard", "+#c"), SnipAndEditClipboard.Bind())
+SnipAndEditClipboard(*) {
    CB_Orig := ClipboardAll()
    A_Clipboard := ""
    SendInput("^c")	; Copy to clipboard
@@ -165,17 +177,10 @@ OnExit(Exiting)
       A_Clipboard := CB_Orig
 }
 ;----------------------------------------------------------------------
-; Apps Key to start a snip
-;----------------------------------------------------------------------
-AppsKey:: {
-   If ( NOT isRepeat(300)) {
-      Area := Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
-   }
-}
-;----------------------------------------------------------------------
 ; Hide/Show all Snips
 ;----------------------------------------------------------------------
-!F12:: {
+Hotkey(IniReadValue("HotKey", "ShowHideAllSnips", "!F12"), ShowHideAllSnips.Bind())
+ShowHideAllSnips(*) {
    if Snips.AllMinimized()
       Snips.RestoreAll()
    else
@@ -190,20 +195,20 @@ isRepeat(to) => (A_ThisHotkey = A_PriorHotkey) AND (A_TimeSincePriorHotkey < to)
 ;----------------------------------------------------------------------
 ; Create a Snip (keys in either order)
 ;----------------------------------------------------------------------
-; <#Ctrl::
-; ^Lwin:: {
-; <#Shift::
-; +Lwin:: {
-<#S:: {
+Hotkey(IniReadValue("HotKey", "SnipArea2Step1", "<#S"), hotkeySnipArea.Bind())
+; I use AppsKey as it is tied to a mouse key
+if ((altSnip := IniReadValue("HotKey", "SnipArea2Step2", "")))
+   Hotkey(altSnip, hotkeySnipArea.Bind())
+hotkeySnipArea(*) {
    If ( NOT isRepeat(300)) {
       Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
-      ; qTrayTip("Clipped Screen to Clipboard")
    }
 }
 ;----------------------------------------------------------------------
 ; Clipboard Only (keys in either order)
 ;----------------------------------------------------------------------
-<#Z:: {
+Hotkey(IniReadValue("HotKey", "ClipArea2Step", "<#Z"), hotkeyClipArea.Bind())
+hotkeyClipArea(*) {
    if (NOT isRepeat(300)) {
       Snips.SelectScreenRegion(1, 'LButton', "Red", True, 0, Snips.captureStatic, Snips.dimScreen)
    }
@@ -211,22 +216,16 @@ isRepeat(to) => (A_ThisHotkey = A_PriorHotkey) AND (A_TimeSincePriorHotkey < to)
 ;----------------------------------------------------------------------
 ; Snip Selected Image and Optionally Copy to Clipboard
 ;----------------------------------------------------------------------
-<^#Lbutton:: {
-   Snips.SelectScreenRegion(3, 'LButton', "Orange", Snips.UpdateClipboard, 1)
-}
+Hotkey(IniReadValue("HotKey", "SnipArea1Step1", "^#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Orange", Snips.UpdateClipboard, 1))
 ;----------------------------------------------------------------------
 ;	Select region and copy to Clipboard Only
 ;----------------------------------------------------------------------
-!#Lbutton:: {
-   Snips.SelectScreenRegion(3, 'LButton', "Red", True, 0)
-}
+Hotkey(IniReadValue("HotKey", "ClipArea1Step1", "!#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Red", True, 0))
 ;----------------------------------------------------------------------
 ; OCR code currently works on window handle only
 ; #O normally locks device orientation on windows
 ;----------------------------------------------------------------------
-<#O:: {
-   Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", False, 13)
-}
+Hotkey(IniReadValue("HotKey", "OCRArea2Step1", "<#O"), (*) => Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", False, 13))
 
 
 ;======================================================================
