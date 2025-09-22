@@ -203,9 +203,9 @@ options are also available from the Buttonbar described below.
 
 ![image](https://github.com/user-attachments/assets/52e39453-5b3c-44cc-9ab4-9742365aa83f)
 
-- Line/Rectangle/Ellipse Shapes/Bracket
+- Line/Connector/Rectangle/Ellipse Shapes/Bracket
 
-![image](https://github.com/user-attachments/assets/69155d3f-5b60-42d5-bc2d-de9dd64c3a67)
+![image](https://github.com/user-attachments/assets/d5efbd78-fda7-41ce-b5b1-c6db1e22ace5)
 
 - Free pen shapes
 
