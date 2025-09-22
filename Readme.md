@@ -65,7 +65,7 @@ Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options
 ### Snip Annotation Examples
 
 |![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)|
-![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
+|![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
 
 There are two ways to initiate a Snip. The One step method where you press a hotkey and click-drag the mouse. The other is a two step
 method (similar to windows snipping) where you initiate the snip with one hotkey then later click-drag the mouse. Both are described below.

@@ -105,11 +105,12 @@ EditClipboard=+#e
 SnipAndEditClipboard=+#c
 ShowHideAllSnips=!F12
 SnipArea2Step1=<#S
-SnipArea2Step2=AppsKey => I use for mouse extra key
 ClipArea2Step=<#Z
 OCRArea2Step1=<#O
 SnipArea1Step1=^#Lbutton
 ClipArea1Step1=!#Lbutton
+; optional, I use for mouse extra key
+SnipArea2Step2=AppsKey
 */
 ;----------------------------------------------------------------------
 ; Create Snip from Active window and optionally put in clipboard
