@@ -337,6 +337,20 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
   - [User Button Bar], size of the button bar font/buttons
     - **Font Size** - increase or decrease to change the default size of the button bar icons (restart required)
   - The Tray menu allows you to edit these directly in Notepad.
+- Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
+
+[Hotkey]  
+ClipActiveWindow=+PrintScreen  
+SnipActiveWindow=!PrintScreen  
+SnipActiveMonitor=^PrintScreen  
+EditClipboard=+#e  
+SnipAndEditClipboard=+#c  
+ShowHideAllSnips=!F12  
+SnipArea2Step1=<#S  
+ClipArea2Step=<#Z  
+OCRArea2Step1=<#O  
+SnipArea1Step1=^#Lbutton  
+ClipArea1Step1=!#Lbutton  
 
 ## Limitations
 
