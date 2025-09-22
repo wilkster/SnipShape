@@ -168,6 +168,7 @@ options are also available from the Buttonbar described below.
 |/|Creates a double outline arrow|
 |**Shapes**||
 |L|Creates a line, shift to keep on an axis|
+|[|Creates a connector line (vert/horz segments only)|
 |R|Creates an outlined rectangle, shift to keep square|
 |D|Creates an outlined rounded rectangle, shift to keep square|
 |E|Creates an outlined ellipse/circle, shift to keep a circle|
