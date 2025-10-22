@@ -419,7 +419,7 @@ int DrawText(
          , "int64*", 0                                  ; x,y offset of bitmap to be drawn, A pointer to a structure that specifies the location of the layer in the device contex
          , "uint", 0                                    ; crKey - bgcolor to use?  meaningless when using full alpha
          , "UInt*", Alpha << 16 | AC_SRC_ALPHA          ; pblend
-         , "uint", ULW_ALPHA)                           ; ULW_ALPHA, use pbland
+         , "uint", ULW_ALPHA, "Int")                    ; ULW_ALPHA, use pbland
       if (res = 0)
          Warning("UpdateLayeredWindow Fail " GetLastError())
       Return res
@@ -602,6 +602,15 @@ Class GDIp {
          this.SystemToken := 0
       }
    }
+   ;----------------------------------------------------------------------
+   ; intent - Specifies whether the method returns immediately or waits for any existing operations to finish:
+   ; 0 - Flush all batched rendering operations and return immediately
+   ; 1 - Flush all batched rendering operations and wait for them to complete
+   ;----------------------------------------------------------------------
+   Static Flush(pGraphics, intent := 1) {
+      Return DllCall("gdiplus\GdipFlush", "UPtr", pGraphics, "int", intent)
+   }
+
    ;----------------------------------------------------------------------
    ; Return text of standard gdi+ error coddes
    ;----------------------------------------------------------------------
@@ -1099,6 +1108,12 @@ Class GDIp {
          GDI.SelectObject(this.ihdc, obj)
       }
       ;----------------------------------------------------------------------
+      ; Wait for all updates to finish and sync with vertical sync to prevent tearing
+      ;----------------------------------------------------------------------
+      vSync() {
+         DllCall("Dwmapi\DwmFlush", "Int")
+      }
+      ;----------------------------------------------------------------------
       ; Adjust the 0,0 point in the DIB/Graphics Object to allow padding and offsets
       ;----------------------------------------------------------------------
       Translate(x, y, MatrixOrder := 0) {
@@ -1154,7 +1169,7 @@ Class GDIp {
                , "Ptr", pptSrc.ptr                     ; x,y offset of bitmap to be drawn, A pointer to a structure that specifies the location of the layer in the device contex
                , "uint", 0                             ; crKey - bgcolor to use?  meaningless when using full alpha
                , "UInt*", Alpha << 16 | AC_SRC_ALPHA   ; pblend
-               , "uint", ULW_ALPHA)                    ; ULW_ALPHA, use pbland
+               , "uint", ULW_ALPHA, "Int")                    ; ULW_ALPHA, use pbland
             If (res = 0)
                warning("UpdateLayeredWindow Fail " GetLastError())
             Return res

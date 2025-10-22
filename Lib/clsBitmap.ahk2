@@ -11,8 +11,8 @@
 ; BIT Map Related Functions
 ;----------------------------------------------------------------------
 #Requires AutoHotkey v2
-#include clsGDIp.ahk2
-#include libMisc.ahk2
+#Include clsGDIp.ahk2
+#Include libMisc.ahk2
 Class BitMap {
 
    /**
@@ -28,12 +28,12 @@ Class BitMap {
     */
    Static CropHBITMAP(hBitmap, X, Y, nW, nH, keepBitmap := 0) {
 
-      hdcSrc   := GDI.CreateCompatibleDC(0)
+      hdcSrc := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      hClone   := GDI.CreateDIBSection(nW, nH, hdcClone)
+      hClone := GDI.CreateDIBSection(nW, nH, hdcClone)
 
-      obm      := GDI.SelectObject(hdcSrc, hBitmap)
-      obm2     := GDI.SelectObject(hdcClone, hClone)
+      obm := GDI.SelectObject(hdcSrc, hBitmap)
+      obm2 := GDI.SelectObject(hdcClone, hClone)
 
       GDI.BitBlt(hdcClone, 0, 0, nW, nH, hdcSrc, X, Y)
       ; clean up, user has to handle the target bitmap
@@ -42,7 +42,7 @@ Class BitMap {
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
-      if NOT keepBitmap
+      If NOT keepBitmap
          GDI.DeleteObject(hBitmap)
       ; User needs to delete object
 
@@ -66,7 +66,7 @@ Class BitMap {
    ;----------------------------------------------------------------------
    Static pBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
       hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
-      pBitmap := Gdip.CreateBitmapFromHBITMAP(hBitmap)
+      pBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
       GDI.DeleteObject(hBitmap)
       If (BW) {
          cBitmap := this.CropPBitmapBorder(pBitmap, BW) ; gdi+
@@ -86,7 +86,7 @@ Class BitMap {
     */
    Static hBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
       hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
-      if (BW) {
+      If (BW) {
          hBitmap := this.CropHBitmapBorder(hBitmap, BW)
       }
       Return hBitmap
@@ -108,8 +108,8 @@ Class BitMap {
          , "int", pformat
          , "ptr", pBitmap
          , "ptr*", &pBitmapCrop := 0)
-      if (res)
-         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      If (res)
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmapCrop
    }
    ;----------------------------------------------------------------------
@@ -129,8 +129,8 @@ Class BitMap {
          , "int", pformat ;139273
          , "ptr", pBitmap
          , "ptr*", &pBitmapCrop := 0)
-      if (res)
-         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      If (res)
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
 
       Return pBitmapCrop
    }
@@ -139,13 +139,13 @@ Class BitMap {
    ;----------------------------------------------------------------------
    ; Return an hbitmap from a window
    ;----------------------------------------------------------------------
-   Static HBitmapFromHWND(hWnd, NoExtendedBorder:=1) {
-      if ((GetParent(hWnd) != hWnd) OR NOT NoExtendedBorder)
+   Static HBitmapFromHWND(hWnd, NoExtendedBorder := 1) {
+      If ((GetParent(hWnd) != hWnd) OR NOT NoExtendedBorder)
          WinGetPos(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
-      else
+      Else
          WinGetPosEx(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
       If (W > 0 AND H > 0) {
-         Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H}
+         Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H }
          Return this.HBitmapFromScreen(Area)
       } Else {
          warning("Failed to retrive window position for " hex(hWnd))
@@ -165,15 +165,15 @@ Class BitMap {
       ;    WinGetPosEx(&X, &Y, &W, &H, hWnd)
       ; Else
       ;    WinGetPos(&X, &Y, &W, &H, hWnd)
-         
-      hWndDpi   := WinDPI(hWnd)
-      monDpi    := MonDPIunderWindow(hWnd)
+
+      hWndDpi := WinDPI(hWnd)
+      monDpi := MonDPIunderWindow(hWnd)
       ; BUG - Legacy windows use the clunkly HBitmapFromScreen method
       ;       Since PrintWindow and PW_RENDERFULLCONTENT won't support transform scaling
       WinGetPosEx(&X, &Y, &W, &H, hWnd)
       If (hWndDpi != monDpi) {
          If (W > 0 AND H > 0) {
-            Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H}
+            Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H }
             debug("DPI Different, using HBitmapFromScreen " hWndDpi " vs " monDpi)
             Return this.HBitmapFromScreen(Area)
          } Else {
@@ -184,10 +184,10 @@ Class BitMap {
       ; Try Printwindow Method
       ; WinGetPosEx(&X, &Y, &W, &H, hWnd)
       ; WinGetPos(&X, &Y, &W, &H, hWnd)
-      hdc      := GDI.GetDC(hWnd)
-      hdcMem   := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
-      hBitmap  := GDI.CreateDIBSection(W, H, hdcMem)
-      obm      := GDI.SelectObject(hdcMem, hBitmap)
+      hdc := GDI.GetDC(hWnd)
+      hdcMem := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
+      hBitmap := GDI.CreateDIBSection(W, H, hdcMem)
+      obm := GDI.SelectObject(hdcMem, hBitmap)
       DllCall("PatBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", W, "Int", H, "UInt", 0x00F00021) ; PATCOPY (white)
 
       ; If the flag  = 0x1 it seems the picture but not the shapes get copied
@@ -196,7 +196,7 @@ Class BitMap {
       ; BUG - Legacy apps are shift to the right by 11 pixels and down by a 1/2 pixels
       success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT)
       GDI.SelectObject(hdcMem, obm)
-      Gdi.DeleteDC(hdcMem)
+      GDI.DeleteDC(hdcMem)
       GDI.ReleaseDC(hdc)
       If ( NOT success) {
          MsgBox("Failed to Print Window Properly")
@@ -216,8 +216,8 @@ Class BitMap {
     * NOTE - This will find most prevalent R & B & B independently, not necessary in the same pixel
     * @param pBitmap 
     */
- Static GetBackgroundColor(pBitmap, &percent?) {
-      Static sizeofUInt         := 4
+   Static GetBackgroundColor(pBitmap, &percent?) {
+      Static sizeofUInt := 4
       Static HistogramFormatRGB := 2 ; RGB
       ; HistogramFormats := {ARGB: 0, PARGB: 1, RGB: 2, Gray: 3, B: 4, G: 5, R: 6, A: 7}
       z := DllCall("gdiplus\GdipBitmapGetHistogramSize", "UInt", HistogramFormatRGB, "UInt*", &numEntries := 0)
@@ -235,17 +235,17 @@ Class BitMap {
          rCnt := NumGet(ch0, idx, "UInt")
          ; Compute the numerator for the average
          totalR += rCnt * i
-         if (rCnt > rMax)
+         If (rCnt > rMax)
             rMax := rCnt, rVal := i
- 
+
          gCnt := NumGet(ch1, idx, "UInt")
          totalG += gCnt * i
-         if (gCnt > gMax)
+         If (gCnt > gMax)
             gMax := gCnt, gVal := i
 
          bCnt := NumGet(ch2, idx, "UInt")
          totalB += bCnt * i
-         if (bCnt > bMax)
+         If (bCnt > bMax)
             bMax := bCnt, bVal := i
       }
       ; Return the % used for this color
@@ -255,11 +255,11 @@ Class BitMap {
       percent := ((rMax + gMax + bMax) / 3) / pCount
       ; For photos, the percent will typically be < 1%, in those cases use the average instead
       If (percent <= 0.10) {
-         rVal := round(totalR/pCount)
-         gVal := round(totalG/pCount)
-         bVal := round(totalB/pCount)
+         rVal := Round(totalR / pCount)
+         gVal := Round(totalG / pCount)
+         bVal := Round(totalB / pCount)
       }
-      Return rVal <<16 | gVal << 8 | bVal
+      Return rVal << 16 | gVal << 8 | bVal
    }
    ;====================== DONE BACKGROUND STUFF ===========================
    ;----------------------------------------------------------------------
@@ -279,16 +279,16 @@ Class BitMap {
    Static HBitmapFromScreen(Area) {
       hdcScreen := GDI.GetDC(0) ; 0 makes no difference than GetDesktopWindow
       ; Using either a DIB or Compatible bitmap is about the same, 60ms on fast computer
-      hdcMem  := GDI.CreateCompatibleDC(hdcScreen)
+      hdcMem := GDI.CreateCompatibleDC(hdcScreen)
       hBitmap := GDI.CreateDIBSection(Area.W, Area.H, hdcMem)
-      ogBM    := GDI.SelectObject(hdcMem, hBitmap)
+      ogBM := GDI.SelectObject(hdcMem, hBitmap)
       ; Copy over screen bits to memdc (all of the time is here) (get any layers as well)
       ; 4k monitor takes 60ms which is really slow
       ; 70 ms on orka
       GDI.BitBlt(hdcMem, 0, 0, Area.W, Area.H, hdcScreen, Area.X, Area.Y, 0x40CC0020) ; CAPTUREBLT | SRCCOPY
       GDI.SelectObject(hdcMem, ogBM)
       GDI.ReleaseDC(hdcScreen)
-      Gdi.DeleteDC(hdcMem)
+      GDI.DeleteDC(hdcMem)
       Return hBitmap
    }
    ;----------------------------------------------------------------------
@@ -296,14 +296,14 @@ Class BitMap {
    ;----------------------------------------------------------------------
    Static OverlayToLayeredWindow(Area, hWnd, getWin := 0) {
       ;HBitmapToLayeredWindow Grab the Screen
-      hBitmap := getWin ? this.HBitmapFromHWND(WinActive("A") ,0) : this.HBitmapFromScreen(Area)
+      hBitmap := getWin ? this.HBitmapFromHWND(WinActive("A"), 0) : this.HBitmapFromScreen(Area)
       ; Create a new DC based on hBitmap and display it
-      hdcMem  := GDI.CreateCompatibleDC()
-      ogBM    := GDI.SelectObject(hdcMem, hBitmap)
+      hdcMem := GDI.CreateCompatibleDC()
+      ogBM := GDI.SelectObject(hdcMem, hBitmap)
       GDI.UpdateLayeredWindow(hWnd, hdcMem, Area.X, Area.Y, Area.W, Area.H)
       ; clean up
       GDI.SelectObject(hdcMem, ogBM)
-      Gdi.DeleteDC(hdcMem)
+      GDI.DeleteDC(hdcMem)
       ; Release the hBitmap as well
       GDI.DeleteObject(hBitmap)
       Return
@@ -408,65 +408,65 @@ Class BitMap {
    }
    ; From iseahound ImagePut.ahk2 library
    ; Highest quality scaler settings
-   static BitmapScale(TpBitmap, scale, direction := 0) {
-      if not (IsObject(scale) && ((scale[1] ~= "^\d+$") || (scale[2] ~= "^\d+$")) || (scale ~= "^\d+(\.\d+)?$"))
-         throw Error("Invalid scale.")
+   Static BitmapScale(TpBitmap, scale, direction := 0) {
+      If not (IsObject(scale) && ((scale[1] ~= "^\d+$") || (scale[2] ~= "^\d+$")) || (scale ~= "^\d+(\.\d+)?$"))
+         Throw Error("Invalid scale.")
 
       ; Get Bitmap width, height, and format.
-      DllCall("gdiplus\GdipGetImageWidth", "ptr", TpBitmap, "uint*", &width:=0)
-      DllCall("gdiplus\GdipGetImageHeight", "ptr", TpBitmap, "uint*", &height:=0)
-      DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", TpBitmap, "int*", &pformat:=0)
+      DllCall("gdiplus\GdipGetImageWidth", "ptr", TpBitmap, "uint*", &width := 0)
+      DllCall("gdiplus\GdipGetImageHeight", "ptr", TpBitmap, "uint*", &height := 0)
+      DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", TpBitmap, "int*", &pformat := 0)
 
-      if IsObject(scale) {
+      If IsObject(scale) {
          safe_w := (scale[1] ~= "^\d+$") ? scale[1] : Round(width / height * scale[2])
          safe_h := (scale[2] ~= "^\d+$") ? scale[2] : Round(height / width * scale[1])
-      } else {
+      } Else {
          safe_w := Ceil(width * scale)
          safe_h := Ceil(height * scale)
       }
 
       ; Avoid drawing if no changes detected.
-      if (safe_w = width && safe_h = height)
-         return TpBitmap
+      If (safe_w = width && safe_h = height)
+         Return TpBitmap
 
       ; Force upscaling.
-      if (direction > 0 and (safe_w < width && safe_h < height))
-         return TpBitmap
+      If (direction > 0 and (safe_w < width && safe_h < height))
+         Return TpBitmap
 
       ; Force downscaling.
-      if (direction < 0 and (safe_w > width && safe_h > height))
-         return TpBitmap
+      If (direction < 0 and (safe_w > width && safe_h > height))
+         Return TpBitmap
 
       ; Create a new bitmap and get the graphics context.
       DllCall("gdiplus\GdipCreateBitmapFromScan0"
-               , "int", safe_w, "int", safe_h, "int", 0, "int", pformat, "ptr", 0, "ptr*", &pBitmapScale:=0)
-      DllCall("gdiplus\GdipGetImageGraphicsContext", "ptr", pBitmapScale, "ptr*", &pGraphics:=0)
+         , "int", safe_w, "int", safe_h, "int", 0, "int", pformat, "ptr", 0, "ptr*", &pBitmapScale := 0)
+      DllCall("gdiplus\GdipGetImageGraphicsContext", "ptr", pBitmapScale, "ptr*", &pGraphics := 0)
 
       ; Set settings in graphics context.
       ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
-      DllCall("gdiplus\GdipSetPixelOffsetMode",    "Ptr", pGraphics, "int", 2) ; Half pixel offset.
-      DllCall("gdiplus\GdipSetCompositingMode",    "Ptr", pGraphics, "int", 1) ; Overwrite/SourceCopy.
-      DllCall("gdiplus\GdipSetInterpolationMode",  "Ptr", pGraphics, "int", 7) ; HighQualityBicubic
+      DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", pGraphics, "int", 2) ; Half pixel offset.
+      DllCall("gdiplus\GdipSetCompositingMode", "Ptr", pGraphics, "int", 1) ; Overwrite/SourceCopy.
+      DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", pGraphics, "int", 7) ; HighQualityBicubic
 
       ; Draw Image.
-      DllCall("gdiplus\GdipCreateImageAttributes", "ptr*", &ImageAttr:=0)
+      DllCall("gdiplus\GdipCreateImageAttributes", "ptr*", &ImageAttr := 0)
       DllCall("gdiplus\GdipSetImageAttributesWrapMode", "ptr", ImageAttr, "int", 3, "uint", 0, "int", 0) ; WrapModeTileFlipXY
       DllCall("gdiplus\GdipDrawImageRectRectI"
-               ,    "ptr", pGraphics
-               ,    "ptr", TpBitmap
-               ,    "int", 0, "int", 0, "int", safe_w, "int", safe_h ; destination rectangle
-               ,    "int", 0, "int", 0, "int",  width, "int", height ; source rectangle
-               ,    "int", 2
-               ,    "ptr", ImageAttr
-               ,    "ptr", 0
-               ,    "ptr", 0)
+         , "ptr", pGraphics
+         , "ptr", TpBitmap
+         , "int", 0, "int", 0, "int", safe_w, "int", safe_h ; destination rectangle
+         , "int", 0, "int", 0, "int", width, "int", height ; source rectangle
+         , "int", 2
+         , "ptr", ImageAttr
+         , "ptr", 0
+         , "ptr", 0)
       DllCall("gdiplus\GdipDisposeImageAttributes", "ptr", ImageAttr)
 
       ; Clean up the graphics context.
       DllCall("gdiplus\GdipDeleteGraphics", "ptr", pGraphics)
       DllCall("gdiplus\GdipDisposeImage", "ptr", TpBitmap)
 
-      return pBitmapScale
+      Return pBitmapScale
    }
    ;----------------------------------------------------------------------
    ; by Marius Șucan GDIp Library
@@ -479,11 +479,10 @@ Class BitMap {
     * @returns {Handle}  pBitmap output handle, the input is disposed
     */
    Static PixelateBitmap(TpBitmapIn, BlockSize) {
-      static PixelateBitmap:=0
-      if (!PixelateBitmap)
-      {
-         if (A_PtrSize!=8) ; x86 machine code
-         MCode_PixelateBitmap := "
+      Static PixelateBitmap := 0
+      If (!PixelateBitmap) {
+         If (A_PtrSize != 8) ; x86 machine code
+            MCode_PixelateBitmap := "
          (LTrim Join
          558BEC83EC3C8B4514538B5D1C99F7FB56578BC88955EC894DD885C90F8E830200008B451099F7FB8365DC008365E000894DC88955F08945E833FF897DD4
          397DE80F8E160100008BCB0FAFCB894DCC33C08945F88945FC89451C8945143BD87E608B45088D50028BC82BCA8BF02BF2418945F48B45E02955F4894DC4
@@ -508,8 +507,8 @@ Class BitMap {
          75F07E4F8B4DD88B75E80FAFCB034D080FAFF30FAF4D188B450C8D500203CA8D0CB18BF08BF82BF22BFA2BC28B55F08955108A551488540E038A551C8811
          8A55FC88540F018A55F888140883C104FF4D1075DFFF45088B45083B45EC7C9F5F5E33C05BC9C21800
          )"
-         else ; x64 machine code
-         MCode_PixelateBitmap := "
+         Else ; x64 machine code
+            MCode_PixelateBitmap := "
          (LTrim Join
          4489442418488954241048894C24085355565741544155415641574883EC28418BC1448B8C24980000004C8BDA99488BD941F7F9448BD0448BFA8954240C
          448994248800000085C00F8E9D020000418BC04533E4458BF299448924244C8954241041F7F933C9898C24980000008BEA89542404448BE889442408EB05
@@ -536,27 +535,26 @@ Class BitMap {
          413BD77CB233C04883C428415F415E415D415C5F5E5D5BC3
          )"
 
-         nCount := StrLen(MCode_PixelateBitmap)//2
+         nCount := StrLen(MCode_PixelateBitmap) // 2
          PixelateBitmap := Buffer(nCount)
-         N := (SubStr(A_AhkVersion,1,1) < 2) ? nCount : "nCount"
+         N := (SubStr(A_AhkVersion, 1, 1) < 2) ? nCount : "nCount"
          Loop %N%
-            NumPut("UChar", "0x" SubStr(MCode_PixelateBitmap, (2*A_Index)-1, 2), PixelateBitmap, A_Index-1)
+            NumPut("UChar", "0x" SubStr(MCode_PixelateBitmap, (2 * A_Index) - 1, 2), PixelateBitmap, A_Index - 1)
          DllCall("Kernel32\VirtualProtect", "Ptr", PixelateBitmap.ptr, "Ptr", PixelateBitmap.size, "uint", 0x40, "UPtr*", 0)
       }
 
       GDIp.GetImageDimensions(TpBitmapIn, &Width, &Height)
       pBitmapOut := GDIp.CreateBitmap(Width, Height)
-      if (Width != GDIp.GetImageWidth(pBitmapOut) || Height != GDIp.GetImageHeight(pBitmapOut))
-         return -1
+      If (Width != GDIp.GetImageWidth(pBitmapOut) || Height != GDIp.GetImageHeight(pBitmapOut))
+         Return -1
 
-      if (BlockSize > Width || BlockSize > Height)
-         return -2
-
+      If (BlockSize > Width || BlockSize > Height)
+         Return -2
 
       E1 := GDIp.LockBits(TpBitmapIn, 0, 0, Width, Height, &Stride1, &Scan01, &BitmapData1)
       E2 := GDIp.LockBits(pBitmapOut, 0, 0, Width, Height, &Stride2, &Scan02, &BitmapData2)
-      if (E1 || E2)
-         return -3
+      If (E1 || E2)
+         Return -3
 
       ; E := - unused exit code
       DllCall(PixelateBitmap.ptr, "Ptr", Scan01, "Ptr", Scan02, "int", Width, "int", Height, "int", Stride1, "int", BlockSize)
@@ -565,9 +563,98 @@ Class BitMap {
       ; Get rid of input bitmap
       GDIp.DisposeImage(TpBitmapIn)
 
-      return pBitmapOut
+      Return pBitmapOut
    }
-   ;#####################################################################################
+   ; License:   MIT License
+   ; Author:    Edison Hua (iseahound)
+   ; Github:    https://github.com/iseahound/TextRender
+   Static MCodeGaussianBlur(TpBitmapIn, radius, opacity := 1) {
+      Static code := (A_PtrSize = 4)
+         ? "
+            ( LTrim                                    ; 32-bit machine code
+            VYnlV1ZTg+xci0Uci30c2UUgx0WsAwAAAI1EAAGJRdiLRRAPr0UYicOJRdSLRRwP
+            r/sPr0UYiX2ki30UiUWoi0UQjVf/i30YSA+vRRgDRQgPr9ONPL0SAAAAiUWci0Uc
+            iX3Eg2XE8ECJVbCJRcCLRcSJZbToAAAAACnEi0XEiWXk6AAAAAApxItFxIllzOgA
+            AAAAKcSLRaiJZcjHRdwAAAAAx0W8AAAAAIlF0ItFvDtFFA+NcAEAAItV3DHAi12c
+            i3XQiVXgAdOLfQiLVdw7RRiNDDp9IQ+2FAGLTcyLfciJFIEPtgwDD69VwIkMh4tN
+            5IkUgUDr0THSO1UcfBKLXdwDXQzHRbgAAAAAK13Q6yAxwDtFGH0Ni33kD7YcAQEc
+            h0Dr7kIDTRjrz/9FuAN1GItF3CtF0AHwiceLRbg7RRx/LDHJO00YfeGLRQiLfcwB
+            8A+2BAgrBI+LfeQDBI+ZiQSPjTwz933YiAQPQevWi0UIK0Xci03AAfCJRbiLXRCJ
+            /itdHCt13AN14DnZfAgDdQwrdeDrSot1DDHbK3XcAf4DdeA7XRh9KItV4ItFuAHQ
+            A1UID7YEGA+2FBop0ItV5AMEmokEmpn3fdiIBB5D69OLRRhBAUXg66OLRRhDAUXg
+            O10QfTIxyTtNGH3ti33Ii0XgA0UID7YUCIsEjynQi1XkAwSKiQSKi1XgjTwWmfd9
+            2IgED0Hr0ItF1P9FvAFF3AFF0OmE/v//i0Wkx0XcAAAAAMdFvAAAAACJRdCLRbAD
+            RQyJRaCLRbw7RRAPjXABAACLTdwxwItdoIt10IlN4AHLi30Mi1XcO0UYjQw6fSEP
+            thQBi33MD7YMA4kUh4t9yA+vVcCJDIeLTeSJFIFA69Ex0jtVHHwSi13cA10Ix0W4
+            AAAAACtd0OsgMcA7RRh9DYt95A+2HAEBHIdA6+5CA03U68//RbgDddSLRdwrRdAB
+            8InHi0W4O0UcfywxyTtNGH3hi0UMi33MAfAPtgQIKwSPi33kAwSPmYkEj408M/d9
+            2IgED0Hr1otFDCtF3ItNwAHwiUW4i10Uif4rXRwrddwDdeA52XwIA3UIK3Xg60qL
+            dQgx2yt13AH+A3XgO10YfSiLVeCLRbgB0ANVDA+2BBgPthQaKdCLVeQDBJqJBJqZ
+            933YiAQeQ+vTi0XUQQFF4Ouji0XUQwFF4DtdFH0yMck7TRh97Yt9yItF4ANFDA+2
+            FAiLBI+LfeQp0ItV4AMEj4kEj408Fpn3fdiIBA9B69CLRRj/RbwBRdwBRdDphP7/
+            //9NrItltA+Fofz//9no3+l2PzHJMds7XRR9OotFGIt9CA+vwY1EBwMx/zt9EH0c
+            D7Yw2cBHVtoMJFrZXeTzDyx15InyiBADRRjr30MDTRDrxd3Y6wLd2I1l9DHAW15f
+            XcM=
+            )" : "
+            ( LTrim                                    ; 64-bit machine code
+            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
+            )"
+      ; Get width and height.
+      DllCall("gdiplus\GdipGetImageWidth", "ptr", TpBitmapIn, "uint*", &width := 0)
+      DllCall("gdiplus\GdipGetImageHeight", "ptr", TpBitmapIn, "uint*", &height := 0)
+      ; Create a buffer of raw 32-bit ARGB pixel data.
+      Rect := Buffer(16, 0)                ; sizeof(Rect) = 16
+      NumPut("uint", width, Rect, 8) ; Width
+      NumPut("uint", height, Rect, 12) ; Height
+      BitmapData := Buffer(16 + 2 * A_PtrSize, 0) ; sizeof(BitmapData) = 24, 32 ; V1toV2: if 'BitmapData' is a UTF-16 string, use 'VarSetStrCapacity(&BitmapData, 16+2*A_PtrSize)'
+      DllCall("gdiplus\GdipBitmapLockBits", "ptr", TpBitmapIn, "ptr", Rect, "uint", 3, "int", 0x26200A, "ptr", BitmapData)
+      ; Get the Scan0 of the pixel data. Create a working buffer of the exact same size.
+      stride := NumGet(BitmapData, 8, "int")
+      Scan01 := NumGet(BitmapData, 16, "ptr")
+      Scan02 := DllCall("GlobalAlloc", "uint", 0x40, "uptr", stride * height, "ptr")
+      ; Call machine code function.
+      DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", 0, "uint*", &size := 0, "ptr", 0, "ptr", 0)
+      p := DllCall("GlobalAlloc", "uint", 0, "uptr", size, "ptr")
+      DllCall("VirtualProtect", "ptr", p, "ptr", size, "uint", 0x40, "uint*", &op := 0) ; Allow execution from memory.
+      DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", p, "uint*", &size, "ptr", 0, "ptr", 0)
+      e := DllCall(p, "ptr", Scan01, "ptr", Scan02, "uint", width, "uint", height, "uint", 4, "uint", radius, "float", opacity)
+      if (NOT e)
+         logError("Failed to return a gaussian blur image")
+      DllCall("GlobalFree", "ptr", p)
+      ; Free resources.
+      DllCall("gdiplus\GdipBitmapUnlockBits", "ptr", TpBitmapIn, "ptr", BitmapData)
+      DllCall("GlobalFree", "ptr", Scan02)
+      Return TpBitmapIn
+   }
+
+ ;#####################################################################################
    ; Function           Gdip_BlurBitmap
    ; Description        Gives a pointer to a blurred bitmap from a pointer to a bitmap
    ;
@@ -601,19 +688,19 @@ Class BitMap {
       }
       ; Poor mans Blur
       ; Two Step reduce/enlarge back to blur it
-      GDIp.GetImageDimensions(TpInputBitmap, &sWidth:=0, &sHeight:=0)
+      GDIp.GetImageDimensions(TpInputBitmap, &sWidth := 0, &sHeight := 0)
       If (sWidth = 0 OR sHeight = 0) {
          warning("Failed to get bitmap dimensions" sWidth " " sHeight)
          Return TpInputBitmap
       }
       ; Make blurring somewhat adaptive for smaller input sizes
-      dWidth :=dHeight :=0
+      dWidth := dHeight := 0
       While BlurAmount > 1 AND (dHeight <= 6 OR dWidth <= 6) {
          dWidth := sWidth // BlurAmount
          dHeight := sHeight // BlurAmount
          BlurAmount--
       }
-      if (dHeight < 2 AND dWidth < 2) 
+      If (dHeight < 2 AND dWidth < 2)
          Return TpInputBitmap
 
       ; TFW When we resize don't bunch up at the border
@@ -624,7 +711,7 @@ Class BitMap {
       pTinyBitmap := GDIp.CreateBitmap(dWidth, dHeight, PixelFormat)
       gTiny := GDIp.GraphicsFromImage(pTinyBitmap)
       ; Added these per web site recommendations
-      GDIp.SetPixelOffsetMode(gTiny,2)    ; Half pixel offset.
+      GDIp.SetPixelOffsetMode(gTiny, 2)    ; Half pixel offset.
       GDIp.SetCompositingMode(gTiny, 1)   ; Overwrite/SourceCopy.
       GDIp.SetInterpolationMode(gTiny, 6) ; InterpolationModeHighQualityLinear (was bicubic but had artifacts in blur)
       ; Make larger image into smaller image
@@ -636,7 +723,7 @@ Class BitMap {
       gFull := GDIp.GraphicsFromImage(pResultBitmap)
       GDIp.SetPixelOffsetMode(gFull, 2)
       GDIp.SetCompositingMode(gFull, 1)
-      GDIp.SetInterpolationMode(gFull, 6) 
+      GDIp.SetInterpolationMode(gFull, 6)
       ; Map smaller image back into larger image, will be blured
       GDIp.DrawImage(gFull, pTinyBitmap, 0, 0, sWidth, sHeight, 0, 0, dWidth, dHeight, , , attrib)
       GDIp.DeleteGraphics(gFull)
@@ -658,82 +745,82 @@ Class BitMap {
    ;----------------------------------------------------------------------
    ; Sharpen Bitmap
    ; Radius is 0 - 255 (typically 3 or so)
-   ; Amount is 0 - 100 
+   ; Amount is 0 - 100
    ;----------------------------------------------------------------------
    Static Sharpen(pBitmap, Radius, Amount := 0) => this.ApplyEffect(2, pBitmap, Radius, Amount)
    Static GreyScale(pBitmap) => this.ApplyEffect(6, pBitmap, 0, -100, 0)
    Static Contrast(pBitmap, Amount) => this.ApplyEffect(5, pBitmap, 0, Amount)
-      /*
-      From: Marius Șucan: https://github.com/marius-sucan/AHK-GDIp-Library-Compilation
-      whichFX options:
-      1 - Blur
-             paramA - radius [0, 255]
-             paramB - bool [0, 1]
-      2 - Sharpen
-             paramA - radius [0, 255]
-             paramB - amount [0, 100]
-      3 - ! ColorMatrix
-      4 - ! ColorLUT
-      5 - BrightnessContrast
-             paramA - brightness [-255, 255]
-             paramB - contrast [-100, 100]
-      6 - HueSaturationLightness
-             paramA - hue [-180, 180]
-             paramB - saturation [-100, 100]
-             paramC - light [-100, 100]
-      7 - LevelsAdjust
-             paramA - highlights [0, 100]
-             paramB - midtones [-100, 100]
-             paramC - shadows [0, 100]
-      8 - Tint
-             paramA - hue [-180, 180]
-             paramB - amount [0, 100]
-      9 - ColorBalance
-             paramA - Cyan / Red [-100, 100]
-             paramB - Magenta / Green [-100, 100]
-             paramC - Yellow / Blue [-100, 100]
-      10 - ! RedEyeCorrection
-      11 - ColorCurve
-             paramA - Type of adjustments [0, 7]
-                      0 - AdjustExposure         [-255, 255]
-                      1 - AdjustDensity          [-255, 255]
-                      2 - AdjustContrast         [-100, 100]
-                      3 - AdjustHighlight        [-100, 100]
-                      4 - AdjustShadow           [-100, 100]
-                      5 - AdjustMidtone          [-100, 100]
-                      6 - AdjustWhiteSaturation  [0, 255]
-                      7 - AdjustBlackSaturation  [0, 255]
+   /*
+   From: Marius Șucan: https://github.com/marius-sucan/AHK-GDIp-Library-Compilation
+   whichFX options:
+   1 - Blur
+          paramA - radius [0, 255]
+          paramB - bool [0, 1]
+   2 - Sharpen
+          paramA - radius [0, 255]
+          paramB - amount [0, 100]
+   3 - ! ColorMatrix
+   4 - ! ColorLUT
+   5 - BrightnessContrast
+          paramA - brightness [-255, 255]
+          paramB - contrast [-100, 100]
+   6 - HueSaturationLightness
+          paramA - hue [-180, 180]
+          paramB - saturation [-100, 100]
+          paramC - light [-100, 100]
+   7 - LevelsAdjust
+          paramA - highlights [0, 100]
+          paramB - midtones [-100, 100]
+          paramC - shadows [0, 100]
+   8 - Tint
+          paramA - hue [-180, 180]
+          paramB - amount [0, 100]
+   9 - ColorBalance
+          paramA - Cyan / Red [-100, 100]
+          paramB - Magenta / Green [-100, 100]
+          paramC - Yellow / Blue [-100, 100]
+   10 - ! RedEyeCorrection
+   11 - ColorCurve
+          paramA - Type of adjustments [0, 7]
+                   0 - AdjustExposure         [-255, 255]
+                   1 - AdjustDensity          [-255, 255]
+                   2 - AdjustContrast         [-100, 100]
+                   3 - AdjustHighlight        [-100, 100]
+                   4 - AdjustShadow           [-100, 100]
+                   5 - AdjustMidtone          [-100, 100]
+                   6 - AdjustWhiteSaturation  [0, 255]
+                   7 - AdjustBlackSaturation  [0, 255]
    
-            paramB - Apply ColorCurve on channels [1, 4]
-                      1 - Red
-                      2 - Green
-                      3 - Blue
-                      4 - All channels
+         paramB - Apply ColorCurve on channels [1, 4]
+                   1 - Red
+                   2 - Green
+                   3 - Blue
+                   4 - All channels
    
-            paramC - An adjust value within range according to paramA
+         paramC - An adjust value within range according to paramA
    
-      Effects marked with "!" are not yet implemented.
-      Through ParamA, ParamB and ParamC, the effects can be controlled.
-      Function written by Marius Șucan. Many thanks to Drugwash for the help provided,
+   Effects marked with "!" are not yet implemented.
+   Through ParamA, ParamB and ParamC, the effects can be controlled.
+   Function written by Marius Șucan. Many thanks to Drugwash for the help provided,
    */
    ;----------------------------------------------------------------------
    ; Create, apply and dispose of an effect to a pBitmap in place
    ;----------------------------------------------------------------------
-   Static ApplyEffect(Effect, pBitmap, param1, param2, param3:=0) {
+   Static ApplyEffect(Effect, pBitmap, param1, param2, param3 := 0) {
       Static strCLIS := [
-         "{633C80A4-1843-482b-9EF2-BE2834C5FDD4}", 
-         "{63CBF3EE-C526-402c-8F71-62C540BF5142}", 
-         "{718F2615-7933-40e3-A511-5F68FE14DD74}", 
-         "{A7CE72A9-0F7F-40d7-B3CC-D0C02D5C3212}", 
-         "{D3A1DBE1-8EC4-4c17-9F4C-EA97AD1C343D}", 
-         "{8B2DD6C3-EB07-4d87-A5F0-7108E26A9C5F}", 
-         "{99C354EC-2A31-4f3a-8C34-17A803B33A25}", 
-         "{1077AF00-2848-4441-9489-44AD4C2D7A2C}", 
-         "{537E597D-251E-48da-9664-29CA496B70F8}", 
-         "{74D29D05-69A4-4266-9549-3CC52836B632}", 
+         "{633C80A4-1843-482b-9EF2-BE2834C5FDD4}",
+         "{63CBF3EE-C526-402c-8F71-62C540BF5142}",
+         "{718F2615-7933-40e3-A511-5F68FE14DD74}",
+         "{A7CE72A9-0F7F-40d7-B3CC-D0C02D5C3212}",
+         "{D3A1DBE1-8EC4-4c17-9F4C-EA97AD1C343D}",
+         "{8B2DD6C3-EB07-4d87-A5F0-7108E26A9C5F}",
+         "{99C354EC-2A31-4f3a-8C34-17A803B33A25}",
+         "{1077AF00-2848-4441-9489-44AD4C2D7A2C}",
+         "{537E597D-251E-48da-9664-29CA496B70F8}",
+         "{74D29D05-69A4-4266-9549-3CC52836B632}",
          "{DD6A0022-58E4-4a67-9D9B-D48EB881A53D}"]
-         
-      If (strEffect := strCLIS.Get(Effect,0)) {
+
+      If (strEffect := strCLIS.Get(Effect, 0)) {
          eFXguid := this.CLSIDFromString(strEffect)
          ; 64 bit only
          If (E := DllCall("gdiplus\GdipCreateEffect", "Ptr", eFXguid.Ptr, "Ptr*", &pEffect := 0)) {
@@ -751,14 +838,14 @@ Class BitMap {
             Case 6, 7, 9, 11: ; color change
                NumPut("Int", param1, "Int", param2, "Int", param3, FXparams)
             Default:
-               Gdip.DisposeEffect(pEffect)
+               GDIp.DisposeEffect(pEffect)
                warning("Unimplemented Effect " Effect)
                Return -1
          }
          DllCall("gdiplus\GdipGetEffectParameterSize", "Ptr", pEffect, "Uint*", &FXsize := 0)
          If (E := DllCall("gdiplus\GdipSetEffectParameters", "Ptr", pEffect, "Ptr", FXparams.Ptr, "UInt", FXsize)) {
             warning("Error " E " in GdipSetEffectParameters")
-            Gdip.DisposeEffect(pEffect)
+            GDIp.DisposeEffect(pEffect)
             Return -E
          }
          ; Area to be modified is entire image (RectF)
@@ -773,13 +860,13 @@ Class BitMap {
             , "Ptr", 0
             , "Ptr", 0)
 
-         Gdip.DisposeEffect(pEffect)
+         GDIp.DisposeEffect(pEffect)
          If E {
             warning("Error " E " in GdipBitmapApplyEffect")
             Return -E
          }
          Return pBitmap
-      } else {
+      } Else {
          warning("Invalid Effect " Effect)
       }
    }

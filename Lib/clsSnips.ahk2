@@ -701,10 +701,11 @@ Class Snips {
                pXv := Xv, pYv := Yv, pW := W, pH := H
                   
                ; Update the GUI with the DIB
+               ; GDIp.Flush(selSurf.G, 1) ; Doesn't seem to do anything
                selSurf.UpdateLayer(winX, winY) ; This is where all the time is now
                ; Sync with vertical refresh to prevent tearing (needed on slower computers)
                if (this.vertSync)
-                  DllCall("Dwmapi\DwmFlush", "Int")
+                  selSurf.vSync()
                else
                   Sleep(-1)
             } Else {

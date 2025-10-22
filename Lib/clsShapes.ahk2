@@ -945,6 +945,7 @@ Class Shapes {
                   ; Adjust dimensions depending on the corner
                   Switch corner {
                      ; Corners maintain aspect ratio
+                     ; TODO - add customer corners for connector, lines or other controls we want to adjust shape on
                      Case 1: ;UL 
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
                         X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)

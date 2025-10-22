@@ -237,7 +237,7 @@ Class ObscureShape extends commonShape {
       GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
       ; GDIp.FillRectangle(mysurf.G, brush, 0, 0, C.W, C.H) ; not any faster
       ; FIX for flickering on move, DWM vsync/flush just before update
-      DllCall("Dwmapi\DwmFlush", "Int")
+      Surf.vSync() ; works better before here
       Surf.UpdateLayer(C.X1, C.Y1)
       Surf := ""
    }
