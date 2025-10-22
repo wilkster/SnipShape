@@ -484,6 +484,7 @@ Class Shapes {
                   Case 4, 6: start := 0
                   Default: start := 0
                }
+            ; TODO - gather coordinates of other shapes of this type for snapping
             Default:
                Switch ShapeObj.Corner {
                   Case 1, 7, 8: start := 3 ; UL 3 points
@@ -514,6 +515,7 @@ Class Shapes {
          X2 := coord.X2,       Y2 := coord.Y2
 
          ResizeMode := True
+         SisShapes := this.SisterShapes(ShapeObj)
       } else if (ShapeObj) {
          ; No passed in Shape, just the Shape type, so create one
          Shape := ShapeObj
@@ -522,6 +524,14 @@ Class Shapes {
          ; In case key is no longer pressed on a draw
          X := Y := W := H := X1 := X2 := Y1 := Y2 :=0
          ResizeMode := False
+         ; Snap start point to any nearby sister focus points
+         SisShapes := this.SisterShapes(ShapeObj)
+         sisterShapeSnap := findNearestFocusPoint(shapeStart.X, shapeStart.Y)
+         If (sisterShapeSnap.Valid) {
+            shapeStart.X := sisterShapeSnap.X
+            shapeStart.Y := sisterShapeSnap.Y
+         }
+
       } Else {
          qTrayTip("Draw Function has no shape parameter",2)
          Return
@@ -627,18 +637,26 @@ Class Shapes {
                Case "LineShape":
                   ;----------------------------------------------------------------------
                   ; Adjust the mouseNew position
-                  ; Soft Snap to 0/90/180/270 degrees
+                  ; First check if within rectangle of other line shape focus points to snap to them
+                  ; Otherwise Soft Snap to 0/90/180/270 degrees
                   ;----------------------------------------------------------------------
-                  If (W < snapGrid) {
-                     mouseNew.X := shapeStart.X
-                     ; W := 0
-                  } else If (H < snapGrid) {
-                     mouseNew.Y := shapeStart.Y
-                     ; H := 0
-                  } else If (Abs(H - W) < snapGrid) {
-                     maxDel     := max(W,H)
-                     mouseNew.Y := shapeStart.Y + (mouseNew.Y > shapeStart.Y ? maxDel : -maxDel)
-                     mouseNew.X := shapeStart.X + (mouseNew.X > shapeStart.X ? maxDel : -maxDel)
+                  sisterShapeSnap := findNearestFocusPoint(mouseNew.X, mouseNew.Y)
+                  ; Of we dodm't snape to another line then snap to horz/vert/45 deg lines
+                  If (sisterShapeSnap.Valid) {
+                     mouseNew.X := sisterShapeSnap.X
+                     mouseNew.Y := sisterShapeSnap.Y
+                  } else {
+                     If (W < snapGrid) {
+                        mouseNew.X := shapeStart.X
+                        ; W := 0
+                     } Else If (H < snapGrid) {
+                        mouseNew.Y := shapeStart.Y
+                        ; H := 0
+                     } Else If (Abs(H - W) < snapGrid) {
+                        maxDel := Max(W, H)
+                        mouseNew.Y := shapeStart.Y + (mouseNew.Y > shapeStart.Y ? maxDel : -maxDel)
+                        mouseNew.X := shapeStart.X + (mouseNew.X > shapeStart.X ? maxDel : -maxDel)
+                     }
                   }
                   ; Recompute the new coordinates in case we snapped
                   X := Min(shapeStart.X, mouseNew.X)
@@ -824,6 +842,20 @@ Class Shapes {
       ; Remove the overlay that we just drew to be seamless (it now aligns with shape window)
       canvasGui.Hide()
       return 1
+
+      /**
+       * Return a snap point for sister objects (closure)
+       * @returns  Object of coordinates of the snap point 
+       */
+      findNearestFocusPoint(X, Y) {
+         For Ctrl in SisShapes {
+            CI := Ctrl.CornerInfo(X, Y)
+            If (CI.C) {
+               return {Valid : True, X : CI.X + Ctrl.shapeCoord.X, Y: CI.Y + Ctrl.shapeCoord.Y}
+            }
+         }
+         return {Valid : False, X: -1, Y: -1}
+      }
    }
    /**
     * Click on an object to move it, corner to resize it
@@ -1206,7 +1238,19 @@ Class Shapes {
          }
       }
    }
-
+   /**
+    * Find sister shapes of the same type in the same GUI that are visible
+    * @param ShapeObj Target shape to find ones of the same type
+    */
+   Static SisterShapes(ShapeObj) {
+      SisShapes := Array()
+      For Ctrl in ShapeObj.Gui {
+         If Ctrl.Visible AND Ctrl.Hwnd != ShapeObj.Hwnd AND Ctrl.Source == ShapeObj.Source {
+            SisShapes.Push(Ctrl)
+         }
+      }
+      Return SisShapes
+   }
 
    /**
     * Add a picture or icon to the image for annotation

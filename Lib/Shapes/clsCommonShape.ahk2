@@ -295,7 +295,7 @@ Class commonShape extends Gui.Pic {
       ;ResizePoints.push(
       return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
               { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
-              { c: 5, X: C.w / 2, Y: C.h }, { C: 6, x: 0, Y: C.h }, 
+              { C: 5, X: C.w / 2, Y: C.h }, { C: 6, x: 0, Y: C.h }, 
               { C: 7, X: 0, Y: C.h/2 },     { C: 8, x: C.W/2, Y: 0 }]
    }
    ;----------------------------------------------------------------------

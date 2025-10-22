@@ -181,7 +181,7 @@ Class Cursor {
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
       ShapeObj := GuiCtrlFromHwnd(shapehWnd)
-      CI := ShapeObj.CornerInfo(mX,mY)
+      CI := ShapeObj.CornerInfo(mX, mY)
       cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
       Return this.Cursors[Cur]
    }
