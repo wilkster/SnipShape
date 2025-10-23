@@ -61,6 +61,7 @@ Class LineShape extends commonShape {
 
          Case Shapes.SHAPE_LINE:
             GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
+            GDIp.SetPenLineCaps(this.pPrime, 2, 2) ; rounded, joins better when snapped
          Case Shapes.SHAPE_CONNECT:
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
