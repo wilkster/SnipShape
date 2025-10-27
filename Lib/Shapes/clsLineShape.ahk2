@@ -66,6 +66,7 @@ Class LineShape extends commonShape {
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
             GDIp.SetPenLineCaps(this.pPrime, 0x12, 0x12) ; triangles
+            this.MidPos := 0.5
       }
    }
    /**
@@ -143,10 +144,10 @@ Class LineShape extends commonShape {
             ; Orientation depends on initial drawing direction
             ; TODO - Intermediate points will be dynamic for resizing in the future
             If (this.HasDirection ?? true) {
-               X50 := X1 + (X2 - X1) / 2
+               X50 := X1 + (X2 - X1) * this.MidPos
                pArray := [[X1, Y1], [X50, Y1], [X50, Y2], [X2, Y2]]
             } Else {
-               Y50 := Y1 + (Y2 - Y1) / 2
+               Y50 := Y1 + (Y2 - Y1) * this.MidPos
                pArray := [[X1, Y1], [X1, Y50], [X2, Y50], [X2, Y2]]
             }
             oPath := GDIp.Path(G)
