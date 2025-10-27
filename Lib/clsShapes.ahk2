@@ -645,7 +645,10 @@ Class Shapes {
                   If (sisterShapeSnap.Valid) {
                      mouseNew.X := sisterShapeSnap.X
                      mouseNew.Y := sisterShapeSnap.Y
+                     ; BUG - on resize the focus blocks should stay on the resized object
+                     ; focusBorder.ShowFocus(sisterShapeSnap.hWnd, true)
                   } else {
+                     ; focusBorder.HideFocus(true)
                      If (W < snapGrid) {
                         mouseNew.X := shapeStart.X
                         ; W := 0
@@ -851,7 +854,7 @@ Class Shapes {
          For Ctrl in SisShapes {
             CI := Ctrl.CornerInfo(X, Y)
             If (CI.C) {
-               return {Valid : True, X : CI.X + Ctrl.shapeCoord.X, Y: CI.Y + Ctrl.shapeCoord.Y}
+               return {Valid : True, X : CI.X + Ctrl.shapeCoord.X, Y: CI.Y + Ctrl.shapeCoord.Y, Hwnd: Ctrl.Hwnd}
             }
          }
          return {Valid : False, X: -1, Y: -1}
@@ -1245,7 +1248,9 @@ Class Shapes {
    Static SisterShapes(ShapeObj) {
       SisShapes := Array()
       For Ctrl in ShapeObj.Gui {
-         If Ctrl.Visible AND Ctrl.Hwnd != ShapeObj.Hwnd AND Ctrl.Source == ShapeObj.Source {
+         ; If Ctrl.Visible AND Ctrl.Hwnd != ShapeObj.Hwnd AND Ctrl.Source == ShapeObj.Source {
+         ; If Ctrl.Visible AND Ctrl.Source != "Screen" AND Ctrl.Hwnd != ShapeObj.Hwnd {
+         If Ctrl.Visible AND Ctrl.Source ~= "Shape" AND Ctrl.Hwnd != ShapeObj.Hwnd {
             SisShapes.Push(Ctrl)
          }
       }

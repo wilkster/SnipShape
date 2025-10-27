@@ -213,6 +213,7 @@ Class Cursor {
  * This can be tricky due to cursor callbacks happening quickly. To handle
  * 1. Have a blocking mode that prohibits turning off the focus rectangle while it is blocked
  * 2. In Move/Resize force this block and only turn it off after 20ms
+ * TODO: If I make this dynamic then I could have one for the focus borders and one for the object to snap to
  */
 Class focusBorder {
    Static __New() {
@@ -277,8 +278,8 @@ Class focusBorder {
             if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
                warning("Failed to Show Focus Border")
             this.focusBorderGui.Show('NA')
-            this.lastHwnd     := hWnd
-            focusBorder.Block := Block
+            this.lastHwnd := hWnd
+            this.Block    := Block
          }
       }
    }
@@ -291,8 +292,8 @@ Class focusBorder {
       If (Snips.focusRectangle and this.IsShown) {
          If (Force) {
             this.focusBorderGui.Hide()
-            focusBorder.Block := false
-         } else if (NOT focusBorder.Block) {
+            this.Block := false
+         } else if (NOT this.Block) {
             this.focusBorderGui.Hide()
          }
       }
@@ -302,7 +303,7 @@ Class focusBorder {
    ; due to the cursor callbacks happening rapidly
    ;----------------------------------------------------------------------
    Static UnBlockMe() {
-      SetTimer((*) => focusBorder.Block := false, -20)
+      SetTimer((*) => this.Block := false, -20)
    }
 
    ;----------------------------------------------------------------------

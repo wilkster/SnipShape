@@ -633,11 +633,11 @@ Class BitMap {
       Rect := Buffer(16, 0)                ; sizeof(Rect) = 16
       NumPut("uint", width, Rect, 8) ; Width
       NumPut("uint", height, Rect, 12) ; Height
-      BitmapData := Buffer(16 + 2 * A_PtrSize, 0) ; sizeof(BitmapData) = 24, 32 ; V1toV2: if 'BitmapData' is a UTF-16 string, use 'VarSetStrCapacity(&BitmapData, 16+2*A_PtrSize)'
-      DllCall("gdiplus\GdipBitmapLockBits", "ptr", TpBitmapIn, "ptr", Rect, "uint", 3, "int", 0x26200A, "ptr", BitmapData)
+      pBitmapData := Buffer(16 + 2 * A_PtrSize, 0) ; sizeof(BitmapData) = 24, 32 ; V1toV2: if 'BitmapData' is a UTF-16 string, use 'VarSetStrCapacity(&BitmapData, 16+2*A_PtrSize)'
+      DllCall("gdiplus\GdipBitmapLockBits", "ptr", TpBitmapIn, "ptr", Rect, "uint", 3, "int", 0x26200A, "ptr", pBitmapData)
       ; Get the Scan0 of the pixel data. Create a working buffer of the exact same size.
-      stride := NumGet(BitmapData, 8, "int")
-      Scan01 := NumGet(BitmapData, 16, "ptr")
+      stride := NumGet(pBitmapData, 8, "int")
+      Scan01 := NumGet(pBitmapData, 16, "ptr")
       Scan02 := DllCall("GlobalAlloc", "uint", 0x40, "uptr", stride * height, "ptr")
       ; Call machine code function.
       DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", 0, "uint*", &size := 0, "ptr", 0, "ptr", 0)
@@ -649,7 +649,7 @@ Class BitMap {
          logError("Failed to return a gaussian blur image")
       DllCall("GlobalFree", "ptr", p)
       ; Free resources.
-      DllCall("gdiplus\GdipBitmapUnlockBits", "ptr", TpBitmapIn, "ptr", BitmapData)
+      DllCall("gdiplus\GdipBitmapUnlockBits", "ptr", TpBitmapIn, "ptr", pBitmapData)
       DllCall("GlobalFree", "ptr", Scan02)
       Return TpBitmapIn
    }
