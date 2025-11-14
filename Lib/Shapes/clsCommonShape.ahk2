@@ -41,7 +41,7 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
    }
    ; Depending on the shape, alter its base to point to the inherited shape
    Switch Shape {
-      Case Shapes.SHAPE_HILITER, Shapes.SHAPE_PEN, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_ARCARROW, Shapes.SHAPE_WIDEPEN:
+      Case Shapes.SHAPE_HILITER, Shapes.SHAPE_PEN, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_ARCARROW, Shapes.SHAPE_WIDEPEN, Shapes.SHAPE_SMUDGE:
          pObj.Source := "FreeHand"
          pObj.base  := FreeHandShape.Prototype
       Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_LINE, Shapes.SHAPE_TAPARROW, Shapes.SHAPE_BRACKET, Shapes.SHAPE_CONNECT:

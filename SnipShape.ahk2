@@ -5,7 +5,9 @@
  * @date 2024/04/06
  * @version 1.0.0
  ***********************************************************************/
+TraySetIcon(A_ScriptDir "\Cursors\SnipShape.ico") ; Scissors
 #Requires AutoHotkey v2.1-
+
 ;-----------------------------------------------
 ;
 ; AutoHotkey alternate to Windows Snipping Tool with additional features
@@ -71,7 +73,7 @@ If !FileExist(SETTINGS.SavePath_Icons)
 ;-----------------------------------------------
 SETTINGS.SnipShapeIcon := SETTINGS.CursorPath "\SnipShape.ico"
 A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area Only "
-TraySetIcon(SETTINGS.SnipShapeIcon) ; Scissors
+; TraySetIcon(SETTINGS.SnipShapeIcon) ; Scissors
 ; =====================================================================
 ;                          I N C L U D E S
 ; =====================================================================

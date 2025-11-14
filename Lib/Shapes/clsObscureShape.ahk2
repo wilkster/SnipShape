@@ -57,8 +57,8 @@ Class ObscureShape extends commonShape {
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
-
-         Case Shapes.SHAPE_BLUR: ; Time 22ms
+         ; Pen version handled in FreehandClass
+         Case Shapes.SHAPE_BLUR : ; , Shapes.SHAPE_SMUDGE: ; Time 22ms
             brushKey := Constrain(1, 100, Round(this.Factor))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
@@ -84,12 +84,13 @@ Class ObscureShape extends commonShape {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
 
-         Case Shapes.SHAPE_HILITE, Shapes.SHAPE_HILITER: ; Time 33ms
+         ; Pen version handled in FreehandClass
+         Case Shapes.SHAPE_HILITE: ; , Shapes.SHAPE_HILITER: ; Time 33ms
             brushKey := this.Color . "-" this.shapeOpacity
-            If (this.imageBrush := Snip.GetBrush("Highlight", brushKey)) {
+            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
-               Snip.AddBrush(this.imageBrush, "Highlight", brushKey)
+               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
             } Else {
                warning("Failed to retrieve the Snip highlight for " this.ShapeName)
             }

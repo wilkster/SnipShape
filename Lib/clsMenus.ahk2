@@ -268,11 +268,12 @@ Class ShapeMenus {
    Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
       Static shapeMenu   := Menu()
       Static colorMenu   := Menu()
-      Static subMenu     := Menu()
+      Static subMenu1    := Menu()
+      Static subMenu2    := Menu()
       Static outlineMenu := Menu()
       shapeMenu.Delete()
       colorMenu.Delete()
-      subMenu.Delete()
+      subMenu1.Delete()
       outlineMenu.Delete()
       PC := PeerCount(ShapeObj)
       ; Shape specific
@@ -309,28 +310,31 @@ Class ShapeMenus {
       ; Doesn't really work as it gets the pic under the shape as well
       ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Duplicate " ShapeObj.ShapeName " (Ctrl-D/Ctrl-Click)", "Duplicate.ico")
-      ; Thickness and Amount
-      Switch ShapeObj.Source {
-         Case "BlurShape": 
-            shapeMenu.Add(ShapeObj.ShapeName . " Amount", subMenu)
+      ; Blur Amount
+      Switch ShapeObj.Shape {
+         Case Shapes.SHAPE_BLUR, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
+            shapeMenu.Add(ShapeObj.ShapeName . " Amount", subMenu1)
             shapeMenu.SetIcon(ShapeObj.ShapeName . " Amount", SETTINGS.CursorPath . "Menu\Redact.png" )
-            subMenu.Add("Increase (Up)",blurFactor.bind(+.5))
-            subMenu.SetIcon("Increase (Up)", SETTINGS.CursorPath . "Plus.ico")
-            subMenu.Add("Decrease (Down)",blurFactor.bind(-.5))
-            subMenu.SetIcon("Decrease (Down)", SETTINGS.CursorPath . "Minimize.ico")
+            subMenu1.Add("Increase (Up)",blurFactor.bind(+.5))
+            subMenu1.SetIcon("Increase (Up)", SETTINGS.CursorPath . "Plus.ico")
+            subMenu1.Add("Decrease (Down)",blurFactor.bind(-.5))
+            subMenu1.SetIcon("Decrease (Down)", SETTINGS.CursorPath . "Minimize.ico")
+      }
+      ; Thickness
+      Switch ShapeObj.Source {
          Case "BodyShape", "LineShape", "FreeHand":
-            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu)
+            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu1)
             shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", SETTINGS.CursorPath . "Menu\Shapes.png" )
-            subMenu.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
-            subMenu.SetIcon("Increase Thickness (Up)", SETTINGS.CursorPath . "Plus.ico")
-            subMenu.Add("Decrease Thickness (Down)",LineThickness.bind(-.5))
-            subMenu.SetIcon("Decrease Thickness (Down)", SETTINGS.CursorPath . "Minimize.ico")
+            subMenu2.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
+            subMenu2.SetIcon("Increase Thickness (Up)", SETTINGS.CursorPath . "Plus.ico")
+            subMenu2.Add("Decrease Thickness (Down)",LineThickness.bind(-.5))
+            subMenu2.SetIcon("Decrease Thickness (Down)", SETTINGS.CursorPath . "Minimize.ico")
       }
       ; Color Sub Menu
       Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             Switch ShapeObj.Shape {
-               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR:
+               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
                Default:
                   cn := "Change " . ShapeObj.ShapeName . " Color"
                   shapeMenu.Add(cn, colorMenu)
@@ -352,7 +356,8 @@ Class ShapeMenus {
       ; Blocks here
       shapeMenu.Delete()
       colorMenu.Delete()
-      subMenu.Delete()
+      subMenu1.Delete()
+      subMenu2.Delete()
       outlineMenu.Delete()
 
       Return
@@ -363,7 +368,7 @@ Class ShapeMenus {
          ShapeObj.Refresh()
       }
       blurFactor(amt,*) {
-         ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
+         ; ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
          ShapeObj.Factor         *= (1+amt) ; blur/pixelate
          ShapeObj.Refresh()
       }

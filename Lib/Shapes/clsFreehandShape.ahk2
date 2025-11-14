@@ -22,6 +22,7 @@ Class FreeHandShape extends commonShape {
       this.imageBrush            := 0
       this.hasImage              := false
       this.lastColor             := -1
+      this.lastFactor            := -1
       this.pOutline              := 0
       this.useLines              := 0
       ; Shape dependent defaults
@@ -37,9 +38,13 @@ Class FreeHandShape extends commonShape {
             this.shapeOpacity   := Shapes.highlightOpacity
             this.Color          := Shapes.highlightColor
             this.smoothFactor   := Shapes.HighlightSmoothFactor
+         Case Shapes.SHAPE_SMUDGE:
+            this.shapeThickness := Shapes.highLightThickness * this.DPIFactor * this.Factor
+            this.smoothFactor   := Shapes.HighlightSmoothFactor
+            this.Factor         := Shapes.BlurDivisor
          Case Shapes.SHAPE_PEN:
             this.shapeThickness := Shapes.penLineThickness * this.DPIFactor * this.Factor
-            this.shapeOpacity   := Shapes.penOpacity
+            this.Color          := Shapes.penOpacity
             this.smoothFactor   := Shapes.PenSmoothFactor
          Case Shapes.SHAPE_WIDEPEN:
             this.shapeThickness := Shapes.widePenThickness * this.DPIFactor * this.Factor
@@ -67,16 +72,24 @@ Class FreeHandShape extends commonShape {
       GDIp.SetPenAlignment(this.pPrime, 0)
       ; Class to draw the curves
       Switch this.Shape {
-         Case Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_HILITER:
+         Case Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
             GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; unanchored line endings
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             this.OkToClose := false
             ; Real time draw the underlying highlighted bitmap
-            If (this.Shape = Shapes.SHAPE_HILITER) {
-               If (NOT this.hasImage OR this.Color != this.lastColor) {
-                  ; Below will allow real-time highlighting with the pen
-                  this.createImageBrush()
-               }
+            Switch this.Shape {
+               Case Shapes.SHAPE_HILITER:
+                  If ( NOT this.hasImage OR this.Color != this.lastColor) {
+                     ; Below will allow real-time highlighting with the pen
+                     this.createImageBrush()
+                  }
+               Case Shapes.SHAPE_SMUDGE:
+                  If ( NOT this.hasImage OR this.Factor != this.lastFactor) {
+                     ; TODO - case to change it on +/- blur?
+                     this.createImageBrush()
+                  }
+               Default:
+
             }
          Case Shapes.SHAPE_ARCARROW:
             GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
@@ -89,7 +102,7 @@ Class FreeHandShape extends commonShape {
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             this.OkToClose := true
          Default:
-            Warning("Unknown Shape " this.Shape)
+            warning("Unknown Shape " this.Shape)
       }
       this.MyPoints              := FreeHandShape.clsPoints(this.pPrime, this.minGap, this.Alpha)
       this.MyPoints.pPrime       := this.pPrime
@@ -98,6 +111,7 @@ Class FreeHandShape extends commonShape {
       this.MyPoints.OkToClose    := this.OkToClose
       this.MyPoints.shapeOpacity := this.shapeOpacity
       this.lastColor             := this.Color
+      this.lastFactor            := this.Factor
    }
    ;----------------------------------------------------------------------
    ; Set the smoothing factor
@@ -151,25 +165,42 @@ Class FreeHandShape extends commonShape {
    /**
     * Updatew/Create the image brush as needed
     * Will be color dependent
+    NOTE - similar code to the obscure class
     */
    createImageBrush() {
       If (this.imageBrush) {
          this.SnipObj.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
       }
+      Switch this.Shape {
+         Case Shapes.SHAPE_HILITER:
+            brushKey := this.Color . "-" this.shapeOpacity
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush))
+            } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve a text brush from the highlighted shape")
+               Return 0
+            }
+         Case Shapes.SHAPE_SMUDGE:
+            brushKey := Constrain(1, 100, Round(this.Factor))
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush")
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+               pBitOutput := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
+               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
+               GDIp.DisposeImage(pBitOutput)
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip picture for " this.ShapeName)
+            }
+         Default:
 
-      brushKey := this.Color . "-" this.shapeOpacity
-      If (this.imageBrush := this.SnipObj.GetBrush("Highlight", brushKey)) {
-         ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush))
-      } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
-         this.SnipObj.AddBrush(this.imageBrush, "Highlight", brushKey)
-      } Else {
-         warning("Failed to retrieve a text brush from the highlighted shape")
-         Return 0
       }
       ; During a move we may have changed the translation
       GDIp.ResetTextureTransform(this.imageBrush)
-      GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth) 
+      GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth)
       ; Set the highlight brush to the highlighted image underneath
       GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
       this.hasImage := true
@@ -336,7 +367,7 @@ Class FreeHandShape extends commonShape {
             GDIp.DrawRectangle(Surf.G, this.pGrab, 0, 0, C.W, C.H)
 
             ; If a highlighter, then do that vs drawing the lines
-            If (this.Shape = Shapes.SHAPE_HILITER) {
+            If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
                ; Replace the pen contents with the highlighted background under the shape
                GDIp.ResetTextureTransform(this.imageBrush)
                GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ;Snips.BorderWidth
