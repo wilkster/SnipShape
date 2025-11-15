@@ -161,18 +161,17 @@ options are also available from the Buttonbar described below.
 | ------ | ------ |
 |**Arrows**|**Arrowheads are draw at the finish point**|
 |V |Creates an arrow from end to arrow-head|
-|&#92;|Creates an tapered outline arrow from end to arrow-head|
-|J |Creates a freehand outlined arc arrow (with slow bends)|
 |A|Creates a single outlined arrow|
+|&#92;|Creates an tapered outline arrow from end to arrow-head|
+|J|Creates a freehand outlined arc arrow (with slow bends)|
 |/|Creates a double outline arrow|
 |**Shapes**||
 |L|Creates a line, shift to keep on an axis|
-|[|Creates a connector line (vert/horz segments only)|
 |R|Creates an outlined rectangle, shift to keep square|
 |D|Creates an outlined rounded rectangle, shift to keep square|
-|E|Creates an outlined ellipse/circle, shift to keep a circle|
-|[|Connector to join two areas|
-|]|Creates an bracket/brace|
+|E|Creates an outlined ellipse/circle, shift to keep a circle, draws from center out|
+|[|Creates a connector line (vert/horz segments only)|
+|]|Creates a bracket/brace|
 |**Free Hand**||
 |P|Free-hand Pen in current color, shift to stay on an axis|
 |M|Free-hand Wide (Marker) Pen in current color, shift to stay on an axis|
