@@ -87,7 +87,6 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | **Global HotKey** | **Action** |
 | ------ | ------ |
 | Left Win-s | Initiates a snip and changes the cursor to a cross. |
-| AppsKey | Initiates a snip and changes the cursor to a cross. I only use this to bind a macro to my mouse. <br>You may want to comment this one out if you otherwise use the AppsKey.|
 | Left Win-z | Initiates a snip to copy to the clipboard (like built in capability). |
 | Left Win-o | Initiates a OCR of the user selection |
 
