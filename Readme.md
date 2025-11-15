@@ -116,7 +116,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | ------ | ------ |
 | Ctrl-C |Copy the snip and shapes to the clipboard (minimizing snip)|
 | Ctrl-X |Cut the snip and shapes to the clipboard (closing snip)|
-| Ctrl-S |Save the snip and shapes to the a file in the Screenshot folder|
+| Ctrl-S |Save the snip and shapes to a file in the Screenshot folder|
 | Ctrl-V |Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available)|
 | Ctrl-P |Open a dialog box to add a picture from a file as a new shape|
 | Ctrl-D |Clone the current snip if on snip background, if focus is on a shape, it will duplicate the shape|
