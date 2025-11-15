@@ -44,7 +44,7 @@ Class FreeHandShape extends commonShape {
             this.Factor         := Shapes.BlurDivisor
          Case Shapes.SHAPE_PEN:
             this.shapeThickness := Shapes.penLineThickness * this.DPIFactor * this.Factor
-            this.Color          := Shapes.penOpacity
+            this.shapeOpacity   := Shapes.penOpacity
             this.smoothFactor   := Shapes.PenSmoothFactor
          Case Shapes.SHAPE_WIDEPEN:
             this.shapeThickness := Shapes.widePenThickness * this.DPIFactor * this.Factor
@@ -76,20 +76,15 @@ Class FreeHandShape extends commonShape {
             GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; unanchored line endings
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             this.OkToClose := false
+            
             ; Real time draw the underlying highlighted bitmap
             Switch this.Shape {
                Case Shapes.SHAPE_HILITER:
-                  If ( NOT this.hasImage OR this.Color != this.lastColor) {
-                     ; Below will allow real-time highlighting with the pen
+                  If ( NOT this.hasImage OR this.Color != this.lastColor)
                      this.createImageBrush()
-                  }
                Case Shapes.SHAPE_SMUDGE:
-                  If ( NOT this.hasImage OR this.Factor != this.lastFactor) {
-                     ; TODO - case to change it on +/- blur?
+                  If ( NOT this.hasImage OR this.Factor != this.lastFactor)
                      this.createImageBrush()
-                  }
-               Default:
-
             }
          Case Shapes.SHAPE_ARCARROW:
             GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
@@ -165,7 +160,7 @@ Class FreeHandShape extends commonShape {
    /**
     * Updatew/Create the image brush as needed
     * Will be color dependent
-    NOTE - similar code to the obscure class
+    NOTE - similar code to the obscure class, would be nice to reuse if possible
     */
    createImageBrush() {
       If (this.imageBrush) {
@@ -195,15 +190,13 @@ Class FreeHandShape extends commonShape {
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
-         Default:
-
       }
       ; During a move we may have changed the translation
       GDIp.ResetTextureTransform(this.imageBrush)
       GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth)
-      ; Set the highlight brush to the highlighted image underneath
+      ; Set the Pen brush to draw with the image
       GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
-      this.hasImage := true
+      this.hasImage  := true
       this.lastColor := this.Color
 
    }
