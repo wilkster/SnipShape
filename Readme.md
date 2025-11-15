@@ -247,6 +247,7 @@ options are also available from the Buttonbar described below.
 - While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
 - While drawing line or arrow shapes, the shape will snap at 45° angles.
 - When drawing freehand Pen shapes, if you stop the path near the start of the path, the path will enclose itself as if a circle was intended.
+- When drawing or resizing line based (two end-points) shapes, they will snap to a focus point if they are near it.  
 
 ## Shape Notes
 
@@ -256,7 +257,6 @@ options are also available from the Buttonbar described below.
   to resize the shape. All shapes/text can be resized in this manner.
 - While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
   snip.
-- When drawing or moving line based shapes, they will snap to a focus point if they are near it.  
 - When the focus rectangle is active over a shape, and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
   shortcut keys to perform operations on the shape as described below
@@ -267,7 +267,7 @@ Focus Rectangle Example
 
 ### Hotkeys on Shapes
 
-| **Snip HotKey** | **Action** |
+| **Shape HotKey** | **Action** |
 | ------ | ------ |
 |Ctrl-Click<br>Ctrl-D|Duplicate the shape|
 |Del | Remove the shape|
