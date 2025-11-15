@@ -75,7 +75,7 @@ Class Shapes {
          ["SHAPE_HILITE"       , "Block Highlight - Y"       , "Highlighters"],
          ["SHAPE_WHITEOUT"     , "Whiteout Pen - W"          , "Redact"],
          ["SHAPE_REDAC"        , "Redact - X"                , "Redact"],
-         ["SHAPE_SMUDGE"       , "Smudge Pen- ."             , "Redact"],
+         ["SHAPE_SMUDGE"       , "Smudge Pen - S"            , "Redact"],
          ["SHAPE_PIXELATE"     , "Pixelate - I"              , "Redact"],
          ["SHAPE_BLUR"         , "Blur - B"                  , "Redact"],
          ["SHAPE_GAUS_BLUR"    , "Gaussian Blur - G"         , "Redact"],
