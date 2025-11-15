@@ -172,6 +172,7 @@ options are also available from the Buttonbar described below.
 |R|Creates an outlined rectangle, shift to keep square|
 |D|Creates an outlined rounded rectangle, shift to keep square|
 |E|Creates an outlined ellipse/circle, shift to keep a circle|
+|[|Connector to join two areas|
 |]|Creates an bracket/brace|
 |**Free Hand**||
 |P|Free-hand Pen in current color, shift to stay on an axis|
@@ -181,6 +182,7 @@ options are also available from the Buttonbar described below.
 |Y|Yellow highlighter block|
 |**Redaction-Obfuscation**||
 |W|Free-Hand White Out Pen in background color, shift to stay on an axis|
+|S|Free-Hand Smudge Pen to blur underneath, shift to stay on axis|
 |X|Block/Redact rectangle with color under the cursor|
 |I|Pixelate Rectangle, good for text obscuring|
 |B|Blur Rectangle, good for photo obscuring|
@@ -202,11 +204,11 @@ options are also available from the Buttonbar described below.
 
 - Arrow Shapes
 
-![image](https://github.com/user-attachments/assets/52e39453-5b3c-44cc-9ab4-9742365aa83f)
+![image](https://github.com/user-attachments/assets/59ed9a88-ea3b-4612-b9cf-43feddea85b8)
 
 - Line/Connector/Rectangle/Ellipse Shapes/Bracket
 
-![image](https://github.com/user-attachments/assets/d5efbd78-fda7-41ce-b5b1-c6db1e22ace5)
+![image](https://github.com/user-attachments/assets/75659e76-b3df-449b-89da-4b475b7fdee5)
 
 - Free pen shapes
 
@@ -218,7 +220,7 @@ options are also available from the Buttonbar described below.
 
 - Redact/Obfuscate shapes
 
-![image](https://github.com/user-attachments/assets/9667cbaa-f684-47ad-8e70-90a6224a73d0)
+![image](https://github.com/user-attachments/assets/cbb2445b-5e4b-4e3c-8875-3b81ed634db2)
 
 - Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.
 
@@ -256,6 +258,7 @@ options are also available from the Buttonbar described below.
   to resize the shape. All shapes/text can be resized in this manner.
 - While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
   snip.
+- When drawing or moving line based shapes, they will snap to a focus point if they are near it.  
 - When the focus rectangle is active over a shape, and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
   shortcut keys to perform operations on the shape as described below
