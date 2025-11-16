@@ -870,6 +870,79 @@ Class BitMap {
          warning("Invalid Effect " Effect)
       }
    }
+   /**
+    * Transform a pBitmap and return a replacement
+    * S/B faster than two step create bitmap/transform/draw
+    * @param TpBitmap pBitmap to process, removed at the end
+    * @param Effect 1=Invert, 2=Grayscale, 3=B&W High Contrast
+    * @returns {Number} 
+    */
+   Static TransformBitmap(pBitmap, numEffect) {
+      Static ColorMatrixEffectGuid := "{718F2615-7933-40e3-A511-5F68FE14DD74}"
+      Static eFXguid := this.CLSIDFromString(ColorMatrixEffectGuid)
+      ; 64 bit only
+      If (E := DllCall("gdiplus\GdipCreateEffect", "Ptr", eFXguid.Ptr, "Ptr*", &pEffect := 0)) {
+         warning("Error " E " in GdipCreateEffect")
+         Return -E
+      }
+
+      Switch numEffect {
+         ; B&W hight contrast
+         Case 3:
+            transformMatrix := [
+               1.5, 1.5, 1.5, 0.0, 0.0,
+               1.5, 1.5, 1.5, 0.0, 0.0,
+               1.5, 1.5, 1.5, 0.0, 0.0,
+               0.0, 0.0, 0.0, 1.0, 0.0,
+               -1.0, -1.0, -1.0, 0.0, 1.0]
+         ; Grayscale (visual)
+         Case 2:
+            transformMatrix := [
+               0.299, 0.299, 0.299, 0.0, 0.0,
+               0.587, 0.587, 0.587, 0.0, 0.0,
+               0.114, 0.114, 0.114, 0.0, 0.0,
+               0.0, 0.0, 0.0, 1.0, 0.0,
+               0.0, 0.0, 0.0, 0.0, 1.0]
+         ; Invert as default
+         Default:
+            transformMatrix := [
+               -1, 0.0, 0.0, 0.0, 0.0,
+               0.0, -1, 0.0, 0.0, 0.0,
+               0.0, 0.0, -1, 0.0, 0.0,
+               0.0, 0.0, 0.0, 1.0, 0.0,
+               1.0, 1.0, 1.0, 0.0, 1.0]
+      }      
+      ColorMatrixBuf := GDIp.GetMatrixBuffer(transformMatrix)
+
+      If (E := DllCall("gdiplus\GdipSetEffectParameters"
+         , "Ptr", pEffect
+         , "Ptr", ColorMatrixBuf.Ptr
+         , "UInt", ColorMatrixBuf.Size)) {
+         warning("Error " E " in GdipSetEffectParameters")
+         GDIp.DisposeEffect(pEffect)
+         Return -E
+      }
+      ; Area to be modified is entire image (RectF)
+      GDIp.GetImageDimensions(pBitmap, &Width, &Height)
+      GDIp.CreateRectF(&RectF := 0, 0, 0, Width, Height)
+
+      ; Apply in-place
+      E := DllCall("gdiplus\GdipBitmapApplyEffect"
+         , "Ptr", pBitmap
+         , "Ptr", pEffect
+         , "Ptr", RectF.Ptr
+         , "Ptr", 0
+         , "Ptr", 0
+         , "Ptr", 0)
+
+      GDIp.DisposeEffect(pEffect)
+      If E {
+         warning("Error " E " in GdipBitmapApplyEffect")
+         Return -E
+      }
+      Return pBitmap         
+   }
+   
    ;----------------------------------------------------------------------
    ; Effect Support
    ;----------------------------------------------------------------------

@@ -32,6 +32,11 @@ Class SnipMenus {
       this.AddEntry('OCR Text Words to Clipboard', "Ocr.cur")
       this.AddEntry('OCR Text Table to Clipboard', "Ocr.cur")
       this.csMenu.Add()
+      this.AddEntry('Invert Snip (Ctrl-I)', "screenshot.ico")
+      this.AddEntry('Grayscale Snip (Ctrl-G)', "screenshot.ico")
+      this.AddEntry('B&W Snip (Ctrl-B)', "screenshot.ico")
+      this.AddEntry('Restore Snip (Ctrl-R)', "screenshot.ico")
+      this.csMenu.Add()
       ; Note, these two are renamed with current file name in Post
       this.AddEntry('Edit:', "Edit.ico")
       this.AddEntry('Save:', "SaveAs.ico")
@@ -78,6 +83,11 @@ Class SnipMenus {
                Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
                Snips.Close(sw, 0)
             }
+         Case ItemName ~= "Invert Snip": Snips.TransformSnip(WinExist("A"),1)                           
+         Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)                           
+         Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)                           
+         Case ItemName ~= "Restore Snip": Snips.RestoreMySnip(WinExist("A"))                           
+
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           
          Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(WinExist("A"),14)                           
@@ -134,8 +144,8 @@ Class SnipMenus {
          this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
       }
       ; Keep positional rename since menu is renamed dynamically
-      this.csMenu.Rename('9&', "Edit: "  SnipObj.BaseName)
-      this.csMenu.Rename('10&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
+      this.csMenu.Rename('14&', "Edit: "  SnipObj.BaseName)
+      this.csMenu.Rename('15&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
       this.PictMenu.Delete()
       this.populatePicMenu(this.PictMenu, hWnd, mX, mY)

@@ -2118,31 +2118,8 @@ Class GDIp {
          warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return res
    }
-   /**
-    * Invert a pBitmap and return a replacement
-    * @param pBittmap Input bitmap, will be discarded
-    */
-   Static InvertImage(TpBittmap) {
 
-      invertMatrix := [
-       -1, 0.0, 0.0, 0.0, 0.0,
-      0.0,  -1, 0.0, 0.0, 0.0,
-      0.0, 0.0,  -1, 0.0, 0.0,
-      0.0, 0.0, 0.0, 1.0, 0.0, ;⇦ the 1 here is alpha (opacity dims the inverted colors)
-      1.0, 1.0, 1.0, 0.0, 1.0] ;⇦ Can adjust overall brightness (offset values), all 1's would just invert the colors
-      Static ColorMatrixBuf := GDIp.GetMatrixBuffer(invertMatrix)
 
-      attrib := GDIp.CreateImageAttributes()
-      GDIp.SetImageAttributesColorMatrixf(attrib, ColorMatrixBuf, 1)
-      GDIp.GetImageDimensions(TpBittmap, &sWidth, &sHeight)
-      pResultBitmap := GDIp.CreateBitmap(sWidth, sHeight) ; 0xE200B ⟹ Format32bppPArgb is supposed to be faster)
-      G := GDIp.GraphicsFromImage(pResultBitmap)
-      GDIp.DrawImage(G, TpBittmap, 0, 0, sWidth, sHeight, 0, 0, sWidth, sHeight, , , attrib)
-      GDIp.DeleteGraphics(G)
-      GDIp.DisposeImage(TpBittmap)
-      GDIp.DisposeImageAttributes(attrib)
-      return pResultBitmap
-   }
    Static GetMatrixBuffer(colorMatrixVals) {
       ColorMatrixBuf := Buffer(colorMatrixVals.Length * 4, 0)
       For Idx, Cmv in colorMatrixVals

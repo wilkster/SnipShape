@@ -195,6 +195,7 @@ Class Snips {
          this._FileName            := ""
          this.BrushMap             := Map()        
          this.BrushCount           := Map()        
+         this.saveBitmap           := 0
          Snips.guiSnips[this.hWnd] := this
          ; logGDI("+Create Snip:" this.Title)
          ; RMB menu is on the screenshot picture control
@@ -220,6 +221,8 @@ Class Snips {
             title := this.Title
             Snips.ClearAllShapes(this.hWnd)  ; in case we have built in GC
             Snips.guiSnips.Delete(this.hWnd)
+            if (this.saveBitmap)
+               GDIp.DisposeImage(this.saveBitmap)
             super.Destroy()
             ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
          } Catch as E {
@@ -231,7 +234,22 @@ Class Snips {
          }
          Return 1
       }
-
+      /**
+       * Save the current bitmap for a potential redo later
+       */
+      SaveMyBitmap() {
+         If (NOT this.saveBitmap) {
+            this.saveBitmap := GDIp.CreateBitmapFromHBITMAP(this.PIC.Handle)
+         }
+      }
+      RestoreBitmap() {
+         If (this.saveBitmap) {
+            hBitmap := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
+            this.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
+            GDI.DeleteObject(hBitmap)
+            ; leave og bitmap around, clean up on close
+         }
+      }
 
       ;----------------------------------------------------------------------
       ; Cache to hold reusable texture brushes shared by shapes on this snip
@@ -957,6 +975,37 @@ Class Snips {
          }
       } Else {
          Return false
+      }
+   }
+   /**
+    * Transform the snip colors to make it easier in some cases
+    * Shapes are not impacted
+    * @param hWnd Snip Window handle
+    * @param how 1=Invert, 2=grayscale,3=B&W High contrast
+    */
+   Static TransformSnip(hWnd, numEffect := 1) {
+      If this.IsValid(hWnd) {
+         snipObj  := this.GetGuiObj(hWnd)
+         snipObj.SaveMyBitmap()
+         picObj   := snipObj.Pic
+         hBitmap  := picObj.Handle
+         pBitmap  := GDIp.CreateBitmapFromHBITMAP(hBitmap)
+
+         ; Transform in place
+         Bitmap.TransformBitmap(pBitmap, numEffect)
+         ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         ; Replace the picture
+         picObj.Handle := ihBitmap ; destroys og hBitmap
+         ; Cleanup
+         GDIp.DisposeImage(pBitmap) ; 
+      } Else {
+         qTrayTip("Failed to get the Snip handle!",2)
+      }
+   }
+   Static RestoreMySnip(hwnd) {
+      If this.IsValid(hwnd) {
+         snipObj := this.GetGuiObj(hwnd)
+         snipObj.RestoreBitmap()
       }
    }
    ;----------------------------------------------------------------------

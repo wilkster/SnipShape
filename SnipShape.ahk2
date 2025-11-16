@@ -300,6 +300,11 @@ HotIfWinActive
    ^V:: {
       Shapes.PasteNewShape()
    }
+   ; Simple transformations
+   ^i::Snips.TransformSnip(WinExist("A"),1) ; invert
+   ^g::Snips.TransformSnip(WinExist("A"),2) ; grayscale
+   ^b::Snips.TransformSnip(WinExist("A"),3) ; black and white high contrast
+   ^r::Snips.RestoreMySnip(WinExist("A")) ; black and white high contrast
    ; ~Down:: {
    ;    ; Only if not actively drawing
    ;    If NOT GetKeyState("lbutton", "P")
@@ -332,7 +337,6 @@ HotIfWinActive
 
    -::
    NumpadSub:: Snips.CloneAndScaleSnip(WinExist("A"), 1/2.0, 1)
-
 
    F1:: {
       ; Toggle Buttonbar
