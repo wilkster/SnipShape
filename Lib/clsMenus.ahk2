@@ -290,10 +290,10 @@ Class ShapeMenus {
 ; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
       Switch ShapeObj.Source {
          Case "File", "Clip":
-            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset Size","Reset.ico")
+            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
-               ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset Size","Reset.ico")
+               ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
             If (PC > 1)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
             If (PC > 2)

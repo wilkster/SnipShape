@@ -53,7 +53,7 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
       Case Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT, Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_HILITE:
          pObj.Source := "BodyShape"
          pObj.base  := BodyShape.Prototype
-      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP:
+      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE:
          ; NOTE - The objects are setup based on Gui.PIC so not sure a way around this short of creating a brand
          ; new class NOT based on Gui.PIC that includes all the GDI calls. Not worth it since controls are recycled.
          pObj.Source := "ToolShape"
@@ -334,7 +334,8 @@ Class commonShape extends Gui.Pic {
    }
    IsOverSnip() {
       C := this.sCoord
-      this.Gui.PIC.GetPos(,,&pW,&pH)
+      ; TODO - do we call this repeatdely?
+      this.Gui.PIC.GetPos(,,&pW,&pH) 
       ; extract area wherepredominant  shape intersects with the snip and use it
       Return iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)
    }

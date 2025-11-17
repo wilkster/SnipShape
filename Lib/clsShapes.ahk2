@@ -80,6 +80,7 @@ Class Shapes {
          ["SHAPE_BLUR"         , "Blur - B"                  , "Redact"],
          ["SHAPE_GAUS_BLUR"    , "Gaussian Blur - G"         , "Redact"],
          ["SHAPE_CROP"         , "Crop - C"                  , "Tool"],
+         ["SHAPE_SLICE"        , "Slice - ,"                 , "Tool"],
          ["SHAPE_OCR"          , "OCR - O"                   , "Tool"],
          ["SHAPE_TEXT"         , "Text - T"                  , "Text"],
          ["SHAPE_FILLTEXT"     , "Fill Text - F"             , "Text"],
@@ -383,7 +384,10 @@ Class Shapes {
             ; Make it seem the caption was clicked so dragging will work.
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
             PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
-         Case Shapes.SHAPE_CROP    : 
+         Case Shapes.SHAPE_CROP:
+            changed := Shapes.Draw(SnipObj,DrawMode)
+            Snips.SetDrawMode(0)
+         Case Shapes.SHAPE_SLICE:
             changed := Shapes.Draw(SnipObj,DrawMode)
             Snips.SetDrawMode(0)
          Case Shapes.SHAPE_TAG:
@@ -816,6 +820,10 @@ Class Shapes {
                ; Crop the selection
                this.Crop(ShapeObj, Snips.UpdateClipboard)
                ShapeObj.Close()
+            Case this.SHAPE_SLICE:
+               ; Slice the selection
+               this.Slice(ShapeObj, Snips.UpdateClipboard)
+               ShapeObj.Close()
             Case this.SHAPE_OCR:
                ; OCR the selection
                this.OCRShape(ShapeObj)
@@ -1222,7 +1230,7 @@ Class Shapes {
          If (cW < 25 OR cH < 25)
             Return
          ; This destroys the existing snip bitmap and creates a new one
-         hBitmap := BitMap.CropHBITMAP(hBitmap, cX1, cY1, cW, cH)
+         hBitmap := BitMap.CropHBITMAP(hBitmap, cX1, cY1, cW, cH) 
          ; Hide the flash when we replace the bitmap
          myGUI.Move(-20000,-20000) 
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
@@ -1236,6 +1244,63 @@ Class Shapes {
                Ctrl.Move(X - cX1, Y - cY1)
             }
          }
+         ButtonBar.Show()
+         if Clipboard {
+            Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeCropObj.Gui.hWnd)
+         }
+      }
+   }
+      /**
+    * Crop the image to one of the drawn shapes/pictures
+    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @returns Nothing 
+    */
+   Static Slice(ShapeCropObj, Clipboard := false) {
+      myGUI := ShapeCropObj.Gui
+      myPic := ShapeCropObj.Gui.Pic
+      If (hBitmap := myPic.handle) {
+         ; Get various dimensions
+         myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border
+         ; TODO - save last draw cooridnates in shape and pull them from there, simplify this logic
+         ShapeCropObj.GetPos(&cX1, &cY1, &cW, &cH)
+
+         cX2 := cX1 + cW, cY2 := cY1 + cH
+         ; Get the raw picture dimensions
+         myPic.GetPos(&pX1, &pY1, &pW, &pH)
+         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, cX1, cY1, cX1 + cW, cY1 + cH)
+
+         pX2 := pX1 + pW, pY2 := pY1 + pH
+         cX1 := iR.l, cX2 := iR.r, cY1 := iR.t, cY2 := iR.b
+         ; Limit to visible bounding regions, crop tool can get way beyound picture boundaries
+         ; TODO - use IntersectRect
+         ; cX1 := Max(cX1, pX1), cX2 := Min(cX2, pX2)
+         ; cY1 := Max(cY1, pY1), cY2 := Min(cY2, pY2)
+         ; Since pX1 started at Borderwidth and not 0, have to remove one
+         ; borderwidth when computing the width, pX1/pY1 will be the BW
+         cW := cX2 - cX1 - pX1, cH := cY2 - cY1 - pY1
+         If (cW < 5 AND cH < 5)
+            Return
+         ; TODO - do the slice dimensions here vs in the BitMap method, we are triple checking cH vs cW
+         ; This destroys the existing snip bitmap and creates a new one
+         hBitmap := BitMap.SliceHBITMAP(hBitmap, cX1, cY1, cW, cH) 
+         ; Hide the flash when we replace the bitmap
+         myGUI.Move(-20000,-20000) 
+         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         myPic.Handle := hBitmap  ; This will free hBitmap
+         ; Resize GUI to contain the new crop coordinates
+         if (cH > cW)
+            myGUI.Move(gX1, gY1, gW - cW, gH)
+         else
+            myGUI.Move(gX1, gY1, gW, gH - cH)
+         ; myGUI.Move(gX1, gY1, gW - cW + Snips.BorderWidth * 2, gH - cH + Snips.BorderWidth * 2)
+         ; Shift all of the controls so they stay in same place
+         ; TODO - handle new postion better, check on what side they were
+         ; For Ctrl in myGUI {
+         ;    If Ctrl.Visible and A_Index > 1 {
+         ;       Ctrl.GetPos(&X, &Y, &W, &H)
+         ;       Ctrl.Move(X - cX1, Y - cY1)
+         ;    }
+         ; }
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeCropObj.Gui.hWnd)

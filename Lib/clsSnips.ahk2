@@ -1006,6 +1006,8 @@ Class Snips {
       If this.IsValid(hwnd) {
          snipObj := this.GetGuiObj(hwnd)
          snipObj.RestoreBitmap()
+         ; Note - if slicing/cropping occured before this will restore the image
+         SnipObj.Show("AutoSize") 
       }
    }
    ;----------------------------------------------------------------------

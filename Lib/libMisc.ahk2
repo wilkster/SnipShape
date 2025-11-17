@@ -638,7 +638,7 @@ IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
     NumPut("int", l1, "int", t1, "int", r1, "int", b1, rect1)
     NumPut("int", l2, "int", t2, "int", r2, "int", b2, rect2)
     if DllCall("user32\IntersectRect", "Ptr", rectOut, "Ptr", rect1, "Ptr", rect2)
-        Return { l: rectOut.X1, t: rectOut.Y1, r: rectOut.X2, b: rectOut.Y2 }
+        Return { l: rectOut.X1, t: rectOut.Y1, r: rectOut.X2, b: rectOut.Y2, w: rectOut.X2 - rectOut.X1, h: rectOut.y2 - rectOut.y1 }
 }
 /**
  * The InflateRect function increases or decreases the width and height of the specified rectangle

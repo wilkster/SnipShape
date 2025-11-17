@@ -12,6 +12,9 @@ Class ToolShape extends commonShape {
    Startup() {
       super.Startup()
       GDIp.SetPenDashStyle(this.pPrime, 1)
+      this.Gui.PIC.GetPos(,,&this.pW,&this.pH)
+      ; Slicer brush
+      this.fBrush := this.myBrushes.Add(0x88808080)
    }
    /**
     * Make adjustments based on the passed in factor, call before startup
@@ -37,7 +40,16 @@ Class ToolShape extends commonShape {
     * @param H Height of shape to draw
     */
    Draw(G, X, Y, W, H) {
-      GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
+      Switch this.Shape {
+         Case Shapes.SHAPE_SLICE :
+            if (W > H)
+               GDIp.FillRectangle(G, this.fBrush, X, 0, W, this.pH) ; zero upper/left corner always
+            else
+               GDIp.FillRectangle(G, this.fBrush, 0, Y, this.pW, H) ; zero upper/left corner always
+
+         Default :
+            GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
+      }
       this.sCoord := { X1: X, X2: X + W, Y1: Y, Y2: Y + H, W: W, H: H, X: X, Y: Y }
    }
 }

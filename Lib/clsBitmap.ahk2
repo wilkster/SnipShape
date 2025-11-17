@@ -49,6 +49,54 @@ Class BitMap {
       Return hClone
    }
 
+   /**
+    * Slice an hBitmap using GDI only
+    * Extends w/h depending on which is larger
+    * @param hBitmap Handle to the bitmap to slice
+    * @param X Offset
+    * @param Y  Offset
+    * @param nW  new Width
+    * @param nH  new Height
+    * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
+    * @returns {hBitmap} 
+    */
+   Static SliceHBITMAP(hBitmap, nX, nY, nW, nH, keepBitmap := 0) {
+      GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
+      fullBM := { X1: 0, Y1: 0, X2: ogW, Y2: ogH }
+      ; Determine slice based on orientation
+      hdcSrc := GDI.CreateCompatibleDC(0)
+      hdcClone := GDI.CreateCompatibleDC(0)
+      ; TODO - rely on the caller to get these right
+      If (nH > nW)
+         hClone := GDI.CreateDIBSection(ogW - nW, ogH, hdcClone)
+      else
+         hClone := GDI.CreateDIBSection(ogW, ogH - nH, hdcClone)
+
+      obm := GDI.SelectObject(hdcSrc, hBitmap)
+      obm2 := GDI.SelectObject(hdcClone, hClone)
+      ; DestDC, Dest X, Dest Y, Dest Width, Dest Height, srcDC, Source X, Source Y
+      If (nH > nW) {
+         ; Remove inner vertical section
+         GDI.BitBlt(hdcClone, 0, 0, nX, ogH, hdcSrc) ;left
+         GDI.BitBlt(hdcClone, nX, 0, ogW - nW - nX, ogH, hdcSrc, nX + nW, 0) ;right
+      } Else {
+         ; Remove inner horizontal section
+         GDI.BitBlt(hdcClone, 0, 0, ogW, nY, hdcSrc) ; top
+         GDI.BitBlt(hdcClone, 0, nY, ogW, ogH - nH - nY, hdcSrc, 0, nY + nH) ; bottom
+      }
+      ; clean up, user has to handle the target bitmap
+      GDI.SelectObject(hdcSrc, obm)
+      GDI.SelectObject(hdcClone, obm2)
+
+      GDI.DeleteDC(hdcSrc)
+      GDI.DeleteDC(hdcClone)
+      If NOT keepBitmap
+         GDI.DeleteObject(hBitmap)
+      ; User needs to delete object
+
+      Return hClone
+   }
+
    ;----------------------------------------------------------------------
    ; Clone a hBitmap and crop the border off
    ; User responsible for created bitmaps
@@ -942,7 +990,6 @@ Class BitMap {
       }
       Return pBitmap         
    }
-   
    ;----------------------------------------------------------------------
    ; Effect Support
    ;----------------------------------------------------------------------
