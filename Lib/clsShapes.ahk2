@@ -1207,14 +1207,14 @@ Class Shapes {
     * @param GuiCtrlObj Is the crop rectangle just drawn
     * @returns Nothing 
     */
-   Static Crop(ShapeCropObj, Clipboard := false) {
-      myGUI := ShapeCropObj.Gui
+   Static Crop(CropObj, Clipboard := false) {
+      myGUI := CropObj.Gui
       myPic := myGUI.Pic
       If (hBitmap := myPic.handle) {
          ; Get various dimensions
          ; TODO - could probably use the intersectrect function here (IntersectRect)
          myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border 
-         ShapeCropObj.GetPos(&cX1, &cY1, &cW, &cH) 
+         CropObj.GetPos(&cX1, &cY1, &cW, &cH) 
          cX2 := cX1 + cW, cY2 := cY1 + cH
          ; Get the raw picture dimensions
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
@@ -1244,7 +1244,7 @@ Class Shapes {
          }
          ButtonBar.Show()
          if Clipboard {
-            Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeCropObj.Gui.hWnd)
+            Snips.Snip2Clipboard(Snips.borderWithCopy, CropObj.Gui.hWnd)
          }
       }
    }
@@ -1253,12 +1253,12 @@ Class Shapes {
     * @param GuiCtrlObj Is the crop rectangle just drawn
     * @returns Nothing 
     */
-   Static Slice(ShapeCropObj, Clipboard := false) {
-      myGUI := ShapeCropObj.Gui
+   Static Slice(SliceObj, Clipboard := false) {
+      myGUI := SliceObj.Gui
       myPic := myGUI.Pic
       If (hBitmap := myPic.handle) {
          BW := Snips.BorderWidth
-         sC :=ShapeCropObj.shapeCoord ; includes picture border offset
+         sC :=SliceObj.shapeCoord ; includes picture border offset
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
          iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, sc.X, sc.Y, sc.X2, sc.Y2)
          ; Offset by borderwidth (0 based)
@@ -1273,17 +1273,15 @@ Class Shapes {
          For Ctrl in myGUI {
             If Ctrl.Visible and A_Index > 1 {
                Ctrl.GetPos(&X, &Y, &W, &H)
-               If ((iR.l - BW) = 0) ; Horz section
-                  if (Y > iR.t)
-                     Ctrl.Move(X, Y - iR.h)
-               Else ; Vert section
-                  if (X > iR.L)
-                     Ctrl.Move(X - iR.w, Y)
+               If (pW = iR.W) ; Horz section
+                  Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
+               Else if (pH = iR.H) ; Vert section
+                  Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
             }
          }
          ButtonBar.Show()
          if Clipboard {
-            Snips.Snip2Clipboard(Snips.borderWithCopy, ShapeCropObj.Gui.hWnd)
+            Snips.Snip2Clipboard(Snips.borderWithCopy, SliceObj.Gui.hWnd)
          }
       }
    }
