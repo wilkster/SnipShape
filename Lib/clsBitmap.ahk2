@@ -70,7 +70,7 @@ Class BitMap {
       obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
       obmClone := GDI.SelectObject(hdcClone, hClone)
       ; DestDC, Dest X, Dest Y, Dest Width, Dest Height, srcDC, Source X, Source Y
-      If (nY = 0) {
+      If (ogH = nH) {
          ; Remove inner vertical section
          GDI.BitBlt(hdcClone, 0, 0, nX, ogH, hdcSrc) ;left
          GDI.BitBlt(hdcClone, nX, nY, ogW - nW - nX, ogH, hdcSrc, nX + nW, 0) ;Vertical
