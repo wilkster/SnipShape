@@ -28,17 +28,16 @@ Class BitMap {
     */
    Static CropHBITMAP(hBitmap, X, Y, nW, nH, keepBitmap := 0) {
 
-      hdcSrc := GDI.CreateCompatibleDC(0)
+      hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      hClone := GDI.CreateDIBSection(nW, nH, hdcClone)
-
-      obm := GDI.SelectObject(hdcSrc, hBitmap)
-      obm2 := GDI.SelectObject(hdcClone, hClone)
+      hClone   := GDI.CreateDIBSection(nW, nH, hdcClone)
+      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmClone := GDI.SelectObject(hdcClone, hClone)
 
       GDI.BitBlt(hdcClone, 0, 0, nW, nH, hdcSrc, X, Y)
       ; clean up, user has to handle the target bitmap
-      GDI.SelectObject(hdcSrc, obm)
-      GDI.SelectObject(hdcClone, obm2)
+      GDI.SelectObject(hdcSrc, obmSrc)
+      GDI.SelectObject(hdcClone, obmClone)
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
@@ -52,9 +51,10 @@ Class BitMap {
    /**
     * Slice an hBitmap using GDI only
     * Extends w/h depending on which is larger
+    * Input coordinates will span picture one X or Y
     * @param hBitmap Handle to the bitmap to slice
-    * @param X Offset
-    * @param Y  Offset
+    * @param X Offset (snip border offset)
+    * @param Y Offset (snip border offset)
     * @param nW  new Width
     * @param nH  new Height
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
@@ -62,37 +62,31 @@ Class BitMap {
     */
    Static SliceHBITMAP(hBitmap, nX, nY, nW, nH, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
-      fullBM := { X1: 0, Y1: 0, X2: ogW, Y2: ogH }
       ; Determine slice based on orientation
-      hdcSrc := GDI.CreateCompatibleDC(0)
+      hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      ; TODO - rely on the caller to get these right
-      If (nH > nW)
-         hClone := GDI.CreateDIBSection(ogW - nW, ogH, hdcClone)
-      else
-         hClone := GDI.CreateDIBSection(ogW, ogH - nH, hdcClone)
+      hClone   := GDI.CreateDIBSection(ogW - (ogW = nW ? 0 : nW), ogH - (ogH = nH ? 0 : nH), hdcClone)
 
-      obm := GDI.SelectObject(hdcSrc, hBitmap)
-      obm2 := GDI.SelectObject(hdcClone, hClone)
+      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmClone := GDI.SelectObject(hdcClone, hClone)
       ; DestDC, Dest X, Dest Y, Dest Width, Dest Height, srcDC, Source X, Source Y
-      If (nH > nW) {
+      If (nY = 0) {
          ; Remove inner vertical section
          GDI.BitBlt(hdcClone, 0, 0, nX, ogH, hdcSrc) ;left
-         GDI.BitBlt(hdcClone, nX, 0, ogW - nW - nX, ogH, hdcSrc, nX + nW, 0) ;right
+         GDI.BitBlt(hdcClone, nX, nY, ogW - nW - nX, ogH, hdcSrc, nX + nW, 0) ;Vertical
       } Else {
          ; Remove inner horizontal section
          GDI.BitBlt(hdcClone, 0, 0, ogW, nY, hdcSrc) ; top
-         GDI.BitBlt(hdcClone, 0, nY, ogW, ogH - nH - nY, hdcSrc, 0, nY + nH) ; bottom
+         GDI.BitBlt(hdcClone, nX, nY, ogW, ogH - nH - nY, hdcSrc, 0, nY + nH) ; Horizontal
       }
       ; clean up, user has to handle the target bitmap
-      GDI.SelectObject(hdcSrc, obm)
-      GDI.SelectObject(hdcClone, obm2)
+      GDI.SelectObject(hdcSrc, obmSrc)
+      GDI.SelectObject(hdcClone, obmClone)
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
       If NOT keepBitmap
          GDI.DeleteObject(hBitmap)
-      ; User needs to delete object
 
       Return hClone
    }
