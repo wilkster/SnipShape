@@ -43,8 +43,10 @@ Class ToolShape extends commonShape {
       Switch this.Shape {
          Case Shapes.SHAPE_SLICE :
             If (W > H) {
+               ; Vert Rect
                Y := this.pY, H := this.pH
             } Else {
+               ; Horz Rect
                X := this.pX, W := this.pW
             }
             GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always

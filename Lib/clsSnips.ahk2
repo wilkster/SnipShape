@@ -247,8 +247,10 @@ Class Snips {
             hBitmap := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
             this.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
             GDI.DeleteObject(hBitmap)
+            return true
             ; leave og bitmap around, clean up on close
-         }
+         } else 
+            return false
       }
 
       ;----------------------------------------------------------------------
@@ -1002,12 +1004,18 @@ Class Snips {
          qTrayTip("Failed to get the Snip handle!",2)
       }
    }
+   /**
+    * Restore a saved bitmap picture if one exists
+    * @param hwnd Snip GUI
+    */
    Static RestoreMySnip(hwnd) {
       If this.IsValid(hwnd) {
          snipObj := this.GetGuiObj(hwnd)
-         snipObj.RestoreBitmap()
-         ; Note - if slicing/cropping occured before this will restore the image
-         SnipObj.Show("AutoSize") 
+         If (snipObj.RestoreBitmap()) {
+            ; Note - if slicing/cropping occured before this will restore the image
+            snipObj.Show("AutoSize")
+            WinRedraw(hWnd)
+         }
       }
    }
    ;----------------------------------------------------------------------

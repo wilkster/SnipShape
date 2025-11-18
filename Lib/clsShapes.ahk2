@@ -80,7 +80,7 @@ Class Shapes {
          ["SHAPE_BLUR"         , "Blur - B"                  , "Redact"],
          ["SHAPE_GAUS_BLUR"    , "Gaussian Blur - G"         , "Redact"],
          ["SHAPE_CROP"         , "Crop - C"                  , "Tool"],
-         ["SHAPE_SLICE"        , "Slice - ,"                 , "Tool"],
+         ["SHAPE_SLICE"        , "Slice - K"                 , "Tool"],
          ["SHAPE_OCR"          , "OCR - O"                   , "Tool"],
          ["SHAPE_TEXT"         , "Text - T"                  , "Text"],
          ["SHAPE_FILLTEXT"     , "Fill Text - F"             , "Text"],
@@ -110,23 +110,23 @@ Class Shapes {
       ; Read Ini settings
       ;----------------------------------------------------------------------
       ;Common Shapes
-      this.outlineColor       := RGBval(IniReadValue("User Shape Color", "Outline Color", "Silver")) ; Not currently set by menu
-      this.outlineOpacity     := IniReadValue("Common Shape", "Outline Opacity", 160)
-      this.rawLineThickness   := IniReadValue("Common Shape", "Line Thickness", 3)
-      this.outlineThickFactor := IniReadValue("Common Shape", "Outline Thickness Factor", 3)
-      this.globalShapeColor   := RGBval(IniReadValue("Common Shape", "Default Shape Color", 0xFF0000))
-      this.shapeOpacity       := IniReadValue("Common Shape", "Shape Opacity", 0xFF)
-      ; Arrows
-      this.arrowLineThickness := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
-      this.ArrowSmoothFactor  := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "High")
-      this.arrowOpacity       := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
-      ; Body
-      this.fillOpacity        := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
-      ; Freehand
-      this.penLineThickness   := IniReadValue("Freehand Shape", "Pen Thickness", 3)
-      this.widePenThickness   := IniReadValue("Freehand Shape", "Wide Pen Thickness", 14)
-      this.penOpacity         := IniReadValue("Freehand Shape", "Pen Opacity", 0xFF)
-      this.PenSmoothFactor    := IniReadValue("Freehand Shape", "Pen Smoothing Factor", "Low")
+      this.outlineColor          := RGBval(IniReadValue("User Shape Color", "Outline Color", "Silver")) ; Not currently set by menu
+      this.outlineOpacity        := IniReadValue("Common Shape", "Outline Opacity", 160)
+      this.rawLineThickness      := IniReadValue("Common Shape", "Line Thickness", 3)
+      this.outlineThickFactor    := IniReadValue("Common Shape", "Outline Thickness Factor", 3)
+      this.globalShapeColor      := RGBval(IniReadValue("Common Shape", "Default Shape Color", 0xFF0000))
+      this.shapeOpacity          := IniReadValue("Common Shape", "Shape Opacity", 0xFF)
+      ; Arrows   
+      this.arrowLineThickness    := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
+      this.ArrowSmoothFactor     := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "High")
+      this.arrowOpacity          := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
+      ; Body   
+      this.fillOpacity           := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
+      ; Freehand   
+      this.penLineThickness      := IniReadValue("Freehand Shape", "Pen Thickness", 3)
+      this.widePenThickness      := IniReadValue("Freehand Shape", "Wide Pen Thickness", 14)
+      this.penOpacity            := IniReadValue("Freehand Shape", "Pen Opacity", 0xFF)
+      this.PenSmoothFactor       := IniReadValue("Freehand Shape", "Pen Smoothing Factor", "Low")
       ; Highlighters / Redact
       this.highLightThickness    := IniReadValue("Highlight Shape", "Highlight/Whiteout Factor", 18)
       this.HighlightSmoothFactor := IniReadValue("Highlight Shape", "Highlight/Whiteout Smoothing Factor", "High")
@@ -1267,7 +1267,7 @@ Class Shapes {
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
-         ; Autosize may leave one border wider for some strange reason
+         ; Autosize may leave one border wider for some strange reason (would need redraw)
          myGUI.Show("W" W + BW * 2 " H" H + BW * 2)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
