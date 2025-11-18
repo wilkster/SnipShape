@@ -115,7 +115,6 @@ Class commonShape extends Gui.Pic {
       this.Visible   := true
       this.DPIFactor := activeDPIFactor()
       this.ShapeName := this.Shape > 0 ? Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1]) : "Picture"
-      this.PIC       := this.GUI.PIC.Handle
       this.SnipObj   := this.GUI
 
    }
@@ -370,7 +369,7 @@ Class commonShape extends Gui.Pic {
          opac   := Constrain(0, 255, hlOpacity) / 255
          scale  := 0.25 ; how much to blend the complement highlight color into the background
          ; https://learn.microsoft.com/en-us/windows/win32/gdiplus/-gdiplus-recoloring-use
-         ; If background is dark, then replace the background color with something a big lighter
+         ; If background is dark, then replace the background color with something a bit lighter
          ; 50 is a threshold indicating a pretty dark background where text is most likely white or light
          ; High Percent indicates a solid background (like text), vs a photo or texture
          If ((lv := Luminosity(bgColor)) < 64 AND Percent > 0.10) {
@@ -476,7 +475,7 @@ Class commonShape extends Gui.Pic {
     */
    pBitmapUnderShape(Cin?) {
       ; Get the snips base snip handle
-      hBitmap := this.PIC
+      hBitmap := this.GUI.PIC.Handle
       If (hBitmap) {
          C := Cin ?? this.sCoord
          If (C.W > 0 AND C.H > 0) {
@@ -508,7 +507,7 @@ Class commonShape extends Gui.Pic {
     * NOTE: The bitmap will be shifted by Snips.BorderWidth so take that into account
     */
    getHighlightedSnipBrush(color, opacity := 0xFF) {
-      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
          CC     := BitMap.GetBackgroundColor(pBitInput, &Perc := 0)
          tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC, Perc)
          GDIp.TranslateTextureBrush(tBrush, Snips.BorderWidth, Snips.BorderWidth)

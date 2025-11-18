@@ -1504,6 +1504,7 @@ Class SnipPicture extends Gui.Pic {
    ; get/set the bitmap handle for this piecture
    ;----------------------------------------------------------------------
    Handle {
+      ; SendMessage is very fast ~20uSec
       get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
       ; Resize control to actual bitmap size
       set => this.Value := "*W0 *H0 HBITMAP:" Value

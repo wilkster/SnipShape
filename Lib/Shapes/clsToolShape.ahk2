@@ -12,7 +12,7 @@ Class ToolShape extends commonShape {
    Startup() {
       super.Startup()
       GDIp.SetPenDashStyle(this.pPrime, 1)
-      this.Gui.PIC.GetPos(&this.pX,&this.pY,&this.pW,&this.pH)
+      this.Gui.PIC.GetPos(&this.pX, &this.pY, &this.pW, &this.pH)
       ; Slicer brush
       this.fBrush := this.myBrushes.Add(0x88808080)
    }
