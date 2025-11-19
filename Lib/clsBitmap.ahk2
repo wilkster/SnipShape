@@ -103,28 +103,27 @@ Class BitMap {
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
     * @returns {hBitmap} 
     */
-   ; TODO - merge with slice bitmap to be more general
    Static ExtendBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
-      ; Determine slice based on orientation
+
+      ; Create the larger DIB
       hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      ; Note - Need 24 bit with no alpha channel otherwise bgcolor pattern is wiped out on bitblt
-      hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone, 24)
-
+      hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone)
       obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
       obmClone := GDI.SelectObject(hdcClone, hClone)
-      ; Fill with background color first
-      bgBrush := DllCall("gdi32\CreateSolidBrush","Uint", (bgColor),"Int")
-      oBrush := GDI.SelectObject(hdcClone, bgBrush)
-      res := DllCall("gdi32\PatBlt", "Ptr", hdcClone, "Int", 0, "Int", 0, "int", ogW + l + r, "Int", ogH + t + b, "Uint", PATCOPY := 0x00F00021,"Int")
-      ; Merge in the OG image into the background
+
+      ; Fill with background color first since we overwrite part of it
+      G := GDIp.GraphicsFromHDC(hdcClone)
+      GDIp.GraphicsClear(G, (0xFF000000 | bgColor))
+      GDIp.DeleteGraphics(G)
+
+      ; Overwrite the original area with the original bitmap
       GDI.BitBlt(hdcClone, l, t, ogW, ogH, hdcSrc)
+
       ; clean up, user has to handle the target bitmap
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.SelectObject(hdcClone, obmClone)
-      GDI.SelectObject(hdcClone, oBrush)
-      GDI.DeleteObject(bgBrush)
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)

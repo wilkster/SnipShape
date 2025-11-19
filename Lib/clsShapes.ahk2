@@ -1321,22 +1321,29 @@ Class Shapes {
             Warning("Internal Selection Only")
             Return 0
          }
-         ; TODO - need background color of section
 
-         ; Offset by borderwidth (0 based)
+         ; Extend in the appropriate direction
          hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
-         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         ; Get new dimensions
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         myGUI.GetPos(&gX1, &gY1) ; includes the Border 
+         ; myGUI.Move(-20000,-20000, W + BW * 2, H + BW * 2)
+         ; myGUI.Move(-20000,-20000) 
+
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
          ; Autosize may leave one border wider for some strange reason (would need redraw)
-         myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border 
-         myGUI.Show("X" gX1 - l " Y" gY1 - t " W" W + BW * 2 " H" H + BW * 2)
-         ; Shift all of the controls so they stay in same place
-         For Ctrl in myGUI {
-            If Ctrl.Visible and A_Index > 1 {
-               Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.Move(X + l, Y + t)
+         ; BUG - slight jitter here sometimes, move or show doesn't matter
+         ; moving controls can also show a flicker
+         myGUI.Move(gX1 - l, gY1 - t, W + BW * 2, H + BW * 2)
+         ; myGUI.Show("X" gX1 - l " Y" gY1 - t " W" W + BW * 2 " H" H + BW * 2)
+         ; Shift all of the controls so they stay in same place (has to be after the resize)
+         If (l > 0 OR t > 0) {
+            For Ctrl in myGUI {
+               If Ctrl.Visible and A_Index > 1 {
+                  Ctrl.GetPos(&X, &Y, &W, &H)
+                  Ctrl.Move(X + l, Y + t)
+               }
             }
          }
          ButtonBar.Show()
