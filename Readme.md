@@ -233,7 +233,7 @@ options are also available from the Buttonbar described below.
 
 - Tool menu
 
-![image](https://github.com/user-attachments/assets/357bf8ca-aaad-4d69-ab2e-02bbf337079d)
+![image](https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba)
 
 - Color menu
 
