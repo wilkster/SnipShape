@@ -52,9 +52,10 @@ Autohotkey 2.1 Alpha 14 or later (some 2.1 features are used including structure
 ## Installation
 
 Clone or download a zip of the repository to a local folder. If you have ahk2 associated with
-Autohotkey 2.1 alpha then just click on the **SnipShape.ahk2** file in the base
+Autohotkey 2.1 alpha, then just click on the **SnipShape.ahk2** file in the base
 folder. You may rename the SnipShape.ahk2 extension to something else if you are
-using a different file association.
+using a different file association. Leave the other file extension alone as they
+are referenced in include files.
 
 A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to un-hide it in the tray.
 You can click on the tray icon to bring up some actions or use hotkeys as described below. The right-mouse-button brings up the default Autohotkey menu.
@@ -124,6 +125,10 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Shift-Del |will remove all the shapes on a Snip|
 | Ctrl-O | OCR the text to lines of text|
 | Ctrl-T | OCR the text to html table|
+| Ctrl-I | Invert the Snip Colors|
+| Ctrl-B | Black and White the Snip Colors|
+| Ctrl-G | Gray Scale the Snip Colors|
+| Ctrl-R | Restore the Snip bitmap|
 | Ctrl-Down|Minimize all Snips|
 | **Snip HotKey** | **Scaling Action** |
 |=     | Duplicate and 2x the size of the current snip (without shapes)|
@@ -188,6 +193,8 @@ options are also available from the Buttonbar described below.
 |**Tools**||
 |C|Cropping rectangle to make the current snip smaller by cropping it to selection|
 |O|OCR the selected area|
+|K|Slice out the selected area of Snip|
+|Q|Extend the snip using the background color under the selection|
 |**Text**|Text is entered via a dialog box allowing you set text options|
 |N|Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size|
 |T|Add Text to cursor location|
@@ -224,7 +231,7 @@ options are also available from the Buttonbar described below.
 
 ![image](https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d)
 
-- Crop tool/OCR tool
+- Tool menu
 
 ![image](https://github.com/user-attachments/assets/357bf8ca-aaad-4d69-ab2e-02bbf337079d)
 
