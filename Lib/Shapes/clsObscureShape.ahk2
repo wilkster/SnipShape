@@ -49,7 +49,7 @@ Class ObscureShape extends commonShape {
             brushKey := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush " brushKey)
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
                pBitOutput      := BitMap.PixelateBitmap(pBitInput, brushKey)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -62,7 +62,7 @@ Class ObscureShape extends commonShape {
             brushKey := Constrain(1, 100, Round(this.Factor))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
                pBitOutput      := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -75,7 +75,7 @@ Class ObscureShape extends commonShape {
             brushKey := Constrain(0, 255, Round(this.Factor * this.DPIScale))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
                pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -100,7 +100,6 @@ Class ObscureShape extends commonShape {
             ; Make sure the shape has been drawn first
             If (C.W > 0 AND C.H > 0) {
                If (pBitInput := this.pBitmapUnderShape()) {
-                  ; GDIp.GetImageDimensions(pBitInput, &W, &H)
                   ; Just get the color and dispose of the bitmap used
                   colRes := this.GetCroppedBackgroundColor(pBitInput)
                   GDIp.DisposeImage(pBitInput)

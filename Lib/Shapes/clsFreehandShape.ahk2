@@ -182,7 +182,7 @@ Class FreeHandShape extends commonShape {
             brushKey := Constrain(1, 100, Round(this.Factor))
             If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.PIC)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
                pBitOutput := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -190,6 +190,7 @@ Class FreeHandShape extends commonShape {
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
+         Default:
       }
       ; During a move we may have changed the translation
       GDIp.ResetTextureTransform(this.imageBrush)

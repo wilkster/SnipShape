@@ -1212,29 +1212,24 @@ Class Shapes {
       myPic := myGUI.Pic
       If (hBitmap := myPic.handle) {
          ; Get various dimensions
-         ; TODO - could probably use the intersectrect function here (IntersectRect)
          myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border 
+         ; Crop tool
          CropObj.GetPos(&cX1, &cY1, &cW, &cH) 
-         cX2 := cX1 + cW, cY2 := cY1 + cH
          ; Get the raw picture dimensions
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
-         pX2 := pX1 + pW, pY2 := pY1 + pH
-         ; Limit to visible bounding regions, crop tool can get way beyound picture boundaries
-         cX1 := Max(cX1, pX1), cX2 := Min(cX2, pX2)
-         cY1 := Max(cY1, pY1), cY2 := Min(cY2, pY2)
-         ; Since pX1 started at Borderwidth and not 0, have to remove one
-         ; borderwidth when computing the width, pX1/pY1 will be the BW
-         cW := cX2 - cX1 - pX1, cH := cY2 - cY1 - pY1
-         If (cW < 25 AND cH < 25)
+         ; Intersection to handle off picture crop tool
+         iRect := IntersectRect(cX1, cY1, cX1 + cW, cY1 + cH, pX1, pY1, pX1 + pW, pY1 + pH)
+
+         If (iRect.w < 25 AND iRect.h < 25)
             Return
          ; This destroys the existing snip bitmap and creates a new one
-         hBitmap := BitMap.CropHBITMAP(hBitmap, cX1, cY1, cW, cH) 
+         hBitmap := BitMap.CropHBITMAP(hBitmap, iRect.l, iRect.t, iRect.w, iRect.h)
          ; Hide the flash when we replace the bitmap
          myGUI.Move(-20000,-20000) 
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Shift and resize GUI to contain the new crop coordinates
-         myGUI.Move(gX1 + cX1, gY1 + cY1, cW + Snips.BorderWidth * 2, cH + Snips.BorderWidth * 2)
+         myGUI.Move(gX1 + iRect.l, gY1 + iRect.t, iRect.w + Snips.BorderWidth * 2, iRect.h + Snips.BorderWidth * 2)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible and A_Index > 1 {

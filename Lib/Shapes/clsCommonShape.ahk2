@@ -431,35 +431,9 @@ Class commonShape extends Gui.Pic {
    GetCroppedBackgroundColor(pBit?, &Perc?) {
       pBitmap := pBit ?? this.pBitmapUnderShape()
       If (pBitmap) {
-         C := this.sCoord
-         this.Gui.PIC.GetPos(,,&pW,&pH)
-         ; extract area wherepredominant  shape intersects with the snip and use it
-         If (iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)) {
-            ; If we are partially off snip, then crop out that section of the bitmap
-            If (Abs(iRect.l - C.X1) > 1 OR Abs(iRect.t - C.Y1) > 1 OR Abs(iRect.r - C.X2) > 1 or Abs(iRect.b - C.Y2) > 1) {
-               L := Round(iRect.l - C.X1)
-               T := Round(iRect.t - C.Y1)
-               ; Trim of off snip parts on either side
-               W := round(C.W - (C.X2 - iRect.r) - L)
-               H := round(C.H - (C.Y2 - iRect.b) - T)
-               ; pBitmap is removed here
-               cBitmap := BitMap.CropPBitmap(pBitmap, L, T, W, H)
-               If (NOT cBitmap) {
-                  Warning("Error cropping L=" L ", T=" T ", W=" W ", H=" H)
-                  Return -1
-               }
-               CC := BitMap.GetBackgroundColor(cBitmap, &Perc)
-               GDIp.DisposeImage(cBitmap)
-            } Else {
-               CC := BitMap.GetBackgroundColor(pBitmap, &Perc)
-            }
-            ; Non-user passed in bitmap, clean up here
-            if (NOT IsSet(pBit))
-               GDIp.DisposeImage(pBitmap)
-         } Else {
-            debug("Shape is off the snip")
-            Return -1
-         }
+         CC := BitMap.GetBackgroundColor(pBitmap, &Perc)
+         if (NOT IsSet(pBit))
+            GDIp.DisposeImage(pBitmap)
          Return CC
       } Else {
          Return -1
@@ -479,17 +453,25 @@ Class commonShape extends Gui.Pic {
       If (hBitmap) {
          C := Cin ?? this.sCoord
          If (C.W > 0 AND C.H > 0) {
-            this.Gui.PIC.GetPos(&pX1, &pY1, &pW, &pH)
+            this.Gui.PIC.GetPos(&pX1, &pY1, &pW, &pH) ; pX1/pY1 are at border offset, pW and pH are correct
+            ; C values may be wholly or partially off the picture
             ; Get a cropped copy of the image under the shape (compensated by border offset)
-            picHBitmap := BitMap.CropHBITMAP(hBitmap, C.X1 - pX1, C.Y1 - pY1, C.W, C.H, 1)
-            ; Get a pBitmap version for GDI+
-            If (picHBitmap) {
-               picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
-               ; Done with picHBitmap
-               GDI.DeleteObject(picHBitmap)
-               Return picPBitmap
+            If (iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, pX1, pY1, pW, pH)) {
+               picHBitmap := BitMap.CropHBITMAP(hBitmap, iRect.l, iRect.t, iRect.w, iRect.h, 1)
+
+               ; picHBitmap := BitMap.CropHBITMAP(hBitmap, C.X1 - pX1, C.Y1 - pY1, C.W, C.H, 1)
+               ; Get a pBitmap version for GDI+
+               If (picHBitmap) {
+                  picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
+                  ; Done with picHBitmap
+                  GDI.DeleteObject(picHBitmap)
+                  Return picPBitmap
+               } Else {
+                  warning("Failed to return a cropped handle from snip picture")
+                  Return 0
+               }
             } Else {
-               warning("Failed to return a cropped handle from snip picture")
+               warning("Shape is entirely off the snip")
                Return 0
             }
          } Else {
