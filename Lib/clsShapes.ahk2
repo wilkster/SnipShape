@@ -1296,7 +1296,7 @@ Class Shapes {
       myGUI := ExtendObj.Gui
       myPic := myGUI.Pic
       If (hBitmap := myPic.handle) {
-         bgColor := ExtendObj.GetCroppedBackgroundColor()
+         bgColor := ExtendObj.ShapeBackgroundColor()
          BW := Snips.BorderWidth
          sC :=ExtendObj.shapeCoord ; includes picture border offset
          ExtendObj.GetPos(&cX1, &cY1, &cW, &cH) 

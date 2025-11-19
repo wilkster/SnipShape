@@ -485,7 +485,7 @@ Class TextShape extends CommonShape {
          ; Recompute the background color in real time
          Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT, Shapes.SHAPE_TAG:
             ; Recompute and redraw with the text background color
-            If ((res := this.GetCroppedBackgroundColor()) >= 0) {
+            If ((res := this.ShapeBackgroundColor()) >= 0) {
                this._BGColor := res
                ; This will force a new draw below
                fontSize := fontSize ?? this._fontSize

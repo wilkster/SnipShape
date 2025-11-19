@@ -294,7 +294,7 @@ Class FreeHandShape extends commonShape {
       ; Post move updates for colors
       Switch this.Shape {
          Case Shapes.SHAPE_WHITEOUT:
-            If (res := this.GetCroppedBackgroundColor()) >= 0 {
+            If (res := this.ShapeBackgroundColor()) >= 0 {
                Super.Move(wX?, wY?, wW?, wH?, false)
                this.Color := res
                this.Refresh()

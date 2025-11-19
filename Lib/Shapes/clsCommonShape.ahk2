@@ -359,7 +359,7 @@ Class commonShape extends Gui.Pic {
     * @returns brush -Texture brush with the process image applied
     */
    HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?, Percent?) {
-      bgColor := userBgColor ?? this.GetCroppedBackgroundColor(TpInputBitmap, &Percent := 0)
+      bgColor := userBgColor ?? this.ShapeBackgroundColor(TpInputBitmap, &Percent := 0)
       If (bgColor >= 0) {
          GDIp.GetImageDimensions(TpInputBitmap, &sWidth, &sHeight)
          attrib := GDIp.CreateImageAttributes()
@@ -428,7 +428,7 @@ Class commonShape extends Gui.Pic {
     * @param {Float} Returned % of use of the background color
     * @returns {Number} RGB common color (no alpha)
     */
-   GetCroppedBackgroundColor(pBit?, &Perc?) {
+   ShapeBackgroundColor(pBit?, &Perc?) {
       pBitmap := pBit ?? this.pBitmapUnderShape()
       If (pBitmap) {
          CC := BitMap.GetBackgroundColor(pBitmap, &Perc)

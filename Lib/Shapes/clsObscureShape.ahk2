@@ -101,18 +101,13 @@ Class ObscureShape extends commonShape {
             If (C.W > 0 AND C.H > 0) {
                If (pBitInput := this.pBitmapUnderShape()) {
                   ; Just get the color and dispose of the bitmap used
-                  colRes := this.GetCroppedBackgroundColor(pBitInput)
+                  this.Color := BitMap.GetBackgroundColor(pBitInput)
                   GDIp.DisposeImage(pBitInput)
                   ; Got a valid color so create a new bitmap and fill it in with that color
-                  If (colRes >= 0) {
-                     this.Color := colRes
-                     If ( NOT this.redactBrush) {
-                        this.redactBrush := GDIp.BrushCreateSolid(0xFF000000 | this.Color)
-                     } Else {
-                        GDIp.SetBrushColor(this.redactBrush, 0xFF000000 | this.Color)
-                     }
+                  If ( NOT this.redactBrush) {
+                     this.redactBrush := GDIp.BrushCreateSolid(0xFF000000 | this.Color)
                   } Else {
-                     warning("Failed to get a cropped bitmap")
+                     GDIp.SetBrushColor(this.redactBrush, 0xFF000000 | this.Color)
                   }
                } Else {
                   warning("Failed to retrieve the Snip picture for redact")
