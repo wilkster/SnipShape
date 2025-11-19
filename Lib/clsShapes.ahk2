@@ -28,7 +28,8 @@ Class Shapes {
    Static SHAPE_PICTURE := 0 ; Imported picture
    Static DrawActive := false
    Static ColorQueue := Array()
-   Static DIBPad := 250
+   ; TODO - make this a setting
+   Static DIBPad := 450
 
    Static DefaultColorNames := [
       "Red", "Blue","Yellow", "Lime", "Aqua","Fuchsia", "Orange", "Black", "White"
@@ -81,6 +82,7 @@ Class Shapes {
          ["SHAPE_GAUS_BLUR"    , "Gaussian Blur - G"         , "Redact"],
          ["SHAPE_CROP"         , "Crop - C"                  , "Tool"],
          ["SHAPE_SLICE"        , "Slice - K"                 , "Tool"],
+         ["SHAPE_EXTEND"       , "Extend - Q"                , "Tool"],
          ["SHAPE_OCR"          , "OCR - O"                   , "Tool"],
          ["SHAPE_TEXT"         , "Text - T"                  , "Text"],
          ["SHAPE_FILLTEXT"     , "Fill Text - F"             , "Text"],
@@ -384,7 +386,7 @@ Class Shapes {
             ; Make it seem the caption was clicked so dragging will work.
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
             PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
-         Case Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE:
+         Case Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
             SnipObj.SaveMyBitmap()
             changed := Shapes.Draw(SnipObj,DrawMode)
             Snips.SetDrawMode(0)
@@ -822,6 +824,10 @@ Class Shapes {
                ; Slice the selection
                this.Slice(ShapeObj, Snips.UpdateClipboard)
                ShapeObj.Close()
+            Case this.SHAPE_EXTEND:
+               ; Slice the selection
+               this.Extend(ShapeObj, Snips.UpdateClipboard)
+               ShapeObj.Close()
             Case this.SHAPE_OCR:
                ; OCR the selection
                this.OCRShape(ShapeObj)
@@ -1244,7 +1250,7 @@ Class Shapes {
          }
       }
    }
-      /**
+   /**
     * Crop the image to one of the drawn shapes/pictures
     * @param GuiCtrlObj Is the crop rectangle just drawn
     * @returns Nothing 
@@ -1281,6 +1287,65 @@ Class Shapes {
          }
       }
    }
+      /**
+    * Crop the image to one of the drawn shapes/pictures
+    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @returns Nothing 
+    */
+   Static Extend(ExtendObj, bgColor, Clipboard := false) {
+      myGUI := ExtendObj.Gui
+      myPic := myGUI.Pic
+      If (hBitmap := myPic.handle) {
+         bgColor := ExtendObj.GetCroppedBackgroundColor()
+         BW := Snips.BorderWidth
+         sC :=ExtendObj.shapeCoord ; includes picture border offset
+         ExtendObj.GetPos(&cX1, &cY1, &cW, &cH) 
+         myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
+         cX2 := cX1 + cW, cY2 := cY1 + cH
+         pX2 := pX1 + pW, pY2 := pY1 + pH
+         l := r := t := b := 0
+         ; Find what was extended
+         If (pX1 > sC.X) {
+            ; left
+            l :=  abs(pX1 - cX1)
+         } else If (pY1 > sC.Y) {
+            ; top 
+            t := abs(pY1 - cY1)
+         } else If (pX2 < sC.X2) {
+            ; right
+            r := Abs(pX2 - cX2)
+         } else If (pY2 < sC.Y2) {
+            ; bottom
+            b := abs(pY2 - cY2)
+         } Else {
+            Warning("Internal Selection Only")
+            Return 0
+         }
+         ; TODO - need background color of section
+
+         ; Offset by borderwidth (0 based)
+         hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
+         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         myPic.Handle := hBitmap  ; This will free hBitmap
+         ; Resize GUI to contain the new crop coordinates
+         ; Autosize may leave one border wider for some strange reason (would need redraw)
+         myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border 
+         myGUI.Show("X" gX1 - l " Y" gY1 - t " W" W + BW * 2 " H" H + BW * 2)
+         ; Shift all of the controls so they stay in same place
+         For Ctrl in myGUI {
+            If Ctrl.Visible and A_Index > 1 {
+               Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.Move(X + l, Y + t)
+            }
+         }
+         ButtonBar.Show()
+         if Clipboard {
+            Snips.Snip2Clipboard(Snips.borderWithCopy, ExtendObj.Gui.hWnd)
+         }
+      }
+   }
+
    /**
     * Find sister shapes of the same type in the same GUI that are visible
     * @param ShapeObj Target shape to find ones of the same type

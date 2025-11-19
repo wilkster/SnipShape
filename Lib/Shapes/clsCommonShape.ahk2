@@ -53,7 +53,7 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
       Case Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT, Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_HILITE:
          pObj.Source := "BodyShape"
          pObj.base  := BodyShape.Prototype
-      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE:
+      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
          ; NOTE - The objects are setup based on Gui.PIC so not sure a way around this short of creating a brand
          ; new class NOT based on Gui.PIC that includes all the GDI calls. Not worth it since controls are recycled.
          pObj.Source := "ToolShape"

@@ -41,7 +41,7 @@ Class ToolShape extends commonShape {
     */
    Draw(G, X, Y, W, H) {
       Switch this.Shape {
-         Case Shapes.SHAPE_SLICE :
+         Case Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND :
             If (W > H) {
                ; Vert Rect
                Y := this.pY, H := this.pH

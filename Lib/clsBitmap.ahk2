@@ -91,6 +91,50 @@ Class BitMap {
       Return hClone
    }
 
+   /**
+    * Etend an hBitmap using GDI only
+    * Extends w/h depending on which is larger
+    * Input coordinates will span picture one X or Y
+    * @param hBitmap Handle to the bitmap to slice
+    * @param X Offset (snip border offset)
+    * @param Y Offset (snip border offset)
+    * @param nW  new Width
+    * @param nH  new Height
+    * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
+    * @returns {hBitmap} 
+    */
+   ; TODO - merge with slice bitmap to be more general
+   Static ExtendBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
+      GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
+      ; Determine slice based on orientation
+      hdcSrc   := GDI.CreateCompatibleDC(0)
+      hdcClone := GDI.CreateCompatibleDC(0)
+      ; Note - Need 24 bit with no alpha channel otherwise bgcolor pattern is wiped out on bitblt
+      hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone, 24)
+
+      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmClone := GDI.SelectObject(hdcClone, hClone)
+      ; Fill with background color first
+      bgBrush := DllCall("gdi32\CreateSolidBrush","Uint", (bgColor),"Int")
+      oBrush := GDI.SelectObject(hdcClone, bgBrush)
+      res := DllCall("gdi32\PatBlt", "Ptr", hdcClone, "Int", 0, "Int", 0, "int", ogW + l + r, "Int", ogH + t + b, "Uint", PATCOPY := 0x00F00021,"Int")
+      ; Merge in the OG image into the background
+      GDI.BitBlt(hdcClone, l, t, ogW, ogH, hdcSrc)
+      ; clean up, user has to handle the target bitmap
+      GDI.SelectObject(hdcSrc, obmSrc)
+      GDI.SelectObject(hdcClone, obmClone)
+      GDI.SelectObject(hdcClone, oBrush)
+      GDI.DeleteObject(bgBrush)
+
+      GDI.DeleteDC(hdcSrc)
+      GDI.DeleteDC(hdcClone)
+
+      If NOT keepBitmap
+         GDI.DeleteObject(hBitmap)
+
+      Return hClone
+   }
+
    ;----------------------------------------------------------------------
    ; Clone a hBitmap and crop the border off
    ; User responsible for created bitmaps
