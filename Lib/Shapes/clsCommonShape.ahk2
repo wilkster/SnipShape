@@ -514,6 +514,9 @@ Class commonShape extends Gui.Pic {
       }
       Return Color
    }
+   Rotate(Angle) {
+      ; Shape specific
+   }
 
 }
 
@@ -557,5 +560,32 @@ Class BitmapShape extends commonShape {
       super.Move(, , this.OG.W, this.OG.H)
       this.UpdateCoord()
    }
+   Rotate(Angle) {
+      ; hBitmap := this.GUI.PIC.Handle  ; need shape handle not the Snip
+      pBitmap := GDIp.CreateBitmapFromHBITMAP(this.Handle)
+      If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
+         this.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         this.SaveSize()
+      }
+   }
+   Flip(How := 1) {
+      ; hBitmap := this.GUI.PIC.Handle  ; need shape handle not the Snip
+      pBitmap := GDIp.CreateBitmapFromHBITMAP(this.Handle)
+      If (pBitmap := BitMap.Flip(pBitmap, How)) {
+         this.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         this.SaveSize()
+      }
+   }
+   ;----------------------------------------------------------------------
+   ; get/set the bitmap handle for this piecture
+   ;----------------------------------------------------------------------
+   Handle {
+      ; SendMessage is very fast ~20uSec
+      get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      ; Resize control to actual bitmap size
+      set => this.Value := "*W0 *H0 HBITMAP:" Value
+   } 
 }
 

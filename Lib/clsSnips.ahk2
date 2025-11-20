@@ -995,18 +995,14 @@ Class Snips {
     * @param how 1=Invert, 2=grayscale,3=B&W High contrast
     */
    Static TransformSnip(hWnd, numEffect := 1) {
-      If this.IsValid(hWnd) {
-         snipObj  := this.GetGuiObj(hWnd)
+      If (snipObj := this.IsValid(hWnd)) {
          snipObj.SaveMyBitmap()
-         picObj   := snipObj.Pic
-         hBitmap  := picObj.Handle
-         pBitmap  := GDIp.CreateBitmapFromHBITMAP(hBitmap)
-
+         pBitmap  := GDIp.CreateBitmapFromHBITMAP(snipObj.Pic.Handle)
          ; Transform in place
          Bitmap.TransformBitmap(pBitmap, numEffect)
          ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
          ; Replace the picture
-         picObj.Handle := ihBitmap ; destroys og hBitmap
+         snipObj.Pic.Handle := ihBitmap ; destroys og hBitmap
          ; Cleanup
          GDIp.DisposeImage(pBitmap) ; 
          ; Recompute textures

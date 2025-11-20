@@ -291,6 +291,12 @@ Class ShapeMenus {
       Switch ShapeObj.Source {
          Case "File", "Clip":
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
+            shapeMenu.Add(ShapeObj.ShapeName . " Rotate/Flip", subMenu1)
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Rotate/Flip", SETTINGS.CursorPath . "FlipRotate.ico" )
+            subMenu1.Add("Rotate +90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Flip L/R", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Flip T/B", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
                ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
@@ -414,6 +420,14 @@ Class ShapeMenus {
             shapeObj.Close()
          Case ItemName ~= "Edit": 
             shapeObj.EditDispText()
+         Case ItemName = "Flip L/R":
+            shapeObj.Flip(2)
+         Case ItemName = "Flip T/B":
+            shapeObj.Flip(1)
+         Case ItemName = "Rotate +90":
+            shapeObj.Rotate(90)
+         Case ItemName = "Rotate -90":
+            shapeObj.Rotate(-90)
          Case ItemName ~= "Reset": 
             shapeObj.ResetSize()
             focusBorder.Sync()

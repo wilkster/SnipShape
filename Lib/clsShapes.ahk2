@@ -1045,6 +1045,7 @@ Class Shapes {
                   } Else {
                      ; Resize the shape
                      ; pictures are done here along with freehand
+                     ; TODO - for pictures if we filp can we flip the image as well, but keep it scaled like here
                      ShapeObj.Move(X, Y, W, H)
                   }
                   focusBorder.Sync()

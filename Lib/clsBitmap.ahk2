@@ -90,6 +90,70 @@ Class BitMap {
 
       Return hClone
    }
+   /**
+    * Rotate a pBitmap in place
+    * @param pBitmap bitmap to rotate/flip in place
+    * @param angle +/- in 90 deg increments
+    * @returns {Integer} pBitmap on sucess, 0 on failure
+    */
+   Static Rotate(pBitmap, angle) {
+      angle := Mod(angle, 360)
+      If (angle < 0)
+         angle += 360
+
+      ; Map angle to RotateFlipType
+      ; 0 = RotateNoneFlipNone (no rotation)
+      ; 1 = Rotate90FlipNone (90° clockwise)
+      ; 2 = Rotate180FlipNone (180°)
+      ; 3 = Rotate270FlipNone (270° clockwise / 90° counter-clockwise)
+
+      rotateType := 0
+      Switch angle {
+         Case 0:
+            rotateType := 0
+         Case 90:
+            rotateType := 1
+         Case 180:
+            rotateType := 2
+         Case 270:
+            rotateType := 3
+         default:
+            Return 0  ; Invalid angle
+      }
+      If (res := DllCall("gdiplus\GdipImageRotateFlip", "Ptr", pBitmap, "Int", rotateType)) {
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+         Return 0
+      }
+      return pBitmap
+   }
+   /**
+    * 
+    * @param pBitmap bitmap to flip in place
+    * @param flipType 1 = flip top/bottom (vertical), 2 = flip left/right (horizontal)
+    * @returns {Integer} pBitmap on sucess, 0 on failure
+    */
+   Static Flip(pBitmap, flipType) {
+      ; Map flipType to RotateFlipType
+      ; 4 = RotateNoneFlipX (flip horizontal/left-right)
+      ; 6 = RotateNoneFlipY (flip vertical/top-bottom)
+
+      rotateFlipType := 0
+      Switch flipType {
+         Case 1:  ; Top/Bottom (vertical flip)
+            rotateFlipType := 6  ; RotateNoneFlipY
+         Case 2:  ; Left/Right (horizontal flip)
+            rotateFlipType := 4  ; RotateNoneFlipX
+         default:
+            Return 0  ; Invalid flip type
+      }
+
+      ; Perform the flip
+      If (res := DllCall("gdiplus\GdipImageRotateFlip", "Ptr", pBitmap, "Int", rotateFlipType)) {
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+         return 0
+      }
+      Return pBitmap
+   }
 
    /**
     * Etend an hBitmap using GDI only
