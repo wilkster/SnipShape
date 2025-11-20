@@ -1344,8 +1344,8 @@ Class Shapes {
                If Ctrl.Visible and A_Index > 1 {
                   Ctrl.GetPos(&X, &Y, &W, &H)
                   Ctrl.Move(X + l, Y + t)
+                  Ctrl.Refresh()
                }
-               Ctrl.Refresh()
             }
          }
          ButtonBar.Show()
