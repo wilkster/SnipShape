@@ -818,20 +818,20 @@ Class Shapes {
          Switch Shape {
             Case this.SHAPE_CROP:
                ; Crop the selection
-               this.Crop(ShapeObj, Snips.UpdateClipboard)
                ShapeObj.Close()
+               this.Crop(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_SLICE:
                ; Slice the selection
-               this.Slice(ShapeObj, Snips.UpdateClipboard)
                ShapeObj.Close()
+               this.Slice(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_EXTEND:
                ; Slice the selection
-               this.Extend(ShapeObj, Snips.UpdateClipboard)
                ShapeObj.Close()
+               this.Extend(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_OCR:
                ; OCR the selection
-               this.OCRShape(ShapeObj)
                ShapeObj.Close()
+               this.OCRShape(ShapeObj)
             Default:
          }
          ; Done with drawing now
@@ -1230,9 +1230,10 @@ Class Shapes {
          If (iR.w < 25 AND iR.h < 25)
             Return
          ; This destroys the existing snip bitmap and creates a new one
+         Gdi.vSync()
          hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h)
          ; Hide the flash when we replace the bitmap
-         myGUI.Move(-20000,-20000) 
+         myGUI.Move(-20000,-20000, iR.w + BW * 2, iR.h + BW * 2) 
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Shift and resize GUI to contain the new crop coordinates, allow for border shift
@@ -1242,6 +1243,7 @@ Class Shapes {
             If Ctrl.Visible and A_Index > 1 {
                Ctrl.GetPos(&X, &Y, &W, &H)
                Ctrl.Move(X - cX1, Y - cY1)
+               Ctrl.Refresh()
             }
          }
          ButtonBar.Show()
@@ -1264,6 +1266,7 @@ Class Shapes {
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
          iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, sc.X, sc.Y, sc.X2, sc.Y2)
          ; Offset by borderwidth (0 based)
+         Gdi.vSync()
          hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h)
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
@@ -1279,6 +1282,7 @@ Class Shapes {
                   Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
                Else if (pH = iR.H) ; Vert section
                   Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
+               Ctrl.Refresh()
             }
          }
          ButtonBar.Show()
@@ -1323,20 +1327,17 @@ Class Shapes {
          }
 
          ; Extend in the appropriate direction
+         Gdi.vSync() ; Sync with vSync
          hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
          ; Get new dimensions
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         ; myGUI.Move(-20000,-20000, W + BW * 2, H + BW * 2)
-         ; myGUI.Move(-20000,-20000) 
-
+         ; move offscreen if moving and resizing, can help with flashing
+         ; If (l > 0 OR t > 0)
+         ;    myGUI.Move(-20000, -20000, W + BW * 2, H + BW * 2)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
-         ; Autosize may leave one border wider for some strange reason (would need redraw)
-         ; BUG - slight jitter here sometimes, move or show doesn't matter
-         ; moving controls can also show a flicker
          myGUI.Move(gX1 - l, gY1 - t, W + BW * 2, H + BW * 2)
-         ; myGUI.Show("X" gX1 - l " Y" gY1 - t " W" W + BW * 2 " H" H + BW * 2)
          ; Shift all of the controls so they stay in same place (has to be after the resize)
          If (l > 0 OR t > 0) {
             For Ctrl in myGUI {
@@ -1344,6 +1345,7 @@ Class Shapes {
                   Ctrl.GetPos(&X, &Y, &W, &H)
                   Ctrl.Move(X + l, Y + t)
                }
+               Ctrl.Refresh()
             }
          }
          ButtonBar.Show()

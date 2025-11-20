@@ -110,6 +110,7 @@ Class BitMap {
       hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
       hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone)
+      ; Gets strange after here, visual bitmap may lose some background
       obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
       obmClone := GDI.SelectObject(hdcClone, hClone)
 

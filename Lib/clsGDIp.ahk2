@@ -22,6 +22,10 @@ Class GDI {
    Static CreateCompatibleDC(hdc := 0) {
       Return DllCall("Gdi32\CreateCompatibleDC", "Ptr", hdc)
    }
+   Static vSync() {
+      DllCall("Dwmapi\DwmFlush", "Int")
+   }
+
    ; CreateDIBSection
    ; https://stackoverflow.com/questions/59632643/transparency-on-a-32-bit-bmp-doesnt-do-anything
    ; https://en.wikipedia.org/wiki/BMP_file_format
