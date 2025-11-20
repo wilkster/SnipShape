@@ -248,15 +248,18 @@ Class Snips {
             this.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
             GDI.DeleteObject(hBitmap)
             ; Force any textures to be refreshed
-            For Ctrl in this {
-               If Ctrl.Visible and Ctrl.Source != "Screen" {
-                  Ctrl.Refresh()
-               }
-            }
+            this.RefreshTextures()
             return true
             ; leave og bitmap around, clean up on close
          } else 
             return false
+      }
+      RefreshTextures() {
+         For Ctrl in this {
+            If Ctrl.Visible and Ctrl.Source != "Screen" {
+               Ctrl.Refresh()
+            }
+         }
       }
 
       ;----------------------------------------------------------------------
@@ -1006,6 +1009,8 @@ Class Snips {
          picObj.Handle := ihBitmap ; destroys og hBitmap
          ; Cleanup
          GDIp.DisposeImage(pBitmap) ; 
+         ; Recompute textures
+         snipObj.RefreshTextures()
       } Else {
          qTrayTip("Failed to get the Snip handle!",2)
       }
