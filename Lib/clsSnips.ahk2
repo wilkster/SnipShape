@@ -249,7 +249,7 @@ Class Snips {
             GDI.DeleteObject(hBitmap)
             ; Force any textures to be refreshed
             For Ctrl in this {
-               If Ctrl.Visible and A_Index > 1 {
+               If Ctrl.Visible and Ctrl.Source != "Screen" {
                   Ctrl.Refresh()
                }
             }
@@ -1465,7 +1465,7 @@ Class Snips {
             ; Prompt to close if Snip has unsaved changes
             shapeCount := 0
             For ShapeObj in SnipObj {
-               If (ShapeObj.Visible and A_Index > 1)
+               If (ShapeObj.Visible and ShapeObj.Source != "Screen")
                   shapeCount++
             }
             if SnipObj.Dirty AND shapeCount > 0 AND Snips.confirmClose {

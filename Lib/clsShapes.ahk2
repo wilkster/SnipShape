@@ -1240,7 +1240,7 @@ Class Shapes {
          myGUI.Move(gX1 + iR.l - BW, gY1 + iR.t - BW, iR.w + BW * 2, iR.h + BW * 2)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
-            If Ctrl.Visible and A_Index > 1 {
+            If Ctrl.Visible and Ctrl.Source != "Screen" {
                Ctrl.GetPos(&X, &Y, &W, &H)
                Ctrl.Move(X - cX1, Y - cY1)
                Ctrl.Refresh()
@@ -1276,7 +1276,7 @@ Class Shapes {
          myGUI.Show("W" W + BW * 2 " H" H + BW * 2)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
-            If Ctrl.Visible and A_Index > 1 {
+            If Ctrl.Visible and Ctrl.Source != "Screen" {
                Ctrl.GetPos(&X, &Y, &W, &H)
                If (pW = iR.W) ; Horz section
                   Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
@@ -1341,7 +1341,7 @@ Class Shapes {
          ; Shift all of the controls so they stay in same place (has to be after the resize)
          If (l > 0 OR t > 0) {
             For Ctrl in myGUI {
-               If Ctrl.Visible and A_Index > 1 {
+               If Ctrl.Visible and Ctrl.Source != "Screen" {
                   Ctrl.GetPos(&X, &Y, &W, &H)
                   Ctrl.Move(X + l, Y + t)
                   Ctrl.Refresh()
