@@ -247,6 +247,12 @@ Class Snips {
             hBitmap := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
             this.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
             GDI.DeleteObject(hBitmap)
+            ; Force any textures to be refreshed
+            For Ctrl in this {
+               If Ctrl.Visible and A_Index > 1 {
+                  Ctrl.Refresh()
+               }
+            }
             return true
             ; leave og bitmap around, clean up on close
          } else 
