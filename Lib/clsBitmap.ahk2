@@ -334,10 +334,10 @@ Class BitMap {
       ; Try Printwindow Method
       ; WinGetPosEx(&X, &Y, &W, &H, hWnd)
       ; WinGetPos(&X, &Y, &W, &H, hWnd)
-      hdc := GDI.GetDC(hWnd)
-      hdcMem := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
+      hdc     := GDI.GetDC(hWnd)
+      hdcMem  := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
       hBitmap := GDI.CreateDIBSection(W, H, hdcMem)
-      obm := GDI.SelectObject(hdcMem, hBitmap)
+      obm     := GDI.SelectObject(hdcMem, hBitmap)
       DllCall("PatBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", W, "Int", H, "UInt", 0x00F00021) ; PATCOPY (white)
 
       ; If the flag  = 0x1 it seems the picture but not the shapes get copied

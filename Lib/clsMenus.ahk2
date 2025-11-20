@@ -16,6 +16,8 @@ Class SnipMenus {
    Static PictMenu := Menu()
    Static SnipMenu := Menu()
    Static ResizeMenu := Menu()
+   Static BitmapMenu := Menu()
+   Static OCRMenu := Menu()
    Static __New() {
       Global SETTINGS
       ;------------------------------
@@ -28,14 +30,32 @@ Class SnipMenus {
       this.AddEntry('Cut Snip to Clipboard (Ctrl-X)', "SnipShape.ico")
       this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
       this.csMenu.Add()
-      this.AddEntry('OCR Text Lines to Clipboard', "Ocr.cur")
-      this.AddEntry('OCR Text Words to Clipboard', "Ocr.cur")
-      this.AddEntry('OCR Text Table to Clipboard', "Ocr.cur")
-      this.csMenu.Add()
-      this.AddEntry('Invert Snip (Ctrl-I)', "screenshot.ico")
-      this.AddEntry('Grayscale Snip (Ctrl-G)', "screenshot.ico")
-      this.AddEntry('B&W Snip (Ctrl-B)', "screenshot.ico")
-      this.AddEntry('Restore Snip (Ctrl-R)', "screenshot.ico")
+      this.csMenu.Add("OCR Text",this.OCRMenu)
+      this.csMenu.SetIcon("OCR Text", SETTINGS.CursorPath . "OCR.cur")
+
+      this.OCRMenu.Add('OCR Text Lines to Clipboard', this.ContextSnipMenu_Handler.bind(this))
+      this.OCRMenu.SetIcon('OCR Text Lines to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
+
+      this.OCRMenu.Add('OCR Text Words to Clipboard', this.ContextSnipMenu_Handler.bind(this))
+      this.OCRMenu.SetIcon('OCR Text Words to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
+
+      this.OCRMenu.Add('OCR Text Table to Clipboard', this.ContextSnipMenu_Handler.bind(this))
+      this.OCRMenu.SetIcon('OCR Text Table to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
+
+      this.csMenu.Add("Bitmap Effects",this.BitmapMenu)
+      this.csMenu.SetIcon("Bitmap Effects", SETTINGS.CursorPath . "screenshot.ico")
+
+      this.BitmapMenu.Add('Invert Snip (Ctrl-I)', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Invert Snip (Ctrl-I)", SETTINGS.CursorPath . "screenshot.ico")
+
+      this.BitmapMenu.Add('Grayscale Snip (Ctrl-G)', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Grayscale Snip (Ctrl-G)", SETTINGS.CursorPath . "screenshot.ico")
+
+      this.BitmapMenu.Add('B&W Snip (Ctrl-B)', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("B&W Snip (Ctrl-B)", SETTINGS.CursorPath . "screenshot.ico")
+
+      this.BitmapMenu.Add('Restore Snip (Ctrl-R)', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Restore Snip (Ctrl-R)", SETTINGS.CursorPath . "screenshot.ico")
       this.csMenu.Add()
       ; Note, these two are renamed with current file name in Post
       this.AddEntry('Edit:', "Edit.ico")
@@ -293,10 +313,10 @@ Class ShapeMenus {
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
             shapeMenu.Add(ShapeObj.ShapeName . " Rotate/Flip", subMenu1)
             shapeMenu.SetIcon(ShapeObj.ShapeName . " Rotate/Flip", SETTINGS.CursorPath . "FlipRotate.ico" )
-            subMenu1.Add("Rotate +90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("Flip L/R", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("Flip T/B", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("↻ Rotate +90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("↺ Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Flip ⟺", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Flip ⇕", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
                ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
@@ -420,13 +440,13 @@ Class ShapeMenus {
             shapeObj.Close()
          Case ItemName ~= "Edit": 
             shapeObj.EditDispText()
-         Case ItemName = "Flip L/R":
+         Case ItemName = "Flip ⟺":
             shapeObj.Flip(2)
-         Case ItemName = "Flip T/B":
+         Case ItemName = "Flip ⇕":
             shapeObj.Flip(1)
-         Case ItemName = "Rotate +90":
+         Case ItemName = "↻ Rotate +90":
             shapeObj.Rotate(90)
-         Case ItemName = "Rotate -90":
+         Case ItemName = "↺ Rotate -90":
             shapeObj.Rotate(-90)
          Case ItemName ~= "Reset": 
             shapeObj.ResetSize()

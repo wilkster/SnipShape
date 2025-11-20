@@ -363,6 +363,7 @@ Class FreeHandShape extends commonShape {
             ; If a highlighter, then do that vs drawing the lines
             If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
                ; Replace the pen contents with the highlighted background under the shape
+               this.createImageBrush() ; Added just in case bitmap changed size or colors
                GDIp.ResetTextureTransform(this.imageBrush)
                GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ;Snips.BorderWidth
                GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)

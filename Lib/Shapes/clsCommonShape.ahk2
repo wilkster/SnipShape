@@ -560,20 +560,28 @@ Class BitmapShape extends commonShape {
       super.Move(, , this.OG.W, this.OG.H)
       this.UpdateCoord()
    }
+   /**
+    * Rotate a 32 bit ARGB picture
+    * @param Angle +/- 90 degree increments
+    */
    Rotate(Angle) {
-      ; hBitmap := this.GUI.PIC.Handle  ; need shape handle not the Snip
-      pBitmap := GDIp.CreateBitmapFromHBITMAP(this.Handle)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
-         this.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         ; ARGB version below isn't strictly necessary
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          this.SaveSize()
       }
    }
+   /**
+    * Flip a 32 bit ARGB picture
+    * @param how 1=top/bottom, 2=left/right
+    */
    Flip(How := 1) {
-      ; hBitmap := this.GUI.PIC.Handle  ; need shape handle not the Snip
-      pBitmap := GDIp.CreateBitmapFromHBITMAP(this.Handle)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Flip(pBitmap, How)) {
-         this.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         ; ARGB version below isn't strictly necessary
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          this.SaveSize()
       }

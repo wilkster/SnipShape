@@ -1332,11 +1332,16 @@ Class GDIp {
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pGraphics
    }
-   Static CreateARGBHBITMAPFromBitmap(&pBitmap) {
+   /**
+    * Create a hBitMap with alpha channel from a pBitmap
+    * @param pBitmap source pBitmap
+    * @returns {Float | Integer | String} 
+    */
+   Static CreateARGBHBITMAPFromBitmap(pBitmap) {
       ; function by iseahound ; source: https://github.com/mmikeww/AHKv2-Gdip
       ; modified to rely on already present functions [within the library]
 
-      ; This version is about 25% faster than Gdip_CreateHBITMAPFromBitmap().
+      ; This version is about 25% faster than Gdip.CreateHBITMAPFromBitmap().
       ; Get Bitmap width and height.
 
       Gdip.GetImageDimensions(pBitmap, &Width, &Height)
@@ -1344,11 +1349,11 @@ Class GDIp {
       ; Convert the source pBitmap into a hBitmap manually.
       ; struct BITMAPINFOHEADER - https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapinfoheader
       hdc := GDi.CreateCompatibleDC()
-      hbm := GDi.CreateDIBSection(width, -height, hdc, 32, &pBits)
+      hbm := GDI.CreateDIBSection(Width, -Height, hdc, 32, &pBits := 0)
       obm := GDi.SelectObject(hdc, hbm)
 
       ; Transfer data from source pBitmap to an hBitmap manually.
-      GDip.CreateRect(&Rect, 0, 0, width, height)
+      GDIp.CreateRect(&Rect, 0, 0, Width, Height)
       bmd             := BitmapData()
       bmd.Width       := width
       bmd.Height      := height
@@ -1365,9 +1370,9 @@ Class GDIp {
       DllCall("gdiplus\GdipBitmapLockBits"
             ,    "UPtr", pBitmap
             ,    "UPtr", Rect.ptr
-            ,   "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly
-            ,    "int", 0xE200B      ; Format32bppPArgb
-            ,    "UPtr", bmd.ptr) ; Contains the pointer (pBits) to the hbm.
+            ,    "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly
+            ,    "int", 0xE200B       ; Format32bppPArgb
+            ,    "UPtr", bmd.ptr)     ; Contains the pointer (pBits) to the hbm.
       DllCall("gdiplus\GdipBitmapUnlockBits", "UPtr", pBitmap, "UPtr", bmd.ptr)
 
       ; Cleanup the hBitmap and device contexts.
