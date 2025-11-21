@@ -601,21 +601,21 @@ Class Shapes {
             ; Set the real-time pen/brush color key if pressed
             ; use the shape.Color to compare to
             ;----------------------------------------------------------------------
-            If (this.ColorQueue.Length) {
-               ShapeObj.SetColor(this.ColorQueue.Pop())
-            ;----------------------------------------------------------------------
-            ; Arrow key can real time change the width of the pens
-            ;----------------------------------------------------------------------
-            } else if (GetKeyState("Up","P")) {
-               ShapeObj.ChangeThickness(+.03)
-            } else if (GetKeyState("Down","P")) {
-               ShapeObj.ChangeThickness(-.03)
-            } else if (lastShiftKey != (lks := GetKeyState("Shift","P"))) {
-               ; If shift key toggled while looping in place, keep processing
-               lastShiftKey := lks
-            } else if ((Abs(dx) + Abs(dy)) = 0) {
-               ; No movement or adjustments, don't draw just keep looping
-               Continue
+            Switch {
+               Case this.ColorQueue.Length:
+                  ShapeObj.SetColor(this.ColorQueue.Pop())
+               Case GetKeyState("Up", "P"):
+                  ; Arrow key can real time change the width of the pens
+                  ShapeObj.ChangeThickness(+0.03)
+               Case GetKeyState("Down", "P"):
+                  ShapeObj.ChangeThickness(-0.03)
+               Case lastShiftKey != (lks := GetKeyState("Shift", "P")):
+                  ; If shift key toggled while looping in place, keep processing
+                  lastShiftKey := lks
+               Case (Abs(dx) + Abs(dy)) = 0 :
+                  ; No movement or adjustments, don't draw just keep looping
+                  Continue
+               Default:
             }
             ;----------------------------------------------------------------------
             ; Shift the starting position when Space Bar is down
@@ -1267,14 +1267,15 @@ Class Shapes {
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
          iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, sc.X, sc.Y, sc.X2, sc.Y2)
          ; Offset by borderwidth (0 based)
-         Gdi.vSync()
          hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h)
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         Gdi.vSync()
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
          ; Autosize may leave one border wider for some strange reason (would need redraw)
-         myGUI.Show("W" W + BW * 2 " H" H + BW * 2)
+         ; myGUI.Show("W" W + BW * 2 " H" H + BW * 2)
+         myGUI.Move(, , W + BW * 2, H + BW * 2)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible and Ctrl.Source != "Screen" {
@@ -1328,9 +1329,9 @@ Class Shapes {
          }
 
          ; Extend in the appropriate direction
-         Gdi.vSync() ; Sync with vSync
          hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
          ; Get new dimensions
+         Gdi.vSync() ; Sync with vSync
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
          ; move offscreen if moving and resizing, can help with flashing
@@ -1349,6 +1350,8 @@ Class Shapes {
                }
             }
          }
+         Gdi.vSync() ; Sync with vSync
+
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.borderWithCopy, ExtendObj.Gui.hWnd)
