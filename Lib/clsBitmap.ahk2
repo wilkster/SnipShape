@@ -15,38 +15,6 @@
 #Include libMisc.ahk2
 Class BitMap {
 
-   /**
-    * Crop an hBitmap using GDI only
-    * NOTE - this would also work for enlarging as well
-    * @param hBitmap Handle to the bitmap to crop
-    * @param X Offset
-    * @param Y  Offset
-    * @param nW  new Width
-    * @param nH  new Height
-    * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
-    * @returns {hBitmap} 
-    */
-   Static CropHBITMAP(hBitmap, X, Y, nW, nH, keepBitmap := 0) {
-
-      hdcSrc   := GDI.CreateCompatibleDC(0)
-      hdcClone := GDI.CreateCompatibleDC(0)
-      hClone   := GDI.CreateDIBSection(nW, nH, hdcClone)
-      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
-      obmClone := GDI.SelectObject(hdcClone, hClone)
-
-      GDI.BitBlt(hdcClone, 0, 0, nW, nH, hdcSrc, X, Y)
-      ; clean up, user has to handle the target bitmap
-      GDI.SelectObject(hdcSrc, obmSrc)
-      GDI.SelectObject(hdcClone, obmClone)
-
-      GDI.DeleteDC(hdcSrc)
-      GDI.DeleteDC(hdcClone)
-      If NOT keepBitmap
-         GDI.DeleteObject(hBitmap)
-      ; User needs to delete object
-
-      Return hClone
-   }
 
    /**
     * Rotate a pBitmap in place
@@ -112,6 +80,41 @@ Class BitMap {
       }
       Return pBitmap
    }
+
+   /**
+    * Crop an hBitmap using GDI only
+    * NOTE - this would also work for enlarging as well
+    * @param hBitmap Handle to the bitmap to crop
+    * @param X Offset
+    * @param Y  Offset
+    * @param nW  new Width
+    * @param nH  new Height
+    * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
+    * @returns {hBitmap} 
+    */
+   Static CropHBITMAP(hBitmap, X, Y, nW, nH, keepBitmap := 0) {
+
+      hCopy    := GDI.CopyImage(hBitmap) ;; Don't touch the current bitmap
+      hdcSrc   := GDI.CreateCompatibleDC(0)
+      hdcClone := GDI.CreateCompatibleDC(0)
+      hClone   := GDI.CreateDIBSection(nW, nH, hdcClone)
+      obmSrc   := GDI.SelectObject(hdcSrc, hCopy)
+      obmClone := GDI.SelectObject(hdcClone, hClone)
+
+      GDI.BitBlt(hdcClone, 0, 0, nW, nH, hdcSrc, X, Y)
+      ; clean up, user has to handle the target bitmap
+      GDI.SelectObject(hdcSrc, obmSrc)
+      GDI.SelectObject(hdcClone, obmClone)
+
+      GDI.DeleteDC(hdcSrc)
+      GDI.DeleteDC(hdcClone)
+      GDI.DeleteObject(hCopy)
+      If NOT keepBitmap
+         GDI.DeleteObject(hBitmap)
+      ; User needs to delete object
+
+      Return hClone
+   }   
    /**
     * Slice an hBitmap using GDI only
     * Extends w/h depending on which is larger
@@ -127,11 +130,13 @@ Class BitMap {
    Static SliceHBITMAP(hBitmap, nX, nY, nW, nH, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
       ; Determine slice based on orientation
+
+      hCopy := GDI.CopyImage(hBitmap) ;; Don't touch the current bitmap
       hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      hClone   := GDI.CreateDIBSection(ogW - (ogW = nW ? 0 : nW), ogH - (ogH = nH ? 0 : nH), hdcClone)
 
-      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmSrc   := GDI.SelectObject(hdcSrc, hCopy) ; hBitmap
+      hClone   := GDI.CreateDIBSection(ogW - (ogW = nW ? 0 : nW), ogH - (ogH = nH ? 0 : nH), hdcClone)
       obmClone := GDI.SelectObject(hdcClone, hClone)
       ; DestDC, Dest X, Dest Y, Dest Width, Dest Height, srcDC, Source X, Source Y
       If (ogH = nH) {
@@ -149,6 +154,7 @@ Class BitMap {
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
+      GDI.DeleteObject(hCopy)
       If NOT keepBitmap
          GDI.DeleteObject(hBitmap)
 
@@ -170,13 +176,14 @@ Class BitMap {
     */
    Static ExtendBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
+      hCopy := GDI.CopyImage(hBitmap) ; Don't touch the current bitmap
 
       ; Create the larger DIB
       hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone)
       ; Gets strange after here, visual bitmap may lose some background
-      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmSrc   := GDI.SelectObject(hdcSrc, hCopy)
+      hClone   := GDI.CreateDIBSection(ogW + l + r, ogH + t + b, hdcClone)
       obmClone := GDI.SelectObject(hdcClone, hClone)
 
       ; Fill with background color first since we overwrite part of it
@@ -194,6 +201,7 @@ Class BitMap {
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
 
+      GDI.DeleteObject(hCopy)
       If NOT keepBitmap
          GDI.DeleteObject(hBitmap)
 
@@ -214,14 +222,15 @@ Class BitMap {
     */
    Static ExpandBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
+      hCopy := GDI.CopyImage(hBitmap) ; Don't touch the current bitmap
 
       ; Create the larger DIB
+      w := abs(r-l), h := abs(b-t)
       hdcSrc   := GDI.CreateCompatibleDC(0)
       hdcClone := GDI.CreateCompatibleDC(0)
-      w := abs(r-l), h := abs(b-t)
-      hClone   := GDI.CreateDIBSection(ogW + w, ogH + h, hdcClone)
       ; Gets strange after here, visual bitmap may lose some background
-      obmSrc   := GDI.SelectObject(hdcSrc, hBitmap)
+      obmSrc   := GDI.SelectObject(hdcSrc, hCopy)
+      hClone   := GDI.CreateDIBSection(ogW + w, ogH + h, hdcClone)
       obmClone := GDI.SelectObject(hdcClone, hClone)
 
       ; Fill with background color first since we overwrite part of it
@@ -246,6 +255,7 @@ Class BitMap {
 
       GDI.DeleteDC(hdcSrc)
       GDI.DeleteDC(hdcClone)
+      GDI.DeleteObject(hCopy)
 
       If NOT keepBitmap
          GDI.DeleteObject(hBitmap)

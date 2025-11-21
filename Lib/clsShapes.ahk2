@@ -1232,7 +1232,7 @@ Class Shapes {
             Return
          ; This destroys the existing snip bitmap and creates a new one
          Gdi.vSync()
-         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h)
+         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
          ; Hide the flash when we replace the bitmap
          myGUI.Move(-20000,-20000, iR.w + BW * 2, iR.h + BW * 2) 
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
@@ -1254,7 +1254,7 @@ Class Shapes {
       }
    }
    /**
-    * Crop the image to one of the drawn shapes/pictures
+    * Slice a section out of the bitmap
     * @param GuiCtrlObj Is the crop rectangle just drawn
     * @returns Nothing 
     */
@@ -1267,10 +1267,11 @@ Class Shapes {
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
          iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, sc.X, sc.Y, sc.X2, sc.Y2)
          ; Offset by borderwidth (0 based)
-         hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h)
+         Gdi.vSync()
+         hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         Gdi.vSync()
+         myGUI.Move(, , W + BW * 2, H + BW * 2)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
          ; Autosize may leave one border wider for some strange reason (would need redraw)
@@ -1293,8 +1294,8 @@ Class Shapes {
          }
       }
    }
-      /**
-    * Crop the image to one of the drawn shapes/pictures
+    /**
+    * Extend or expand the image to one of the drawn shapes/pictures
     * @param GuiCtrlObj Is the crop rectangle just drawn
     * @returns Nothing 
     */
@@ -1331,13 +1332,11 @@ Class Shapes {
                type := "Extend"
             Case (sc.W = pW AND sc.H != pH):
                ; Horz
-               debug("Horz " sc.W " at " sc.Y1 " to " sc.Y2)
                t := Min(sC.Y1, sC.Y2)
                b := t + sc.H
                type := "Expand"
             Case (sc.H = pH AND sc.W != pW):
                ; Vert
-               debug("Vert " sc.W)
                l := Min(sC.X1, sC.X2)
                r := l + sc.W
                type := "Expand"
@@ -1347,22 +1346,19 @@ Class Shapes {
          }
 
          ; Extend in the appropriate direction
+         Gdi.vSync() ; Sync with vSync
          Switch type {
             Case "Extend": ; enlarge outside
-               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
+               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b,1)
             Case "Expand": ; enlarge inside
-               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b)
+               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b,1)
             Default:
                Return
          }
-         if ("type")
          ; Get new dimensions
-         Gdi.vSync() ; Sync with vSync
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         ; move offscreen if moving and resizing, can help with flashing
-         ; If (l > 0 OR t > 0)
-         ;    myGUI.Move(-20000, -20000, W + BW * 2, H + BW * 2)
+         myGUI.Move(, , W + BW * 2, H + BW * 2)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
          Switch type {
@@ -1390,7 +1386,6 @@ Class Shapes {
                   }
                }
          }
-         Gdi.vSync() ; Sync with vSync
 
          ButtonBar.Show()
          if Clipboard {

@@ -380,7 +380,7 @@ int DrawText(
       return DllCall("Gdi32\GetTextExtentPoint32", "ptr", hDc, "Str", text, "Uint", StrLen(text), "ptr", lpSize, "Int")
    }
    Static DrawFocusRect(hDC, lprc) => DllCall("User32\DrawFocusRect", "ptr", hDC, "ptr", lprc, "int")
-   Static CopyImage(hSource, type, W, H) => DllCall("User32\CopyImage", "Uint", hSource, "Uint", type:=0, "Int", W, "Int", H, "Uint", what := 0x00002000) ; LR_CREATEDIBSECTION
+   Static CopyImage(hSource, type:=0, W:=0, H:=0) => DllCall("User32\CopyImage", "Uint", hSource, "Uint", type:=0, "Int", W, "Int", H, "Uint", what := 0x00002000) ; LR_CREATEDIBSECTION
    Static GetObject(hObj, Size, Buf) => DllCall("Gdi32\GetObject", "Ptr", hObj, "int", Size, "Ptr", Buf)
    Static GetWindowDC(hWnd) => DllCall("User32\GetWindowDC", "Ptr",hWnd)
 
