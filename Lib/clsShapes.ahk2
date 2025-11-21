@@ -1310,26 +1310,52 @@ Class Shapes {
          cX2 := cX1 + cW, cY2 := cY1 + cH
          pX2 := pX1 + pW, pY2 := pY1 + pH
          l := r := t := b := 0
+         type := ""
          ; Find what was extended
-         If (pX1 > sC.X) {
-            ; left
-            l :=  abs(pX1 - cX1)
-         } else If (pY1 > sC.Y) {
-            ; top 
-            t := abs(pY1 - cY1)
-         } else If (pX2 < sC.X2) {
-            ; right
-            r := Abs(pX2 - cX2)
-         } else If (pY2 < sC.Y2) {
-            ; bottom
-            b := abs(pY2 - cY2)
-         } Else {
-            Warning("Internal Selection Only")
-            Return 0
+         Switch {
+            Case (pX1 > sC.X):
+               ; left
+               l := Abs(pX1 - cX1)
+               type := "Extend"
+            Case (pY1 > sC.Y):
+               ; top
+               t := Abs(pY1 - cY1)
+               type := "Extend"
+            Case (pX2 < sC.X2):
+               ; right
+               r := Abs(pX2 - cX2)
+               type := "Extend"
+            Case (pY2 < sC.Y2):
+               ; bottom
+               b := Abs(pY2 - cY2)
+               type := "Extend"
+            Case (sc.W = pW AND sc.H != pH):
+               ; Horz
+               debug("Horz " sc.W " at " sc.Y1 " to " sc.Y2)
+               t := Min(sC.Y1, sC.Y2)
+               b := t + sc.H
+               type := "Expand"
+            Case (sc.H = pH AND sc.W != pW):
+               ; Vert
+               debug("Vert " sc.W)
+               l := Min(sC.X1, sC.X2)
+               r := l + sc.W
+               type := "Expand"
+            Default:
+               Warning("Internal Selection Only")
+               Return 0
          }
 
          ; Extend in the appropriate direction
-         hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
+         Switch type {
+            Case "Extend": ; enlarge outside
+               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b)
+            Case "Expand": ; enlarge inside
+               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b)
+            Default:
+               Return
+         }
+         if ("type")
          ; Get new dimensions
          Gdi.vSync() ; Sync with vSync
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
@@ -1339,16 +1365,30 @@ Class Shapes {
          ;    myGUI.Move(-20000, -20000, W + BW * 2, H + BW * 2)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
-         myGUI.Move(gX1 - l, gY1 - t, W + BW * 2, H + BW * 2)
-         ; Shift all of the controls so they stay in same place (has to be after the resize)
-         If (l > 0 OR t > 0) {
-            For Ctrl in myGUI {
-               If Ctrl.Visible and Ctrl.Source != "Screen" {
-                  Ctrl.GetPos(&X, &Y, &W, &H)
-                  Ctrl.Move(X + l, Y + t)
-                  Ctrl.Refresh()
+         Switch type {
+            Case "Expand": ; enlarge inside
+               myGUI.Move(,, W + BW * 2, H + BW * 2)
+               ; Shift all of the controls so they stay in same place (has to be after the resize)
+                  For Ctrl in myGUI {
+                     If Ctrl.Visible and Ctrl.Source != "Screen" {
+                        Ctrl.GetPos(&X, &Y, &W, &H)
+                        if (l > 0 AND X > l OR (t > 0 and y > t))
+                           Ctrl.Move(X + (r - l), Y + (b - t))
+                        Ctrl.Refresh()
+                     }
+                  }
+            Case "Extend": ; enlarge outside
+               myGUI.Move(gX1 - l, gY1 - t, W + BW * 2, H + BW * 2)
+               ; Shift all of the controls so they stay in same place (has to be after the resize)
+               If (l > 0 OR t > 0) {
+                  For Ctrl in myGUI {
+                     If Ctrl.Visible and Ctrl.Source != "Screen" {
+                        Ctrl.GetPos(&X, &Y, &W, &H)
+                        Ctrl.Move(X + l, Y + t)
+                        Ctrl.Refresh()
+                     }
+                  }
                }
-            }
          }
          Gdi.vSync() ; Sync with vSync
 
