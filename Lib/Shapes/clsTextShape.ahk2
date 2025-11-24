@@ -171,7 +171,7 @@ Class TextShape extends CommonShape {
       ; NOTE - Maximum width of text rectangle will be Snip width.
       GDIp.CreateRectF(&RCWin, 0, 0, Width, Height)
       ; Don't specify alignment, use top/left
-      RCText := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
+      RCTextF := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
       GDIp.DeleteGraphics(G)
       If (Lines == 0) {
          qTrayTip("No text found on clipboard")
@@ -189,10 +189,10 @@ Class TextShape extends CommonShape {
       shift    := {}
       ahFactor := {}
       txt := {
-         X: RCText.X1 ,
-         Y: RCText.Y1 ,
-         W: RCText.X2 ,
-         H: RCText.Y2
+         X: RCTextF.X1 ,
+         Y: RCTextF.Y1 ,
+         W: RCTextF.X2 ,
+         H: RCTextF.Y2
       }
       txt.LH   := txt.H / Lines
 
@@ -207,10 +207,8 @@ Class TextShape extends CommonShape {
          Case Shapes.SHAPE_TAG:
             ; Tags will be square, enlarge box
             txt.W := txt.H := Max(txt.W, txt.H)
-            pad.l := pad.r := pad.t := pad.b := outlineThickness
-            ; BUG - centering is visually off a bit for small tags
-            tOffset := 0 ; 
-            txt.x += pad.r + 1, txt.y += pad.t + 2
+            pad.l := pad.r := pad.t := pad.b := 0
+            ; txt.x += pad.r + 1, txt.y += pad.t + 2
          Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
             ahFactor.x := 0.95 ; how far the point sticks out (rel to height)
             ahFactor.y := 0.30 ; how far the top/bot sides stick out (rel to height)
@@ -243,7 +241,7 @@ Class TextShape extends CommonShape {
       ;----------------------------------------------------------------------
       ; This is the adjusted rectangle we draw the text in
       ;----------------------------------------------------------------------
-      RCText.Init(txt.X, txt.Y, txt.W, txt.H)
+      RCTextF.Init(txt.X, txt.Y, txt.W, txt.H)
       txt.iW := Ceil(txt.W), txt.iH := Ceil(txt.H)
       ; First time draw, save width, always save height for the text editor
       if (NOT this.HasProp("EditWidth"))
@@ -286,7 +284,7 @@ Class TextShape extends CommonShape {
             ; utfBuf := Buffer(StrPut(this._Text, "UTF-8"))
             ; StrPut(this._Text, utfBuf, , "UTF-8")
             ; GDIpText.DrawString(G, StrGet(utfBuf,,"UTF-8"), hFont, hFormat, textBrush, &RCText)
-            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
 
          Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
             ; IDEA - Up/Down arrows as well?
@@ -328,7 +326,7 @@ Class TextShape extends CommonShape {
             ;----------------------------------------------------------------------
             ; Finally Draw the text last on top
             ;----------------------------------------------------------------------
-            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
 
          Case Shapes.SHAPE_FILLTEXT:
             fillBrush := GDIp.BrushCreateSolid((this.FTOpacity << 24) | (this._BGColor & 0xFFFFFF))
@@ -347,10 +345,10 @@ Class TextShape extends CommonShape {
                   GDIp.DrawRoundedRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height, radius)
                   GDIp.DeletePen(outlinePen)
                Default:
-                  GDIp.FillRoundedRectangle(G, fillBrush, 0, 0, mySurf.Width, mySurf.Height, radius)
+                  GDIp.FillRoundedRectangle(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H, radius)
             }
             GDIp.DeleteBrush(fillBrush)
-            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCText)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
 
          Case Shapes.SHAPE_OLTEXT:
             ; outline text size, A_ScreenDPI keeps it consistent across monitors and computers
@@ -363,7 +361,7 @@ Class TextShape extends CommonShape {
             GDIp.SetPenLineJoin(outlinePen, 2) ; Rounded, avoid spikes
             ; Write the outline text first
             Path := GDIp.CreatePath(0)
-            res  := GDIpText.AddPathString(Path, this._Text, -1, hFamily, StyleCode, emVal, &RCText, hFormat)
+            res  := GDIpText.AddPathString(Path, this._Text, -1, hFamily, StyleCode, emVal, &RCTextF, hFormat)
             res  := GDIp.DrawPath(G, outlinePen, Path)    ; outside
             ; We now have the outside shape in the G graphics
             ; If we want to blur it then shrink/expand the outline part
@@ -385,44 +383,14 @@ Class TextShape extends CommonShape {
             GDIp.DeletePath(Path)
 
          Case Shapes.SHAPE_TAG:
-            ; Border is a bit thicker than raw line width
-            If (0) {
-               outlineThickness *= 1.5
-               ; Fill just up to the outline in case the outline is semi-transparent
-               fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._BGColor & 0xFFFFFF))
-               GDIp.FillEllipse(G, fillBrush, outlineThickness, outlineThickness, mySurf.Width - outlineThickness * 2, mySurf.Height - outlineThickness * 2)
-
-               ; Circle is inset around perimiter
-               cColor := Complementary(this._BGColor & 0xFFFFFF)
-               ; Fully saturate somewhat saturated colors
-               HLS := RGBToHLS(cColor)
-               If (HLS.S > 120 & HLS.S < 240) {
-                  HLS.S := 240
-                  cColor := HLStoRGB(HLS)
-               }
-
-               outlinePen := GDIp.CreatePen(outlineOpacity | cColor, outlineThickness)
-               ; outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
-               GDIp.SetPenAlignment(outlinePen, 1)
-               ; This is probably a GDI thing with ellipses, but pulling in one pixel seems to look better as there may be some clipping
-               GDIp.DrawEllipse(G, outlinePen, 1, 1, mySurf.Width - 1, mySurf.Height - 1)
-               GDIpText.SetStringFormatAlign(hFormat, 1)
-               textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
-               GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCText)
-               GDIp.DeleteBrush(textAltBrush)
-               GDIp.DeletePen(outlinePen)
-               GDIp.DeleteBrush(fillBrush)
-            } Else {
-               ; Simplier solid background with black/white text
-               fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._fontColor & 0xFFFFFF))
-               GDIp.FillEllipse(G, fillBrush, 0, 0, mySurf.Width, mySurf.Height)
-               cColor := BlackOrWhite(this._fontColor & 0xFFFFFF)
-               textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
-               GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCText)
-               GDIp.DeleteBrush(textAltBrush)
-               GDIp.DeleteBrush(fillBrush)
-               
-            }
+            ; Simplier solid background with black/white text
+            fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._fontColor & 0xFFFFFF))
+            GDIp.FillEllipse(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H)
+            cColor := BlackOrWhite(this._fontColor & 0xFFFFFF)
+            textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
+            GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCTextF)
+            GDIp.DeleteBrush(textAltBrush)
+            GDIp.DeleteBrush(fillBrush)
 
          Default:
       }
@@ -483,7 +451,7 @@ Class TextShape extends CommonShape {
       super.Move(wX?, wY?)
       Switch this.Shape {
          ; Recompute the background color in real time
-         Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT, Shapes.SHAPE_TAG:
+         Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
             ; Recompute and redraw with the text background color
             If ((res := this.ShapeBackgroundColor()) >= 0) {
                this._BGColor := res
