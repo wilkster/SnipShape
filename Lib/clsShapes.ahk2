@@ -779,7 +779,7 @@ Class Shapes {
       ; X/Y are the mouse and not the constrained values
       ; Freehand shapes have one final draw to last point and compute their coordinates
       ;----------------------------------------------------------------------
-      if (ResizeMode OR (W > 5 OR H > 5) OR AddedPoints > 2) {
+      if (ResizeMode OR ShapeObj.SizeOk(W,H) OR AddedPoints > 2) {
          If (ShapeObj.Source = "FreeHand") {
             ; Some freehand shapes will close if start/end points are close to each other
             ShapeObj.CloseCurve(surfSource.G, useLines)

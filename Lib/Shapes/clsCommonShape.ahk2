@@ -105,6 +105,7 @@ Class commonShape extends Gui.Pic {
       ; this.H              := 0
       this.Started        := false
       this.OG             := {}
+      this.minSize        := {W:5,H:5}
       this.ClearCursorClass()
       ; Event Menus/Actions
       this.bindMenu       := ShapeMenus.ShapeRMB.Bind(Shapes)
@@ -198,6 +199,9 @@ Class commonShape extends Gui.Pic {
    }
    GrabProcessedBitmap() {
       ; Shape specific
+   }
+   SizeOk(W, H) {
+      Return (W > this.minSize.W OR H > this.minSize.H)
    }
    ;----------------------------------------------------
    ; Move the shape and update the internal coordinates

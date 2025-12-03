@@ -116,7 +116,8 @@ Class LineShape extends commonShape {
             pArray := [[0, 0], [L - H + I, T / 2], [L - H, W / 2], [L, 0], [L - H, -W / 2], [L - H + I, -T / 2]]
             oPath := GDIp.Path(G)
             oPath.AddPathArray(pArray, 1)
-            ; Compute the rotation angle and rotate the bracket (around graphics origin), then translate to the start point
+            oPath.ClosePathFigure()
+            ; Compute the rotation angle and rotate the arrow (around graphics origin), then translate to the start point
             ; 2.1 has proper Atan2
             Ang := myAngle(Y2 - Y1, X2 - X1)
             oPath.TranslateRotatePath(Ang, X1, Y1)

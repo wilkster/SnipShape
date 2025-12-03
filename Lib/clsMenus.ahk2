@@ -359,7 +359,7 @@ Class ShapeMenus {
       ; Thickness
       Switch ShapeObj.Source {
          Case "BodyShape", "LineShape", "FreeHand":
-            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu1)
+            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu2)
             shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", SETTINGS.CursorPath . "Menu\Shapes.png" )
             subMenu2.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
             subMenu2.SetIcon("Increase Thickness (Up)", SETTINGS.CursorPath . "Plus.ico")

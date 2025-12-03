@@ -173,6 +173,7 @@ Class TextShape extends CommonShape {
       ; Don't specify alignment, use top/left
       RCTextF := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
       GDIp.DeleteGraphics(G)
+      
       If (Lines == 0) {
          qTrayTip("No text found on clipboard")
          ; Unwind
