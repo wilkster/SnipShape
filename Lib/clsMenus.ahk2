@@ -33,14 +33,14 @@ Class SnipMenus {
       this.csMenu.Add("OCR Text",this.OCRMenu)
       this.csMenu.SetIcon("OCR Text", SETTINGS.CursorPath . "OCR.cur")
 
-      this.OCRMenu.Add('OCR Text Lines to Clipboard', this.ContextSnipMenu_Handler.bind(this))
-      this.OCRMenu.SetIcon('OCR Text Lines to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
+      this.OCRMenu.Add('OCR Text Lines to Clipboard (Ctrl-O)', this.ContextSnipMenu_Handler.bind(this))
+      this.OCRMenu.SetIcon('OCR Text Lines to Clipboard (Ctrl-O)', SETTINGS.CursorPath . "Ocr.cur")
 
       this.OCRMenu.Add('OCR Text Words to Clipboard', this.ContextSnipMenu_Handler.bind(this))
       this.OCRMenu.SetIcon('OCR Text Words to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
 
-      this.OCRMenu.Add('OCR Text Table to Clipboard', this.ContextSnipMenu_Handler.bind(this))
-      this.OCRMenu.SetIcon('OCR Text Table to Clipboard', SETTINGS.CursorPath . "Ocr.cur")
+      this.OCRMenu.Add('OCR Text Table to Clipboard (Ctrl-T)', this.ContextSnipMenu_Handler.bind(this))
+      this.OCRMenu.SetIcon('OCR Text Table to Clipboard (Ctrl-T)', SETTINGS.CursorPath . "Ocr.cur")
 
       this.csMenu.Add("Bitmap Effects",this.BitmapMenu)
       this.csMenu.SetIcon("Bitmap Effects", SETTINGS.CursorPath . "screenshot.ico")
@@ -59,11 +59,11 @@ Class SnipMenus {
       this.csMenu.Add()
       ; Note, these two are renamed with current file name in Post
       this.AddEntry('Edit:', "Edit.ico")
-      this.AddEntry('Save:', "SaveAs.ico")
+      this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
       this.csMenu.Add()
-      this.AddEntry("Minimize This Snip (Down)", "Minimize.ico")
+      this.AddEntry("Minimize This Snip", "Minimize.ico")
       this.AddEntry("Minimize All Snips (Ctrl-Down)", "Minimize.ico")
-      this.AddEntry("Restore All Snips (Ctrl-Up)", "Restore.ico")
+      this.AddEntry("Restore Other Snips (Ctrl-Up)", "Restore.ico")
       this.csMenu.Add() ;12
       this.AddEntry("Clear all Shapes (Shift-Del)", "Clear.ico")
       this.csMenu.Add() ;14
