@@ -164,8 +164,8 @@ Class SnipMenus {
          this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
       }
       ; Keep positional rename since menu is renamed dynamically
-      this.csMenu.Rename('14&', "Edit: "  SnipObj.BaseName)
-      this.csMenu.Rename('15&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
+      this.csMenu.Rename('8&', "Edit: "  SnipObj.BaseName)
+      this.csMenu.Rename('9&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
       this.PictMenu.Delete()
       this.populatePicMenu(this.PictMenu, hWnd, mX, mY)
