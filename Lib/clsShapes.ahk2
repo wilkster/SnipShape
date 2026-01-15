@@ -747,7 +747,6 @@ Class Shapes {
             ;----------------------------------------------------------------------
             ; Update the drawing window with the new locations
             ;----------------------------------------------------------------------
-            ShapeObj.shapeStart := shapeStart.Clone() ; Used to know direction drawn for tools
             surfSource.UpdateLayer(winX - this.DIBPad, winY - this.DIBPad)
             ;----------------------------------------------------------------------
             ; Hide the old picture if it was visible after we update once to the new GUI for a
@@ -761,7 +760,9 @@ Class Shapes {
             ;----------------------------------------------------------------------
             if (ResizeMode)
                focusBorder.Move(X, Y, W, H)
-         }
+         } ; end while loop
+         
+         ShapeObj.shapeStart := shapeStart.Clone() ; Used to know direction drawn for tools
          this.DrawActive := false
          if (ResizeMode) {
             ; Unlock the focusBorder after the next unfocus
