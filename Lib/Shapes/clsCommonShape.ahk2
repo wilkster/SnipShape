@@ -100,6 +100,7 @@ Class commonShape extends Gui.Pic {
       
       this.Corner         := 0
       this.shapeCoord     := { X1: 0, Y1: 0, X2: 0, Y2: 0}
+      this.shapeStart     := { X: 0, Y: 0}
       this.sPad           := { L: 0, T: 0, R: 0, B: 0}
       ; this.W              := 0
       ; this.H              := 0

@@ -747,6 +747,7 @@ Class Shapes {
             ;----------------------------------------------------------------------
             ; Update the drawing window with the new locations
             ;----------------------------------------------------------------------
+            ShapeObj.shapeStart := shapeStart.Clone() ; Used to know direction drawn for tools
             surfSource.UpdateLayer(winX - this.DIBPad, winY - this.DIBPad)
             ;----------------------------------------------------------------------
             ; Hide the old picture if it was visible after we update once to the new GUI for a
@@ -931,9 +932,9 @@ Class Shapes {
       ;-----------------------------------------------------
       If (corner) {
          MouseMove(ccX, ccY)
-         If ShapeObj.Source = "FreeHand" {
-            ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
-         }
+         ; If ShapeObj.Source = "FreeHand" {
+         ;    ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
+         ; }
          ; Close to the corner, then resize
          if ShapeObj.Source ~= "Shape" {
             ;-----------------------------------------------------
@@ -1149,7 +1150,7 @@ Class Shapes {
             CloneObj.Shape          := ShapeObj.Shape
             CloneObj.Color          := ShapeObj.Color
             CloneObj.Factor         := ShapeObj.Factor
-            CloneObj.shapeThickness := ShapeObj.shapeThickness
+            CloneObj.shapeThickness := ShapeObj.shapeThickness  ;OG.PenWidth
             CloneObj.shapeOpacity   := ShapeObj.shapeOpacity ; freehand specific
             CloneObj.outlineOpacity := ShapeObj.outlineOpacity ; freehand specific
             CloneObj.shapeCoord     := ShapeObj.shapeCoord.clone()
@@ -1332,12 +1333,12 @@ Class Shapes {
                type := "Extend"
             Case (sc.W = pW AND sc.H != pH):
                ; Horz
-               t := Min(sC.Y1, sC.Y2)
-               b := t + sc.H
+               t := ExtendObj.shapeStart.Y
+               b := t + sC.H
                type := "Expand"
             Case (sc.H = pH AND sc.W != pW):
-               ; Vert
-               l := Min(sC.X1, sC.X2)
+               ; Vertq
+               l := ExtendObj.shapeStart.X
                r := l + sc.W
                type := "Expand"
             Default:

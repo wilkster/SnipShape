@@ -38,7 +38,7 @@ Class TextShape extends CommonShape {
    Static OLBlur          := IniReadValue("Text", "Outline Blur Value",1)
    Static textOpacity     := IniReadValue("Text", "Text Opacity", 0xFF)
    ;----------------------------------------------------------------------
-   ; Caption unique properties
+   ; Caption unique properties - Called on Creation
    ;----------------------------------------------------------------------
    Init(*) {
       Super.Init()
@@ -70,6 +70,33 @@ Class TextShape extends CommonShape {
       this.shapeCoord      := { X1: 0, Y1: 0, X2: 0, Y2: 0}
       ; this.bindDClick      := this.EditDispText.Bind(this)
       ; this.OnEvent("DoubleClick", this.bindDClick)
+   }
+   ;----------------------------------------------------------------------
+   ; Called prior to drawing to define text and other characteristics
+   ; Font size/ colors may be set dynamically during a resize event however
+   ;----------------------------------------------------------------------
+   Startup(Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
+      super.Startup()
+      If (IsSet(Size))
+         this._fontSize := Size
+      If (IsSet(Text))
+         this._Text := Text
+      If (IsSet(FontName))
+         this._fontName := FontName
+      If (IsSet(Alignment))
+         this._Alignment := Alignment
+      If (IsSet(Color))
+         this._fontColor := Color ; includes alpha
+      If (IsSet(Style))
+         this._fontStyle := Style
+      If (IsSet(BGColor))
+         this._BGColor := BGColor & 0xFFFFFF
+      Switch this.Shape {
+         Case Shapes.SHAPE_TAG:
+         Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
+         Case Shapes.SHAPE_FILLTEXT:
+         Default:
+      }
    }
    ;----------------------------------------------------------------------
    ; Text Unique properties and methods
@@ -115,6 +142,7 @@ Class TextShape extends CommonShape {
     * @param Color Optiona Font Color to use
     * TODO - maybe don't pass in parameters but user sets properties prior to render?
     * TODO - Call this Refresh and move into the Canvas class to be consistent
+    * Really only need G, lX, lY, rX, rY, Size, Color), rest set in startup before drawing
     */
    DrawText(lX := 0, lY := 0, Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
       Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
@@ -480,7 +508,6 @@ Class TextShape extends CommonShape {
       this.DrawText(_X, _Y)
       this.UpdateCoord()
    }
-   Startup() => {}
    Cleanup() => {}
    ChangeThickness(percent) {
       this.shapeThickness *= (1 + percent)
