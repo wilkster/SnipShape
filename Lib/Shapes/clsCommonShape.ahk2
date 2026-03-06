@@ -1,5 +1,12 @@
 #Requires AutoHotkey v2.0 
 #include ..\clsShapes.ahk2
+#include clsTextShape.ahk2
+#include clsBodyShape.ahk2
+#include clsLineShape.ahk2
+#include clsFreehandShape.ahk2
+#include clsObscureShape.ahk2
+#include clsToolShape.ahk2
+
 ; Add new command to Gui object for adding shapes
 Gui.Prototype.AddNewShape := AddNewShape
 ; Alls GDI+ Shapes ahve the same options

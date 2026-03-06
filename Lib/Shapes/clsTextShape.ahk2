@@ -3,8 +3,10 @@
 ;#####################################################################################
 #Requires AutoHotkey v2.0 
 #include clsCommonShape.ahk2
-#Include ..\clsGDIp.ahk2
 #Include ..\libMisc.ahk2
+#Include ..\clsGDIp.ahk2
+#Include ..\clsBitmap.ahk2
+#Include ..\Theming.ahk2
 #Include ..\clsShapes.ahk2
 /**
  * PicPlus class that extends the base picture class

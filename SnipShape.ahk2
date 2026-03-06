@@ -373,19 +373,6 @@ HotIfWinActive
 ; Hotif
 
 
-;----------------------------------------------------------------------
-; INI Helper Function
-; IniWriteIfBlank - Setting is not changed herein
-; IniWriteValue - Setting is changed herein
-;----------------------------------------------------------------------
-IniWriteIfBlank(V, Section, Parameter) {
-   If IniRead(SETTINGS.File, Section, Parameter, "XX") = "XX"
-      IniWrite(V, SETTINGS.File, Section, Parameter)
-}
-IniWriteValue(V, Section, Parameter) {
-   IniWrite(V, SETTINGS.File, Section, Parameter)
-}
-IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Default)
 Suspend(0)
 
 /**

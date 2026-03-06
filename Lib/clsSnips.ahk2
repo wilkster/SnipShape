@@ -7,6 +7,7 @@
  ***********************************************************************/
 
 #Requires AutoHotkey v2
+#include libMisc.ahk2
 #include clsGDIp.ahk2
 #include clsBitmap.ahk2 
 #include clsShapes.ahk2
