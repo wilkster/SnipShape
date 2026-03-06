@@ -7,6 +7,7 @@
  ***********************************************************************/
 #Requires AutoHotkey v2.1-
 #include clsGDIp.ahk2
+#include Theming.ahk2
 #include libMisc.ahk2
 ; #Include ..\vsCode\Gdiplus.ahk2
 /*
