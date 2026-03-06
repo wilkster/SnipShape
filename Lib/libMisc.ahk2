@@ -7,12 +7,11 @@
  * @date 2024/04/20
  * @version 1.0.0
  ***********************************************************************/
-;@include-winapi
 ;======================================================================
 ;     M I S C   F U N C T I O N S    B E L O W
 ;======================================================================
 ;
-Global Settings
+Global SETTINGS
 ;----------------------------------------------------------------------
 ; INI Helper Function
 ; IniWriteIfBlank - Setting is not changed herein
@@ -288,14 +287,11 @@ SetCursorPos(X, Y) {
 activeMonDPIFactor(useMouse := 1) {
    Static MDT_EFFECTIVE_DPI := 0
    ; Make sure monitor info is up to date
-   If (useMouse) {
-      GetCursorPos(&Mx, &My)
-   } Else {
-      Mx := My := 0  ; primary monitor is always 0,0 for upper left corner
-   }
+   POINT := 0
+   If (useMouse)
+      DllCall("User32\GetCursorPos", "uint64*", &POINT)
    ; Get Monitor under cursor pack a POINT structure
-   point := (Mx & 0xFFFFFFFF) | (My << 32)
-   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", point, "UInt", 0, "Ptr")
+   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", POINT, "UInt", 0, "Ptr")
    DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", MDT_EFFECTIVE_DPI, "Ptr*", &dpiX := 0, "Ptr*", &dpiY := 0)
    Factor := (Sqrt(dpiX * dpiY))/96
    return Factor

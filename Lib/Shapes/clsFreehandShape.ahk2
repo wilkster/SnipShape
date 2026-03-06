@@ -1,4 +1,9 @@
 #Requires AutoHotkey v2.0 
+#include ..\clsGDIp.ahk2
+#include ..\libMisc.ahk2
+#include ..\clsBitmap.ahk2
+#include ..\clsShapes.ahk2
+#include ..\clsSnips.ahk2
 #include clsCommonShape.ahk2
 /**
  * Class Freehand shape
@@ -11,6 +16,7 @@
  */
 Class FreeHandShape extends commonShape {
    Init(*) {
+      Global SETTINGS
       Super.Init()
       this._Points               := ""
       this.OkToClose             := true  ; If it is OK to close the curve/polygon if start/end points are close

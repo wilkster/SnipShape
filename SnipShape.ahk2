@@ -78,18 +78,28 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 ;                          I N C L U D E S
 ; =====================================================================
 ; SnipShape related files
-#Include %A_ScriptDir%\Lib          ; Set Lib folder
+#Include %A_ScriptDir%\Lib ;          ; Set Lib folder
 #include libMisc.ahk2
 #include clsGDIp.ahk2
 #include clsBitmap.ahk2
-#include clsButtonBar.ahk2
+#include Theming.ahk2
+
+#include clsShapes.ahk2
+#include clsSnips.ahk2
 #include clsClipboard.ahk2
 #include clsCursor.ahk2
 #include clsMenus.ahk2
-#include clsShapes.ahk2
-#include clsSnips.ahk2
-; https://github.com/Descolada/OCR/blob/main/Lib/OCR.ahk
+#include clsButtonBar.ahk2
 #include OCR.ahk2
+
+#include Shapes/clsCommonShape.ahk2
+#include Shapes/clsTextShape.ahk2
+#include Shapes/clsBodyShape.ahk2
+#include Shapes/clsLineShape.ahk2
+#include Shapes/clsFreehandShape.ahk2
+#include Shapes/clsObscureShape.ahk2
+#include Shapes/clsToolShape.ahk2
+; https://github.com/Descolada/OCR/blob/main/Lib/OCR.ahk
 
 OnExit(Exiting)
 

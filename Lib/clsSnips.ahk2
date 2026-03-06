@@ -11,7 +11,12 @@
 #include clsGDIp.ahk2
 #include clsBitmap.ahk2 
 #include clsShapes.ahk2
-#Include StopWatch.ahk2
+#include clsCursor.ahk2
+#include clsMenus.ahk2
+#include clsClipboard.ahk2
+#include clsButtonBar.ahk2
+#include OCR.ahk2
+#Include Shapes\clsTextShape.ahk2
 ; Cancel start of selection with escape, when hidden won't meet WinExist criteria
 #HotIf IsWindowVisible(Snips.guiSSR.hWnd)
    Escape:: Snips.closeSelect()
@@ -314,9 +319,6 @@ Class Snips {
          }
          Return 0
       }
-
-
-
       Area {
          get => this._Area
          set => this._Area := Value
@@ -910,6 +912,7 @@ Class Snips {
    ; Save the bitmap to a file, uses GDI+
    ;----------------------------------------------------------------------
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
+      Global SETTINGS
       try {
          pBitmap := Gdip.CreateBitmapFromHBITMAP(hBitmap)
          If IsSet(SnipObj) {

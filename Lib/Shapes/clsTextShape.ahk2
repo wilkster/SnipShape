@@ -700,6 +700,7 @@ Class GDIpText {
 ; Adapted from https://github.com/Ixiko/AHK-libs-and-classes-collection/blob/8f89301ab7b9b7a219970a665bb1d2c9baab08b8/libs/g-n/TextInputBox.ahk#L55
 ;----------------------------------------------------------------------
 TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
+   Global SETTINGS
    Static typeMap  := Map("Fill Text", Shapes.SHAPE_FILLTEXT, "Outline", Shapes.SHAPE_OLTEXT, "Tag", Shapes.SHAPE_TAG, "Left Arrow", Shapes.SHAPE_LEFTARROWTEXT, "Right Arrow", Shapes.SHAPE_RIGHTARROWTEXT, "Text Only", Shapes.SHAPE_TEXT)
    Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
    ; Any more than this request subclassing, not really worth it.

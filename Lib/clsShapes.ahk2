@@ -9,8 +9,10 @@
 #include clsGDIp.ahk2
 ; #include clsText.ahk2
 #include clsBitmap.ahk2
+#include clsClipboard.ahk2
 #include LibMisc.ahk2
 #include StopWatch.ahk2
+#include OCR.ahk2
 #include clsButtonBar.ahk2
 #include Shapes\clsCommonShape.ahk2
 

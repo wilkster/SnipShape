@@ -1,6 +1,9 @@
 #Requires AutoHotkey v2.0 
 #include clsCommonShape.ahk2
+#include ..\clsGDIp.ahk2
+#include ..\libMisc.ahk2
 #include ..\clsShapes.ahk2
+#include ..\clsSnips.ahk2
 
 ;----------------------------------------------------------------------
 ; Body related shapes

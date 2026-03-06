@@ -1,5 +1,10 @@
 #Requires AutoHotkey v2.0 
 #include clsCommonShape.ahk2
+#include ..\clsGDIp.ahk2
+#include ..\libMisc.ahk2
+#Include ..\clsBitmap.ahk2
+#Include ..\clsShapes.ahk2
+#Include ..\clsSnips.ahk2
 
 ;----------------------------------------------------------------------
 ; Blur and other obscure shapes

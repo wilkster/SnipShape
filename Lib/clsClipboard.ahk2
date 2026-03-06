@@ -8,6 +8,7 @@
 
 #Requires AutoHotkey v2
 #include clsGDIp.ahk2
+#include libMisc.ahk2
 ;----------------------------------------------------------------------
 ; Clipboard related functions
 ;----------------------------------------------------------------------

@@ -9,8 +9,8 @@
 #include libMisc.ahk2
 #include clsGDIp.ahk2
 #include Theming.ahk2
-#include libMisc.ahk2
-; #Include ..\vsCode\Gdiplus.ahk2
+#include clsShapes.ahk2
+#include clsSnips.ahk2
 /*
  * Button Bar Class to show buttons and select shapes, colors and such
  * Lives on top of active GUI if it is enabled.

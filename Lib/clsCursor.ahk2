@@ -7,6 +7,10 @@
  ***********************************************************************/
 #Requires AutoHotkey v2.1-
 #include clsGDIp.ahk2
+#include libMisc.ahk2
+#include clsShapes.ahk2
+#include clsSnips.ahk2
+#include clsButtonBar.ahk2
 ;----------------------------------------------------------------------
 ; Cursor Class
 ;----------------------------------------------------------------------
