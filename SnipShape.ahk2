@@ -359,16 +359,15 @@ HotIfWinActive
    getKeyColor(num, default) => IniReadValue("User Shape Color", "Color " . num, default)
 #HotIf
 ;----------------------------------------------------------------------
-; Move the active shape under these conditions
+; Move/Thickent the active shape under these conditions
+; Active when focus border is up
 ;----------------------------------------------------------------------
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.ShapeObj)
-   ; TODO - scroll up/down to thicken shape
+   ; Cursor keys to move shape
    $Up::ShiftShape(0, -5)
    $Down::ShiftShape(0, +5)
    $Left::ShiftShape(-5, 0)
    $Right::ShiftShape(+5, 0)
-   $Wheelup::ThickenShape(+0.05)
-   $Wheeldown::ThickenShape(-0.05)
    ShiftShape(sX, sY) {
       Critical("On")
       C := focusBorder.ShapeObj.sCoord
@@ -381,6 +380,9 @@ HotIfWinActive
       focusBorder.Sync()
       Critical("Off")
    }
+   ; Scroll Wheel
+   $Wheelup::ThickenShape(+0.05)
+   $Wheeldown::ThickenShape(-0.05)
    ThickenShape(dx) {
       focusBorder.ShapeObj.ChangeThickness(dx)
       focusBorder.ShapeObj.Refresh()

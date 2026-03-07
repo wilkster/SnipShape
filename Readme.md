@@ -23,7 +23,7 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
     - [Hotkeys to create shapes](#hotkeys-to-create-shapes)
     - [Buttonbar Menus to create shapes](#buttonbar-menus-to-create-shapes)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
-  - [Shape Notes](#shape-notes)
+  - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
     - [Deleting Shapes](#deleting-shapes)
@@ -256,12 +256,14 @@ options are also available from the Buttonbar described below.
 - When drawing freehand Pen shapes, if you stop the path near the start of the path, the path will enclose itself as if a circle was intended.
 - When drawing or resizing line based (two end-points) shapes, they will snap to a focus point if they are near it.  
 
-## Shape Notes
+## Hovering and Focus Rectangle
 
 - When you hover over a shape a focus rectangle/line will appear over it
   allowing you to move or resize it (cursor will change to a resize). If you see
   small focus circle (lines) or rectangle (other shapes), you can click those points
   to resize the shape. All shapes/text can be resized in this manner.
+- Pressing the up/down/left/right key will shift the shape snapping it to a grid
+- Using the scroll wheel will increase/decrease line thickness for drawn shapes and increase/decrease text size for text shapes.
 - While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
   snip.
 - When the focus rectangle is active over a shape, and you click on the shape,
