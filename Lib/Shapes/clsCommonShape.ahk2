@@ -350,7 +350,6 @@ Class commonShape extends Gui.Pic {
    }
    IsOverSnip() {
       C := this.sCoord
-      ; TODO - do we call this repeatdely?
       this.Gui.PIC.GetPos(,,&pW,&pH) 
       ; extract area wherepredominant  shape intersects with the snip and use it
       Return iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)
@@ -390,7 +389,6 @@ Class commonShape extends Gui.Pic {
          ; 50 is a threshold indicating a pretty dark background where text is most likely white or light
          ; High Percent indicates a solid background (like text), vs a photo or texture
          If ((lv := Luminosity(bgColor)) < 64 AND Percent > 0.10) {
-            ; TODO - Figure out how to apply hlOpacity to the dark mode case
             ; This looks better as it retains the highlight colors more accuratly
             ; Flip the highlight color as we will flip it back when we invert
             InvHlColor := Round((1 - cr) * 255 * scale) << 16 | Round((1 - cg) * 255 * scale) << 8 | Round((1 - cb) * 255 * scale)

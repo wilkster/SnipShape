@@ -28,8 +28,6 @@ Class Shapes {
    Static SHAPE_PICTURE := 0 ; Imported picture
    Static DrawActive := false
    Static ColorQueue := Array()
-   ; TODO - make this a setting
-   Static DIBPad := 450
 
    Static DefaultColorNames := [
       "Red", "Blue","Yellow", "Lime", "Aqua","Fuchsia", "Orange", "Black", "White"
@@ -139,7 +137,10 @@ Class Shapes {
       this.BlurDivisor           := IniReadValue("Obscure Shape", "Blur Factor", 10)
 
       ; Text
-      this.TagReset           := 1
+      this.TagReset               := 1
+
+      ; Padding around snip when drawing shapes
+      this.DIBPad                := SETTINGS.DIBPad 
       ; Line
       ; Blur / Redact / Highlight
       ;----------------------------------------------------------------------

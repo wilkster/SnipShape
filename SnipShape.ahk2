@@ -59,8 +59,8 @@ SETTINGS.CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullP
 SETTINGS.SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
 SETTINGS.SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
 SETTINGS.SavePath_Icons     := IniReadValue("User Snips", "IconPath",GetFullPathName('.\Stickies\'))
+SETTINGS.DIBPad             := IniReadValue("User Shapes", "Padding", 450)
 SETTINGS.Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
-
 If !FileExist(SETTINGS.Path)
    DirCreate(SETTINGS.Path)
 If !FileExist(SETTINGS.SavePath_Image)
@@ -418,6 +418,7 @@ Exiting(ExitReason, ExitCode) {
    IniWriteIfBlank(SETTINGS.SavePath_Image, "User Snips", "SnipPath")
    IniWriteIfBlank(SETTINGS.CursorPath, "User Snips", "CursorPath")
    IniWriteIfBlank(SETTINGS.Scale_Freehand, "User Shapes", "ScaleFreehand")
+   IniWriteIfBlank(SETTINGS.DIBPad, "User Shapes", "Padding")
    
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
    IniWriteValue(Snips.BorderWithCopy,  "Snips", "Border With Copy")
