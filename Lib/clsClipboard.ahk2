@@ -12,72 +12,124 @@
 ;----------------------------------------------------------------------
 ; Clipboard related functions
 ;----------------------------------------------------------------------
+
 Class Clipboard {
+   ; Helper Functions
+   Static IsClipboardFormatAvailable(fmt) => DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', fmt, "Int")
+   Static GetClipboardData(fmt)           => DllCall('User32.dll\GetClipboardData', 'UInt', fmt, 'Ptr')
+   Static SetClipboardData(fmt, data)     => DllCall('User32.dll\SetClipboardData', 'UInt', fmt, 'Ptr', data, 'Ptr')
+   Static OpenClipboard(hWnd := 0)        => DllCall('User32.dll\OpenClipboard', 'Ptr', hWnd, "Int")
+   Static CloseClipboard()                => DllCall('User32.dll\CloseClipboard', 'Ptr')
+   Static EmptyClipboard()                => DllCall('User32.dll\EmptyClipboard', 'Ptr')
+   Static GlobalLock(addr)                => DllCall('Kernel32.dll\GlobalLock', 'Ptr',addr, 'Ptr')
+   Static GlobalUnlock(addr)              => DllCall('Kernel32.dll\GlobalUnlock', 'Ptr',addr, 'Ptr')
+   Static GlobalAlloc(fmt, bytes)         => DllCall('Kernel32.dll\GlobalAlloc', 'uint',fmt, 'Ptr', bytes, 'Ptr')
+   Static GlobalFree(addr)                => DllCall('Kernel32.dll\GlobalFree', 'Ptr',addr, 'Ptr')
+   Static CopyMemory(dest, src, length)   => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
+
    Static HBITMAPFromClipboard(&W, &H) {
-      If (!DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', CF_DIB := 8))
+      If (!this.IsClipboardFormatAvailable(CF_BITMAP := 2))
          Return (0)
 
-      If (!DllCall('User32.dll\OpenClipboard', 'Ptr', A_ScriptHwnd))
+      If (!this.OpenClipboard(A_ScriptHwnd))
          Return (0)
 
-      Local hBitmap := DllCall('User32.dll\GetClipboardData', 'UInt', CF_BITMAP := 2, 'Ptr')
-      DllCall('User32.dll\CloseClipboard')
-
-      If (hBitmap) {
+      If (hBitmap := this.GetClipboardData(CF_BITMAP := 2)) {
          ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
          buf := tagBITMAP()
-         DllCall("Gdi32\GetObject", "Ptr", hBitmap, "Int", buf.Size, "Ptr", buf)
+         GDI.GetObject(hBitmap, buf.Size, buf)
          W := buf.bmWidth
          H := buf.bmHeight
       }
-
-      Return (hBitmap)
+      this.CloseClipboard()
+      Return hBitmap
    }
    ; SetBitmapToClipboard
-   Static SetPBitmapToClipboard(TpBitmap) {
+   /**
+    * Put a GDI+ bitmap to the clipboard
+    * @param TpBitmap Handle to GDI+ bitmap
+    * @returns {Integer} 
+    */
+   Static SetPBitmapToClipboard(TpBitmap, pszText := "") {
       hBitmap := Gdip.CreateHBITMAPFromBitmap(TpBitmap, 0)
       Gdip.DisposeImage(TpBitmap)
       If !hBitmap {
          Return -3
       }
-      this.SetHBitmapToClipboard(hBitmap)
+      this.SetHBitmapToClipboard(hBitmap, pszText)
    }
 
    ; SetHBITMAPToClipboard
-   Static SetHBITMAPToClipboard(hBitmap) {
+   /**
+    * Take an hBitmap DIB and put it on the clipboard
+    * @param hBitmap Handle to bitramp to use, will be disgarded
+    * @returns {Integer} 0 = sucess, or -num for errors
+    */
+   Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
 
-      off1 := A_PtrSize = 8 ? 52 : 44
-      off2 := A_PtrSize = 8 ? 32 : 24
-
-      pid := DllCall("GetCurrentProcessId", "uint")
+      pid  := DllCall("GetCurrentProcessId", "uint")
       hwnd := WinExist("ahk_pid " . pid)
-      r1 := DllCall("OpenClipboard", "Ptr", hwnd)
-      If !r1
+      if not this.OpenClipboard(hwnd)
          Return -1
 
-      r2 := DllCall("EmptyClipboard")
-      If !r2 {
+      If not this.EmptyClipboard() {
          GDI.DeleteObject(hBitmap)
-         DllCall("CloseClipboard")
+         this.CloseClipboard()
          Return -2
       }
-      oi := Buffer((A_PtrSize = 8) ? 104 : 84, 0) ; tagDIBSECTION , nested structures
-      DllCall("Gdi32\GetObject", "Ptr", hBitmap, "int", oi.size, "Ptr", oi.ptr)
-      ; TODO - oi could be a structure
-      ; oi := tagBITMAP()
-      dwBytes := 40 + NumGet(oi, off1, "UInt")
-      hdib := DllCall("GlobalAlloc", "uint", 2, "Ptr", dwBytes, "Ptr")
-      pdib := DllCall("GlobalLock", "Ptr", hdib, "Ptr")
-      DllCall("RtlMoveMemory", "Ptr", pdib, "Ptr", oi.ptr + off2, "Ptr", 40)
-      DllCall("RtlMoveMemory", "Ptr", pdib + 40, "Ptr", NumGet(oi, off2 - A_PtrSize, "Ptr"), "Ptr", NumGet(oi, off1, "UInt"))
-      DllCall("GlobalUnlock", "Ptr", hdib)
-      ; IDEA adding a DIB to the clipboard, could also add text from an OCR CF_TEXT = 1
-      r3 := DllCall("SetClipboardData", "uint", 8, "Ptr", hdib) ; CF_DIB = 8, 2 is CF_BITMAP
-      DllCall("CloseClipboard")
-      DllCall("GlobalFree", "Ptr", hdib)
+      ; Structure to hold the bitmap data
+      ds           := tagDIBSECTION()
+      bmHeaderSize := tagBITMAPINFOHEADER().size
+      GDI.GetObject(hBitmap, ds.size, ds.ptr)
+
+      ; Allocate a moveable global block large enough for: BITMAPINFOHEADER (40 bytes) + raw pixel data
+      dwBytes := ds.dsBmih.size + ds.dsBmih.biSizeImage
+      If not (hdib := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
+         DllCall("CloseClipboard")
+         Gdi.DeleteObject(hBitmap)
+         Return -3
+      }
+      ; Lock down the object while we work with it
+      pdib := this.GlobalLock(hdib)
+      ; Copy BITMAPINFOHEADER into the front of the global block
+      this.CopyMemory(pdib, ds.dsBmih.Ptr, bmHeaderSize)
+      ; ; Copy raw pixel data after the header
+      this.CopyMemory(pdib + bmHeaderSize, ds.dsBm.bmBits, ds.dsBmih.biSizeImage)
+      this.GlobalUnlock(hdib)
+
+      ; Place the DIB on the clipboard — on success clipboard owns hdib, do NOT free it
+      If not this.SetClipboardData(CF_DIB := 8, hdib) {
+         this.GlobalFree(hdib)
+         this.CloseClipboard()
+         Gdi.DeleteObject(hBitmap)
+         Return -4
+      }
+      ; ------------------------------------------------------------------
+      ; Optionally post CF_TEXT
+      ; CF_TEXT expects a null-terminated ANSI string in a GMEM_MOVEABLE
+      ; global block — StrPut includes the null terminator in its byte count
+      ; ------------------------------------------------------------------
+      If (pszText) {
+         textBytes := StrPut(pszText, "CP0")              ; byte count including null terminator
+         If not (htext := this.GlobalAlloc(GMEM_MOVEABLE := 2, textBytes)) {
+            this.CloseClipboard()
+            Gdi.DeleteObject(hBitmap)
+            Return -5
+         }
+         ptext := this.GlobalLock(htext)
+         StrPut(pszText, ptext, textBytes, "CP0")          ; CP0 = system ANSI code page
+         this.GlobalUnlock(htext)
+         ; Place the text on the clipboard — on success clipboard owns htext, do NOT free it
+         If not this.SetClipboardData(CF_TEXT := 1, htext) {
+            this.GlobalFree(htext)
+            this.CloseClipboard()
+            Gdi.DeleteObject(hBitmap)
+            Return -6
+         }
+      }
+      this.CloseClipboard()
       Gdi.DeleteObject(hBitmap)
-      E := r3 ? 0 : -4    ; 0 - success
-      Return E
+      Return 0
    }
    ;----------------------------------------------------------------------------
    ; Idea from: https://www.autohotkey.com/boards/viewtopic.php?f=83&t=114568

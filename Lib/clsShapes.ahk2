@@ -1048,7 +1048,6 @@ Class Shapes {
                   } Else {
                      ; Resize the shape
                      ; pictures are done here along with freehand
-                     ; TODO - for pictures if we filp can we flip the image as well, but keep it scaled like here
                      ShapeObj.Move(X, Y, W, H)
                   }
                   focusBorder.Sync()
@@ -1314,35 +1313,35 @@ Class Shapes {
          cX2 := cX1 + cW, cY2 := cY1 + cH
          pX2 := pX1 + pW, pY2 := pY1 + pH
          l := r := t := b := 0
-         type := ""
+         eType := ""
          ; Find what was extended
          Switch {
             Case (pX1 > sC.X):
                ; left
                l := Abs(pX1 - cX1)
-               type := "Extend"
+               eType := "Extend"
             Case (pY1 > sC.Y):
                ; top
                t := Abs(pY1 - cY1)
-               type := "Extend"
+               eType := "Extend"
             Case (pX2 < sC.X2):
                ; right
                r := Abs(pX2 - cX2)
-               type := "Extend"
+               eType := "Extend"
             Case (pY2 < sC.Y2):
                ; bottom
                b := Abs(pY2 - cY2)
-               type := "Extend"
+               eType := "Extend"
             Case (sc.W = pW AND sc.H != pH):
                ; Horz
                t := ExtendObj.shapeStart.Y
                b := t + sC.H
-               type := "Expand"
+               eType := "Expand"
             Case (sc.H = pH AND sc.W != pW):
                ; Vertq
                l := ExtendObj.shapeStart.X
                r := l + sc.W
-               type := "Expand"
+               eType := "Expand"
             Default:
                Warning("Internal Selection Only")
                Return 0
@@ -1350,7 +1349,7 @@ Class Shapes {
 
          ; Extend in the appropriate direction
          Gdi.vSync() ; Sync with vSync
-         Switch type {
+         Switch eType {
             Case "Extend": ; enlarge outside
                hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b,1)
             Case "Expand": ; enlarge inside
@@ -1364,7 +1363,7 @@ Class Shapes {
          myGUI.Move(, , W + BW * 2, H + BW * 2)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Resize GUI to contain the new crop coordinates
-         Switch type {
+         Switch eType {
             Case "Expand": ; enlarge inside
                myGUI.Move(,, W + BW * 2, H + BW * 2)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
