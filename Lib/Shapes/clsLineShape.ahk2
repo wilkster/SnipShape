@@ -145,7 +145,6 @@ Class LineShape extends commonShape {
                this.InitXY := { X1: X1, X2: X2, Y1: Y1, Y2: Y2 }
             }
             ; Orientation depends on initial drawing direction
-            ; TODO - Intermediate points will be dynamic for resizing in the future
             If (this.HasDirection ?? true) {
                X50 := X1 + (X2 - X1) * this.MidPos
                pArray := [[X1, Y1], [X50, Y1], [X50, Y2], [X2, Y2]]

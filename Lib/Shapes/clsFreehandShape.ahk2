@@ -279,7 +279,7 @@ Class FreeHandShape extends commonShape {
       ; debug("Coords " c.X1 " " c.Y1 " " c.X2 " " c.Y2)
       GDIp.DrawRectangle(surface.G, this.pGrab, C.X1, C.Y1, C.W, C.H)
       ; Save a copy of the 0,0 translated points (vs. windows coordinates)
-      ; BUG - if way off canvas then it doesn't get drawn
+      ; NOTE - if way off canvas then it doesn't get drawn
       ;       lost in translation it looks like, for large negative X
       this._Points      := this.MyPoints.GetTransPoints(C.X1, C.Y1)
       this.DrawFunction := this.MyPoints.DrawFunction

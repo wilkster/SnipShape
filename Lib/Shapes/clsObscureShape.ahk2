@@ -47,9 +47,6 @@ Class ObscureShape extends commonShape {
       }
       Switch this.Shape {
          Case Shapes.SHAPE_PIXELATE: ; Time 9ms
-         ; TODO - put this code into its own class in the Snip class, so we don't have to do the check here
-         ; this.imageBrush := Snip.Brush.Get(this, param)
-         ; Problem is we need a lot of shape info, which this can pass in
             Snip.PIC.GetPos(,,&W,&H)
             brushKey := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {

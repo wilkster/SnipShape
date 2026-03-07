@@ -299,7 +299,7 @@ Class Shapes {
             this.shapeBBMenu.Add('')
             this.MenuCheckCurrent("Text Opacity", this.MtextOpacity, TextShape.textOpacity)
          Case "Tool":
-            ; TODO - OCR capture default (lines/rows/table)
+            ; IDEA - OCR capture default (lines/rows/table)
       }
       this.shapeBBMenu.Show()
       ; Blocks here
@@ -490,7 +490,6 @@ Class Shapes {
                   Case 4, 6: start := 0
                   Default: start := 0
                }
-            ; TODO - gather coordinates of other shapes of this type for snapping
             Default:
                Switch ShapeObj.Corner {
                   Case 1, 7, 8: start := 3 ; UL 3 points
@@ -996,7 +995,6 @@ Class Shapes {
                   ; Adjust dimensions depending on the corner
                   Switch corner {
                      ; Corners maintain aspect ratio
-                     ; TODO - add customer corners for connector, lines or other controls we want to adjust shape on
                      Case 1: ;UL 
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
                         X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)

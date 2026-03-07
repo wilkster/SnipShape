@@ -278,7 +278,6 @@ Class SnipMenus {
          Case 1027:  ; NIN_BALLOONHIDE - Sent when the balloon automatically disappears
          Case 1028:  ; NIN_BALLOONTIMEOUT - Notification timed out or was closed or right-clicked
          Case 1029:  ; NIN_BALLOONUSERCLICK - User clicked on the notification
-            ; TODO - this should only apply for screen captures, how do we know?
             If ( NOT (hWnd := Snips.Clipboard2Snip())) {
                qTrayTip("No image on the clipboard to edit", 2)
             } Else {
