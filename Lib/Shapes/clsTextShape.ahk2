@@ -509,9 +509,11 @@ Class TextShape extends CommonShape {
       this.GetPos(&_X, &_Y)
       this.DrawText(_X, _Y)
       this.UpdateCoord()
+      focusBorder.Sync()
    }
    Cleanup() => {}
    ChangeThickness(percent) {
+      this._fontSize      *= (1 + percent)
       this.shapeThickness *= (1 + percent)
    }
    SetColor(newColor) {

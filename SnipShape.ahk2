@@ -362,10 +362,13 @@ HotIfWinActive
 ; Move the active shape under these conditions
 ;----------------------------------------------------------------------
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.ShapeObj)
+   ; TODO - scroll up/down to thicken shape
    $Up::ShiftShape(0, -5)
    $Down::ShiftShape(0, +5)
    $Left::ShiftShape(-5, 0)
    $Right::ShiftShape(+5, 0)
+   $Wheelup::ThickenShape(+0.05)
+   $Wheeldown::ThickenShape(-0.05)
    ShiftShape(sX, sY) {
       Critical("On")
       C := focusBorder.ShapeObj.sCoord
@@ -377,6 +380,10 @@ HotIfWinActive
       focusBorder.ShapeObj.Move(X + dx, Y + dy)
       focusBorder.Sync()
       Critical("Off")
+   }
+   ThickenShape(dx) {
+      focusBorder.ShapeObj.ChangeThickness(dx)
+      focusBorder.ShapeObj.Refresh()
    }
 #HotIf
 

@@ -14,7 +14,10 @@
 #include StopWatch.ahk2
 #include OCR.ahk2
 #include clsButtonBar.ahk2
+#include clsCursor.ahk2
+#include clsSnips.ahk2
 #include Shapes\clsCommonShape.ahk2
+#include Shapes\clsTextShape.ahk2
 
 /**
  * Shape class to draw various shapes, load pictures and show text
