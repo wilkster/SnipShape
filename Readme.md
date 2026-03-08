@@ -260,8 +260,8 @@ These options are also available from the Buttonbar described later.
 
 <table>
    <tr>
-      <td><img src="https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9" alt="image" width="75%" /></td>
-      <td><img src="https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9" alt="image" width="75%" /></td>
+      <td><img width="527" height="317" alt="image" src="https://github.com/user-attachments/assets/c210a753-5c76-45e0-9754-aece56219494" /></td>
+      <td><img width="525" height="315" alt="image" src="https://github.com/user-attachments/assets/c1b2f31a-0c17-43dd-8fee-4bc3beef80f1" /></td>
    </tr>
    <tr>
       <td align="center">Body Shapes</td>
