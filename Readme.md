@@ -1,11 +1,18 @@
 # SnipShape Screen Capture and Annotation Tool
 
-AutoHotkey 2.1 alternate to Windows Snipping Tool with additional features and
-lower system impact. Creates a overlay Gui of Snipped area that can be
-manipulated onscreen with shapes and annotation tools added to it. Based on
-Autohotkey Snipper tool that places the snip GUI directly over the snipped area vs
-the more complex methods of using external windows or retrieving from the
-clipboard. Small buttonbar is available to assist with annotation and other tools.
+**SnipShape** is a lightweight screen-capture utility written in
+**AutoHotkey 2.1**. It provides an alternative to the Windows Snipping Tool while
+using fewer system resources.
+
+The tool captures a screen region and immediately displays it as an **overlay
+GUI positioned directly over the captured area**. This overlay can be edited in
+place using annotation and shape tools, allowing you to quickly highlight or
+mark up the captured content without opening additional windows.
+
+The application is based on the AutoHotkey **Snipper** concept by keeping the
+editing surface directly on the screen rather than moving the image to a
+separate editor or clipboard. Powerful annotation tools are provided to further
+markup the snip.
 
 - [SnipShape Screen Capture and Annotation Tool](#snipshape-screen-capture-and-annotation-tool)
   - [Credits](#credits)
@@ -13,15 +20,26 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
   - [Installation](#installation)
   - [Snipping Overview](#snipping-overview)
     - [Snip Annotation Examples](#snip-annotation-examples)
-    - [One step - hold down activation keys](#one-step---hold-down-activation-keys)
-    - [Two Step - Don't have to hold down activation keys, similar to built-in snipper](#two-step---dont-have-to-hold-down-activation-keys-similar-to-built-in-snipper)
+    - [One step capture - hold down activation keys](#one-step-capture---hold-down-activation-keys)
+    - [Two Step capture - Hotkey to initiate snipping, the click-drag to select, similar to built-in snipper](#two-step-capture---hotkey-to-initiate-snipping-the-click-drag-to-select-similar-to-built-in-snipper)
     - [While dragging the mouse to create a snip](#while-dragging-the-mouse-to-create-a-snip)
     - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
-  - [Buttonbar - F1 to toggle while snip active](#buttonbar---f1-to-toggle-while-snip-active)
+  - [Toolbar - F1 to toggle while snip active](#toolbar---f1-to-toggle-while-snip-active)
+    - [Show or hide the toolbar](#show-or-hide-the-toolbar)
+    - [Use toolbar buttons](#use-toolbar-buttons)
+    - [Toolbar behavior](#toolbar-behavior)
   - [Drawing on snips](#drawing-on-snips)
     - [Hotkeys to create shapes](#hotkeys-to-create-shapes)
-    - [Buttonbar Menus to create shapes](#buttonbar-menus-to-create-shapes)
+    - [Toolbar Menus to create shapes](#toolbar-menus-to-create-shapes)
+      - [Arrow Shapes](#arrow-shapes)
+      - [Line/Connector/Rectangle/Ellipse Shapes/Bracket](#lineconnectorrectangleellipse-shapesbracket)
+      - [Free pen shapes](#free-pen-shapes)
+      - [Highlighter shapes](#highlighter-shapes)
+      - [Redact/Obfuscate shapes](#redactobfuscate-shapes)
+      - [Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.](#text-shapes-texttagfilloutlinearrow-text-text-entered-via-a-dialog-box)
+      - [Tool menu](#tool-menu)
+      - [Color menu](#color-menu)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
@@ -36,7 +54,7 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
 
 Fanatic Guru / SKAN / iseahound / Descolada plus
 the work of dozens of people inspired this script.
-Many more of them sited/listed in the source code:
+Additional contributors are referenced in the source code.
 
 | Script | Link |
 | ------ | ------ |
@@ -47,18 +65,23 @@ Many more of them sited/listed in the source code:
 
 ## Requirements
 
-Autohotkey 2.1 Alpha 14 or later (some 2.1 features are used including structures)
+**Autohotkey 2.1 Alpha 14** or later (some 2.1 features are used including **structures**)
 
 ## Installation
 
-Clone or download a zip of the repository to a local folder. If you have ahk2 associated with
-Autohotkey 2.1 alpha, then just click on the **SnipShape.ahk2** file in the base
-folder. You may rename the SnipShape.ahk2 extension to something else if you are
-using a different file association. Leave the other file extension alone as they
-are referenced in include files.
+1. Clone or download a zip of the repository to a local folder.
+2. Extract the files to a local folder
+3. If you have ahk2 associated with Autohotkey 2.1 alpha, then just click on the
+`SnipShape.ahk2` file in the base folder. You may rename the SnipShape.ahk2
+extension to SnipShape.ahk or something else if you are using a different file
+association. Do not rename the other **Authotkey** files as they are referenced in
+include files.
 
-A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) appear. You may have to un-hide it in the tray.
-You can click on the tray icon to bring up some actions or use hotkeys as described below. The right-mouse-button brings up the default Autohotkey menu.
+A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) will appear. You may have to un-hide it in the tray if it is initially hidden by Windows.
+
+- **Left-click**: Opens the SnipShape menu
+- **Right-click**: Opens the default AutoHotkey menu
+
 Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options).
 
 ## Snipping Overview
@@ -68,19 +91,18 @@ Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options
 |![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)|
 |![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
 
-There are two ways to initiate a Snip. The One step method where you press a hotkey and click-drag the mouse. The other is a two step
-method (similar to windows snipping) where you initiate the snip with one hotkey then later click-drag the mouse. Both are described below.
+SnipShape supports **two methods for capturing a screen region**.
 
-### One step - hold down activation keys
+### One step capture - hold down activation keys
 
-Current key assignments for screen selection (can be modified in the **SnipShape.ahk2** file)
+Current key assignments for screen selection (can be modified in the `SnipShape.ini` file)
 
 | **Global HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
 | Alt-Win | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
 
-### Two Step - Don't have to hold down activation keys, similar to built-in snipper
+### Two Step capture - Hotkey to initiate snipping, the click-drag to select, similar to built-in snipper
 
 - Activation will change cursor (and optionally dim/freeze screen)
 - Selection is done with mouse button-drag-release
@@ -93,9 +115,9 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 
 ### While dragging the mouse to create a snip
 
-- Holding shift key down forces a square capture
-- Holding space bar or right mouse button down will allow shifting of the entire box as you draw it
-- Esc key will abort the snipping operation
+- Holding `shift` key down forces a square capture
+- Holding `space` bar or right mouse button down will allow shifting of the entire box as you draw it
+- `Esc` key will abort the snipping operation
 - If the selected area is very small the snip will be ignored.
 
 ### Other snipping actions that don't use the mouse
@@ -110,8 +132,9 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 
 ### Hotkeys on Snip Surface
 
-Right-mouse-button click over Snip blank area should show a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
-One option is to paste in a small picture from the Stickies subfolder of the distribution. You can add/remove your own bitmaps here.
+Right-click over Snip blank area should show a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
+
+One option is to paste in a small picture from the Stickies subfolder of the distribution. You can add/remove your own bitmaps in the Stickies folder created during installation.
 
 | **Snip HotKey** | **Snip Action** |
 | ------ | ------ |
@@ -137,29 +160,42 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | - | Duplicate and 1/2x the size of the current snip (without shapes) |
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip |
 
-## Buttonbar - F1 to toggle while snip active
+## Toolbar - F1 to toggle while snip active
 
 ![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
 
-A toolbar will optionally appear above each active snip to provide a list of
-actions grouped into the following. You can toggle the visibility of the toolbar
-with the F1 key (while snip is active), or close it with the leftmost X button. Left mouse
-button on each button will select the shape to draw next. Right mouse button
-will allow you to set options for each of the shapes via a menu. The buttonbar
-is useful in case you cannot remember the various shape shortcut keys.
+A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
-When the focus changes to a different Snip, the button bar will jump to that Snip. If the
-focus shifts to another non-SnipShape window then the button bar will disappear.
+### Show or hide the toolbar
+
+- Press `F1` while a snip is active to toggle the toolbar on or off.
+- Click the **X** button on the left side of the toolbar to close it.
+
+### Use toolbar buttons
+
+Each toolbar button represents a shape or tool.
+
+- Left-click a button to select the shape or tool to draw next.
+- Right-click a button to open a menu with configuration options for that shape.
+
+The toolbar is helpful if you prefer selecting tools visually instead of using keyboard shortcuts.
+
+### Toolbar behavior
+
+- The toolbar automatically moves to the currently active snip.
+- If focus changes to a non-snip window, the toolbar hides automatically.
+- When focus returns to a snip, the toolbar reappears.
 
 ## Drawing on snips
 
-A number of drawing shapes are provided to cover most of the annotations a user
-would need. Use the Buttonbar menus or press one of the keys below to change
-into a drawing mode. The cursor will change to the shape you are drawing, and the
-snip border color will change to the active color. After drawing, pressing the
-space bar or Esc key will cancel drawing mode.
+SnipShape provides a variety of annotation tools.
 
-These options are also available from the Buttonbar described later.
+You can activate drawing modes by:
+
+- pressing a **hotkey**
+- selecting a tool from the **toolbar**
+
+While drawing, the cursor changes to the selected shape and the snip border indicates the active color.
 
 ### Hotkeys to create shapes
 
@@ -206,39 +242,39 @@ These options are also available from the Buttonbar described later.
 |**Colors**||
 |1-9|To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle.|
 
-### Buttonbar Menus to create shapes
+### Toolbar Menus to create shapes
 
-- Arrow Shapes
+#### Arrow Shapes
 
-![image](https://github.com/user-attachments/assets/59ed9a88-ea3b-4612-b9cf-43feddea85b8)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/59ed9a88-ea3b-4612-b9cf-43feddea85b8"/>
 
-- Line/Connector/Rectangle/Ellipse Shapes/Bracket
+#### Line/Connector/Rectangle/Ellipse Shapes/Bracket
 
-![image](https://github.com/user-attachments/assets/75659e76-b3df-449b-89da-4b475b7fdee5)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/75659e76-b3df-449b-89da-4b475b7fdee5"/>
 
-- Free pen shapes
+#### Free pen shapes
 
-![image](https://github.com/user-attachments/assets/c49524e1-227b-44f9-9916-aa8157d11b46)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/c49524e1-227b-44f9-9916-aa8157d11b46"/>
 
-- Highlighter shapes
+#### Highlighter shapes
 
-![image](https://github.com/user-attachments/assets/b86dd264-367f-41db-94ae-c72ef5dc9270)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/b86dd264-367f-41db-94ae-c72ef5dc9270"/>
 
-- Redact/Obfuscate shapes
+#### Redact/Obfuscate shapes
 
-![image](https://github.com/user-attachments/assets/cbb2445b-5e4b-4e3c-8875-3b81ed634db2)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/cbb2445b-5e4b-4e3c-8875-3b81ed634db2"/>
 
-- Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.
+#### Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.
 
-![image](https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d"/>
 
-- Tool menu
+#### Tool menu
 
-![image](https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba"/>
 
-- Color menu
+#### Color menu
 
-![image](https://github.com/user-attachments/assets/97f64679-f106-48a0-8c6e-cc46c0344220)
+<img width="200" alt="image" src="https://github.com/user-attachments/assets/97f64679-f106-48a0-8c6e-cc46c0344220"/>
 
 ### Drawing/Resizing Shapes
 
@@ -260,8 +296,8 @@ These options are also available from the Buttonbar described later.
 
 <table>
    <tr>
-      <td><img width="527" height="317" alt="image" src="https://github.com/user-attachments/assets/c210a753-5c76-45e0-9754-aece56219494" /></td>
-      <td><img width="525" height="315" alt="image" src="https://github.com/user-attachments/assets/c1b2f31a-0c17-43dd-8fee-4bc3beef80f1" /></td>
+      <td align="center"><img width="75%" alt="image" src="https://github.com/user-attachments/assets/c210a753-5c76-45e0-9754-aece56219494"/></td>
+      <td align="center"><img width="75%" alt="image" src="https://github.com/user-attachments/assets/c1b2f31a-0c17-43dd-8fee-4bc3beef80f1"/></td>
    </tr>
    <tr>
       <td align="center">Body Shapes</td>
@@ -269,21 +305,23 @@ These options are also available from the Buttonbar described later.
    </tr>
 </table>
 
-- When you hover over a shape, a focus rectangle/line will appear over it
-  allowing you to move, resize or adjust the shape (cursor will change to a resize or
-  hand depending on where you are hovering).
-- Clicking and dragging the resize points (resize cursor) will resize the
-  shape. All shapes/text can be resized in this manner.
-- Clicking on the focus rectangle with the hand cursor will move the
-  shape around the snip.
-- Pressing the up/down/left/right key (without clicking) will shift the shape
-  snapping it to a grid
-- Use the mouse scroll wheel to adjust line thickness for drawn shapes, adjust
-  text size for text shapes, adjust blur/pixelation values for obscure shapes.
-- When the focus rectangle is active over a shape, and you click on the shape,
-  you may use the right mouse button to bring up a shape dependent menu or use
-  shortcut keys to perform various operations on the shape.
-- When hover use the hotkeys below to perform these functions.
+- When you hover over a shape, a focus rectangle appears around it. This
+indicates the shape can be moved, resized, or adjusted. The cursor will change
+to a resize icon or hand icon depending on where you hover.
+- Resize a shape by clicking and dragging one of the resize handles (shown with
+the resize cursor). All shapes and text objects can be resized this way.
+- Move a shape by clicking and dragging the focus rectangle when the hand cursor is displayed.
+- Use the arrow keys (Up, Down, Left, Right) to move the shape without using the
+mouse. Movement snaps to the grid.
+- Use the mouse scroll wheel to adjust properties of the selected shape:
+  - Line thickness for drawn shapes
+  - Text size for text shapes
+  - Blur or pixelation level for obscure shapes
+- When a shape has an active focus rectangle, right-click to open a context menu
+with options specific to that shape. You can also use keyboard shortcuts to
+perform operations on the shape. Available options vary by shape type.
+
+While hovering over a shape, you can also use the hotkeys listed below to perform additional actions.
 
 ### Hotkeys on Shapes
 
@@ -329,7 +367,7 @@ Moving Shapes
 
 Left clicking on the SnipShape Tray Icon brings up the following choices
 
-![image](https://github.com/user-attachments/assets/5f01e6b9-d382-43d4-89cf-f2237b70b69a)
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/5f01e6b9-d382-43d4-89cf-f2237b70b69a"/>
 
 - Initiate snip or clipboard selection
 - OCR selection to clipboard (Words, Lines or Table)
@@ -348,7 +386,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 ## Configuration Files
 
 - By default a configuration file called SnipShape.ini is created in your local AppData folder.
-- Most of the options are set via the Tray Menu and Button bar, however some options may only be modified by editing the file. Restart is required after changing these.
+- Most of the options are set via the Tray Menu and Toolbar, however some options may only be modified by editing the file. Restart is required after changing these. You can direct edit the SnipShape.ini file from the tray icon menu `Edit Settings File`.
   - `[User Shape Color]`, custom colors 1 through 20. Named colors or hex RGG (e.g 0xCE1126) are allowed.
   - `[User Snips]`, location of the cursor files, saved snip files and icon clips that are available from the snip menu.
     - `SnipPath` - default is user\Pictures\Screenshots folder
@@ -360,7 +398,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
     - `ScaleFreehand` - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
     - `Padding` - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
   - `[User Button Bar]`, size of the button bar font/buttons
-    - `Font Size` - increase or decrease to change the default size of the button bar icons. Default is 8.0. Fractional sizes are allowed.
+    - `Font Size` - increase or decrease to change the default size of the Toolbar icons. Default is 8.0. Fractional sizes are allowed.
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
 
