@@ -242,7 +242,7 @@ options are also available from the Buttonbar described below.
 ### Drawing/Resizing Shapes
 
 - Extra padding is provided outside the snip surface to allow shapes to extend beyond the snip. Once drawn
-  only the portion enclosed within the snip will be shown.
+  only the portion enclosed within the snip will be shown (adjustable in SnipShape.ini file).
 - Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
 - When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
@@ -337,16 +337,19 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 ## Configuration Files
 
 - By default a configuration file called SnipShape.ini is created in your local AppData folder.
-- Most of the options are set via the Tray Menu and Button bar, however some options may be modified by editing the file.
-  - [User Shape Color], custom colors 1 through 20
+- Most of the options are set via the Tray Menu and Button bar, however some options may only be modified by editing the file. Restart is required after changing these.
+  - [User Shape Color], custom colors 1 through 20. Named colors or hex RGG (e.g 0xCE1126) are allowed.
   - [User Snips], location of the cursor files, saved snip files and icon clips that are available from the snip menu.
-    - **SnipPath** - default is user\Screenshots folder
+    - **SnipPath** - default is user\Pictures\Screenshots folder
     - **IconPath** - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
-    - **CursorPath** - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program
-    - **Border Width** is used to draw borders on snips
-    - **Vertical Sync on Select** - only needed on slow computers and over-stressed graphics cards, set to 1 to prevent choppy rectangles when drawing.
+    - **CursorPath** - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program.
+    - **Border Width** is used to adjust width of snip borders. Fractional sizes are allowed. Default is 2.0.
+    - **Vertical Sync on Select** - Set to 1 to prevent artifacts rectangles when drawing. Only needed if they appear on your system. Default is 0.
+  - [User Shapes], Shape related settings.
+    - **ScaleFreehand** - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
+    - **Padding** - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
   - [User Button Bar], size of the button bar font/buttons
-    - **Font Size** - increase or decrease to change the default size of the button bar icons (restart required)
+    - **Font Size** - increase or decrease to change the default size of the button bar icons. Default is 8.0. Fractional sizes are allowed.
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
 
