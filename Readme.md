@@ -40,10 +40,10 @@ Many more of them sited/listed in the source code:
 
 | Script | Link |
 | ------ | ------ |
-|Screen Clipping|<https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088>|
-|GDIp|<https://www.autohotkey.com/boards/viewtopic.php?t=72011>|
-|Snipper|<https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622>|
-|UWP OCR Library|<https://github.com/Descolada/OCR>|
+| Screen Clipping | <https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088> |
+| GDIp | <https://www.autohotkey.com/boards/viewtopic.php?t=72011> |
+| Snipper | <https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622> |
+| UWP OCR Library | <https://github.com/Descolada/OCR> |
 
 ## Requirements
 
@@ -78,7 +78,7 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | **Global HotKey** | **Action** |
 | ------ | ------ |
 | Ctrl-Win | Then drag selection to create a snip |
-| Alt-Win  | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
+| Alt-Win | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
 
 ### Two Step - Don't have to hold down activation keys, similar to built-in snipper
 
@@ -103,10 +103,10 @@ Current key assignments for screen selection (can be modified in the **SnipShape
 | **Global HotKey** | **Action** |
 | ------ | ------ |
 | Shift-PrtScn | To capture current window to the clipboard |
-| Alt-PrtScn   | To create a snip of the current window |
-| Ctrl-PrtScn  | To create a snip of the current monitor screen |
-| Shift-Win-e  | To create a snip of the current clipboard (if it has a bitmap) |
-| Shift-Win-c  | To copy the selection to the clipboard and create a snip of it (if it has a  bitmap). |
+| Alt-PrtScn | To create a snip of the current window |
+| Ctrl-PrtScn | To create a snip of the current monitor screen |
+| Shift-Win-e | To create a snip of the current clipboard (if it has a bitmap) |
+| Shift-Win-c | To copy the selection to the clipboard and create a snip of it (if it has a  bitmap). |
 
 ### Hotkeys on Snip Surface
 
@@ -115,27 +115,27 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 
 | **Snip HotKey** | **Snip Action** |
 | ------ | ------ |
-| Ctrl-C |Copy the snip and shapes to the clipboard (minimizing snip)|
-| Ctrl-X |Cut the snip and shapes to the clipboard (closing snip)|
-| Ctrl-S |Save the snip and shapes to a file in the Screenshot folder|
-| Ctrl-V |Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available)|
-| Ctrl-P |Open a dialog box to add a picture from a file as a new shape|
-| Ctrl-D |Clone the current snip if on snip background, if focus is on a shape, it will duplicate the shape|
-| Del |will remove all the shapes on a Snip|
-| Shift-Del |will remove all the shapes on a Snip|
-| Ctrl-O | OCR the text to lines of text|
-| Ctrl-T | OCR the text to html table|
-| Ctrl-I | Invert the Snip Colors|
-| Ctrl-B | Black and White the Snip Colors|
-| Ctrl-G | Gray Scale the Snip Colors|
-| Ctrl-R | Restore the Snip bitmap|
-| Ctrl-Down|Minimize all Snips|
+| Ctrl-C | Copy the snip and shapes to the clipboard (minimizing snip) |
+| Ctrl-X | Cut the snip and shapes to the clipboard (closing snip) |
+| Ctrl-S | Save the snip and shapes to a file in the Screenshot folder |
+| Ctrl-V | Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available) |
+| Ctrl-P | Open a dialog box to add a picture from a file as a new shape |
+| Ctrl-D | Clone the current snip if on snip background, if focus is on a shape, it will duplicate the shape |
+| Del | will remove all the shapes on a Snip |
+| Shift-Del | will remove all the shapes on a Snip |
+| Ctrl-O | OCR the text to lines of text |
+| Ctrl-T | OCR the text to html table |
+| Ctrl-I | Invert the Snip Colors |
+| Ctrl-B | Black and White the Snip Colors |
+| Ctrl-G | Gray Scale the Snip Colors |
+| Ctrl-R | Restore the Snip bitmap |
+| Ctrl-Down | Minimize all Snips |
 | **Snip HotKey** | **Scaling Action** |
-|=     | Duplicate and 2x the size of the current snip (without shapes)|
-|Alt=  | Duplicate and 2.5x the size of the current snip (without shapes)|
-|Ctrl-=| Duplicate and 3x the size of the current snip (without shapes)|
-|-     | Duplicate and 1/2x the size of the current snip (without shapes)|
-|RMB (Right Mouse Button)|Will bring up a menu with additional options for the snip|
+| = | Duplicate and 2x the size of the current snip (without shapes) |
+| Alt= | Duplicate and 2.5x the size of the current snip (without shapes) |
+| Ctrl-= | Duplicate and 3x the size of the current snip (without shapes) |
+| - | Duplicate and 1/2x the size of the current snip (without shapes) |
+| RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip |
 
 ## Buttonbar - F1 to toggle while snip active
 
@@ -162,10 +162,10 @@ options are also available from the Buttonbar described below.
 
 ### Hotkeys to create shapes
 
-| **Snip HotKey** | **Action** |
-| ------ | ------ |
+|**Snip HotKey**|**Action**|
+|------|------|
 |**Arrows**|**Arrowheads are draw at the finish point**|
-|V |Creates an arrow from end to arrow-head|
+|V|Creates an arrow from end to arrow-head|
 |A|Creates a single outlined arrow|
 |&#92;|Creates an tapered outline arrow from end to arrow-head|
 |J|Creates a freehand outlined arc arrow (with slow bends)|
@@ -263,7 +263,7 @@ options are also available from the Buttonbar described below.
   small focus circle (lines) or rectangle (other shapes), you can click those points
   to resize the shape. All shapes/text can be resized in this manner.
 - Pressing the up/down/left/right key will shift the shape snapping it to a grid
-- Using the scroll wheel will increase/decrease line thickness for drawn shapes and increase/decrease text size for text shapes.
+- Using the scroll wheel will adjust line thickness for drawn shapes, adjust text size for text shapes, adjust blur/pixelation values for obscure shapes.
 - While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
   snip.
 - When the focus rectangle is active over a shape, and you click on the shape,
@@ -278,9 +278,9 @@ Focus Rectangle Example
 
 | **Shape HotKey** | **Action** |
 | ------ | ------ |
-|Ctrl-Click<br>Ctrl-D|Duplicate the shape|
-|Del | Remove the shape|
-|1 to 9| Apply the associated color to the shape|
+| Ctrl-Click<br>Ctrl-D | Duplicate the shape |
+| Del | Remove the shape |
+| 1 to 9 | Apply the associated color to the shape |
 
 ### Text / Graphics
 
