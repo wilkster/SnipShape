@@ -30,7 +30,7 @@ clipboard. Small buttonbar is available to assist with annotation and other tool
     - [Clicking on Shapes](#clicking-on-shapes)
   - [Tray Menu options](#tray-menu-options)
   - [Configuration Files](#configuration-files)
-  - [Limitations](#limitations)
+  - [Limitations/Future](#limitationsfuture)
 
 ## Credits
 
@@ -254,7 +254,7 @@ options are also available from the Buttonbar described below.
 - While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
 - While drawing line or arrow shapes, the shape will snap at 45° angles.
 - When drawing freehand Pen shapes, if you stop the path near the start of the path, the path will enclose itself as if a circle was intended.
-- When drawing or resizing line based (two end-points) shapes, they will snap to a focus point if they are near it.  
+- When drawing or resizing line based (two end-points) shapes, they will snap to another lines focus point if they are near it.  
 
 ## Hovering and Focus Rectangle
 
@@ -338,35 +338,38 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 
 - By default a configuration file called SnipShape.ini is created in your local AppData folder.
 - Most of the options are set via the Tray Menu and Button bar, however some options may only be modified by editing the file. Restart is required after changing these.
-  - [User Shape Color], custom colors 1 through 20. Named colors or hex RGG (e.g 0xCE1126) are allowed.
-  - [User Snips], location of the cursor files, saved snip files and icon clips that are available from the snip menu.
-    - **SnipPath** - default is user\Pictures\Screenshots folder
-    - **IconPath** - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
-    - **CursorPath** - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program.
-    - **Border Width** is used to adjust width of snip borders. Fractional sizes are allowed. Default is 2.0.
-    - **Vertical Sync on Select** - Set to 1 to prevent artifacts rectangles when drawing. Only needed if they appear on your system. Default is 0.
-  - [User Shapes], Shape related settings.
-    - **ScaleFreehand** - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
-    - **Padding** - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
-  - [User Button Bar], size of the button bar font/buttons
-    - **Font Size** - increase or decrease to change the default size of the button bar icons. Default is 8.0. Fractional sizes are allowed.
+  - `[User Shape Color]`, custom colors 1 through 20. Named colors or hex RGG (e.g 0xCE1126) are allowed.
+  - `[User Snips]`, location of the cursor files, saved snip files and icon clips that are available from the snip menu.
+    - `SnipPath` - default is user\Pictures\Screenshots folder
+    - `IconPath` - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
+    - `CursorPath` - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program.
+    - `Border Width` is used to adjust width of snip borders. Fractional sizes are allowed. Default is 2.0.
+    - `Vertical Sync on Select` - Set to 1 to prevent artifacts rectangles when drawing. Only needed if they appear on your system. Default is 0.
+  - `[User Shapes]`, Shape related settings.
+    - `ScaleFreehand` - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
+    - `Padding` - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
+  - `[User Button Bar]`, size of the button bar font/buttons
+    - `Font Size` - increase or decrease to change the default size of the button bar icons. Default is 8.0. Fractional sizes are allowed.
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
 
-[Hotkey]  
-ClipActiveWindow=+PrintScreen  
-SnipActiveWindow=!PrintScreen  
-SnipActiveMonitor=^PrintScreen  
-EditClipboard=+#e  
-SnipAndEditClipboard=+#c  
-ShowHideAllSnips=!F12  
-SnipArea2Step1=<#S  
-ClipArea2Step=<#Z  
-OCRArea2Step1=<#O  
-SnipArea1Step1=^#Lbutton  
-ClipArea1Step1=!#Lbutton  
+- Below are the various hotkeys and their default values.
 
-## Limitations
+| `[Hotkey]` | Description |
+| ------ | ------ |
+| `ClipActiveWindow=+PrintScreen` | Copy the active window to the clipboard. |
+| `SnipActiveWindow=!PrintScreen` | Create a snip of the active window. |
+| `SnipActiveMonitor=^PrintScreen` | Create a snip of the active screen |
+| `EditClipboard=+#e` | Create a snip of the clipboard image (if one exists) |
+| `SnipAndEditClipboard=+#c` | If there is an active selection, copy it to the clipboard and create a snip of it (graphics only) |
+| `ShowHideAllSnips=!F12` | Toggle view state of any active snip windows (minimize/restore) |
+| `SnipArea2Step1=<#S` | Start the snip an area of the screen using two step method |
+| `ClipArea2Step=<#Z` | Start the clipboard capture of an area of the screen using the two step method |
+| `OCRArea2Step1=<#O` | Start an OCR of an area of the screen using the two step method |
+| `SnipArea1Step1=^#Lbutton` | Start a snip of the screen using the one step method (keep hotkey down while dragging) |
+| `ClipArea1Step1=!#Lbutton` | Start a clipboard capture of the screen using the one step method (keep hotkey down while dragging) |
 
-- Saves snips with shapes are not later editable
-- Undo has not been implemented
+## Limitations/Future
+
+- Shapes on saved snips are merged with snip when saved, and no longer editable. (future idea)
+- Undo/Redo for shapes has not been implemented
