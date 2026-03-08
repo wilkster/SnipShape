@@ -143,7 +143,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 
 A toolbar will optionally appear above each active snip to provide a list of
 actions grouped into the following. You can toggle the visibility of the toolbar
-with the F1 key (while snip is active), or the leftmost X button. Left mouse
+with the F1 key (while snip is active), or close it with the leftmost X button. Left mouse
 button on each button will select the shape to draw next. Right mouse button
 will allow you to set options for each of the shapes via a menu. The buttonbar
 is useful in case you cannot remember the various shape shortcut keys.
@@ -155,10 +155,11 @@ focus shifts to another non-SnipShape window then the button bar will disappear.
 
 A number of drawing shapes are provided to cover most of the annotations a user
 would need. Use the Buttonbar menus or press one of the keys below to change
-into a drawing mode. The cursor will change to the shape you are drawing and
-snip border color will change to the active color. After drawing pressing the
-space bar or Esc key will cancel drawing mode. These
-options are also available from the Buttonbar described below.
+into a drawing mode. The cursor will change to the shape you are drawing, and the
+snip border color will change to the active color. After drawing, pressing the
+space bar or Esc key will cancel drawing mode.
+
+These options are also available from the Buttonbar described later.
 
 ### Hotkeys to create shapes
 
@@ -242,37 +243,47 @@ options are also available from the Buttonbar described below.
 ### Drawing/Resizing Shapes
 
 - Extra padding is provided outside the snip surface to allow shapes to extend beyond the snip. Once drawn
-  only the portion enclosed within the snip will be shown (adjustable in SnipShape.ini file).
-- Hold Alt key down when drawing shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
+  only the portion enclosed within the snip will be shown (padding is adjustable in SnipShape.ini file).
+- Hold the Alt key down when drawing a shape to get a 2x a thicker border, pen/text size, blur amount on most shapes.
 - When drawing or resizing, hold space bar to shift start location with mouse (except free hand).
 - When drawing or resizing, press up/down arrow keys to increase/decrease line thickness for shapes with edges/lines/freehand path.
-- When drawing free-hand shapes, Shift key will keep ling straight until shift key is let go, this
+- When drawing free-hand shapes, the shift key will keep the line straight until shift key is let go, this
   can be used to draw connected line segments, just stop at corner and quickly let go shift and press again
   before continuing.
 - When drawing/resizing rectangles/ellipse, Shift key will keep the width/height the same (i.e. square).
 - While in draw mode, single clicking on the snip surface (or Esc key) will change back to select mode.
-- While in draw mode, holding Ctrl key and moving the mouse will move the snip. Release Ctrl to resume draw mode.
-- While drawing line or arrow shapes, the shape will snap at 45° angles.
+- While in draw mode, holding the Space key down and moving the mouse will move the snip. Release Space to resume draw mode.
+- While drawing or resizing line or arrow shapes, the shape will snap at 45° angles or to nearby line ends.
 - When drawing freehand Pen shapes, if you stop the path near the start of the path, the path will enclose itself as if a circle was intended.
-- When drawing or resizing line based (two end-points) shapes, they will snap to another lines focus point if they are near it.  
 
 ## Hovering and Focus Rectangle
 
-- When you hover over a shape a focus rectangle/line will appear over it
-  allowing you to move or resize it (cursor will change to a resize). If you see
-  small focus circle (lines) or rectangle (other shapes), you can click those points
-  to resize the shape. All shapes/text can be resized in this manner.
-- Pressing the up/down/left/right key will shift the shape snapping it to a grid
-- Using the scroll wheel will adjust line thickness for drawn shapes, adjust text size for text shapes, adjust blur/pixelation values for obscure shapes.
-- While hovering over a focus rectangle/line when the cursor changes to a hand you can click, then move/drag the shape around the
-  snip.
+<table>
+   <tr>
+      <td><img src="https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9" alt="image" width="75%" /></td>
+      <td><img src="https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9" alt="image" width="75%" /></td>
+   </tr>
+   <tr>
+      <td align="center">Body Shapes</td>
+      <td align="center">Line Shapes</td>
+   </tr>
+</table>
+
+- When you hover over a shape, a focus rectangle/line will appear over it
+  allowing you to move, resize or adjust the shape (cursor will change to a resize or
+  hand depending on where you are hovering).
+- Clicking and dragging the resize points (resize cursor) will resize the
+  shape. All shapes/text can be resized in this manner.
+- Clicking on the focus rectangle with the hand cursor will move the
+  shape around the snip.
+- Pressing the up/down/left/right key (without clicking) will shift the shape
+  snapping it to a grid
+- Use the mouse scroll wheel to adjust line thickness for drawn shapes, adjust
+  text size for text shapes, adjust blur/pixelation values for obscure shapes.
 - When the focus rectangle is active over a shape, and you click on the shape,
   you may use the right mouse button to bring up a shape dependent menu or use
-  shortcut keys to perform operations on the shape as described below
-  
-Focus Rectangle Example
-
-![image](https://github.com/user-attachments/assets/de6827c9-e247-4a72-95a4-7650a996e9d9)
+  shortcut keys to perform various operations on the shape.
+- When hover use the hotkeys below to perform these functions.
 
 ### Hotkeys on Shapes
 
