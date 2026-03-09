@@ -124,10 +124,12 @@ ClipArea1Step1=!#Lbutton
 ; optional, I use for mouse extra key
 SnipArea2Step2=AppsKey
 */
-;----------------------------------------------------------------------
-; Create Snip from Active window and optionally put in clipboard
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "ClipActiveWindow", "+PrintScreen"), ClipActiveWindow.Bind())
+
+/**
+ * Captures the active window as an HBITMAP and places it on the system clipboard.
+ * Uses PrintWindow internally; note that some legacy applications may not render correctly.
+ * @param {*} * - Unused hotkey parameter.
+ */
 ClipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
@@ -139,7 +141,12 @@ ClipActiveWindow(*) {
       qTrayTip("Did not find an active window")
    }
 }
-Hotkey(IniReadValue("HotKey", "SnipActiveWindow", "!PrintScreen"), SnipActiveWindow.Bind())
+Hotkey(IniReadValue("HotKey", "ClipActiveWindow", "+PrintScreen"), ClipActiveWindow.Bind())
+
+/**
+ * Snips the bounding area of the active window and optionally saves/copies it.
+ * @param {*} * - Unused hotkey parameter.
+ */
 SnipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       Area := Snips.getWindowArea(hWnd)
@@ -149,31 +156,38 @@ SnipActiveWindow(*) {
       qTrayTip("Did not find an active window")
    }
 }
-;----------------------------------------------------------------------
-; Capture the entire monitor, can crop later
-; Do not put on the clipboard if if that is enabled
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "SnipActiveMonitor", "^PrintScreen"), SnipActiveMonitor.Bind())
+Hotkey(IniReadValue("HotKey", "SnipActiveWindow", "!PrintScreen"), SnipActiveWindow.Bind())
+
+/**
+ * Captures the entire active monitor as a snip without placing it on the clipboard.
+ * The captured snip can be cropped or further edited afterwards.
+ * @param {*} * - Unused hotkey parameter.
+ */
 SnipActiveMonitor(*) {
    Area := Snips.activeMonArea()
    Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)
    qTrayTip("Captured Active Monitor")
 }
-;----------------------------------------------------------------------
-; Edit Clipboard if in proper format
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "EditClipboard", "+#e"), EditClipboard.Bind())
+Hotkey(IniReadValue("HotKey", "SnipActiveMonitor", "^PrintScreen"), SnipActiveMonitor.Bind())
+
+/**
+ * Opens the current clipboard image (if any) in a SnipShape editing window.
+ * Displays a tray tip if no valid image is found on the clipboard.
+ * @param {*} * - Unused hotkey parameter.
+ */
 EditClipboard(*) {
    If ( NOT Snips.Clipboard2Snip()) {
       qTrayTip("No image on the clipboard to edit",2)
    }
 }
+Hotkey(IniReadValue("HotKey", "EditClipboard", "+#e"), EditClipboard.Bind())
 
-;----------------------------------------------------------------------
-; Used for editing existing images in apps like OneNote
-; Restores the clipboard
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "SnipAndEditClipboard", "+#c"), SnipAndEditClipboard.Bind())
+/**
+ * Copies the currently selected content in an external application to the clipboard,
+ * opens it in a SnipShape editing window, then restores the original clipboard contents
+ * if auto-clipboard-update is disabled. Intended for use with apps like OneNote.
+ * @param {*} * - Unused hotkey parameter.
+ */
 SnipAndEditClipboard(*) {
    CB_Orig := ClipboardAll()
    A_Clipboard := ""
@@ -189,55 +203,57 @@ SnipAndEditClipboard(*) {
    if Not Snips.UpdateClipboard
       A_Clipboard := CB_Orig
 }
-;----------------------------------------------------------------------
-; Hide/Show all Snips
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "ShowHideAllSnips", "!F12"), ShowHideAllSnips.Bind())
+Hotkey(IniReadValue("HotKey", "SnipAndEditClipboard", "+#c"), SnipAndEditClipboard.Bind())
+
+/**
+ * Toggles the visibility of all open snip windows.
+ * Restores all snips if they are all currently minimized; otherwise minimizes all of them.
+ * @param {*} * - Unused hotkey parameter.
+ */
 ShowHideAllSnips(*) {
    if Snips.AllMinimized()
       Snips.RestoreAll()
    else
       Snips.MinimizeAll()
 }
+Hotkey(IniReadValue("HotKey", "ShowHideAllSnips", "!F12"), ShowHideAllSnips.Bind())
 
-;----------------------------------------------------------------------
-; Handle the Mouse based Screen Clipping below, either one or two step
-;----------------------------------------------------------------------
-; block automatic key repeats for re-triggering action
+/**
+ * Returns true if the hotkey is being repeated within the specified timeout period,
+ * used to block automatic key-repeat re-triggering of hotkey actions.
+ * @param {Integer} to - Timeout in milliseconds within which a repeat is suppressed.
+ * @returns {Integer} 1 if considered a repeat, 0 otherwise.
+ */
 isRepeat(to) => (A_ThisHotkey = A_PriorHotkey) AND (A_TimeSincePriorHotkey < to)
-;----------------------------------------------------------------------
-; Create a Snip (keys in either order)
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "SnipArea2Step1", "<#S"), hotkeySnipArea.Bind())
-; I use AppsKey as it is tied to a mouse key
-if ((altSnip := IniReadValue("HotKey", "SnipArea2Step2", "")))
-   Hotkey(altSnip, hotkeySnipArea.Bind())
+
+/**
+ * Initiates a two-step screen region selection to create a new snip with an orange selection border.
+ * Suppresses rapid key-repeat re-triggering. The snip is optionally copied to the clipboard.
+ * @param {*} * - Unused hotkey parameter.
+ */
 hotkeySnipArea(*) {
    If ( NOT isRepeat(300)) {
       Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
    }
 }
-;----------------------------------------------------------------------
-; Clipboard Only (keys in either order)
-;----------------------------------------------------------------------
-Hotkey(IniReadValue("HotKey", "ClipArea2Step", "<#Z"), hotkeyClipArea.Bind())
+Hotkey(IniReadValue("HotKey", "SnipArea2Step1", "<#S"), hotkeySnipArea.Bind())
+; I use AppsKey as it is tied to a mouse key
+if ((altSnip := IniReadValue("HotKey", "SnipArea2Step2", "")))
+   Hotkey(altSnip, hotkeySnipArea.Bind())
+
+/**
+ * Initiates a two-step screen region selection to copy the selected area to the clipboard only
+ * (no snip window is created). Uses a red selection border. Suppresses rapid key-repeat re-triggering.
+ * @param {*} * - Unused hotkey parameter.
+ */
 hotkeyClipArea(*) {
    if (NOT isRepeat(300)) {
       Snips.SelectScreenRegion(1, 'LButton', "Red", True, 0, Snips.captureStatic, Snips.dimScreen)
    }
 }
-;----------------------------------------------------------------------
-; Snip Selected Image and Optionally Copy to Clipboard
-;----------------------------------------------------------------------
+Hotkey(IniReadValue("HotKey", "ClipArea2Step", "<#Z"), hotkeyClipArea.Bind())
 Hotkey(IniReadValue("HotKey", "SnipArea1Step1", "^#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Orange", Snips.UpdateClipboard, 1))
-;----------------------------------------------------------------------
-;	Select region and copy to Clipboard Only
-;----------------------------------------------------------------------
 Hotkey(IniReadValue("HotKey", "ClipArea1Step1", "!#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Red", True, 0))
-;----------------------------------------------------------------------
-; OCR code currently works on window handle only
-; #O normally locks device orientation on windows
-;----------------------------------------------------------------------
 Hotkey(IniReadValue("HotKey", "OCRArea2Step1", "<#O"), (*) => Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", False, 13))
 
 
@@ -246,7 +262,12 @@ Hotkey(IniReadValue("HotKey", "OCRArea2Step1", "<#O"), (*) => Snips.SelectScreen
 ;======================================================================
 ; NOTE - these will trigger if the color picker is up but snip is active.
 HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
-   ; Shape Letter/Name HotKeys
+   /**
+    * Registers shape letter/name hotkeys and color hotkeys for the active snip window.
+    * Shape hotkeys are derived from the second segment of each shape's name (split on "-").
+    * Color hotkeys 1–9 are mapped to user-configurable color names read from the INI file,
+    * writing defaults back when no user override is present.
+    */
    shapeColorHotKeys()
    shapeColorHotKeys() {
       for _idx, _sn in Shapes.ShapeName {
@@ -326,10 +347,6 @@ HotIfWinActive
    ^Up:: {
       Snips.RestoreAll()
    }
-   ;----------------------------------------------------------------------
-   ; Reduce and Enlarge to a new snip
-   ; Also on RMB Menu on Snip
-   ;----------------------------------------------------------------------
    ^O:: Snips.OCRSnipToClipboard(WinExist("A"), 15)
    ^T:: Snips.OCRSnipToClipboard(WinExist("A"), 14)
 
@@ -355,19 +372,26 @@ HotIfWinActive
       else
          ButtonBar.Show(0,1)
    }
-   ; Read nummber color in real time
+   /**
+    * Reads a numbered color value from the INI file at runtime, returning a default if not set.
+    * @param {Integer} num - The color slot number (1–9) to look up.
+    * @param {String} default - The default color name or value to return if the key is absent.
+    * @returns {String} The color name or hex value from the INI file, or the provided default.
+    */
    getKeyColor(num, default) => IniReadValue("User Shape Color", "Color " . num, default)
 #HotIf
-;----------------------------------------------------------------------
-; Move/Thickent the active shape under these conditions
-; Active when focus border is up
-;----------------------------------------------------------------------
+
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.ShapeObj)
-   ; Cursor keys to move shape
    $Up::ShiftShape(0, -5)
    $Down::ShiftShape(0, +5)
    $Left::ShiftShape(-5, 0)
    $Right::ShiftShape(+5, 0)
+   /**
+    * Moves the currently focused shape by the given pixel delta, snapping to a grid
+    * defined by the non-zero axis step size. Also moves the mouse cursor in sync.
+    * @param {Integer} sX - Horizontal pixel shift (use 0 to skip horizontal movement).
+    * @param {Integer} sY - Vertical pixel shift (use 0 to skip vertical movement).
+    */
    ShiftShape(sX, sY) {
       Critical("On")
       C := focusBorder.ShapeObj.sCoord
@@ -380,22 +404,29 @@ HotIfWinActive
       focusBorder.Sync()
       Critical("Off")
    }
-   ; Scroll Wheel
+
    $Wheelup::ThickenShape(+0.05)
    $Wheeldown::ThickenShape(-0.05)
+   /**
+    * Adjusts the line/pen thickness of the currently focused shape by a fractional delta,
+    * then redraws the shape to reflect the change.
+    * @param {Float} dx - Fractional thickness change to apply (positive to thicken, negative to thin).
+    */
    ThickenShape(dx) {
       focusBorder.ShapeObj.ChangeThickness(dx)
       focusBorder.ShapeObj.Refresh()
    }
 #HotIf
 
-; Hotif
-
-
 Suspend(0)
 
 /**
- * Exit Handler
+ * Exit handler called by OnExit when the script is terminating for any reason.
+ * Unregisters all window messages, closes all open snip windows, and persists all
+ * current settings and shape/snip configuration values back to the INI file.
+ * Also shuts down the GDI+ subsystem cleanly.
+ * @param {String} ExitReason - The reason the script is exiting (e.g. "Close", "Error").
+ * @param {Integer} ExitCode - The exit code associated with the exit event.
  */
 Exiting(ExitReason, ExitCode) {
    Global SETTINGS
