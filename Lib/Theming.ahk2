@@ -1,3 +1,10 @@
+/************************************************************************
+ * @description Provide light/dark and other theming support
+ * @author Tom Wilkason / jNizM
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
+
 #Requires AutoHotkey v2.0
 #include libMisc.ahk2
 #include clsGDIp.ahk2
@@ -14,6 +21,12 @@ https://www.autohotkey.com/boards/viewtopic.php?t=115952
  * @param {Integer} DarkMode true/false for dark mode 
  */
 Class ControlThemes {
+   /**
+    * Initialize theming for all controls on the given GUI, applying dark or light mode
+    * window attributes and per-control themes, and registering the subclassed window procedure
+    * @param {Object} guiObj - The GUI object whose controls should be themed
+    * @param {Integer} [DarkMode=false] - Pass true to apply dark mode theming
+    */
    __New(guiObj, DarkMode := false) {
       this.guiObj              := guiObj
       this.DarkMode            := DarkMode
@@ -22,6 +35,9 @@ Class ControlThemes {
       this.SetWindowAttribute()
       this.SetWindowTheme()
    }
+   /**
+    * Release the subclassed window procedure callback and the text background GDI brush
+    */
    __Delete() {
       if (this.WindowProcNew)
          CallbackFree(this.WindowProcNew)      
@@ -140,12 +156,14 @@ Class ControlThemes {
       }
    }
    /**
-    * Callback to handle control messages, tweak colors for the items we are aware of
-    * @param hwnd handle to window (I think)
-    * @param uMsg control type
-    * @param wParam handle to control
-    * @param lParam 
-    * @returns {Float | Integer | String} 
+    * Subclassed window procedure callback that intercepts WM_CTLCOLORxxx messages in dark mode
+    * to apply custom background and text colors to edit, list box, button, and dialog controls.
+    * Delegates all other messages to the original window procedure.
+    * @param {Integer} hwnd - Handle to the window receiving the message
+    * @param {Integer} uMsg - Message identifier (e.g. WM_CTLCOLOREDIT, WM_CTLCOLORBTN)
+    * @param {Integer} wParam - Handle to the device context (HDC) for the control
+    * @param {Integer} lParam - Handle to the child control window
+    * @returns {Integer} GDI brush handle for color messages in dark mode; otherwise the original proc return value
     */
    WindowProc(hwnd, uMsg, wParam, lParam) {
       Critical("On")
@@ -183,10 +201,8 @@ Class ControlThemes {
    }
 }
 
-;----------------------------------------------------------------------
 ; D A R K   M O D E   R E L A T E D
 ; Also see https://github.com/nperovic/ToolTipEx/blob/main/ToolTipEx%20(for%20v2.1-alpha.8%2B).ahk
-;----------------------------------------------------------------------
 /**
  * Make your ToolTip and Menu style conform to the current system theme (dark/light mode, rounded corners of Win 11 windows).  
  * Simply include this Class in your script, no need to create an instance.
@@ -195,8 +211,19 @@ Class ControlThemes {
  * TT_WNDPROC & WindowProc are both created
  */
 Class SystemThemeAwareToolTipMenu {
+   /**
+    * Read-only property — returns true if the system is currently running in dark mode
+    * @type {Integer}
+    */
    Static IsDarkMode => !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
    ; Note : See myColorPicker for version with padding and borders
+   /**
+    * Initialize dark-mode tooltip and menu theming at parse time.
+    * Creates a dummy tooltips_class32 window, subclasses it to intercept WM_CREATE
+    * so new tooltips receive rounded corners (Win 11) and dark styling, and sets
+    * the process-wide preferred app mode to AllowDark so system menus also go dark.
+    * No-ops if dark mode is not active or if already initialized.
+    */
    Static __New() {
       static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
 
@@ -210,10 +237,8 @@ Class SystemThemeAwareToolTipMenu {
       this.SubWndProc := CallbackCreate(TT_WNDPROC, , 4)
       ; -24 = GCLP_WNDPROC
       this.OriWndProc := DllCall(A_PtrSize = 8 ? "SetClassLongPtr" : "SetClassLongW", "Ptr", this.HTT, "Int", -24, "Ptr", this.SubWndProc, "Ptr")
-      ;----------------------------------------------------------------------
       ; This will make the menus dark mode as well
       ; https://learn.microsoft.com/en-us/answers/questions/579561/dark-light-mode-of-system-tray-icon-in-wpf
-      ;----------------------------------------------------------------------
       uxtheme                := DllCall("GetModuleHandle", "str", "uxtheme", "ptr")
       ; AllowDarkModeForWindow := GetProcAddress(uxtheme, 133)   ; doesn't seem to be needed
       this.UseDarkMode       := DllCall(GetProcAddress(uxtheme, 132),"Int") ; vs using registry
@@ -226,9 +251,15 @@ Class SystemThemeAwareToolTipMenu {
 
       Return
 
-      ;----------------------------------------------------------------------
-      ; Callback when a tooltip window is created (class tooltips_class32)
-      ;----------------------------------------------------------------------
+      /**
+       * Window procedure callback for tooltips_class32 windows.
+       * On WM_CREATE, applies dark styling and Win 11 rounded corners to new tooltip windows.
+       * @param {Integer} hWnd - Handle to the tooltip window
+       * @param {Integer} uMsg - Message identifier
+       * @param {Integer} wParam - Additional message data
+       * @param {Integer} lParam - Additional message data
+       * @returns {Integer} Result from the original window procedure
+       */
       TT_WNDPROC(hWnd, uMsg, wParam, lParam) {
          Static WM_CREATE := 0x0001, TTM_TRACKACTIVATE := 0x411, TTM_SETMARGIN := 0x41a
          Switch uMsg {
@@ -241,35 +272,65 @@ Class SystemThemeAwareToolTipMenu {
          }
          Return DllCall(this.OriWndProc, "Ptr", hWnd, "UInt", uMsg, "Ptr", wParam, "Ptr", lParam, "UInt")
       }
+      /**
+       * Apply the DarkMode_Explorer uxtheme to a tooltip window
+       * @param {Integer} hWnd - Handle to the tooltip window
+       */
       SetDarkToolTip(hWnd) => DllCall("UxTheme\SetWindowTheme", "Ptr", hWnd, "Ptr", StrPtr("DarkMode_Explorer"), "Ptr", StrPtr("ToolTip"))
+      /**
+       * Apply a DWM rounded-corner attribute to a window
+       * @param {Integer} hwnd - Handle to the window
+       * @param {Integer} [level=3] - Corner preference value (1=DoNotRound, 2=Round, 3=RoundSmall)
+       */
       SetRoundedCorner(hwnd, level := 3) => DllCall("Dwmapi\DwmSetWindowAttribute", "Ptr", hwnd, "UInt", 33, "Ptr*", level, "UInt", 4)
+      /**
+       * Retrieve a function pointer by ordinal from a loaded module
+       * @param {Integer} handle - Module handle returned by GetModuleHandle
+       * @param {Integer} function - Ordinal number of the exported function
+       * @returns {Integer} Pointer to the requested function
+       */
       GetProcAddress(handle, function) => DllCall("Kernel32.dll\GetProcAddress", "Ptr", handle, "Ptr", function, "Ptr")
    }
 
+   /**
+    * Destroy the dummy tooltip window used for class subclassing on script exit
+    */
    Static __Delete() => (this.HTT && WinKill("ahk_group tooltips_class32"))
 }
-;----------------------------------------------------------------------
-; Extend button to allow for pictures
-; Based on https://github.com/TheArkive/GuiCtlExt_ahk2/tree/master
-;----------------------------------------------------------------------
+/**
+ * Extends Gui.Button to support picture/icon display via LoadPicture.
+ * Registers AddPicButton on the Gui prototype so callers can use
+ * `guiObj.AddPicButton(...)` just like any built-in Add method.
+ * Based on https://github.com/TheArkive/GuiCtlExt_ahk2/tree/master
+ */
 Class PicButton extends Gui.Button {
    ;@lint-disable class-non-dynamic-member-check
    ; Add new method for GUI to add this, then add to the GUI
    Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
    Static count := 0
+   /**
+    * Register AddPicButton on the Gui prototype at parse time
+    */
    Static __New() {
       Gui.Prototype.AddPicButton         := this.AddPicButton
    }
-   ;----------------------------------------------------------------------
-   ; Set the light/dark mode for a control
-   ;----------------------------------------------------------------------
+   /**
+    * Apply the light or dark Explorer uxtheme to a button control
+    * @param {Integer} hwnd - Window handle of the button to theme
+    */
    Static Theme(hwnd) {
       DllCall("uxtheme\SetWindowTheme", "ptr", hWnd, "str", this.DarkMode ? "DarkMode_Explorer" : "Explorer", "ptr", 0)
    }
-   ;----------------------------------------------------------------------
-   ; Essentialy NEW method, called in the GUI context
-   ; 4 GDI resources in SetImg
-   ;----------------------------------------------------------------------
+   /**
+    * Create a new picture button and add it to the calling GUI.
+    * Called in the GUI context (this = GUI object), so it behaves like a built-in Add method.
+    * Consumes 4 GDI resources via SetImg.
+    * @param {String} [sOptions=""] - AHK control option string (position, size, styles, etc.)
+    * @param {String} [sPicFile=""] - Path to the image file to display on the button
+    * @param {String} [sPicFileOpt=""] - Options forwarded to LoadPicture (e.g. "W32 H32")
+    * @param {String} [txt=""] - Optional button label text shown alongside the image
+    * @returns {Object} The new PicButton control instance
+    */
    Static AddPicButton(sOptions := "", sPicFile := "", sPicFileOpt := "", txt := "") {
       ; Static WM_CTLCOLORBTN       := 0x0135
       ; AddPicButton is called from GUI, so this points to the GUI object
@@ -290,11 +351,16 @@ Class PicButton extends Gui.Button {
    Yes                       | No                  | Show text only.  
    No                        | No                  | Show text only
    */
-   ;----------------------------------------------------------------------
-   ; Method Called in the button context, this = button
-   ; IDEA - detect if not a file, then skip the LoadPicture stuff (HICON/HBITMAP)
-   ;        comes into play when wer build the images directly and pass them in
-   ;----------------------------------------------------------------------
+   /**
+    * Load an image file onto the button using BM_SETIMAGE.
+    * Automatically sets BS_ICON or BS_BITMAP on the button style to match the loaded image type.
+    * Replaces any previously set image, destroying the old GDI handle.
+    * Called in the button context (this = button control).
+    * IDEA - detect if not a file, then skip the LoadPicture stuff (HICON/HBITMAP)
+    *        comes into play when we build the images directly and pass them in
+    * @param {String} sFile - Path to the image file (supports .ico, .png, .bmp, .cur, etc.)
+    * @param {String} [sOptions=""] - Options forwarded to LoadPicture (e.g. "W32 H32 Icon1")
+    */
    SetImg(sFile, sOptions := "") {      ; input params exact same as first 2 params of LoadPicture()
       ; thanks to teadrinker: https://www.autohotkey.com/boards/viewtopic.php?p=299834#p299834
       Static BS_ICON        := 0x40, BS_BITMAP  := 0x80, BM_SETIMAGE  := 0xF7
@@ -320,12 +386,16 @@ Class PicButton extends Gui.Button {
       Return
    }
    ; where SetBackColor was inserted
+   /**
+    * Return the control type string for this extended button
+    * @type {String}
+    */
    Type => "PicButton"
 }
-;----------------------------------------------------------------------
+;--------------------------------------------------------
 ; Change the buttons as well so they blend at edges
 ; DDL, Edit, UpDown
-;----------------------------------------------------------------------
+;--------------------------------------------------------
 ; SyncButtonColor(guiObj) {
 ;    value := guiObj.backcolor
 ;    For ctrl in guiObj {

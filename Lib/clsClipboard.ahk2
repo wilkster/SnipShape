@@ -27,6 +27,12 @@ Class Clipboard {
    Static GlobalFree(addr)                => DllCall('Kernel32.dll\GlobalFree', 'Ptr',addr, 'Ptr')
    Static CopyMemory(dest, src, length)   => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
 
+   /**
+    * Retrieves an HBITMAP handle from the clipboard and returns its dimensions.
+    * @param {Integer} W - Output parameter receiving the bitmap width in pixels
+    * @param {Integer} H - Output parameter receiving the bitmap height in pixels
+    * @returns {Integer} Handle to the bitmap, or 0 if unavailable or clipboard cannot be opened
+    */
    Static HBITMAPFromClipboard(&W, &H) {
       If (!this.IsClipboardFormatAvailable(CF_BITMAP := 2))
          Return (0)
@@ -44,11 +50,12 @@ Class Clipboard {
       this.CloseClipboard()
       Return hBitmap
    }
-   ; SetBitmapToClipboard
+
    /**
     * Put a GDI+ bitmap to the clipboard
-    * @param TpBitmap Handle to GDI+ bitmap
-    * @returns {Integer} 
+    * @param {Integer} TpBitmap Handle to GDI+ bitmap
+    * @param {String} pszText Optional plain text to place on the clipboard alongside the image
+    * @returns {Integer} 0 on success, or negative error code on failure
     */
    Static SetPBitmapToClipboard(TpBitmap, pszText := "") {
       hBitmap := Gdip.CreateHBITMAPFromBitmap(TpBitmap, 0)
@@ -59,11 +66,11 @@ Class Clipboard {
       this.SetHBitmapToClipboard(hBitmap, pszText)
    }
 
-   ; SetHBITMAPToClipboard
    /**
     * Take an hBitmap DIB and put it on the clipboard
-    * @param hBitmap Handle to bitramp to use, will be disgarded
-    * @returns {Integer} 0 = sucess, or -num for errors
+    * @param {Integer} hBitmap Handle to bitmap to use; will be discarded after the call
+    * @param {String} pszText Optional plain text to place on the clipboard alongside the image
+    * @returns {Integer} 0 on success, or negative error code on failure
     */
    Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
 
@@ -134,18 +141,35 @@ Class Clipboard {
    ;----------------------------------------------------------------------------
    ; Idea from: https://www.autohotkey.com/boards/viewtopic.php?f=83&t=114568
    ;----------------------------------------------------------------------------
+
+   /**
+    * Renders an HTML string and copies the resulting content to the clipboard
+    * via an Internet Explorer COM object's execCommand interface.
+    * @param {String} html The HTML markup string to place on the clipboard
+    * @returns {void}
+    */
    Static HTMLToClipboard(html) {
       htmlFile := ComObject('HTMLfile')
       htmlFile.write(html)
       htmlFile.body.createTextRange().execCommand("Copy")
       htmlFile := unset
    }
+
+   /**
+    * Checks whether the clipboard currently contains any text content.
+    * @returns {Integer} 1 (true) if a recognised text format is available, 0 (false) otherwise
+    */
    Static hasText() {
       For fmt in Array(1, 7, 13, 16, 49358)
          if (ClipIsAvailable(fmt))
             Return true
       Return false
    }
+
+   /**
+    * Checks whether the clipboard currently contains any image content.
+    * @returns {Integer} 1 (true) if a recognised image format is available, 0 (false) otherwise
+    */
    Static hasImage() {
       For fmt in Array(2, 6, 8, 17)
          if (ClipIsAvailable(fmt))
@@ -156,4 +180,3 @@ Class Clipboard {
 }
 ClipIsAvailable(format) => DllCall("IsClipboardFormatAvailable", "uint", format)
 logGDI(BFN(Error("", -1).File) " loaded...")
-

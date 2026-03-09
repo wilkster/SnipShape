@@ -5,7 +5,10 @@
  * @date 2024/04/20
  * @version 1.0.0
  ***********************************************************************/
+#include clsBitmap.ahk2
 #include clsSnips.ahk2
+#include clsShapes.ahk2
+#include clsClipboard.ahk2
 #include clsButtonBar.ahk2
 #include Shapes\clsCommonShape.ahk2
 /**
@@ -20,14 +23,12 @@ Class SnipMenus {
    Static ResizeMenu := Menu()
    Static BitmapMenu := Menu()
    Static OCRMenu := Menu()
+   /**
+    * Build all right-click context menus, submenus, and icons at parse time,
+    * and register the tray message handler
+    */
    Static __New() {
       Global SETTINGS
-      ;------------------------------
-      ; RMB Menus
-      ;-----------------------------------------------
-      ; Settings_CursorPath can contain png files for icons
-      ; this.AddEntry('Snip Info', "SnipShape.ico")
-
       this.AddEntry('Copy Snip to Clipboard (Ctrl-C)', "Clipboard.ico")
       this.AddEntry('Cut Snip to Clipboard (Ctrl-X)', "SnipShape.ico")
       this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
@@ -94,9 +95,12 @@ Class SnipMenus {
       OnMessage(0x404, this.TrayMessage.Bind(this))
       ; OnMessage(0x117, this.WM_INITMENUPOPUP.bind(this))
    }
-   ;----------------------------------------------------------------------
-   ; Handle callback for the RMB menu
-   ;----------------------------------------------------------------------
+   /**
+    * Dispatch right-click context menu selections to the appropriate Snips action
+    * @param {String} ItemName - Display text of the selected menu item
+    * @param {Integer} ItemPos - Position of the selected item in the menu
+    * @param {Object} MyMenu - The Menu object that triggered the callback
+    */
    Static ContextSnipMenu_Handler(ItemName, ItemPos, MyMenu) {
       Switch {
          Case ItemName ~= "Copy Snip to Clipboard": Snips.Snip2Clipboard(Snips.borderWithCopy, WinExist("A"))                           
@@ -137,10 +141,17 @@ Class SnipMenus {
       }
    }
 
-   ;----------------------------------------------------------------------
-   ; Post the RMB menus, would always be on a snip
-   ; Called in the context of the GuiSnip so avoid this. in the code
-   ;----------------------------------------------------------------------
+   /**
+    * Build and display the right-click context menu for a snip picture control.
+    * Dynamically updates the Edit/Save labels with the current snip basename,
+    * conditionally inserts clipboard paste entries, and repopulates the picture submenu.
+    * Called in the context of the GuiSnip, so avoid using `this` for GUI references.
+    * @param {Object} GuiCtrlObj - The picture control that received the right-click
+    * @param {Integer} Item - Item index (unused)
+    * @param {Integer} IsRightClick - Non-zero if triggered by a right-click
+    * @param {Integer} menuX - Window-relative X coordinate where the menu was invoked
+    * @param {Integer} menuY - Window-relative Y coordinate where the menu was invoked
+    */
    Static Post(GuiCtrlObj, Item, IsRightClick, menuX, menuY) {
       SnipObj := GuiCtrlObj.GUI
       hWnd := SnipObj.hWnd
@@ -177,31 +188,42 @@ Class SnipMenus {
       ; Blocks here
       this.PictMenu.Delete()
    }
-   ;----------------------------------------------------------------------
-   ; Add a standard RMB entry along with its icon
-   ;----------------------------------------------------------------------
+   /**
+    * Add a single entry to the main context menu with its associated icon
+    * @param {String} title - Display text for the new menu item
+    * @param {String} icon - Icon filename (relative to SETTINGS.CursorPath) to display beside the item
+    */
    Static AddEntry(title, icon) {
       this.csMenu.Add(Title, this.ContextSnipMenu_Handler.bind(this))    ;1
       this.csMenu.SetIcon(title, SETTINGS.CursorPath . icon)
    }
-   ;----------------------------------------------------------------------
-   ; Check/unCheck menu entry for button bar tied to its state
-   ;----------------------------------------------------------------------
+   /**
+    * Synchronize the Button Bar menu item checkmark with the current ButtonBar enabled state
+    */
    Static SyncBB() {
       if (ButtonBar.Enabled)
          this.csMenu.Check('Button Bar (F1)')
       else
          this.csMenu.UnCheck('Button Bar (F1)')
    }
-   ;----------------------------------------------------------------------
-   ; Resize the image menu callbck
-   ;----------------------------------------------------------------------
+   /**
+    * Clone and rescale the active snip to the selected percentage from the resize submenu
+    * @param {Float} Val - Scale factor (e.g. 0.5 for 50%, 2.0 for 200%)
+    * @param {String} ItemName - Display text of the selected menu item (unused)
+    * @param {Integer} ItemPos - Position of the item in the submenu (unused)
+    * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
+    */
    Static rescale(Val, ItemName, ItemPos, MyMenu) {
       Snips.CloneAndScaleSnip(WinActive('A'),Val)
    }
-   ;----------------------------------------------------------------------
-   ; Populate the Picture menu with files from the folder and their icons
-   ;----------------------------------------------------------------------
+   /**
+    * Populate the Insert Picture Shapes submenu with image files found in the icons folder.
+    * Icons are cached in a static ImageList keyed by full path and the menu is rebuilt sorted by filename.
+    * @param {Object} pictMenu - The Menu object to populate
+    * @param {Integer} hWnd - Window handle of the target snip, used to determine DPI-scaled icon size
+    * @param {Integer} X - Window-relative X coordinate where the picture will be inserted
+    * @param {Integer} Y - Window-relative Y coordinate where the picture will be inserted
+    */
    Static populatePicMenu(pictMenu, hWnd, X, Y) {
       static iconObj := ImageList()
       DPI      := WinDPI(hWnd)
@@ -225,9 +247,16 @@ Class SnipMenus {
          pictMenu.Add(fName, Picture_Handler.bind(hWnd, X, Y, fullPath), opt)
          pictMenu.SetIcon(fName, "HICON:" iconObj[fullPath],,0) ; ,,width
       }
-      ;----------------------------------------------------------------------
-      ; Callback to paste in a picture from the snips folder
-      ;----------------------------------------------------------------------
+      /**
+       * Insert a picture shape from the icons folder into the target snip at the saved cursor position
+       * @param {Integer} hWnd - Window handle of the target snip
+       * @param {Integer} sX - Window-relative X coordinate for placement
+       * @param {Integer} sY - Window-relative Y coordinate for placement
+       * @param {String} fullPath - Full filesystem path to the image file
+       * @param {String} ItemName - Display text of the selected menu item (unused)
+       * @param {Integer} ItemPos - Position of the item in the menu (unused)
+       * @param {Object} MyMenu - The Menu object that triggered the callback
+       */
       Picture_Handler(hWnd, sX, sY, fullPath, ItemName, ItemPos, MyMenu) {
          ; Saved when menu was launched
          SnipObj := Snips.GetGuiObj(hWnd)
@@ -240,11 +269,14 @@ Class SnipMenus {
       }
    }
 
-   ;----------------------------------------------------------------------
-   ; Called just before a menu is posted
-   ; NOTE - on very slow computers there is a white flash on the menu
-   ;        in dark mode, this could potentially be used to prevent that flash
-   ;----------------------------------------------------------------------
+   /**
+    * WM_INITMENUPOPUP message handler — applies the dark mode theme to menu popups
+    * on systems running Windows in dark mode, to prevent a white flash on slow computers.
+    * @param {Integer} wParam - Handle to the menu about to be shown
+    * @param {Integer} lParam - Additional message data (unused)
+    * @param {Integer} uMsg - Message identifier (0x117)
+    * @param {Integer} hWnd - Handle of the window that owns the menu (unused)
+    */
    Static WM_INITMENUPOPUP(wParam, lParam, uMsg, hWnd) {
       ; 376309965, 0, 279, 5245486
       Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
@@ -253,9 +285,15 @@ Class SnipMenus {
       ; debug(wParam ", " lParam ", " uMsg ", " hWnd)
    }
    
-   ;----------------------------------------------------------------------
-   ; Respond to tray message, for now reload on click (for development)
-   ;----------------------------------------------------------------------
+   /**
+    * Handle Windows tray icon notification messages (WM_APP+4 / 0x404).
+    * Left-click shows the Snips tray menu; double-click reloads the script (development aid);
+    * balloon notification clicks paste the clipboard image into a new snip.
+    * @param {Integer} wParam - Handle of the window that owns the tray icon
+    * @param {Integer} lParam - Notification event code (e.g. 0x202 left-click, 0x203 double-click)
+    * @param {Integer} uMsg - Message identifier (0x404)
+    * @param {Integer} hWnd - Handle of the taskbar window receiving the message
+    */
    Static TrayMessage(wParam, lParam, uMsg, hWnd) {
       ; Easy reload script - mostly for development
       if (hwnd != A_ScriptHwnd)
@@ -290,12 +328,21 @@ Class SnipMenus {
 
 }
 
-;----------------------------------------------------------------------
-; Post the Shape RMB menus, would always be on a snip
-; Called in the context of the GuiSnip so avoid this. in the code
-; IDEA - move this under the shapes themselves so each can add its own entries
-;----------------------------------------------------------------------
+/**
+ * Handles right-click context menus for individual shape objects on a snip.
+ * Menu entries are built dynamically based on the shape type and source.
+ */
 Class ShapeMenus {
+   /**
+    * Build and display the right-click context menu for a shape control.
+    * Menu entries are assembled dynamically based on ShapeObj.Source and ShapeObj.Shape,
+    * including rotate/flip, z-order, color, thickness, blur amount, and delete actions.
+    * @param {Object} ShapeObj - The shape object that received the right-click
+    * @param {Integer} Item - Item index (unused)
+    * @param {Integer} IsRightClick - Non-zero if triggered by a right-click
+    * @param {Integer} menuX - Window-relative X coordinate where the menu was invoked
+    * @param {Integer} menuY - Window-relative Y coordinate where the menu was invoked
+    */
    Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
       Static shapeMenu   := Menu()
       Static colorMenu   := Menu()
@@ -414,18 +461,26 @@ Class ShapeMenus {
          ShapeObj.Refresh()
       }
    }
-   ;----------------------------------------------------------------------
-   ; Add a menu entry along with a icon if needed
-   ;----------------------------------------------------------------------
+   /**
+    * Add a menu entry with an optional icon to a shape context menu
+    * @param {Object} Menu - The Menu object to add the entry to
+    * @param {Object} shapeObj - The shape object the menu action will operate on
+    * @param {String} title - Display text for the new menu item
+    * @param {String} [icon=""] - Icon filename (relative to SETTINGS.CursorPath\) to display; omit for no icon
+    */
    Static AddEntry(Menu, shapeObj, title, icon:="") {
       Global SETTINGS
       Menu.Add(Title, ShapeMenus.ContextShapeMenu_Handler.bind(this, shapeObj))    ;1
       if (icon)
          Menu.SetIcon(title, SETTINGS.CursorPath . "\" . icon)
    }
-   ;----------------------------------------------------------------------
-   ; Handle callback for the RMB menu
-   ;----------------------------------------------------------------------
+   /**
+    * Dispatch shape context menu selections to the appropriate shape action
+    * @param {Object} shapeObj - The shape object the selected action applies to
+    * @param {String} ItemName - Display text of the selected menu item
+    * @param {Integer} ItemPos - Position of the selected item in the menu
+    * @param {Object} MyMenu - The Menu object that triggered the callback
+    */
    Static ContextShapeMenu_Handler(shapeObj, ItemName, ItemPos, MyMenu) {
       Switch {
          Case ItemName ~= "to Back" : 
@@ -463,9 +518,14 @@ Class ShapeMenus {
       }
       MyMenu.delete()
    }
-   ;----------------------------------------------------------------------
-   ; Change the color of a shape
-   ;----------------------------------------------------------------------
+   /**
+    * Apply a new color to a shape and trigger a redraw
+    * @param {Object} shapeObj - The shape object whose color will be changed
+    * @param {Integer} colorCode - ARGB color value to assign
+    * @param {String} ItemName - Display text of the selected color item (unused)
+    * @param {Integer} ItemPos - Position of the item in the color submenu (unused)
+    * @param {Object} MyMenu - The Menu object that triggered the callback
+    */
    Static Color_Handler(shapeObj, colorCode, ItemName, ItemPos, MyMenu) {
       ShapeObj.Color := colorCode
       ShapeObj.Refresh()
@@ -473,4 +533,3 @@ Class ShapeMenus {
    }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")
-

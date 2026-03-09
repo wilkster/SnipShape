@@ -52,8 +52,9 @@ Class BitMap {
       }
       return pBitmap
    }
+
    /**
-    * 
+    * Flip a pBitmap in place
     * @param pBitmap bitmap to flip in place
     * @param flipType 1 = flip top/bottom (vertical), 2 = flip left/right (horizontal)
     * @returns {Integer} pBitmap on sucess, 0 on failure
@@ -82,15 +83,15 @@ Class BitMap {
    }
 
    /**
-    * Crop an hBitmap using GDI only
+    * Crop an hBitmap using GDI only.
     * NOTE - this would also work for enlarging as well
-    * @param hBitmap Handle to the bitmap to crop
-    * @param X Offset
-    * @param Y  Offset
-    * @param nW  new Width
-    * @param nH  new Height
+    * @param {Integer} hBitmap Handle to the bitmap to crop
+    * @param {Integer} X X offset
+    * @param {Integer} Y Y offset
+    * @param {Integer} nW New width
+    * @param {Integer} nH New height
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
-    * @returns {hBitmap} 
+    * @returns {Integer} hBitmap handle to the new cropped bitmap
     */
    Static CropHBITMAP(hBitmap, X, Y, nW, nH, keepBitmap := 0) {
 
@@ -114,18 +115,19 @@ Class BitMap {
       ; User needs to delete object
 
       Return hClone
-   }   
+   }
+
    /**
-    * Slice an hBitmap using GDI only
-    * Extends w/h depending on which is larger
-    * Input coordinates will span picture one X or Y
-    * @param hBitmap Handle to the bitmap to slice
-    * @param X Offset (snip border offset)
-    * @param Y Offset (snip border offset)
-    * @param nW  new Width
-    * @param nH  new Height
+    * Slice an hBitmap using GDI only.
+    * Extends w/h depending on which is larger.
+    * Input coordinates will span picture one X or Y.
+    * @param {Integer} hBitmap Handle to the bitmap to slice
+    * @param {Integer} nX X offset (snip border offset)
+    * @param {Integer} nY Y offset (snip border offset)
+    * @param {Integer} nW New width
+    * @param {Integer} nH New height
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
-    * @returns {hBitmap} 
+    * @returns {Integer} hBitmap handle to the new sliced bitmap
     */
    Static SliceHBITMAP(hBitmap, nX, nY, nW, nH, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
@@ -162,17 +164,15 @@ Class BitMap {
    }
 
    /**
-    * Etend an hBitmap using GDI only
-    * Extends w/h depending on which is larger
-    * Input coordinates will span picture one X or Y
-    * @param hBitmap Handle to the bitmap to slice
-    * @param bgColor Background color to use for fill
-    * @param L Amount to expand to the left (or 0)
-    * @param T Amount to expand to the top (or 0)
-    * @param R Amount to expand to the right (or 0)
-    * @param B Amount to expand to the bottom (or 0)
+    * Extend an hBitmap externally using GDI only, adding a border of background color.
+    * @param {Integer} hBitmap Handle to the bitmap to extend
+    * @param {Integer} bgColor Background color to use for fill
+    * @param {Integer} l Amount to expand to the left (or 0)
+    * @param {Integer} t Amount to expand to the top (or 0)
+    * @param {Integer} r Amount to expand to the right (or 0)
+    * @param {Integer} b Amount to expand to the bottom (or 0)
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
-    * @returns {hBitmap} 
+    * @returns {Integer} hBitmap handle to the new extended bitmap
     */
    Static ExtendBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
@@ -207,18 +207,19 @@ Class BitMap {
 
       Return hClone
    }
+
    /**
-    * Expand an hBitmap internally using GDI only
-    * Extends w/h depending on which is larger
-    * Input coordinates will span picture one X or Y
-    * @param hBitmap Handle to the bitmap to slice
-    * @param bgColor Background color to use for fill
-    * @param L Start of insert point left (or 0)
-    * @param T Start of insert point top (or 0)
-    * @param R End of insert point right (or 0)
-    * @param B End of insert pont bottom (or 0)
+    * Expand an hBitmap internally using GDI only, inserting a gap filled with background color.
+    * Extends w/h depending on which is larger.
+    * Input coordinates will span picture one X or Y.
+    * @param {Integer} hBitmap Handle to the bitmap to expand
+    * @param {Integer} bgColor Background color to use for fill
+    * @param {Integer} l Start of insert point left (or 0)
+    * @param {Integer} t Start of insert point top (or 0)
+    * @param {Integer} r End of insert point right (or 0)
+    * @param {Integer} b End of insert point bottom (or 0)
     * @param {Integer} keepBitmap 0 to discard incoming bitmap when done
-    * @returns {hBitmap} 
+    * @returns {Integer} hBitmap handle to the new expanded bitmap
     */
    Static ExpandBITMAP(hBitmap, bgColor, l, t, r, b, keepBitmap := 0) {
       GDI.GetHBitmapDimensions(hBitmap, &ogW:=0, &ogH:=0)
@@ -262,21 +263,27 @@ Class BitMap {
 
       Return hClone
    }
-   ;----------------------------------------------------------------------
-   ; Clone a hBitmap and crop the border off
-   ; User responsible for created bitmaps
-   ;----------------------------------------------------------------------
+
+   /**
+    * Clone an hBitmap and crop a uniform border off all sides.
+    * Caller is responsible for managing the returned bitmap.
+    * @param {Integer} hBitmap Handle to the source bitmap
+    * @param {Integer} BW Border width in pixels to remove from each side
+    * @returns {Integer} hBitmap handle to the new border-cropped bitmap
+    */
    Static CropHBitmapBorder(hBitmap, BW) {
       GDI.GetHBitmapDimensions(hBitmap, &Width, &Height)
       Return this.CropHBITMAP(hBitmap, BW, BW, Width - 2 * BW, Height - 2 * BW)
    }
 
-   ;----------------------------------------------------------------------
-   ; Return a bitmap of the specified windows contents
-   ; Independent of any windows above it
-   ; With or without the border cropped
-   ; GDI+ and GDI versions
-   ;----------------------------------------------------------------------
+   /**
+    * Return a pBitmap of the specified window's contents, independent of any windows above it,
+    * with an optional uniform border crop applied.
+    * @param {Integer} hWnd Handle to the target window
+    * @param {Integer} clientOnly 1 to capture client area only
+    * @param {Integer} BW Border width in pixels to crop from each side (0 = no crop)
+    * @returns {Integer} pBitmap handle to the captured (and optionally cropped) bitmap
+    */
    Static pBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
       hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
       pBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
@@ -290,12 +297,13 @@ Class BitMap {
          Return pBitmap
       }
    }
+
    /**
-    * Return a portion of a window
-    * @param hWnd window handle
-    * @param {Integer} clientOnly 
-    * @param {Integer} BW border width
-    * @returns {hBitmap} handle to new bitmap
+    * Return a portion of a window as an hBitmap, with an optional uniform border crop.
+    * @param {Integer} hWnd Window handle
+    * @param {Integer} clientOnly 1 to capture client area only
+    * @param {Integer} BW Border width in pixels to crop from each side (0 = no crop)
+    * @returns {Integer} hBitmap handle to the captured (and optionally cropped) bitmap
     */
    Static hBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
       hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
@@ -304,10 +312,14 @@ Class BitMap {
       }
       Return hBitmap
    }
-   ;----------------------------------------------------------------------
-   ; Clone a pBitmap and crop it
-   ; User responsible for passed in and created bitmaps
-   ;----------------------------------------------------------------------
+
+   /**
+    * Clone a pBitmap and crop a uniform border off all sides, retaining the original pixel format.
+    * Caller is responsible for managing both the passed-in and returned bitmaps.
+    * @param {Integer} pBitmap Handle to the source pBitmap
+    * @param {Integer} BW Border width in pixels to remove from each side
+    * @returns {Integer} pBitmap handle to the new border-cropped bitmap
+    */
    Static CropPBitmapBorder(pBitmap, BW) {
       ; Retain the current PixelFormat, unlike GdipCloneImage.
       DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &width := 0)
@@ -325,10 +337,17 @@ Class BitMap {
          warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmapCrop
    }
-   ;----------------------------------------------------------------------
-   ; Clone a pBitmap and crop it
-   ; User responsible for passed in and created bitmaps and boundary checking
-   ;----------------------------------------------------------------------
+
+   /**
+    * Clone a pBitmap and crop it to the specified rectangle, retaining the original pixel format.
+    * Caller is responsible for managing both the passed-in and returned bitmaps, and for boundary checking.
+    * @param {Integer} pBitmap Handle to the source pBitmap
+    * @param {Integer} X Left edge of the crop rectangle
+    * @param {Integer} Y Top edge of the crop rectangle
+    * @param {Integer} W Width of the crop rectangle
+    * @param {Integer} H Height of the crop rectangle
+    * @returns {Integer} pBitmap handle to the new cropped bitmap
+    */
    Static CropPBitmap(pBitmap, X, Y, W, H) {
       ; Retain the current PixelFormat, unlike GdipCloneImage.
       DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &width := 0)
@@ -347,11 +366,14 @@ Class BitMap {
 
       Return pBitmapCrop
    }
-   ;----------------------------------------------------------------------
-   ; Get the screencap of a window or child window
-   ;----------------------------------------------------------------------
-   ; Return an hbitmap from a window
-   ;----------------------------------------------------------------------
+
+   /**
+    * Capture a window's screen contents as an hBitmap.
+    * Uses WinGetPosEx for top-level windows to exclude extended borders, or WinGetPos for child windows.
+    * @param {Integer} hWnd Handle to the target window
+    * @param {Integer} NoExtendedBorder 1 to exclude the extended (DWM) border (default), 0 to include it
+    * @returns {Integer} hBitmap handle to the captured bitmap, or 0 on failure
+    */
    Static HBitmapFromHWND(hWnd, NoExtendedBorder := 1) {
       If ((GetParent(hWnd) != hWnd) OR NOT NoExtendedBorder)
          WinGetPos(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
@@ -365,13 +387,15 @@ Class BitMap {
          Return 0
       }
    }
-   ;----------------------------------------------------------------------
-   ; Works for windows with DPI support
-   ; Gets black screen for child windows
-   ; Need to scale smaller windows on higher DPI screens (looks crappy after)
-   ; BUG - this only works if the window and monitor dpi are the same, some legacy
-   ;       windows won't scale properly on PrintWindow
-   ;----------------------------------------------------------------------
+
+   /**
+    * Capture a window's contents as an hBitmap using PrintWindow.
+    * Works for windows with DPI support. Falls back to HBitmapFromScreen for
+    * legacy windows where the window DPI differs from the monitor DPI.
+    * @param {Integer} hWnd Handle to the target window
+    * @param {Integer} skipBorders 1 to use WinGetPosEx (exclude extended borders)
+    * @returns {Integer} hBitmap handle to the captured bitmap, or 0 on failure
+    */
    Static HBitmapFromHWNDPW(hWnd, skipBorders := 1) {
       Static PW_RENDERFULLCONTENT := 0x2
       ; If (skipBorders = 1)
@@ -417,17 +441,27 @@ Class BitMap {
       }
       Return hBitmap
    }
-   ;----------------------------------------------------------------------
-   ; PrintWindow - Take contents of window and put into specificed hdc
-   ; NOTE - non DPI aware apps will have to have the result scaled from their DPI to current DPI
-   ;----------------------------------------------------------------------
+
+   /**
+    * Copy the contents of a window into a specified HDC using the PrintWindow API.
+    * @param {Integer} hwnd Handle to the window to print
+    * @param {Integer} hdc Handle to the destination device context
+    * @param {Integer} Flags PrintWindow flags (default: 2 = PW_RENDERFULLCONTENT)
+    * @returns {Integer} Non-zero on success, 0 on failure
+    */
    Static PrintWindow(hwnd, hdc, Flags := 2) => DllCall("User32\PrintWindow", "Ptr", hwnd, "Ptr", hdc, "uint", Flags)
+
    ;====================== BACKGROUND STUFF ===========================
    /**
-    * Return the most common rgb value from a pBitmap, typically the background
-    * Very fast method.
-    * NOTE - This will find most prevalent R & B & B independently, not necessary in the same pixel
-    * @param pBitmap 
+    * Return the most common rgb value from a pBitmap, typically the background.
+    * Very fast method using GDI+ histogram.
+    * NOTE - This will find the most prevalent R, G & B values independently,
+    *        not necessarily from the same pixel.
+    * @param {Integer} pBitmap Handle to the source pBitmap
+    * @param {Float} percent Output variable set to the average peak-count ratio across channels.
+    *                        Low values (<=10%) indicate a photo-like image; the average color is
+    *                        returned in that case instead of the mode.
+    * @returns {Integer} RGB color value as R<<16 | G<<8 | B
     */
    Static GetBackgroundColor(pBitmap, &percent?) {
       Static sizeofUInt := 4
@@ -475,20 +509,12 @@ Class BitMap {
       Return rVal << 16 | gVal << 8 | bVal
    }
    ;====================== DONE BACKGROUND STUFF ===========================
-   ;----------------------------------------------------------------------
-   ; BitmapFromScreen
-   ;----------------------------------------------------------------------
-   ; Static pBitmapFromScreen(Area) {
-   ;    hbm := BitMap.HBitmapFromScreen(Area)
-   ;    ; GDI.GetHBitmapDimensions(hbm, &W, &H, &BPP)
-   ;    pBitmap := GDIp.CreateBitmapFromHBITMAP(hbm)
-   ;    GDI.DeleteObject(hbm)
-   ;    Return pBitmap
-   ; }
 
-   ;----------------------------------------------------------------------
-   ; Get an hbitmap of a screen area
-   ;----------------------------------------------------------------------
+   /**
+    * Capture a rectangular screen area as an hBitmap using GDI BitBlt with CAPTUREBLT.
+    * @param {Object} Area Object with X, Y, W, H properties defining the screen region
+    * @returns {Integer} hBitmap handle to the captured screen bitmap
+    */
    Static HBitmapFromScreen(Area) {
       hdcScreen := GDI.GetDC(0) ; 0 makes no difference than GetDesktopWindow
       ; Using either a DIB or Compatible bitmap is about the same, 60ms on fast computer
@@ -504,9 +530,14 @@ Class BitMap {
       GDI.DeleteDC(hdcMem)
       Return hBitmap
    }
-   ;----------------------------------------------------------------------
-   ; Get an hbitmap of a screen area, and update a layered window
-   ;----------------------------------------------------------------------
+
+   /**
+    * Capture a screen area as an hBitmap and paint it into a layered window.
+    * Optionally captures from the active window instead of the screen region.
+    * @param {Object} Area Object with X, Y, W, H properties defining the region
+    * @param {Integer} hWnd Handle to the layered window to update
+    * @param {Integer} getWin 0 to capture from screen (default), 1 to capture from the active window
+    */
    Static OverlayToLayeredWindow(Area, hWnd, getWin := 0) {
       ;HBitmapToLayeredWindow Grab the Screen
       hBitmap := getWin ? this.HBitmapFromHWND(WinActive("A"), 0) : this.HBitmapFromScreen(Area)
@@ -521,9 +552,20 @@ Class BitMap {
       GDI.DeleteObject(hBitmap)
       Return
    }
-   ;----------------------------------------------------------------------
-   ; SaveBitmapToFile
-   ;----------------------------------------------------------------------
+
+   /**
+    * Save a pBitmap to a file or return it as a Base64-encoded string.
+    * Supports BMP, DIB, RLE, JPG/JPEG/JPE/JFIF, GIF, TIF/TIFF, and PNG formats.
+    * @param {Integer} pBitmap Handle to the source pBitmap
+    * @param {String} sOutput Destination file path including extension
+    * @param {Integer} Quality JPEG quality level 0–100 (default: 75)
+    * @param {Integer} toBase64 1 to return a Base64 string instead of writing a file (default: 0)
+    * @returns {Integer|String} 0 on success, a Base64 string when toBase64=1,
+    *                           or a negative error code on failure:
+    *                           -1 unsupported extension, -2 no encoders found,
+    *                           -3 codec not found, -5 save failed,
+    *                           -6/-7 Base64 encoding error
+    */
    Static SaveBitmapToFile(pBitmap, sOutput, Quality := 75, toBase64 := 0) {
       _p := 0
 
@@ -619,8 +661,17 @@ Class BitMap {
       _E := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", sOutput, "Ptr", pCodec, "uint", _p)
       Return _E ? -5 : 0
    }
-   ; From iseahound ImagePut.ahk2 library
-   ; Highest quality scaler settings
+
+   /**
+    * Scale a pBitmap to a new size using highest-quality GDI+ settings (HighQualityBicubic).
+    * The input pBitmap is disposed after scaling.
+    * Based on iseahound's ImagePut library.
+    * @param {Integer} TpBitmap Handle to the source pBitmap (disposed on return)
+    * @param {Float|Array} scale Numeric scale factor (e.g. 0.5, 2.0), or a two-element array
+    *                            [width, height] where one element may be 0 to compute proportionally
+    * @param {Integer} direction 0 = scale always (default), >0 = upscale only, <0 = downscale only
+    * @returns {Integer} pBitmap handle to the new scaled bitmap, or the original if no scaling occurred
+    */
    Static BitmapScale(TpBitmap, scale, direction := 0) {
       If not (IsObject(scale) && ((scale[1] ~= "^\d+$") || (scale[2] ~= "^\d+$")) || (scale ~= "^\d+(\.\d+)?$"))
          Throw Error("Invalid scale.")
@@ -681,15 +732,20 @@ Class BitMap {
 
       Return pBitmapScale
    }
+
    ;----------------------------------------------------------------------
    ; by Marius Șucan GDIp Library
    ; uses compiled C code below
    ;----------------------------------------------------------------------
    /**
-    * 
-    * @param {Handle}  pBitmap input handle
-    * @param {Number}  BlockSize Obscure value smaller blocks have less impact
-    * @returns {Handle}  pBitmap output handle, the input is disposed
+    * Pixelate a pBitmap using compiled machine code for performance.
+    * The input pBitmap is disposed after pixelation.
+    * Based on Marius Șucan's GDIp Library.
+    * @param {Integer} TpBitmapIn Handle to the source pBitmap (disposed on return)
+    * @param {Integer} BlockSize Pixel block size; smaller blocks produce less pixelation
+    * @returns {Integer} pBitmap handle to the new pixelated bitmap, or a negative error code:
+    *                    -1 = dimension mismatch, -2 = BlockSize exceeds image dimensions,
+    *                    -3 = failed to lock bits
     */
    Static PixelateBitmap(TpBitmapIn, BlockSize) {
       Static PixelateBitmap := 0
@@ -778,9 +834,16 @@ Class BitMap {
 
       Return pBitmapOut
    }
-   ; License:   MIT License
-   ; Author:    Edison Hua (iseahound)
-   ; Github:    https://github.com/iseahound/TextRender
+
+   /**
+    * Apply a Gaussian blur to a pBitmap in place using compiled machine code.
+    * Produces better results than BlurBitmap for text content.
+    * License: MIT - Author: Edison Hua (iseahound) - https://github.com/iseahound/TextRender
+    * @param {Integer} TpBitmapIn Handle to the pBitmap to blur (modified in place)
+    * @param {Integer} radius Blur radius; controls the convolution kernel size
+    * @param {Float} opacity Opacity factor for the blur result (default: 1)
+    * @returns {Integer} pBitmap handle (same as input, modified in place)
+    */
    Static MCodeGaussianBlur(TpBitmapIn, radius, opacity := 1) {
       Static code := (A_PtrSize = 4)
          ? "
@@ -867,28 +930,20 @@ Class BitMap {
       Return TpBitmapIn
    }
 
- ;#####################################################################################
-   ; Function           Gdip_BlurBitmap
-   ; Description        Gives a pointer to a blurred bitmap from a pointer to a bitmap
-   ;
-   ; pBitmap            Pointer to a bitmap to be blurred
-   ; BlurAmount         The Amount to blur a bitmap by from 1 (least blur) to 100 (most blur)
-   ;
-   ; return             If the function succeeds, the return value is a pointer to the new blurred bitmap
-   ;                    -1 = The blur parameter is outside the range 1-100
-   ;
-   ; notes              This function will dispose of the original bitmap
+   /**
+    * Blur a pBitmap by two-step reduction and enlargement using GDI+.
+    * The input pBitmap is disposed after blurring.
+    * Note: MCodeGaussianBlur produces better results; use this for a simpler alternative.
+    * Fixed to use TileFlipXY wrap mode to prevent phantom border artifacts.
+    * Based on Marius Șucan's GDIP_ALL library.
+    * @param {Integer} TpInputBitmap Handle to the source pBitmap (disposed on return)
+    * @param {Integer} BlurAmount Blur intensity from 1 (least) to 100 (most)
+    * @param {Integer} usePARGB 1 to use pre-multiplied ARGB pixel format (default: 0)
+    * @returns {Integer} pBitmap handle to the new blurred bitmap, or the original if blurring was skipped
    ; Marius Șucan - GDIP_ALL library
    ; Fixed to force XYWrap mode to prevent the drawing of a phantom border
    ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
-   ; https://stackoverflow.com/questions/1890605/ghost-borders-ringing-when-resizing-in-gdi
-   ;#####################################################################################
-   /**
-    * Blur a bitmap by reduction, not use as Gaussian blur is better for our puspose
-    * @param {Handle}  pBitmap input handle
-    * @param {Number}  BlurAmount (1 to 100) Obscure value smaller values have less impact
-    * @returns {Handle}  pBitmap output handle, the input is disposed
-    */
+   ; https://stackoverflow.com/questions/1890605/ghost-borders-ringing-when-resizing-in-gdi    */
    Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 0) {
       Static TileFlipXY := 3
       ; 0x26200A is default format
@@ -947,22 +1002,40 @@ Class BitMap {
       GDIp.DisposeImageAttributes(attrib)
       Return pResultBitmap
    }
+
    /**
-    * Gaussian Blur on X dimension (looks better for text)
-    * @param {Pointer} pBitmap Handle to pBitmap
-    * @param {Float} Radius  Convolution Kernal blur radius (0,255), floating point
-    * @param {Integer} Clean 0 for clean edges, 1 to expand edge to soften them (ignored here)
-    * @returns {Number} Return Status OK=0 or GDI+ Error
+    * Apply a Gaussian blur effect to a pBitmap in place using GdipBitmapApplyEffect.
+    * @param {Integer} pBitmap Handle to the pBitmap to blur (modified in place)
+    * @param {Float} Radius Convolution kernel blur radius (0–255)
+    * @param {Integer} paramB 0 for clean edges (default)
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
     */
    Static GaussianBlur(pBitmap, Radius, paramB := 0) => this.ApplyEffect(1, pBitmap, Radius, paramB)
-   ;----------------------------------------------------------------------
-   ; Sharpen Bitmap
-   ; Radius is 0 - 255 (typically 3 or so)
-   ; Amount is 0 - 100
-   ;----------------------------------------------------------------------
+
+   /**
+    * Sharpen a pBitmap in place using GdipBitmapApplyEffect.
+    * @param {Integer} pBitmap Handle to the pBitmap to sharpen (modified in place)
+    * @param {Float} Radius Sharpen kernel radius (0–255)
+    * @param {Float} Amount Sharpen amount (0–100, default: 0)
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
+    */
    Static Sharpen(pBitmap, Radius, Amount := 0) => this.ApplyEffect(2, pBitmap, Radius, Amount)
+
+   /**
+    * Convert a pBitmap to greyscale in place using GdipBitmapApplyEffect.
+    * @param {Integer} pBitmap Handle to the pBitmap to convert (modified in place)
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
+    */
    Static GreyScale(pBitmap) => this.ApplyEffect(6, pBitmap, 0, -100, 0)
+
+   /**
+    * Adjust the contrast of a pBitmap in place using GdipBitmapApplyEffect.
+    * @param {Integer} pBitmap Handle to the pBitmap to adjust (modified in place)
+    * @param {Integer} Amount Contrast adjustment amount (-100 to 100)
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
+    */
    Static Contrast(pBitmap, Amount) => this.ApplyEffect(5, pBitmap, 0, Amount)
+
    /*
    From: Marius Șucan: https://github.com/marius-sucan/AHK-GDIp-Library-Compilation
    whichFX options:
@@ -1016,9 +1089,18 @@ Class BitMap {
    Through ParamA, ParamB and ParamC, the effects can be controlled.
    Function written by Marius Șucan. Many thanks to Drugwash for the help provided,
    */
-   ;----------------------------------------------------------------------
-   ; Create, apply and dispose of an effect to a pBitmap in place
-   ;----------------------------------------------------------------------
+   /**
+    * Create, apply, and dispose of a GDI+ effect on a pBitmap in place.
+    * Supports Blur, Sharpen, BrightnessContrast, HueSaturationLightness,
+    * LevelsAdjust, Tint, ColorBalance, and ColorCurve effects.
+    * Based on Marius Șucan's GDIp library.
+    * @param {Integer} Effect Effect index (1–11; see the whichFX table above for details)
+    * @param {Integer} pBitmap Handle to the pBitmap to modify (modified in place)
+    * @param {Number} param1 Primary effect parameter (interpretation depends on Effect)
+    * @param {Number} param2 Secondary effect parameter (interpretation depends on Effect)
+    * @param {Number} param3 Tertiary effect parameter for effects that require it (default: 0)
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
+    */
    Static ApplyEffect(Effect, pBitmap, param1, param2, param3 := 0) {
       Static strCLIS := [
          "{633C80A4-1843-482b-9EF2-BE2834C5FDD4}",
@@ -1083,12 +1165,15 @@ Class BitMap {
          warning("Invalid Effect " Effect)
       }
    }
+
    /**
-    * Transform a pBitmap and return a replacement
-    * S/B faster than two step create bitmap/transform/draw
-    * @param TpBitmap pBitmap to process, removed at the end
-    * @param Effect 1=Invert, 2=Grayscale, 3=B&W High Contrast
-    * @returns {Number} 
+    * Apply a color matrix transformation to a pBitmap in place using GdipBitmapApplyEffect.
+    * @param {Integer} pBitmap Handle to the pBitmap to transform (modified in place)
+    * @param {Integer} numEffect Transformation type:
+    *                            1 = Invert (default),
+    *                            2 = Greyscale (perceptual weights),
+    *                            3 = B&W high contrast
+    * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
     */
    Static TransformBitmap(pBitmap, numEffect) {
       Static ColorMatrixEffectGuid := "{718F2615-7933-40e3-A511-5F68FE14DD74}"
@@ -1155,10 +1240,13 @@ Class BitMap {
       }
       Return pBitmap         
    }
-   ;----------------------------------------------------------------------
-   ; Effect Support
-   ;----------------------------------------------------------------------
 
+   /**
+    * Convert a CLSID/IID string to a 16-byte CLSID Buffer.
+    * @param {String} IID GUID string in the form "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}"
+    * @returns {Buffer} 16-byte Buffer containing the binary CLSID
+    * @throws {Error} If CLSIDFromString fails
+    */
    Static CLSIDFromString(IID) {
       Local CLSID := Buffer(16), res
       If res := DllCall("ole32\CLSIDFromString", "WStr", IID, "Ptr", CLSID, "UInt")

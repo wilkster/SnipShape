@@ -1,6 +1,9 @@
-;#####################################################################################
-; Advanced Text Contro 
-;#####################################################################################
+/************************************************************************
+ * @description Text Shapes and Edit Control
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
 #Requires AutoHotkey v2.0 
 #include clsCommonShape.ahk2
 #Include ..\libMisc.ahk2
@@ -8,6 +11,7 @@
 #Include ..\clsBitmap.ahk2
 #Include ..\Theming.ahk2
 #Include ..\clsShapes.ahk2
+#Include ..\clsCursor.ahk2
 /**
  * PicPlus class that extends the base picture class
  * @param {number} 
@@ -39,9 +43,10 @@ Class TextShape extends CommonShape {
    Static OLFillThickness := IniReadValue("Text", "Outline Width Percent",16)
    Static OLBlur          := IniReadValue("Text", "Outline Blur Value",1)
    Static textOpacity     := IniReadValue("Text", "Text Opacity", 0xFF)
-   ;----------------------------------------------------------------------
-   ; Caption unique properties - Called on Creation
-   ;----------------------------------------------------------------------
+   /**
+    * Initialize instance properties unique to text shapes.
+    * Called on creation; sets source type, default font, alignment, color, and opacity values.
+    */
    Init(*) {
       Super.Init()
       this.Source          := "Text"
@@ -73,10 +78,17 @@ Class TextShape extends CommonShape {
       ; this.bindDClick      := this.EditDispText.Bind(this)
       ; this.OnEvent("DoubleClick", this.bindDClick)
    }
-   ;----------------------------------------------------------------------
-   ; Called prior to drawing to define text and other characteristics
-   ; Font size/ colors may be set dynamically during a resize event however
-   ;----------------------------------------------------------------------
+   /**
+    * Configure text and font properties prior to drawing.
+    * Font size, colors, and other characteristics may also be updated dynamically during resize events.
+    * @param {Integer} [Size] - Font size in points
+    * @param {String} [Text] - Text content to display
+    * @param {String} [FontName] - Font family name
+    * @param {String} [Alignment] - Horizontal alignment: "Left", "Center", or "Right"
+    * @param {String} [Style] - Font style: "Normal", "Bold", "Italic", "BoldItalic", "Underline", or "Strikeout"
+    * @param {Integer} [Color] - ARGB font color value
+    * @param {Integer} [BGColor] - RGB background fill color value
+    */
    Startup(Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
       super.Startup()
       If (IsSet(Size))
@@ -100,32 +112,51 @@ Class TextShape extends CommonShape {
          Default:
       }
    }
-   ;----------------------------------------------------------------------
-   ; Text Unique properties and methods
-   ;----------------------------------------------------------------------
+   /**
+    * Get or set the font family name
+    * @type {String}
+    */
    FontName {
       get => this._fontName
       Set => this._fontName := Value
    }
+   /**
+    * Get or set the font size in points
+    * @type {Integer}
+    */
    FontSize {
       get => this._fontSize
       set => this._fontSize := Value
    }
+   /**
+    * Get or set the text content displayed by this shape
+    * @type {String}
+    */
    Text {
       get => this._Text
       set => this._Text := Value
    }
+   /**
+    * Get or set the horizontal text alignment ("Left", "Center", or "Right")
+    * @type {String}
+    */
    Alignment {
       get => this._Alignment
       set => this._Alignment := Value
    }
+   /**
+    * Get or set the font style ("Normal", "Bold", "Italic", "BoldItalic", "Underline", or "Strikeout")
+    * @type {String}
+    */
    FontStyle {
       get => this._fontStyle
       set => this._fontStyle := Value
    }
-   ;----------------------------------------------------------------------
-   ; We will set the background color from obscure, so also re-render the text
-   ;----------------------------------------------------------------------
+   /**
+    * Get or set the background fill color (RGB).
+    * Setting this property also triggers a redraw of the text at the current position.
+    * @type {Integer}
+    */
    BGColor {
       get => this._BGColor
       set {
@@ -136,15 +167,21 @@ Class TextShape extends CommonShape {
    }
 
    /**
-    * Meat of the class, Render the text to a new bitmap and set the picture control to the bitmap
-    * @param Text Optional Text to display, can be multiline
-    * @param Name Optional Font Name to use
-    * @param Size Optional Font Size to use
-    * @param Weight Optional Font Weight to use
-    * @param Color Optiona Font Color to use
+    * Render the text to a new bitmap and update the layered window.
+    * Measures required bounds, builds the appropriate GDI+ surface, and dispatches
+    * to the per-shape drawing routine (plain text, arrow, fill, outline, or tag).
+    * @param {Integer} [lX=0] - Left screen X coordinate for the layered window position
+    * @param {Integer} [lY=0] - Top screen Y coordinate for the layered window position
+    * @param {Integer} [Size] - Font size in points; updates the stored value if provided
+    * @param {String} [Text] - Text to render; updates the stored value if provided
+    * @param {String} [FontName] - Font family name; updates the stored value if provided
+    * @param {String} [Alignment] - Horizontal alignment ("Left", "Center", or "Right")
+    * @param {String} [Style] - Font style string; updates the stored value if provided
+    * @param {Integer} [Color] - ARGB font color; updates the stored value if provided
+    * @param {Integer} [BGColor] - RGB background fill color; updates the stored value if provided
+    * @returns {Integer} 1 on success, 0 if the font is invalid or no text was found
     * TODO - maybe don't pass in parameters but user sets properties prior to render?
     * TODO - Call this Refresh and move into the Canvas class to be consistent
-    * Really only need G, lX, lY, rX, rY, Size, Color), rest set in startup before drawing
     */
    DrawText(lX := 0, lY := 0, Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
       Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
@@ -438,9 +475,10 @@ Class TextShape extends CommonShape {
       this.UpdateCoord()
       Return 1
    }
-   ;----------------------------------------------------------------------
-   ; Edit the text
-   ;----------------------------------------------------------------------
+   /**
+    * Open the text input dialog to edit the shape's displayed text.
+    * On confirmation, applies the updated text, font, size, alignment, style, and color.
+    */
    EditDispText(*) {
       CoordMode('Mouse', 'Window')
       C := this.shapeCoord
@@ -456,27 +494,39 @@ Class TextShape extends CommonShape {
    ;//////////////////////////////////////////////////////////////////////
    ; Common Methods that are overridden here
    ;//////////////////////////////////////////////////////////////////////
+   /**
+    * Close the text shape by rendering it invisible before calling the base class close
+    */
    Close() {
       this.DrawText(0,0,2,".",,,,0x0)
       ; this.OnEvent("DoubleClick", this.bindDClick, false)
       Super.Close()
    }
 
+   /**
+    * Get or set the font color as an RGB value (alpha channel is stripped on get, forced opaque on set)
+    * @type {Integer}
+    */
    Color {
       get => this._fontColor & 0xFFFFFF
       set => this._fontColor := (0xFF000000 | RGBval(Value))
    }
 
-   ; Rerender in og font size
+   /**
+    * Rerender the text at its current position using the original (pre-resize) font size
+    */
    ResetSize() {
       this.GetPos(&_X,&_Y)
       this.DrawText(_X,_Y,this._ogFontSize)
    }
 
-   ;----------------------------------------------------------------------
-   ; Move shape and update coordinates 
-   ; Used during Move or Resizing Operation
-   ;----------------------------------------------------------------------
+   /**
+    * Move the shape to a new position and optionally redraw at a new font size.
+    * For fill-text and arrow shapes, also resamples the background color under the shape.
+    * @param {Integer} [wX] - New window-relative X coordinate
+    * @param {Integer} [wY] - New window-relative Y coordinate
+    * @param {Integer} [fontSize] - If provided, forces a redraw at this font size
+    */
    Move(wX?, wY?, fontSize?) {
       ; 1st move to where we want to be
       super.Move(wX?, wY?)
@@ -499,27 +549,53 @@ Class TextShape extends CommonShape {
 
    /**
     * Padding not used for Text
+    * @param {Integer} L - Left padding (ignored)
+    * @param {Integer} T - Top padding (ignored)
+    * @param {Integer} R - Right padding (ignored)
+    * @param {Integer} B - Bottom padding (ignored)
     */
    savePadding(L, T, R, B) {
       this.sPad := { L: 0, T: 0, R: 0, B: 0 }
    }
 
-   ; This is called when up/down in moving
+   /**
+    * Redraw the text shape at its current position and sync the focus border.
+    * Called when the shape needs to be redrawn in place, e.g. after a property change.
+    */
    Refresh(*) {
       this.GetPos(&_X, &_Y)
       this.DrawText(_X, _Y)
       this.UpdateCoord()
       focusBorder.Sync()
    }
+   /**
+    * No-op cleanup stub; satisfies the CommonShape interface
+    */
    Cleanup() => {}
+   /**
+    * Scale the font size and shape border thickness by a relative percentage
+    * @param {Float} percent - Fractional change to apply (e.g. 0.1 = +10%, -0.1 = -10%)
+    */
    ChangeThickness(percent) {
       this._fontSize      *= (1 + percent)
       this.shapeThickness *= (1 + percent)
    }
+   /**
+    * Set the font color of the text shape
+    * @param {Integer} newColor - New RGB color value
+    */
    SetColor(newColor) {
       this.Color := newColor
    }
+   /**
+    * Indicate that this shape uses a square focus rectangle
+    * @type {Integer}
+    */
    FocusSquare => true
+   /**
+    * Return the set of resize handle focus points for this text shape
+    * @returns {Array} Array of objects with C (corner index), X, and Y properties
+    */
    FocusPoints() {
       C := this.shapeCoord
       return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
@@ -529,9 +605,10 @@ Class TextShape extends CommonShape {
 
 }
 
-;----------------------------------------------------------------------
-; GDI+ Related Text Functions
-;----------------------------------------------------------------------
+/**
+ * GDI+ text rendering utility class.
+ * Wraps GDI+ string drawing, measuring, font, and format DllCall operations.
+ */
 Class GDIpText {
 
    ;#####################################################################################
@@ -556,8 +633,32 @@ Class GDIpText {
          , "Ptr", hFormat
          , "Ptr", pBrush)
    }
+   /**
+    * Append a string to a GDI+ graphics path using the given font family and layout rectangle
+    * @param {Integer} path - Pointer to the GraphicsPath object
+    * @param {String} string - Wide-character string to add
+    * @param {Integer} length - Number of characters (-1 for null-terminated)
+    * @param {Integer} family - Pointer to the FontFamily object
+    * @param {Integer} style - Font style flags (0=Normal, 1=Bold, 2=Italic, etc.)
+    * @param {Float} emSize - Font em size in world units
+    * @param {Object} layoutRect - Reference to the bounding RectF
+    * @param {Integer} format - Pointer to the StringFormat object
+    * @returns {Integer} GDI+ status code
+    */
    Static AddPathString(path, string, length, family, style, emSize, &layoutRect, format) 
       => DllCall('Gdiplus\GdipAddPathString', 'ptr', path, 'wstr', string, 'int', length, 'ptr', family, 'int', style, 'float', emSize, 'ptr', layoutRect.Ptr, 'ptr', format, 'uint')
+   /**
+    * Append a string to a GDI+ graphics path using integer em size units
+    * @param {Integer} path - Pointer to the GraphicsPath object
+    * @param {String} string - Wide-character string to add
+    * @param {Integer} length - Number of characters (-1 for null-terminated)
+    * @param {Integer} family - Pointer to the FontFamily object
+    * @param {Integer} style - Font style flags
+    * @param {Integer} emSize - Font em size as an integer
+    * @param {Object} layoutRect - Reference to the bounding RectF
+    * @param {Integer} format - Pointer to the StringFormat object
+    * @returns {Integer} GDI+ status code
+    */
    Static AddPathStringI(path, string, length, family, style, emSize, &layoutRect, format) 
       => DllCall('Gdiplus\GdipAddPathStringI', 'ptr', path, 'wstr', string, 'int', length, 'ptr', family, 'int', style, 'int', emSize, 'ptr', layoutRect.Ptr, 'ptr', format, 'uint')
 
@@ -590,10 +691,22 @@ Class GDIpText {
    ; Near   = 0
    ; Center = 1
    ; Far    = 2
+   /**
+    * Set the horizontal alignment of text within its layout rectangle
+    * @param {Integer} hFormat - Pointer to the StringFormat object
+    * @param {Integer} Align - 0=Near (Left), 1=Center, 2=Far (Right)
+    * @returns {Integer} GDI+ status code
+    */
    Static SetStringFormatAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatAlign", "Ptr", hFormat, "Int", Align)
    ; Top    = 0
    ; Center = 1
    ; Bottom = 2
+   /**
+    * Set the vertical (line) alignment of text within its layout rectangle
+    * @param {Integer} hFormat - Pointer to the StringFormat object
+    * @param {Integer} Align - 0=Top, 1=Center, 2=Bottom
+    * @returns {Integer} GDI+ status code
+    */
    Static GdipSetStringFormatLineAlign(hFormat, Align) => DllCall("gdiplus\GdipSetStringFormatLineAlign", "ptr", hFormat, "int", Align) ; Top = 0, Center = 1, Bottom = 2
 
 
@@ -607,6 +720,12 @@ Class GDIpText {
    ; StringFormatFlagsLineLimit               = 0x00002000
    ; StringFormatFlagsNoClip                  = 0x00004000 Allow overhaning pixels
    ; StringFormatFlagsBypassGDI               = 0x80000000
+   /**
+    * Create a GDI+ StringFormat object with the specified format flags and language
+    * @param {Integer} [Format=0] - Combination of StringFormatFlags bit values
+    * @param {Integer} [Lang=0] - Language identifier for digit substitution (0 = default)
+    * @returns {Integer} Handle to the new StringFormat object
+    */
    Static StringFormatCreate(Format := 0, Lang := 0) {
       DllCall("gdiplus\GdipCreateStringFormat", "Int", Format, "Int", Lang, "UPtr*", &hFormat := 0)
       Return hFormat
@@ -626,10 +745,23 @@ Class GDIpText {
    ; UnitInch,       4 -- Each unit is 1 inch.
    ; UnitDocument,   5 -- Each unit is 1/300 inch.
    ; UnitMillimeter  6 -- Each unit is 1 millimeter.
+   /**
+    * Create a GDI+ Font object from a font family handle
+    * @param {Integer} hFamily - Pointer to the FontFamily object
+    * @param {Float} Size - Font size in the specified units
+    * @param {Integer} [Style=0] - Font style flags (0=Normal, 1=Bold, 2=Italic, 3=BoldItalic, 4=Underline, 8=Strikeout)
+    * @param {Integer} [Units=3] - Unit of measurement (3=Point, 2=Pixel, etc.)
+    * @returns {Integer} Handle to the new Font object
+    */
    Static FontCreate(hFamily, Size, Style := 0, Units := 3) {
       DllCall("gdiplus\GdipCreateFont", "Ptr", hFamily, "Float", Size, "Int", Style, "Int", Units, "UPtr*", &hFont := 0)
       Return hFont
    }
+   /**
+    * Retrieve the em size of a GDI+ font in the font's unit of measure
+    * @param {Integer} hFont - Pointer to the Font object
+    * @returns {Float} The font's em size
+    */
    Static GetFontSize(hFont) {
       DllCall("gdiplus\GdipGetFontSize", "UPtr", hFont, "float*", &result := 0)
       Return result
@@ -641,9 +773,21 @@ Class GDIpText {
    ; StringTrimmingEllipsisCharacter = 3,
    ; StringTrimmingEllipsisWord = 4,
    ; StringTrimmingEllipsisPath = 5
+   /**
+    * Set the trimming style applied to characters that exceed the layout rectangle
+    * @param {Integer} pFormat - Pointer to the StringFormat object
+    * @param {Integer} [Trimming=0] - Trimming mode (0=None, 1=Character, 2=Word, 3=EllipsisCharacter, 4=EllipsisWord, 5=EllipsisPath)
+    * @returns {Integer} GDI+ status code
+    */
    Static SetStringFormatTrimming(pFormat, Trimming := 0) {
       return DllCall("gdiplus\GdipSetStringFormatTrimming", "Ptr", pFormat, "Int", Trimming)
    }
+   /**
+    * Create a GDI+ FontFamily object from a font name string
+    * @param {String} Font - Font family name (e.g. "Arial")
+    * @param {Integer} [fontCollection=0] - Pointer to a font collection to search; 0 uses the installed font collection
+    * @returns {Integer} Handle to the new FontFamily object, or 0 on failure
+    */
    Static FontFamilyCreate(Font, fontCollection:=0) {
       DllCall("gdiplus\GdipCreateFontFamilyFromName"
          , "Ptr", StrPtr(Font)
@@ -653,14 +797,26 @@ Class GDIpText {
       Return hFamily
    }
 
+   /**
+    * Delete a GDI+ StringFormat object and free its resources
+    * @param {Integer} hStringFormat - Handle to the StringFormat object to delete
+    */
    Static DeleteStringFormat(hStringFormat) {
       if (res := DllCall("gdiplus\GdipDeleteStringFormat", "Ptr", hStringFormat))
          warning("Failed to delete String Format " res)
    }
+   /**
+    * Delete a GDI+ Font object and free its resources
+    * @param {Integer} hFont - Handle to the Font object to delete
+    */
    Static DeleteFont(hFont) {
       if (res := DllCall("gdiplus\GdipDeleteFont", "Ptr", hFont))
          warning("Failed to delete Font " res)
    }
+   /**
+    * Delete a GDI+ FontFamily object and free its resources
+    * @param {Integer} hFontFamily - Handle to the FontFamily object to delete
+    */
    Static DeleteFontFamily(hFontFamily) {
       if (res := DllCall("gdiplus\GdipDeleteFontFamily", "Ptr", hFontFamily))
          warning("Failed to delete Font Family" res)
@@ -672,12 +828,26 @@ Class GDIpText {
    ; AntiAliasGridFit         = 3 Specifies that a character is drawn using its antialiased glyph bitmap and hinting. This results in much better quality due to antialiasing at a higher performance cost.
    ; AntiAlias                = 4 Specifies that a character is drawn using its antialiased glyph bitmap and no hinting. Stem width differences may be noticeable because hinting is turned off.
    ; ClearTypeGridFit         = 5 Specifies that a character is drawn using its glyph ClearType bitmap and hinting. Can't be used with CompositingModeSourceCopy.
+   /**
+    * Set the text rendering hint (anti-aliasing mode) for a GDI+ Graphics object
+    * @param {Integer} G - Pointer to the Graphics object
+    * @param {Integer} RenderingHint - Rendering hint value (0=SystemDefault … 5=ClearTypeGridFit)
+    * @returns {Integer} GDI+ status code
+    */
    Static SetTextRenderingHint(G, RenderingHint) => DllCall("gdiplus\GdipSetTextRenderingHint", "Ptr", G, "int", RenderingHint)
 
+   /**
+    * Create a new empty private font collection
+    * @returns {Integer} Handle to the new private FontCollection object
+    */
    Static NewPrivateFontCollection() {
       DllCall("gdiplus\GdipNewPrivateFontCollection", "UPtr*", &hFontCollection:=0)
       Return hFontCollection
    }
+   /**
+    * Retrieve a handle to the installed (system) font collection
+    * @returns {Integer} Handle to the installed FontCollection object
+    */
    Static NewInstalledFontCollection() {
       DllCall('Gdiplus\GdipNewInstalledFontCollection', 'UPtr*', &hFontCollection:=0, 'uint')
       Return hFontCollection
@@ -692,15 +862,29 @@ Class GDIpText {
    StringDigitSubstituteTraditional
    Value: 3 Specifies substitution digits that correspond with the user's native script or language, which may be different from the official national language of the user's locale.
    */
+   /**
+    * Set the digit substitution language and mode for a StringFormat object
+    * @param {Integer} hStringFormat - Pointer to the StringFormat object
+    * @param {Integer} [StringDigitSubstitute=2] - Substitution mode (0=User, 1=None, 2=National, 3=Traditional)
+    * @param {Integer} [langID=0] - Language identifier; 0 uses the thread's locale
+    * @returns {Integer} GDI+ status code
+    */
    Static SetStringFormatDigitSubstitution(hStringFormat, StringDigitSubstitute:=2, langID:=0) {
       Return DllCall("gdiplus\GdipSetStringFormatDigitSubstitution", "Ptr", hStringFormat, "UInt", langID, "Int", StringDigitSubstitute)
    } 
 }
 
-;----------------------------------------------------------------------
-; Input Box Replacement
-; Adapted from https://github.com/Ixiko/AHK-libs-and-classes-collection/blob/8f89301ab7b9b7a219970a665bb1d2c9baab08b8/libs/g-n/TextInputBox.ahk#L55
-;----------------------------------------------------------------------
+/**
+ * Display a resizable text editing dialog for a TextShape, allowing the user to edit
+ * the text content and adjust font, style, size, alignment, color, and shape type.
+ * Adapted from https://github.com/Ixiko/AHK-libs-and-classes-collection/blob/8f89301ab7b9b7a219970a665bb1d2c9baab08b8/libs/g-n/TextInputBox.ahk#L55
+ * @param {Object} ShapeObj - The TextShape instance being edited
+ * @param {String} [Prompt=""] - Descriptive text shown in the dialog title bar
+ * @param {String} [Title=""] - Base title of the dialog window
+ * @param {String} [InitText=""] - Initial text to populate the edit control
+ * @returns {Object} Result object with properties: Result ("OK"|"Cancel"), Value, Font, Size,
+ *                   Alignment, FontStyle, Shape, Color
+ */
 TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    Global SETTINGS
    Static typeMap  := Map("Fill Text", Shapes.SHAPE_FILLTEXT, "Outline", Shapes.SHAPE_OLTEXT, "Tag", Shapes.SHAPE_TAG, "Left Arrow", Shapes.SHAPE_LEFTARROWTEXT, "Right Arrow", Shapes.SHAPE_RIGHTARROWTEXT, "Text Only", Shapes.SHAPE_TEXT)
@@ -775,11 +959,9 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    oColButton := textGui.AddPicButton("YP HP W" butH btBG, SETTINGS.CursorPath . "colors.ico", "W" butH * Scale - 4 " H" butH * Scale - 4)
    oColButton.OnEvent("Click", PickColor)
    Color := ShapeObj.Color
-   ;----------------------------------------------------------------------
    ; Edit Control
    ; IDEA - option to enable/disable word wrap, note it can't be toggled for existing control
    ;        would need two edit controls with one or the other hidden to toggle wrap
-   ;----------------------------------------------------------------------
    ; If we added text with soft CRLF, then remove them here and let them re-wrap
    ; LF `n would be a normal hard return
    If (InitText) {
@@ -833,6 +1015,13 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
 
    Return Data
    ;/////////////////////////////////////////////////////////////////////////
+   /**
+    * Handle GUI resize events by repositioning all controls within the new client area
+    * @param {Object} GuiObj - The GUI object that was resized
+    * @param {Integer} MinMax - -1 if minimized, 1 if maximized, 0 otherwise
+    * @param {Integer} Width - New client width in pixels
+    * @param {Integer} Height - New client height in pixels
+    */
    ResizeMe(GuiObj, MinMax, Width, Height) {
       If minmax = -1
          Return
@@ -849,9 +1038,10 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
       SendMessage(EM_FMTLINES, softBreak, , oEdit.hWnd)
       Return A_LastError
    }
-   ;----------------------------------------------------------------------
-   ; Resize the edit and button controls
-   ;----------------------------------------------------------------------
+   /**
+    * Reposition the edit control and action buttons to fill the current dialog client area.
+    * Buttons are placed at evenly spaced grid positions along the bottom edge.
+    */
    PlaceControls() {
       ; Buttons on bottom spaced at 1/3 position
       grid := 6
@@ -921,23 +1111,39 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
       Data.g.Destroy()
       tc := ""
    }
-   ;--------------------------------------
-   ; Change the edit controls in real time
-   ;--------------------------------------
+   /**
+    * Update the edit control's text alignment when the alignment dropdown changes
+    */
    AlignmentChange(*) {
       oEdit.Opt("+" oAlign.text)
    }
+   /**
+    * Update the edit control's font family when the font dropdown changes
+    */
    FontChange(*) {
       oEdit.SetFont('s' oFontVal.text, oFonts.text)
    }
+   /**
+    * Placeholder for future color change handling in the edit control
+    */
    ColorChange(*) {
    }
+   /**
+    * Update the edit control's font style when the style dropdown changes
+    */
    StyleChange(*) {
       SetEditFontStyle(oStyle.text)
    }
+   /**
+    * Update the live TextShape type when the type dropdown changes
+    */
    TypeChange(*) {
       ShapeObj.Shape := typeMap[oType.text]
    }
+   /**
+    * Apply the selected style string to the edit control's font
+    * @param {String} style - Style name: "Bold", "Italic", "BoldItalic", "Normal", "Strikeout", or "Underline"
+    */
    SetEditFontStyle(style) {
       Switch style {
          Case "Bold":
@@ -956,10 +1162,17 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
             oEdit.SetFont("norm")
       }
    }
+   /**
+    * Update the edit control's font size when the size spin control or edit changes
+    */
    SizeChange(*) {
       if IsInteger(oFontVal.text)
          oEdit.SetFont('s' oFontVal.text, oFonts.text)
    }
+   /**
+    * Open the system color picker dialog pre-populated with up to 16 custom colors from settings,
+    * and update the local Color variable with the user's selection
+    */
    PickColor(*) {
       colArray:=Array()
       ; Read up 16 custom colors from the settings
@@ -976,10 +1189,11 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
 ; a:=A_TickCount
 ; GetFontNames
 ; debug(A_TickCount - a "ms for fonts")
-;----------------------------------------------------------------------
-; Return the font names installed on the system
-; 273 fonts in 3ms - very fast
-;----------------------------------------------------------------------
+/**
+ * Return a sorted array of all TrueType font family names installed on the system.
+ * Uses GDI EnumFontFamiliesEx to enumerate fonts; runs in approximately 3ms for ~273 fonts.
+ * @returns {Array} Alphabetically sorted array of font family name strings
+ */
 GetInstalledFontNames() {
    hDC     := GDI.GetDC()
    LOGFONT := Buffer(92, 0)
@@ -1008,10 +1222,16 @@ GetInstalledFontNames() {
       Return true
    }
 }
-;----------------------------------------------------------------------
-; Class to display short text above some location
-;----------------------------------------------------------------------
+/**
+ * Utility class to render a short overlay text label above a screen coordinate
+ * within an existing GDI+ graphics surface. Used to show selection dimensions
+ * during screen region selection.
+ */
 Class shortText {
+   /**
+    * Initialize the shortText renderer by creating the shared font, format, and brush objects
+    * @param {Integer} G - Pointer to the GDI+ Graphics object to render into
+    */
    __New(G) {
       GDIpText.SetTextRenderingHint(G, Rendering := 3)
       this.hFamily   := GDIpText.FontFamilyCreate("Segoe UI")
@@ -1021,9 +1241,12 @@ Class shortText {
       this.fillBrush := GDIp.BrushCreateSolid(0x80000000)
       this.G         := G
    }
-   ;----------------------------------------------------------------------
-   ; Draw the text just above the location
-   ;----------------------------------------------------------------------
+   /**
+    * Render a short text label with a semi-transparent background immediately above the given coordinate
+    * @param {Integer} X - X coordinate in graphics surface units for the left edge of the label
+    * @param {Integer} Y - Y coordinate in graphics surface units for the bottom edge of the label
+    * @param {String} text - Text string to display
+    */
    DrawText(X, Y, text) {
       ; Need blending composting mode
       cMode := GDIp.GetCompositingMode(this.G)
@@ -1039,6 +1262,9 @@ Class shortText {
       GDIp.SetCompositingMode(this.G, cMode)              ; Replace existing
 
    }
+   /**
+    * Release all GDI+ resources created by this instance
+    */
    __Delete() {
       GDIp.DeleteBrush(this.textBrush)
       GDIp.DeleteBrush(this.fillBrush)

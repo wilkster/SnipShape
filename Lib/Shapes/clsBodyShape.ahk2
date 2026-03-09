@@ -1,11 +1,15 @@
+/************************************************************************
+ * @description Body related shapes
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
+
 #Requires AutoHotkey v2.1-
 #include ..\clsGDip.ahk2
 #include ..\clsBitmap.ahk2
 #include clsCommonShape.ahk2
 
-;----------------------------------------------------------------------
-; Body related shapes
-;----------------------------------------------------------------------
 Class BodyShape extends commonShape {
    Init(*) {
       Super.Init()
@@ -15,6 +19,9 @@ Class BodyShape extends commonShape {
       this.shapeThickness := Shapes.rawLineThickness * this.DPIFactor * this.Factor
       
    }
+   /**
+    * Create the pens and set the alignment
+    */
    Startup() {
       super.Startup()
       Switch this.Shape {

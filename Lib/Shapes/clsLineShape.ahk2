@@ -1,19 +1,32 @@
+/************************************************************************
+ * @description Line Shape Class
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
+
 #Requires AutoHotkey v2.0 
 #include ..\clsGDIp.ahk2
 #include ..\libMisc.ahk2
 #include ..\clsShapes.ahk2
 #include clsCommonShape.ahk2
-;----------------------------------------------------------------------
-; Line related shapes
-;----------------------------------------------------------------------
+
+/**
+ * Class Line related shapes
+ * @extends commonShape
+ * Handles drawing and management of linear shapes including arrows, lines, brackets, and connectors.
+ */
 Class LineShape extends commonShape {
 
-   ; outlineOpacity := 0xFF ; lint
+   /**
+    * Initializes the LineShape instance with default values based on the specific shape type
+    * @param {Any} args - Optional arguments
+    */
    Init(*) {
       Super.Init()
-      this.outlineColor       := Shapes.outlineColor
+      this.outlineColor        := Shapes.outlineColor
       this.outlineThickFactor := Shapes.outlineThickFactor
-      this.fillOpacity        := Shapes.fillOpacity
+      this.fillOpacity         := Shapes.fillOpacity
       Switch this.Shape {
          Case Shapes.SHAPE_TAPARROW:
             this.shapeOpacity := Shapes.arrowOpacity
@@ -26,6 +39,10 @@ Class LineShape extends commonShape {
          Default:
       }
    }
+
+   /**
+    * Configures GDI+ pens, brushes, and caps prior to drawing or refreshing the shape
+    */
    Startup() {
       super.Startup()
       Switch this.Shape {
@@ -71,23 +88,25 @@ Class LineShape extends commonShape {
             this.MidPos := 0.5
       }
    }
+
    /**
     * Set a new color for this shape for subsequent draw actions
-    * @param newColor 
+    * @param {Integer} newColor - The ARGB color to apply
     */
    SetColor(newColor) {
       super.SetColor(newColor)
       If (this.HasProp("fBrush")) { ; highlight/redact brush
-         GDIp.SetBrushColor(this.fBrush, this.shapeOpacity << 24 | newColor)
+          GDIp.SetBrushColor(this.fBrush, this.shapeOpacity << 24 | newColor)
       }
    }
-    /**
+
+   /**
     * Draw a new line shape at X/Y & W/H
-    * @param G Graphics Handle
-    * @param X1 X Location of start
-    * @param Y1 Y Location of start
-    * @param X2 X Location of finish
-    * @param Y2 Y Location of finish
+    * @param {Ptr} G - Graphics Handle
+    * @param {Number} X1 - X Location of start
+    * @param {Number} Y1 - Y Location of start
+    * @param {Number} X2 - X Location of finish
+    * @param {Number} Y2 - Y Location of finish
     */
    Draw(G, X1, Y1, X2, Y2) {
       Switch this.shape {
@@ -99,7 +118,7 @@ Class LineShape extends commonShape {
             ; If we are not opaque we have to remove the arrow-head inside lines from the shape
             ; by overwriting the inside of the path before drawing the translucent line to fill it
             If (this.shapeOpacity < 255) {
-               oPath.SolidFillPath(this.blankBrush)
+                oPath.SolidFillPath(this.blankBrush)
             }
 
             oPath := ""
@@ -125,7 +144,7 @@ Class LineShape extends commonShape {
             oPath.TranslateRotatePath(Ang, X1, Y1)
             ; HACK - we center on the path, so we overlap it by half. Which is ok for opacity=255, but we get blending otherwise
             If (this.shapeOpacity < 255)
-               GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
+                GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
             ; oPath.WidenPath(this.pOutline) ; Leaves a hole in the middle since the path is replaced by the outline of the pen
             oPath.DrawPath(this.pOutline)
             oPath.FillPath(this.fBrush)
@@ -135,22 +154,22 @@ Class LineShape extends commonShape {
             GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2) ; grab points
             ; Initial drawing direction is saved for reuse
             If (this.HasOwnProp("InitXY")) {
-               dx := Abs(X2 - this.InitXY.X1)
-               dy := Abs(Y2 - this.InitXY.Y1)
+                dx := Abs(X2 - this.InitXY.X1)
+                dy := Abs(Y2 - this.InitXY.Y1)
                ; Wait untill we have a clear direction
-               If ( Not this.HasOwnProp("HasDirection") AND (dx > 50 OR dy > 50)) {
-                  this.HasDirection := dx > dy
-               }
+                If ( Not this.HasOwnProp("HasDirection") AND (dx > 50 OR dy > 50)) {
+                   this.HasDirection := dx > dy
+                }
             } Else {
-               this.InitXY := { X1: X1, X2: X2, Y1: Y1, Y2: Y2 }
+                this.InitXY := { X1: X1, X2: X2, Y1: Y1, Y2: Y2 }
             }
             ; Orientation depends on initial drawing direction
             If (this.HasDirection ?? true) {
-               X50 := X1 + (X2 - X1) * this.MidPos
-               pArray := [[X1, Y1], [X50, Y1], [X50, Y2], [X2, Y2]]
+                X50 := X1 + (X2 - X1) * this.MidPos
+                pArray := [[X1, Y1], [X50, Y1], [X50, Y2], [X2, Y2]]
             } Else {
-               Y50 := Y1 + (Y2 - Y1) * this.MidPos
-               pArray := [[X1, Y1], [X1, Y50], [X2, Y50], [X2, Y2]]
+                Y50 := Y1 + (Y2 - Y1) * this.MidPos
+                pArray := [[X1, Y1], [X1, Y50], [X2, Y50], [X2, Y2]]
             }
             oPath := GDIp.Path(G)
             oPath.AddPathArray(pArray, 0)
@@ -192,14 +211,14 @@ Class LineShape extends commonShape {
       }
       this.shapeCoord := { X1: X1, X2: X2, Y1: Y1, Y2: Y2}
    }
-    /**
-    * Redraw a line shape
-    * @param {Integer} Startup - true to startup/shutdown also
+
+   /**
+    * Redraw a line shape based on existing coordinates and properties
     */
    Refresh() {
       If (NOT this.Started) {
-         started := true
-         this.Startup()
+          started := true
+          this.Startup()
       }
       ; internal shape boundaries
       C := this.shapeCoord
@@ -213,7 +232,7 @@ Class LineShape extends commonShape {
       this.shapeCoord := C
 
       If (IsSet(started)) {
-         this.CleanUp()
+          this.CleanUp()
       }
 
    }
@@ -226,11 +245,13 @@ Class LineShape extends commonShape {
 
          Lines have corners of 1/4 or 4/1 2/6, 6/2 depending on their
          orientation and direction.
-   */
+    */
    FocusSquare => false
-   ;----------------------------------------------------------------------
-   ; Return shape informatoin for focus points and corner mouse is over
-   ;----------------------------------------------------------------------
+
+   /**
+    * Returns shape information for focus points and the corner the mouse is over
+    * @returns {Array} - Array of point objects containing corner index and relative coordinates
+    */
    FocusPoints() {
       ; Static ResizePoints := Array() ; NOTE these need to offset relative to shape not window
       C := this.shapeCoord
@@ -239,13 +260,12 @@ Class LineShape extends commonShape {
       If ((C.Y2 > C.Y1) ^ (C.X2 > C.X1)) {
          ; NESW cursor
          ; ResizePoints.push({ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y })
-         return [{ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+          return [{ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
       } Else {
          ; NWSE cursor
          ; ResizePoints.push({ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y })
-         return [{ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+          return [{ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
       }
    }
 
 }
-

@@ -1,7 +1,9 @@
-;----------------------------------------------------------------------------
-; Stopwatch class for timing routines
-;----------------------------------------------------------------------------
-
+/************************************************************************
+ * @description High Precision Stopwatch class for timing routines
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
 class StopWatch {
    Static freq := 0
    Static CounterBefore := 0
@@ -10,14 +12,23 @@ class StopWatch {
    Static state :=-1
    Static lapTime := 0
    Static cumTime := 0
+   /**
+    * Initialize the stopwatch by querying the high-resolution performance counter frequency
+    */
    Static __new() {
       DllCall("QueryPerformanceFrequency", "Int64*", &freq:=-1)
       this.freq := freq
    }
+   /**
+    * Log a debug message on script exit
+    */
    Static __delete() {
       OutputDebug("Closing clsStopWatch")
    }
-   ; start the timer, reset any lap times
+   /**
+    * Start the stopwatch and reset all lap and cumulative timers
+    * @returns {Integer} 1 on success
+    */
    Static Start() {
       nowt := -1
       DllCall("Kernel32.dll\QueryPerformanceCounter", "Int64*", &nowt)
@@ -27,7 +38,14 @@ class StopWatch {
       this.lapTime         := round((nowt - this.CounterLapStart) / this.freq * 1000.0,5)
       return 1
    }
-   ; Time since start or last lap
+   /**
+    * Output a debug line showing the lap time since the last lap (or start),
+    * optionally only when the lap time exceeds a threshold.
+    * Resets the lap start counter after logging.
+    * @param {String} txt - Label to include in the debug output
+    * @param {Float} [th=0] - Minimum lap time in milliseconds required to emit output; 0 always emits
+    * @returns {Integer} 1 on success
+    */
    Static lapText(txt, th := 0) {
       nowt := this.update(0)
       if (this.lapTime >= th) {
@@ -43,6 +61,14 @@ class StopWatch {
       this.CounterLapStart := nowt
       return 1
    }
+   /**
+    * Output a debug line showing the cumulative time since start,
+    * optionally only when it exceeds a threshold.
+    * Resets the lap start counter after logging.
+    * @param {String} txt - Label to include in the debug output
+    * @param {Float} [th=0] - Minimum cumulative time in milliseconds required to emit output; 0 always emits
+    * @returns {Float} The current lap time in milliseconds
+    */
    Static cumText(txt, th := 0) {
       nowt := this.update(0)
       if (this.cumTime > th) {
@@ -56,6 +82,12 @@ class StopWatch {
       this.CounterLapStart := nowt
       return this.lapTime
    }
+   /**
+    * Sample the performance counter and update both cumTime and lapTime.
+    * Automatically starts the stopwatch if it has not been started yet.
+    * @param {Integer} [resetLap=0] - If non-zero, resets the lap start counter to the current sample
+    * @returns {Integer} The raw QueryPerformanceCounter value at the time of sampling
+    */
    Static update(resetLap:=0) {
       nowt := -1
       if (this.state != 1)
@@ -68,17 +100,29 @@ class StopWatch {
       }
       return nowt
    }
+   /**
+    * Update the timers and reset the lap start counter to the current sample.
+    * Useful for marking the beginning of a new timed segment without logging.
+    * @returns {Float} The cumulative time in milliseconds since start
+    */
    Static startlap() {
       this.update(1)
       return this.cumTime
    }
+   /**
+    * Sample the timers and return the elapsed lap time without resetting the lap counter
+    * @returns {Float} The lap time in milliseconds since the last lap reset or start
+    */
    Static getLap() {
       this.update()
       return this.lapTime
    }
+   /**
+    * Sample the timers and return the cumulative elapsed time since start
+    * @returns {Float} The cumulative time in milliseconds since Start was called
+    */
    Static cumTimeVal() {
       this.update()
       return this.cumTime
    }
 }
-

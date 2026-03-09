@@ -1,5 +1,4 @@
 #Requires AutoHotkey v2.1-
-#include Theming.ahk2
 /************************************************************************
  * @description Various Functions use in this script
  * @file libMisc.ahk2
@@ -7,6 +6,9 @@
  * @date 2024/04/20
  * @version 1.0.0
  ***********************************************************************/
+
+#include Theming.ahk2
+#include clsGDIp.ahk2
 ;======================================================================
 ;     M I S C   F U N C T I O N S    B E L O W
 ;======================================================================
@@ -17,13 +19,32 @@ Global SETTINGS
 ; IniWriteIfBlank - Setting is not changed herein
 ; IniWriteValue - Setting is changed herein
 ;----------------------------------------------------------------------
+/**
+ * Write a value to the INI file only if the parameter does not already exist
+ * @param V Value to write
+ * @param Section INI section name
+ * @param Parameter INI parameter name
+ */
 IniWriteIfBlank(V, Section, Parameter) {
    If IniRead(SETTINGS.File, Section, Parameter, "XX") = "XX"
       IniWrite(V, SETTINGS.File, Section, Parameter)
 }
+/**
+ * Write a value to the INI file, overwriting any existing value
+ * @param V Value to write
+ * @param Section INI section name
+ * @param Parameter INI parameter name
+ */
 IniWriteValue(V, Section, Parameter) {
    IniWrite(V, SETTINGS.File, Section, Parameter)
 }
+/**
+ * Read a value from the INI file
+ * @param Section INI section name
+ * @param Item INI parameter name
+ * @param Default Default value if parameter is not found
+ * @returns {String} The value read from the INI file
+ */
 IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Default)
 
 ;======================================================================
@@ -32,6 +53,10 @@ IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Def
 /*
    Does the window also need WS_EX_NOREDIRECTIONBITMAP
 */
+/**
+ * Apply the Mica backdrop effect to a window (Windows 11)
+ * @param hWnd Handle to the window
+ */
 Mica11Backdrop(hWnd) {
    bd := 2
    DllCall("dwmapi\DwmSetWindowAttribute"
@@ -75,8 +100,30 @@ win10RoundCorners(hWnd, Scale := 1) {
 ;======================================================================
 ; Window Related
 ;======================================================================
+/**
+ * Enumerate all child windows of a parent window
+ * @param hWnd Handle to the parent window
+ * @param mcb Callback function pointer for each child window
+ * @param params Optional parameter passed to the callback
+ * @returns {Integer} Non-zero if successful
+ */
 EnumChildWindows(hWnd, mcb, params := 0) => DllCall("User32.dll\EnumChildWindows", "Ptr", hWnd, "Ptr", mcb, "Ptr", params)
+/**
+ * Check whether a window is visible
+ * @param hwndTry Handle to the window to check
+ * @returns {Integer} Non-zero if the window is visible
+ */
 IsWindowVisible(hwndTry) => DllCall("User32.dll\IsWindowVisible", "Ptr", hwndTry)
+/**
+ * Set the position and size of a window
+ * @param hWnd Handle to the window
+ * @param wx X coordinate
+ * @param wy Y coordinate
+ * @param ww Width
+ * @param wh Height
+ * @param flag SWP_ flags controlling which attributes are changed
+ * @returns {Integer} Non-zero if successful
+ */
 SetWindowPos(hWnd, wx, wy, ww, wh, flag) {
    Static SetWindowPos := GetModHandle("SetWindowPos", "User32.dll")
 
@@ -95,16 +142,42 @@ SetWindowPos(hWnd, wx, wy, ww, wh, flag) {
 ;----------------------------------------------------------------------
 ; Return a window above the current, 0 if already on top
 ;----------------------------------------------------------------------
+/**
+ * Return the window above the specified window in Z-order
+ * @param hWnd Handle to the window
+ * @returns {Ptr} Handle to the window above, 0 if already on top
+ */
 GetTopWindow(hWnd) => DllCall("User32\GetWindow", "Ptr", hWnd, "Uint", 3)
 ;----------------------------------------------------------------------
 ; Return the parent window for a child window
 ;----------------------------------------------------------------------
+/**
+ * Return the parent or owner window of a child window
+ * @param hWnd Handle to the child window
+ * @returns {Ptr} Handle to the parent window
+ */
 GetParent(hWnd) => DllCall("User32.dll\GetParent", "Ptr", hWnd)
+/**
+ * Return only the direct parent (not owner) of a window
+ * @param hWnd Handle to the window
+ * @returns {Ptr} Handle to the direct parent window
+ */
 GetParentOnly(hWnd) => DllCall("User32.dll\GetAncestor", "Ptr", hWnd, "UInt", 1, "Ptr")
+/**
+ * Return the root owner of a window by walking the parent/owner chain
+ * @param thisID Handle to the window
+ * @returns {Ptr} Handle to the root owner window
+ */
 GetRootOwner(thisID) => DllCall("User32.dll\GetAncestor", "Ptr", thisID, "UInt", 3, "Ptr")
 ;----------------------------------------------------------------------
 ; set it topmost, helps with flicker, can get rid of bthWnd
 ;----------------------------------------------------------------------
+/**
+ * Move a window to the top of the Z-order without activating it
+ * @param hWnd Handle to the window
+ * @param flag SWP_ flags (default: SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)
+ * @returns {Integer} Non-zero if successful
+ */
 SetWindowTop(hWnd, flag:=0x0013) {
    if (GetTopWindow(hWnd))
       Return DllCall("User32\SetWindowPos"
@@ -120,6 +193,12 @@ SetWindowTop(hWnd, flag:=0x0013) {
 ;----------------------------------------------------------------------
 ; set it bottom most
 ;----------------------------------------------------------------------
+/**
+ * Move a window to the bottom of the Z-order without activating it
+ * @param hWnd Handle to the window
+ * @param flag SWP_ flags (default: SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE)
+ * @returns {Integer} Non-zero if successful
+ */
 SetWindowBottom(hWnd, flag:=0x0013) {
    Return DllCall("User32\SetWindowPos"
       , "Ptr", hWnd
@@ -131,9 +210,11 @@ SetWindowBottom(hWnd, flag:=0x0013) {
       , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
    )
 }
-;----------------------------------------------------------------------
-; Push a layered shape object down one in the stack
-;----------------------------------------------------------------------
+/**
+ * Count the number of layered (WS_EX_LAYERED + WS_VISIBLE) sibling child windows
+ * @param shapeObj Shape object whose parent GUI is enumerated
+ * @returns {Integer} Number of visible layered peer windows
+ */
 PeerCount(shapeObj) {
    WinCount := 0
    CWCB := CallbackCreate(SiblingList, "Fast", 2)
@@ -150,9 +231,12 @@ PeerCount(shapeObj) {
       Return true
    }
 }
-;----------------------------------------------------------------------
-; Push the layered shape one down in the Z-Order
-;----------------------------------------------------------------------
+/**
+ * Move a layered shape window one position lower in the Z-order
+ * among its visible layered siblings
+ * @param shapeObj Shape object to push down
+ * @returns {Ptr} Handle to the sibling window it was inserted after, 0 if not moved
+ */
 PushShapeDownOne(shapeObj) {
    CWCB := CallbackCreate(SiblingList, "Fast", 2)
    haveOwnWindow := false
@@ -187,9 +271,11 @@ PushShapeDownOne(shapeObj) {
       Return true
    }
 }
-;----------------------------------------------------------------------
-; Put the shape object on the top of the stack
-;----------------------------------------------------------------------
+/**
+ * Move a shape window to the top of the Z-order among its siblings
+ * @param shapeObj Shape object to bring to top
+ * @returns {Integer} Non-zero if successful, empty if already on top
+ */
 ShapeOnTop(shapeObj) {
    If (GetTopWindow(shapeObj.hWnd)) {
       res := DllCall("User32\SetWindowPos"
@@ -202,15 +288,36 @@ ShapeOnTop(shapeObj) {
 }
 ; SetWindowLong(hWnd,opCode, Value) => DllCall("SetWindowLong", "int", hwnd, "int", opCode, "int", Value)
 ; GetWindowLong(hWnd,opCode) => DllCall("GetWindowLong", "Ptr", hWnd, "Uint", opCode, "Uint")
+/**
+ * Retrieve the address of an exported function from a loaded DLL module
+ * @param strModule Name of the exported function
+ * @param strDLL Name of the DLL module
+ * @returns {Ptr} Pointer to the function, or 0 if not found
+ */
 GetModHandle(strModule, strDLL) => 
    DllCall("GetProcAddress", "PTR", DllCall("GetModuleHandle", "Str", strDLL, "PTR"), "AStr", strModule, "PTR")
 ; Returns prior parent or NULL if failed, To get extended error information, call GetLastError
+/**
+ * Set the parent window of a child window
+ * @param child Handle to the child window
+ * @param parent Handle to the new parent window
+ * @returns {Ptr} Handle to the previous parent window, or NULL if failed
+ */
 SetParent(child, parent) => DllCall("SetParent", "Ptr", child, "Ptr", parent,"Uint")
 ;----------------------------------------------------------------------
 ; Return the client dimensions without the invisible border Use with
 ; DwmGetWindowAttribute. Retrieves the extended frame bounds rectangle in screen
 ; space. The retrieved value is of type RECT.
 ;----------------------------------------------------------------------
+/**
+ * Return the true window position and size, excluding the invisible DWM border
+ * @param {VarRef} X Return X screen coordinate
+ * @param {VarRef} Y Return Y screen coordinate
+ * @param {VarRef} W Return width
+ * @param {VarRef} H Return height
+ * @param hWindow Handle to the window (0 = skip)
+ * @returns {Integer} 1 if successful, 0 if no window handle provided
+ */
 WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
    Static DWMWA_EXTENDED_FRAME_BOUNDS := 9
    If (hWindow) {
@@ -232,6 +339,15 @@ WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
 }
 ; Based on WinGetClientPos by dd900 and Frosti - https://www.autohotkey.com/boards/viewtopic.php?t=484
 ; Same as WinGetPos results
+/**
+ * Return the window bounding rectangle in screen coordinates via GetWindowRect
+ * @param {VarRef} x Return X coordinate
+ * @param {VarRef} y Return Y coordinate
+ * @param {VarRef} w Return width
+ * @param {VarRef} h Return height
+ * @param hWnd Handle to the window (0 = skip)
+ * @returns {Integer} 1 if successful, 0 if no window handle provided
+ */
 WinGetRect(&x?, &y?, &w?, &h?, hWnd:=0) {
    If (hWnd) {
       DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
@@ -243,9 +359,15 @@ WinGetRect(&x?, &y?, &w?, &h?, hWnd:=0) {
    } else
       Return false
 }
-;----------------------------------------------------------------------
-; Gets window position relative to 0,0
-;----------------------------------------------------------------------
+/**
+ * Return the client area dimensions of a window, relative to 0,0
+ * @param {VarRef} x Return X coordinate (typically 0)
+ * @param {VarRef} y Return Y coordinate (typically 0)
+ * @param {VarRef} w Return client width
+ * @param {VarRef} h Return client height
+ * @param hWnd Handle to the window (0 = skip)
+ * @returns {Integer} 1 if successful, 0 if no window handle provided
+ */
 GetClientRect(&x?, &y?, &w?, &h?, hWnd := 0) {
    If (hWnd) {
       DllCall("user32\GetClientRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
@@ -310,6 +432,11 @@ MonDPIunderWindow(hWnd) {
    DPI := (Sqrt(dpiX * dpiY))
    return DPI
 }
+/**
+ * Return the DPI for a specific window
+ * @param hWnd Handle to the window
+ * @returns {Integer} DPI value for the window
+ */
 WinDPI(hWnd)       => DllCall("User32\GetDpiForWindow", "Ptr", hWnd)
 /*
 DPI_AWARENESS_CONTEXT_UNAWARE              (-1)
@@ -318,7 +445,16 @@ DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE    (-3)
 DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 (-4)
 DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED    (-5)
 */
+/**
+ * Return the current thread DPI awareness context
+ * @returns {Ptr} Current DPI awareness context handle
+ */
 GetDPIContext()    => DllCall("GetThreadDpiAwarenessContext","Ptr")
+/**
+ * Set the DPI awareness context for the current thread
+ * @param val DPI awareness context value (e.g. -4 for Per Monitor V2)
+ * @returns {Ptr} Previous DPI awareness context handle
+ */
 SetDPIContext(val) => DllCall("SetThreadDpiAwarenessContext", "Ptr", val, "Ptr")
 /**
  * Better replacement for A_ScreenDPI
@@ -344,6 +480,10 @@ activeDPIFactor() {
    }
 
 }
+/**
+ * Return the last Win32 error code for the calling thread
+ * @returns {Integer} Win32 error code
+ */
 GetLastError() => DllCall("kernel32.dll\GetLastError")
 /**
  * Return an outline color the opposite of the input color
@@ -458,6 +598,12 @@ RGBAdjustLuma(rgb, adjust:=0, scale:=true) {
 ; https://htmlcolorcodes.com/color-names/
 ; https://www.computerhope.com/htmcolor.htm
 ;----------------------------------------------------------------------
+/**
+ * Normalize a color value from various string/integer formats to a clean integer RGB value.
+ * Accepts named colors, hex strings (with or without 0x prefix or leading c), and integers.
+ * @param rgb Color value as Integer, hex string, named color string, or c-prefixed hex
+ * @returns {Integer} RGB color as an integer
+ */
 RGBval(rgb) {
    Static cMap := Map(
       'BLACK',                      '0x000000',
@@ -538,17 +684,36 @@ RGBval(rgb) {
 ;----------------------------------------------------------------------
 ; Format needed by Text/Button Control
 ;----------------------------------------------------------------------
+/**
+ * Return an RGB value formatted as an uppercase hex string (no 0x prefix),
+ * suitable for use with AHK Text/Button control color parameters
+ * @param val Integer RGB value or named/hex color string accepted by RGBval
+ * @returns {String} Uppercase hex color string e.g. "FF0000"
+ */
 RGBHex(val) {
    if NOT IsInteger(val)
       val := RGBval(val)
    Return Format("{:X}", val)
 }
+/**
+ * Format a number with thousands separators
+ * @param x Number to format
+ * @param s Separator character (default: ",")
+ * @returns {String} Formatted number string
+ */
 commify(x, s:=",") {
 	return RegExReplace(x, "\G\d+?(?=(\d{3})+(?:\D|$))", "$0" s)
 }
 ;======================================================================
 ; Logging/Notification Related
 ;======================================================================
+/**
+ * Return a closure that yields sequential values from Start to Stop by Step
+ * @param Start Starting value (inclusive)
+ * @param Stop Ending value (inclusive)
+ * @param Step Increment per call (default: 1)
+ * @returns {Func} Closure accepting a VarRef; sets it to the next value and returns true while in range
+ */
 Range(Start, Stop, Step := 1) => (&n) => (n := Start, Start += Step, Step > 0 ? n <= Stop : n >= Stop)
 /**
  * Constains a number between two limits
@@ -557,16 +722,50 @@ Range(Start, Stop, Step := 1) => (&n) => (n := Start, Start += Step, Step > 0 ? 
  * @param a input value
  */
 Constrain(l, r, a) => (a > r ? r : (a < l ? l : a))
+/**
+ * Return true if a value falls strictly between two bounds (exclusive)
+ * @param l Lower bound (exclusive)
+ * @param r Upper bound (exclusive)
+ * @param a Value to test
+ * @returns {Integer} 1 if l < a < r, 0 otherwise
+ */
 Within(l, r, a) => (a > l AND a < r)
 
-
+/**
+ * Format an integer value as a 0x-prefixed uppercase hex string
+ * @param val Integer value to format
+ * @returns {String} Hex string e.g. "0xFF00FF"
+ */
 hex(val)        =>   Format("0x{:X}", val)
+/**
+ * Output a debug message with call-site context (file, line, caller) to the debug stream
+ * @param stuff Message or value to log
+ * @param back Optional additional stack frames to walk back (default: 0)
+ */
 debug(stuff, back := 0) {
    OutputDebug("(D) AHK2 [" Error("", -3 - back).what "@" Error("", -2 - back).line " -> (" BFN(Error("", -1 - back).File) ") " Error("", -2 - back).what "@" Error("", -1 - back).line "] " stuff)
 }
+/**
+ * Output an informational log message with file and line context to the debug stream
+ * @param stuff Message or value to log
+ */
 dlog(stuff)     =>   OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " stuff)
+/**
+ * Output a warning message with multi-level call-site context to the debug stream
+ * @param stuff Message or value to log
+ */
 warning(stuff)  =>   OutputDebug("(W) AHK2 (" Error("", -4).what "@" Error("", -3).line " => (" Error("", -3).what "@" Error("", -2).line " -> (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+/**
+ * Output an error message with call-site context to the debug stream
+ * @param stuff Message or value to log
+ */
 logError(stuff) =>   OutputDebug("(E) AHK2 (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+/**
+ * Log a caught Error object to the debug stream, including message, source location,
+ * extra info, and full stack trace. Also displays a tray tip notification.
+ * @param e Error object to log
+ * @param extra Optional additional context string to prepend
+ */
 elog(e, extra := "") {
    OutputDebug("(E) AHK2 " (extra ? extra " " : "") e.Message ", from " e.What " @ line " e.Line)
    ; OutputDebug("    AHK2 File " e.file)
@@ -581,6 +780,12 @@ elog(e, extra := "") {
 ;----------------------------------------------------------------------
 ; Log the current gdi/user object count for debugging
 ;----------------------------------------------------------------------
+/**
+ * Log the current and peak GDI/User object counts for the current process to the debug stream
+ * @param txt Optional label prefix for the log line (default: "")
+ * @param {VarRef} gdi Optional return variable for current GDI object count
+ * @param {VarRef} user Optional return variable for current User object count
+ */
 logGDI(txt:="",&gdi?, &user?) {
    Static hProcess := DllCall("GetCurrentProcess","Ptr")
    gdiCount      := DllCall("GetGuiResources","Ptr",hProcess,"Int", 0)
@@ -599,6 +804,14 @@ logGDI(BFN(Error("", -1).File) " loaded...")
 ; Quicker Tray Tip (by default)
 ; Icon Code : 1 = Info, 2 = Warning, 3 = Error, 4 = This Icon
 ;----------------------------------------------------------------------
+/**
+ * Display a tray tip notification with a short timeout, hiding any existing tip first.
+ * Icon Code: 1 = Info, 2 = Warning, 3 = Error, 4 = Script Icon
+ * @param Message Notification message text
+ * @param Code Icon code (default: 4)
+ * @param Title Notification title (default: "SnipShape")
+ * @param Timeout Display duration in milliseconds (default: 2000)
+ */
 qTrayTip(Message, Code:=4, Title := "SnipShape", Timeout:=2000) {
    ; Need a small timer to delay message on windows 11
    TrayTip() ; hide any existing/pending tips
@@ -613,6 +826,11 @@ qTrayTip(Message, Code:=4, Title := "SnipShape", Timeout:=2000) {
 ;----------------------------------------------------------------------
 ; Full path name from relative path
 ;----------------------------------------------------------------------
+/**
+ * Resolve a relative path to its full absolute path
+ * @param path Relative or partial file path
+ * @returns {String} Fully qualified absolute path
+ */
 GetFullPathName(path) {
    cc := DllCall('GetFullPathNameW', 'str', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
    buf := Buffer(cc * 2)
@@ -622,6 +840,11 @@ GetFullPathName(path) {
 ;----------------------------------------------------------------------
 ; Base File Name from a path
 ;----------------------------------------------------------------------
+/**
+ * Return the base filename (without directory) from a full path
+ * @param fpath Full file path
+ * @returns {String} Filename with extension, without directory
+ */
 BFN(fpath) {
    SplitPath(fpath, &fName)
    Return fName
@@ -686,19 +909,23 @@ SubtractRect(l1, t1, r1, b1, l2, t2, r2, b2) {
 InflateRect(lprc, dx, dy) {
    return DllCall("user32\InflateRect", "ptr", lprc, "int", dx, "int", dy)
 }
-;----------------------------------------------------------------------
-; Clone an existing buffer, including it's contents
-;----------------------------------------------------------------------
+/**
+ * Create a copy of an existing Buffer object including its contents
+ * @param pSource Source Buffer object to clone
+ * @param newSize Optional size override for the new buffer (default: same as source)
+ * @returns {Buffer} New Buffer containing a copy of the source data
+ */
 CloneBuffer(pSource, newSize?) {
    xBytes := newSize ?? pSource.Size
    newBuffer := Buffer(xBytes)
    DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", newBuffer, "Ptr", pSource, "Ptr", xBytes)	;Ptr for Length??
    return newBuffer
 }
-;----------------------------------------------------------------------
-; Merge in the properties of srcObj into tgtObj, replacing or adding
-; as necessary
-;----------------------------------------------------------------------
+/**
+ * Merge all own properties from srcObj into tgtObj, adding or overwriting as needed
+ * @param tgtObj Target object to merge properties into
+ * @param srcObj Source object whose properties are copied
+ */
 objMerge(tgtObj, srcObj) {
    For key, value in srcObj.OwnProps() {
       tgtObj.%key% := srcObj.%key%
@@ -717,7 +944,14 @@ objMerge(tgtObj, srcObj) {
 ; All params are optional.  With no hwnd the dialog will show at top left of screen.  Use an
 ; object serializer (like JSON) to save/load custom colors to/from disk.
 ; =============================================================================================
-
+/**
+ * Display the Windows common color picker dialog
+ * @param {Integer} Color Initial color in 0xRRGGBB format (default: 0 = black)
+ * @param {Ptr} hwnd Parent window handle (default: 0 = top left of screen)
+ * @param {Array} custColorObj Array of up to 16 custom colors to preload/save (pass by ref)
+ * @param {Integer} disp True for full panel with custom colors, false for basic panel (default: false)
+ * @returns {String} Selected color as "0xRRGGBB", or -1 if cancelled
+ */
 ColorSelectDialog(Color := 0, hwnd := 0, custColorObj := Array(), disp := false) {
    Static p := A_PtrSize
    disp := disp ? 0x3 : 0x1 ; init disp / 0x3 = full panel / 0x1 = basic panel
@@ -759,6 +993,11 @@ ColorSelectDialog(Color := 0, hwnd := 0, custColorObj := Array(), disp := false)
       Return ((c & 0xFF) << 16 | c & 0xFF00 | c >> 16)
    }
 }
+/**
+ * Return the current working set memory usage of the script process
+ * @param {String} Units "B" for bytes, "K" for kilobytes, "M" for megabytes (default: "M")
+ * @returns {String} Memory usage with unit label e.g. "42 MBytes"
+ */
 GetProcessMemoryInfo(Units := "M") {
    ;-------------------------------------------------------------------------------
    PID := WinGetPID(A_ScriptHwnd)
@@ -871,10 +1110,20 @@ Class ImageList extends map {
          return res
       }
    }
+   /**
+    * Destroy the underlying ImageList and free its resources
+    */
    __Delete() {
       IL_Destroy(this.iList)
    }
    ; [item] properties override
+   /**
+    * Get or set an icon in the ImageList by tag name.
+    * Getting returns a copy of the stored icon (caller is responsible for destroying it).
+    * Setting accepts an HICON integer or a file path; pass "" to remove the entry.
+    * @param tag String key identifying the icon
+    * @returns {Ptr} HICON handle on get, 0 if not found
+    */
    __Item[tag] {
       get {
          Index := super.get(tag, 0) ;1..N

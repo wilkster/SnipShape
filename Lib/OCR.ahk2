@@ -1653,4 +1653,3 @@ class OCR {
         }
     }
 }
-logGDI(BFN(Error("", -1).File) " loaded...")

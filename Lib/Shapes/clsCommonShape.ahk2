@@ -1,3 +1,10 @@
+/************************************************************************
+ * @description Common Class for all Shapes
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
+
 #Requires AutoHotkey v2.0 
 #include ..\clsGDIp.ahk2
 #include ..\libMisc.ahk2
@@ -14,18 +21,26 @@
 
 ; Add new command to Gui object for adding shapes
 Gui.Prototype.AddNewShape := AddNewShape
-; Alls GDI+ Shapes ahve the same options
+/**
+ * Add a new layered GDI+ shape control to a Gui with standard transparency options.
+ * Delegates to AddNewShapeOrBitmap with layered-window options pre-applied.
+ * @param guiObj  - The Gui instance to add the shape to
+ * @param Shape   - Shape type constant (from Shapes class)
+ * @param Factor  - Optional DPI/scale factor (default 1)
+ * @returns       - The new or recycled shape control object
+ */
 AddNewShape(guiObj, Shape, Factor:=1) {
    Return AddNewShapeOrBitmap(guiObj, Shape, "+E0x80000 +BackgroundTrans",,Factor)
 }
-; Bitmaps pass in the options and filename
 Gui.Prototype.AddNewBitmap := AddNewShapeOrBitmap
 /**
  * Add a new shape and establish a base class to handle it
- * @param guiObj 
- * @param Shape 
- * @param {String} sOptions 
- * @param {String} sPicFile 
+ * @param guiObj     - The Gui instance to add the shape to
+ * @param Shape      - Shape type constant (from Shapes class)
+ * @param sOptions   - Gui control options string
+ * @param sPicSource - Optional picture source path or HBITMAP reference for bitmap shapes
+ * @param Factor     - Optional DPI/scale factor (default 1)
+ * @returns          - The new or recycled shape control object with its prototype set
  */
 AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1) {
    ;----------------------------------------------------------------------
@@ -98,9 +113,12 @@ Class commonShape extends Gui.Pic {
    Options   := ""
    myBrushes := ""
    Factor    := 1
-   ;----------------------------------------------------------------------
-   ; Called on shape creation (__New is NOT called)
-   ;----------------------------------------------------------------------
+   /**
+    * Initialize a newly created or recycled shape control.
+    * Sets default colors, coordinates, event bindings, and visibility.
+    * Called in place of __New since controls are recycled rather than reconstructed.
+    * @param sPicImage - Optional picture source associated with this shape
+    */
    Init(sPicImage:="") {
       this.fName          := sPicImage
       this.layered        := true
@@ -132,13 +150,22 @@ Class commonShape extends Gui.Pic {
       this.SnipObj   := this.GUI
 
    }
+   /**
+    * Returns the DPI value for this control's window.
+    * @returns {Integer} DPI of the window containing this shape
+    */
    DPI => WinDPI(this.hWnd)
+   /**
+    * Returns the DPI scale factor relative to 96 DPI baseline.
+    * @returns {Float} Scale factor (e.g. 1.25 at 120 DPI)
+    */
    DPIScale => WinDPI(this.hWnd) / 96
    ;//////////////////////////////////////////////////////////////////////
    ;            Shape Unique
    ;//////////////////////////////////////////////////////////////////////
    /**
-    * Prepare to draw (commmon to all shapes)
+    * Prepare to draw (common to all shapes).
+    * Creates brush and pen collections, sets up primary drawing pen and grab helpers.
     */
    Startup() {
       this.myBrushes            := GDIp.Brushes()
@@ -158,7 +185,7 @@ Class commonShape extends Gui.Pic {
       this.Started := true
    }
    /**
-    * Wrap up pens and brushes after drawing, release GDIp objects used
+    * Wrap up pens and brushes after drawing, release GDIp objects used.
     */
    CleanUp() {
       If (this.myPens.Length > 0)
@@ -167,29 +194,43 @@ Class commonShape extends Gui.Pic {
          this.myBrushes.Reset()
       this.Started := false
    }
-   ;----------------------------------------------------------------------
-   ; Push to the bottom of the Z-Order just above the picture
-   ;----------------------------------------------------------------------
+   /**
+    * Push this shape to the bottom of the Z-order, just above the background picture.
+    */
    PushToBottom() {
       SetWindowBottom(this.hWnd)
    }
+   /**
+    * Push this shape down one position in the Z-order.
+    */
    PushDown() {
       PushShapeDownOne(this)
    }
    
-   ; Shape Specific
+   /**
+    * Gets or sets the picture filename associated with this shape.
+    */
    FileName {
       set => this.fname := Value
       get => this.fname
    }
-   ; Shape Specific, not for clips/files
+   /**
+    * Gets or sets the shape draw color as an RGB value (alpha stripped).
+    */
    Color {
       set => this._Color := RGBval(Value) & 0xFFFFFF
       get => this._Color
    }
 
+   /**
+    * Removes any custom cursor class set on this shape's window handle,
+    * restoring default cursor behaviour.
+    */
    ClearCursorClass() => DllCall("SetClassLongPtrW", "Ptr", this.hWnd, "Int", -12, "Ptr", 0, "Ptr") ; GCLP_HCURSOR
-   ; Save shape information for later retrieval
+   /**
+    * Gets or sets the shape bounding coordinates.
+    * On set, automatically computes derived W, H, X, and Y fields from the endpoint pair.
+    */
    shapeCoord {
       get => this.sCoord
       set {
@@ -201,32 +242,45 @@ Class commonShape extends Gui.Pic {
          this.sCoord.Y := Min(this.sCoord.Y1, this.sCoord.Y2)
       }
    }
+   /**
+    * Refresh the internal sCoord object from the current control position and size.
+    * Intended for non-drawn shapes where coordinates may drift from the control bounds.
+    */
    UpdateCoord() {
       ; Hopefully not called for drawn shapes
       ; debug("Picture Updating Coordinates")
       this.GetPos(&X, &Y, &W, &H)
       this.sCoord := { X1: X, Y1: Y, X2: X + W, Y2: Y + H, W: W, H: H, X: X, Y: Y }
    }
+   /**
+    * Refresh the rendered appearance of this shape. Override in subclasses.
+    */
    Refresh() {
       ; Shape specific
    }
+   /**
+    * Retrieve the processed bitmap for this shape. Override in subclasses.
+    */
    GrabProcessedBitmap() {
       ; Shape specific
    }
+   /**
+    * Check whether the given dimensions meet the minimum drawable size threshold.
+    * @param W - Width in pixels
+    * @param H - Height in pixels
+    * @returns {Integer} Non-zero if size is acceptable
+    */
    SizeOk(W, H) {
       Return (W > this.minSize.W OR H > this.minSize.H)
    }
-   ;----------------------------------------------------
-   ; Move the shape and update the internal coordinates
-   ; Account for internal padding (window vs shape coordinates)
-   ;----------------------------------------------------
    /**
-    * 
-    * @param wX Optional, new X location
-    * @param wY Optional, new Y location
-    * @param wW Optional, new width
-    * @param wH Optional, new height
-    * @param {Integer} okMove false to just compute new location, caller will do the move, true to move
+    * Move the shape to a new position and/or size, updating internal coordinates to
+    * account for the padding between window edges and the drawn shape area.
+    * @param wX     - Optional new X position of the window
+    * @param wY     - Optional new Y position of the window
+    * @param wW     - Optional new window width
+    * @param wH     - Optional new window height
+    * @param okMove - Pass false to only recompute coordinates without calling super.Move (default true)
     */
    Move(wX?, wY?, wW?, wH?, okMove := true) {
       ; First actually move the shape as specified
@@ -264,9 +318,10 @@ Class commonShape extends Gui.Pic {
          }
       }
    }
-   ;----------------------------------------------------------------------
-   ; Call this when closing a Snip to get rid of the bitmap if used
-   ;----------------------------------------------------------------------
+   /**
+    * Hide and disable this shape, release its bitmap, unregister events,
+    * and blank the layered window surface when closing a Snip.
+    */
    Close() {
       this.Value := ""   ; Release any hbitmaps if associated with the picture
       this.Visible := false
@@ -300,23 +355,30 @@ Class commonShape extends Gui.Pic {
          Lines have corners of 1/4 or 4/1 2/6, 6/2 depending on their
          orientation and direction.
    */
-   ;----------------------------------------------------------------------
-   ; Return shape informatoin for focus points and corner mouse is over
-   ;----------------------------------------------------------------------
+   /**
+    * Indicates whether focus handles should be rendered as squares.
+    * @returns {Integer} Always true for the base shape
+    */
    FocusSquare => true
+   /**
+    * Return the eight resize/focus handle positions relative to the shape bounds.
+    * Corner numbering follows the diagram above (1=TL, 2=TR, 3=MR, 4=BR,
+    * 5=BM, 6=BL, 7=ML, 8=TM).
+    * @returns {Array} Array of objects with C (corner index), X, and Y fields
+    */
    FocusPoints() {
-      ; ResizePoints := Array() ; NOTE these need to offset relative to shape not window
       C := this.shapeCoord
-      ; Body/freehand shapes get all the points
-      ;ResizePoints.push(
       return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
               { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
               { C: 5, X: C.w / 2, Y: C.h }, { C: 6, x: 0, Y: C.h }, 
               { C: 7, X: 0, Y: C.h/2 },     { C: 8, x: C.W/2, Y: 0 }]
    }
-   ;----------------------------------------------------------------------
-   ; Return Focus Point Info based on mouse location
-   ;----------------------------------------------------------------------
+   /**
+    * Determine which resize handle, if any, the mouse is currently over.
+    * @param mX - Mouse X in window coordinates
+    * @param mY - Mouse Y in window coordinates
+    * @returns {Object} Focus point object {C, X, Y}; C=0 if not over any handle
+    */
    CornerInfo(mX, mY) {
       ; Check if mouse is in one of the resize points
       smX := mX - this.sCoord.X
@@ -330,24 +392,33 @@ Class commonShape extends Gui.Pic {
       IsInBox(x, y) => (Sqrt(x ** 2 + y ** 2) < Cursor.ResizeBox)
    }
    /**
-    * Adjust the shape thickness dynamically
-    * @param amt % of change
+    * Adjust the shape line thickness dynamically by a percentage amount.
+    * @param amt - Percentage change to apply (passed to pen collection)
+    * @returns   - The new thickness value
     */
    ChangeThickness(amt) {
       Return this.shapeThickness := this.myPens.ChangeThickness(amt)
    }
 
    /**
-    * SetColor - Set a new color for the shape
-    * @param newColor New RGB color to use
+    * Set a new RGB color for the shape's primary pen and update the Gui background.
+    * @param newColor - New RGB color value
     */
    SetColor(newColor) {
       GDIp.SetPenColor(this.pPrime, this.shapeOpacity << 24 | newColor)
       this.Color         := newColor
       this.Gui.BackColor := newColor
    }
+   /**
+    * Save the original size of the shape for later reset. Override in subclasses as needed.
+    * @param fname - Optional filename to associate with the shape
+    */
    SaveSize(fname?) {
    }
+   /**
+    * Determine whether the shape visually intersects the parent snip area.
+    * @returns {Object|false} Intersection rectangle object, or false if no overlap
+    */
    IsOverSnip() {
       C := this.sCoord
       this.Gui.PIC.GetPos(,,&pW,&pH) 
@@ -355,24 +426,26 @@ Class commonShape extends Gui.Pic {
       Return iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)
    }
    /**
-    * After we find extents, save the padding since it is non-zero
-    * 
-    * NOTE - Used for Line and Body shapes
-    * @param L Left padding amount in pixels
-    * @param T Top padding amount in pixels
-    * @param R Right padding amount in pixels
-    * @param B Bottom padding amount in pixels
+    * Store the padding between the shape's drawn area and its containing window edges.
+    * Used by Move() to translate between window and shape coordinate spaces.
+    * @param L - Left padding in pixels (positive)
+    * @param T - Top padding in pixels (positive)
+    * @param R - Right padding in pixels (positive, subtracted from width)
+    * @param B - Bottom padding in pixels (positive, subtracted from height)
     */
    savePadding(L, T, R, B) {
       this.sPad := { L: L, T: T, R: R, B: B }
    }
    /**
-    * Return a shape pBitmap that Highlights with the passed in color (blocks
-      the complementary channel) Works with dark backgrounds as well (making
-      them a bit lighter)
-    * @param pInputBitmap 
-    * @param hlColor - Color to use as the highlighting
-    * @returns brush -Texture brush with the process image applied
+    * Build a texture brush that highlights content using the specified color.
+    * Uses a color matrix to block complementary channels for light backgrounds,
+    * or inverts and remaps colors for dark backgrounds.
+    * @param TpInputBitmap - Source pBitmap to apply highlighting to (consumed/disposed)
+    * @param hlColor       - RGB highlight color
+    * @param hlOpacity     - Opacity of the highlight (0–255, default 255)
+    * @param userBgColor   - Optional override for the detected background color
+    * @param Percent       - Optional override for the background color dominance percentage
+    * @returns             - GDI+ texture brush, or 0 on failure
     */
    HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?, Percent?) {
       bgColor := userBgColor ?? this.ShapeBackgroundColor(TpInputBitmap, &Percent := 0)
@@ -438,10 +511,10 @@ Class commonShape extends Gui.Pic {
    }
 
    /**
-    * Return the background/common color underneath some shape
-    * @param {Bitmap} optional bitmap to use instead of grabbing one here, not modified
-    * @param {Float} Returned % of use of the background color
-    * @returns {Number} RGB common color (no alpha)
+    * Return the most common (background) color found beneath this shape.
+    * @param pBit  - Optional pBitmap to analyse instead of capturing one automatically
+    * @param Perc  - Output variable receiving the dominance percentage of the returned color
+    * @returns     - RGB color value (no alpha), or -1 on failure
     */
    ShapeBackgroundColor(pBit?, &Perc?) {
       pBitmap := pBit ?? this.pBitmapUnderShape()
@@ -455,12 +528,11 @@ Class commonShape extends Gui.Pic {
       }
    }
    /**
-    * Return a pBitmap of the image below the passed in shape
-    * Offsnip areas will return black
-    * No cropping is done but CropHBitmap still handles it
-    * Amount 1ms on modern computer
-    * @param  Cin Optional coordinates to use instead of the picture 
-    * @Returns pBitmap
+    * Capture and return a GDI+ pBitmap of the snip area covered by this shape.
+    * Off-snip regions appear black. No internal cropping is applied beyond
+    * intersection clamping.
+    * @param Cin - Optional coordinate object {X1,Y1,X2,Y2,W,H} to use instead of the shape's own coordinates
+    * @returns   - GDI+ pBitmap, or 0 on failure
     */
    pBitmapUnderShape(Cin?) {
       ; Get the snips base snip handle
@@ -499,9 +571,12 @@ Class commonShape extends Gui.Pic {
       }
    }
    /**
-    * Return the highlighted snip for use in textures/pens
-    * @returns {Handle} Snip PBitmap highlighted
-    * NOTE: The bitmap will be shifted by Snips.BorderWidth so take that into account
+    * Build a GDI+ texture brush from the full snip bitmap with a highlight
+    * color matrix applied. The brush origin is shifted by Snips.BorderWidth
+    * so it aligns correctly with the snip content area.
+    * @param color   - RGB highlight color to apply
+    * @param opacity - Highlight opacity (0–255, default 0xFF)
+    * @returns       - GDI+ texture brush, or 0 on failure
     */
    getHighlightedSnipBrush(color, opacity := 0xFF) {
       If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
@@ -512,9 +587,14 @@ Class commonShape extends Gui.Pic {
       } else
          Return 0
    }
-      ;----------------------------------
-   ; Get the background color where the cursor is
-   ;----------------------------------
+   /**
+    * Sample the background color of the snip at the current cursor position.
+    * Mouse input is briefly blocked during sampling to ensure consistent coordinates.
+    * @param SnipObj  - The snip object providing the BackgroundPICColorFromXY method
+    * @param extent   - Sampling radius in pixels (default 24)
+    * @param YOffset  - Vertical offset from cursor position for sampling (default 0)
+    * @returns        - Sampled RGB color value
+    */
    GetCursorBGColor(SnipObj, extent := 24, YOffset := 0) {
       try {
          BlockInput("MouseMove") ; very fast now, prob not needed
@@ -529,6 +609,10 @@ Class commonShape extends Gui.Pic {
       }
       Return Color
    }
+   /**
+    * Rotate this shape by the given angle. Override in subclasses.
+    * @param Angle - Rotation angle in degrees
+    */
    Rotate(Angle) {
       ; Shape specific
    }
@@ -537,9 +621,14 @@ Class commonShape extends Gui.Pic {
 
 /**
  * BitmapShape class
- * Pictures and clips would use this
+ * Handles picture and clipboard bitmap controls. Layered-window drawing
+ * is not used; the bitmap is displayed directly via the Picture control.
  */
 Class BitmapShape extends commonShape {
+   /**
+    * Initialize this shape as a non-layered bitmap control.
+    * @param sPicImage - Optional picture source path or HBITMAP reference
+    */
    Init(sPicImage := "") {
       Super.Init(sPicImage)
       this.layered := false
@@ -551,10 +640,9 @@ Class BitmapShape extends commonShape {
    CleanUp(*) =>{}
 
    /**
-    * Save OG size/filename for pictures for reset
-    * Only needed for file based bitmaps
-    * @param {number} param
-    * @returns {number} returns nothing
+    * Save the current control dimensions as the original (OG) size and update
+    * internal coordinates. Optionally records the associated filename.
+    * @param fname - Optional filename to store for later reference
     */
    SaveSize(fname?) {
       this.GetPos(&X, &Y, &W, &H)
@@ -567,17 +655,16 @@ Class BitmapShape extends commonShape {
          this.fname := fname
    }
    /**
-    * Reset the size, for pictures/Freehand only now
-    * @param Nothing
-    * @returns Nothing
+    * Restore the control to its original saved dimensions.
     */
    ResetSize() {
       super.Move(, , this.OG.W, this.OG.H)
       this.UpdateCoord()
    }
    /**
-    * Rotate a 32 bit ARGB picture
-    * @param Angle +/- 90 degree increments
+    * Rotate the bitmap by a multiple of 90 degrees in place,
+    * updating the control handle and saving the new size.
+    * @param Angle - Rotation angle; must be a +/- 90-degree increment
     */
    Rotate(Angle) {
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
@@ -589,8 +676,9 @@ Class BitmapShape extends commonShape {
       }
    }
    /**
-    * Flip a 32 bit ARGB picture
-    * @param how 1=top/bottom, 2=left/right
+    * Flip the bitmap horizontally or vertically in place,
+    * updating the control handle and saving the new size.
+    * @param How - 1 for top/bottom flip, 2 for left/right flip (default 1)
     */
    Flip(How := 1) {
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
@@ -601,9 +689,10 @@ Class BitmapShape extends commonShape {
          this.SaveSize()
       }
    }
-   ;----------------------------------------------------------------------
-   ; get/set the bitmap handle for this piecture
-   ;----------------------------------------------------------------------
+   /**
+    * Gets or sets the HBITMAP associated with this picture control.
+    * Getting uses STM_GETIMAGE; setting resizes the control to fit the new bitmap.
+    */
    Handle {
       ; SendMessage is very fast ~20uSec
       get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
@@ -611,4 +700,3 @@ Class BitmapShape extends commonShape {
       set => this.Value := "*W0 *H0 HBITMAP:" Value
    } 
 }
-

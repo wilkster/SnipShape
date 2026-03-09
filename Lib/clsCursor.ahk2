@@ -33,10 +33,12 @@ Class Cursor {
                   , "SizeAll", 32646, "SizeNESW", 32643, "SizeNS", 32645, "SizeNWSE", 32642, "SizeEW", 32644, "SizeUpArrow", 32516
                   , "Wait", 32514, "HandPin", 32671)
    
+   /**
+    * @description Initializes the Cursor class. Loads all stock and custom cursors,
+    *   maps shape numbers to cursors, sets defaults for missing custom cursors,
+    *   and registers the WM_SETCURSOR message handler.
+    */
    Static __New() {
-      ;----------------------------------------------------------------------
-      ; Load all of the cursors we will use for dynamic cursor updates
-      ;----------------------------------------------------------------------
       Global SETTINGS
       ; https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
       ; Load the stock cursors by name and by ID
@@ -79,14 +81,18 @@ Class Cursor {
       }
 
    }
-   ;----------------------------------------------------------------------
-   ; Callback for when the cursor needs to change 
-   ; Return of non-zero means we didn't change the cursor, non-zero means we did
-   ; change it If an application processes this message, it should return TRUE
-   ; to halt further processing or FALSE to continue to default processing. NOTE
-   ; wParam is the picture control handle when it is hovering over it, so if it
-   ; is different than hWnd we are over the child control
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description WM_SETCURSOR message handler. Determines and applies the appropriate
+    *   cursor based on the window/control being hovered. Handles the selection GUI,
+    *   snip windows (including queued draw commands and color changes), the button bar
+    *   (including tooltips), and falls back to default cursor handling for all other windows.
+    * @param {Ptr} wParam - Handle to the window or child control under the cursor.
+    * @param {Integer} lParam - Low word: hit-test result; High word: mouse message identifier.
+    * @param {Integer} msg - The message number (0x020).
+    * @param {Ptr} hWnd - Handle to the window that received the message.
+    * @returns {Integer} 1 if the cursor was set by this handler, 0 or empty to continue default processing.
+    */
    Static WM_SETCURSOR(wParam, lParam, msg, hWnd) {
       Static lastControl := ""
       ; debug(wParam ", " lParam ", " msg ", " hWnd)
@@ -137,19 +143,28 @@ Class Cursor {
          Return  ; No parameter will allow standard cursor handling (ignores this callback instance)
       }
    }
-   ;----------------------------------------------------------------------
-   ; Set the current move/resizer cursor for adjusting shapes
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Sets the current move/resize cursor used when adjusting shapes.
+    * @param {Integer|String} cursor - Cursor identifier to set as the active move/resize cursor. Defaults to 0 (none).
+    * @returns {Integer|String} The previous move/resize cursor value.
+    */
    Static SetCursorMode(cursor := 0) {
       oldMode := this.MoveResizeCursor
       this.MoveResizeCursor := cursor
       this.SetCursor(this.MoveResizeCursor)
       Return oldMode
    }
-   ;----------------------------------------------------------------------
-   ; Set cursor depending on mode, have to clear the cursor class for the shape first
-   ; Return 1 if we set the cursor, 0 if we skipped it (let parent decide)
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Sets the cursor depending on the current interaction mode. Evaluates
+    *   resize/move, shape-hover edge detection, and draw-mode cursor in priority order.
+    *   Ctrl key temporarily switches to move cursor while in draw mode.
+    * @param {Integer|String} resizeCursor - Active resize or move cursor; takes highest priority when non-zero.
+    * @param {Integer} drawModeCursor - Current draw mode cursor index; 0 indicates pointer/select mode.
+    * @param {Ptr} shapehWnd - Handle to the shape control under the cursor; 0 if not over a shape.
+    * @returns {Integer} 1 if the cursor was changed by this call, 0 if no action was taken.
+    */
    Static SetCursor(resizeCursor, drawModeCursor := 0, shapehWnd := 0) {
       ; These need to be tested in a priority order
       if (resizeCursor) {
@@ -176,11 +191,13 @@ Class Cursor {
          Return 0
       }
    }
-   ;----------------------------------------------------------------------
-   ; Return the appropriate cursor depending on where the mouse is
-   ; When it is over a shape
-   ; GuiCtrlFromHwnd will retrieve the object
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Determines the appropriate resize cursor based on the mouse position
+    *   relative to the edges and corners of the hovered shape control.
+    * @param {Ptr} shapehWnd - Handle to the shape control being evaluated.
+    * @returns {Ptr} Handle to the cursor resource appropriate for the hovered edge or corner.
+    */
    Static MouseOnEdge(shapehWnd) {
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
@@ -189,18 +206,24 @@ Class Cursor {
       cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
       Return this.Cursors[Cur]
    }
-   ;----------------------------------------------------------------------
-   ; Load a stock cursor by number
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Loads a built-in system (stock) cursor by its numeric resource ID.
+    * @param {Integer} num - System cursor ID (e.g. 32512 for IDC_ARROW).
+    * @returns {Ptr} Handle to the loaded cursor, or 0 on failure.
+    */
    Static LoadStockCursor(num) {
       Static IMAGE_CURSOR    := 2
       Static LR_DEFAULTSIZE  := 0x00000040
       Static LR_SHARED       := 0x00008000
       return DllCall("User32.dll\LoadImage", "Ptr", 0, "Ptr", num, "UInt", IMAGE_CURSOR, "Int", 0, "Int", 0, "UInt", LR_DEFAULTSIZE | LR_SHARED, "Ptr")
    }
-   ;----------------------------------------------------------------------
-   ; Load a Cursor from an ico file
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Loads a cursor from a .cur or .ani file on disk.
+    * @param {String} fName - Full path to the cursor file.
+    * @returns {Ptr} Handle to the loaded cursor, or 0 on failure.
+    */
    Static LoadFileCursor(fName) {
       Static IMAGE_CURSOR    := 2
       Static LR_DEFAULTSIZE  := 0x00000040
@@ -220,6 +243,10 @@ Class Cursor {
  * TODO: If I make this dynamic then I could have one for the focus borders and one for the object to snap to
  */
 Class focusBorder {
+   /**
+    * @description Initializes the focusBorder class. Creates the layered, click-through
+    *   GUI used to render the focus rectangle, and sets all state variables to defaults.
+    */
    Static __New() {
       ; WS_EX_CLICKTHROUGH := 0x20
       this.BW            := 1.0 * activeDPIFactor() ; dash rectangle width
@@ -238,18 +265,27 @@ Class focusBorder {
          this.focusBorderGui.Show('NA')
 
    }
-   ;----------------------------------------------------------------------
-   ; Called when moving or resizing the shape
-   ; Position relative to snip
-   ; requires startup/shutdown by the caller
-   ; ALso assumes the focus gui is alread active
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Repositions the focus rectangle during a move or resize operation.
+    *   Coordinates are relative to the snip window origin. Requires the focus GUI
+    *   to already be active and the caller to manage startup/shutdown.
+    * @param {Number} X - X position relative to the snip window.
+    * @param {Number} Y - Y position relative to the snip window.
+    * @param {Number} [W] - Width of the focus rectangle; defaults to the last known width.
+    * @param {Number} [H] - Height of the focus rectangle; defaults to the last known height.
+    */
    Static Move(X, Y, W?, H?) {
       If (Snips.focusRectangle) {
          if (this.RenderFocusRect(this.wX + X, this.wY + Y, W ?? this.W, H ?? this.H))
             Warning("Failed to move focus border")
       }
    }
+
+   /**
+    * @description Synchronizes the focus rectangle position and size to the current
+    *   shape coordinates, re-rendering it in place.
+    */
    Static Sync() {
       If (Snips.focusRectangle) {
          C := this.ShapeObj.shapeCoord
@@ -258,9 +294,10 @@ Class focusBorder {
       }
    }
 
-   ;----------------------------------------------------------------------
-   ; Close the active shape
-   ;----------------------------------------------------------------------
+   /**
+    * @description Closes the currently focused shape and hides the focus border,
+    *   but only if the focus border is currently visible.
+    */
    Static RemoveShapeIfFocused() {
       If this.IsShown {
          This.ShapeObj.Close()
@@ -268,10 +305,14 @@ Class focusBorder {
          this.HideFocus()
       }
    }
-   ;----------------------------------------------------------------------
-   ; Called in cursor callback, handles repeats to reduce flicker
-   ; Also call this once before move/shapeshift/resize events (in a loop)
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Shows the focus rectangle around the given shape control. Handles
+    *   repeated calls efficiently to reduce flicker. Should also be called once
+    *   before move/resize/shapeshift loops with Block=1 to lock the rectangle visible.
+    * @param {Ptr} hWnd - Handle to the shape control to focus.
+    * @param {Integer} Block - If 1, blocks HideFocus from hiding the rectangle until UnBlockMe fires. Defaults to 0.
+    */
    Static ShowFocus(hWnd, Block:=0) {
       If (Snips.focusRectangle AND (this.IsNotShown OR this.lastHwnd != hWnd OR Block)) {
          This.ShapeObj := GuiCtrlFromHwnd(hWnd)
@@ -289,9 +330,12 @@ Class focusBorder {
    }
    Static IsShown => IsWindowVisible(this.focusBorderGui.hWnd)
    Static IsNotShown => (NOT IsWindowVisible(this.focusBorderGui.hWnd))
-   ;----------------------------------------------------------------------
-   ; Hide the focus window
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Hides the focus rectangle GUI. When Force is false, the hide is
+    *   suppressed if the Block flag is set (e.g. during an active move/resize).
+    * @param {Integer} Force - If 1, hides unconditionally and clears the Block flag. Defaults to 0.
+    */
    Static HideFocus(Force := false) {
       If (Snips.focusRectangle and this.IsShown) {
          If (Force) {
@@ -302,21 +346,28 @@ Class focusBorder {
          }
       }
    }
-   ;----------------------------------------------------------------------
-   ; Unblock the HideFocus after a short interval to prevent flashes
-   ; due to the cursor callbacks happening rapidly
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Schedules the Block flag to be cleared after a 20 ms delay,
+    *   preventing rapid cursor callbacks from causing focus rectangle flicker
+    *   during move/resize operations.
+    */
    Static UnBlockMe() {
       SetTimer((*) => this.Block := false, -20)
    }
 
-   ;----------------------------------------------------------------------
-   ; Show the focus border and resize points at some location
-   ; Used internally
-   ; Coordinate parameters are screen units
-   ; Requires GDI+ be started external to this
-   ; Takes a couple ms on Niwot
-   ;----------------------------------------------------------------------
+   /**
+    * @description Renders the focus rectangle and resize handle points onto a layered
+    *   window at the specified screen coordinates using GDI+. Draws a dual-layer dashed
+    *   border (black base + white overlay) that is visible on any background, and
+    *   places either square or circle resize handles at each focus point reported by
+    *   the shape. GDI+ must be started externally before calling this method.
+    * @param {Number} x - Screen X coordinate of the top-left corner of the target shape.
+    * @param {Number} y - Screen Y coordinate of the top-left corner of the target shape.
+    * @param {Number} w - Width of the target shape in screen units.
+    * @param {Number} h - Height of the target shape in screen units.
+    * @returns {Integer} 0 on success, 1 if a GDI+ graphics object could not be created.
+    */
    Static RenderFocusRect(x, y, w, h) {
       Static PointsF := stPointF()
       Static Rect    := stRECTI()

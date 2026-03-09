@@ -39,10 +39,12 @@ Class Shapes {
    Static FontStyles := ["Normal", "Bold", "Italic", "BoldItalic", "Underline", "Strikeout"]
    Static Alignments := ["Left","Center","Right"]
 
-
-   ;----------------------------------------------------------------------
-   ; Get session defaults from the INI file
-   ;----------------------------------------------------------------------
+   /**
+    * @description Initializes the Shapes class. Reads all INI settings for shape properties
+    *   (opacity, thickness, smoothing, etc.), builds the shape database (ID constants,
+    *   ShapeName array, ShapeCat map), validates and loads available system fonts, and
+    *   constructs all sub-menus used by the button bar right-click handler.
+    */
    Static __New() {
       this.ShapeName := Array()
       this.ShapeCat  := Map()
@@ -217,9 +219,14 @@ Class Shapes {
       this.MOLBlur             := this.valMenu([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25],&TextShape.OLBlur)
       this.MOLFillThickness    := this.valMenu([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],&TextShape.OLFillThickness)
    }
-   ;----------------------------------------------------------------------
-   ; Build the submenu here
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Builds a sub-menu populated with the given values. Each item calls
+    *   ButtonMenu_Handler to assign the selected value back to the referenced variable.
+    * @param {Array} Values - Array of values to add as menu items.
+    * @param {VarRef} GlobName - Reference to the variable that will receive the chosen value.
+    * @returns {Menu} The constructed Menu object.
+    */
    Static valMenu(Values, &GlobName) {
       M := Menu()
       For Val in Values {
@@ -228,10 +235,19 @@ Class Shapes {
       Return M
    }
 
-   ;----------------------------------------------------------------------
-   ; Shape button bar RMB handler, push the shape onto the queue
-   ; Post the various submenus that are applicable to this mode
-   ;----------------------------------------------------------------------
+   /**
+    * @description Right-mouse-button handler for the shape button bar. Rebuilds and
+    *   displays a context menu with sub-menus appropriate to the clicked button category
+    *   (Arrows, Shapes, Free Hand, Highlighters, Redact, Text, Tool). Checks the current
+    *   value in each sub-menu before showing, and cleans up menus after the user dismisses them.
+    * @param {String} btn - Button bar category name (e.g. "Arrows", "Text").
+    * @param {String} key - Hotkey string associated with the button.
+    * @param {Object} ctl - Control object that received the click.
+    * @param {String} item - Menu item name (if applicable).
+    * @param {Integer} IsRightClick - Non-zero if triggered by a right-click.
+    * @param {Integer} X - X coordinate of the click relative to the control.
+    * @param {Integer} Y - Y coordinate of the click relative to the control.
+    */
    Static _cmdRMBHandler(btn, key, ctl, item, IsRightClick, X, Y) {
       this.shapeBBMenu.Delete()
       Switch btn {
@@ -306,17 +322,27 @@ Class Shapes {
       this.shapeBBMenu.Delete()
       this.hlColorMenu.Delete()
    }
-   ;----------------------------------------------------------------------
-   ; Change the highlighter color
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Menu callback that updates the active highlighter color and closes the color sub-menu.
+    * @param {Integer} colorCode - RGB color value selected by the user.
+    * @param {String} ItemName - Name of the selected menu item.
+    * @param {Integer} ItemPos - Position of the selected item in the menu.
+    * @param {Menu} MyMenu - The menu object that triggered this callback.
+    */
    Static HKColor_Handler(colorCode, ItemName, ItemPos, MyMenu) {
       this.highlightColor := colorCode
       MyMenu.delete()
-   }   
-   ;----------------------------------------------------------------------
-   ; Need to loop through each entry and if it matches value then check it, otherwise uncheck
-   ; Value is current value to put a check next to
-   ;----------------------------------------------------------------------
+   }
+
+   /**
+    * @description Iterates all items in a sub-menu and checks the one matching the
+    *   current value, unchecking all others. Then appends the sub-menu to the main
+    *   shapeBBMenu under the given title.
+    * @param {String} Title - Label for the sub-menu entry in the parent menu.
+    * @param {Menu} objMenu - The sub-menu whose items will be checked/unchecked.
+    * @param {String|Number} value - The current value; the matching menu item will be checked.
+    */
    static MenuCheckCurrent(Title, objMenu, value) {
       static MF_BYPOSITION := 0x00000400
       res := VarSetStrCapacity(&menuText:=0, 512)
@@ -332,16 +358,26 @@ Class Shapes {
       this.shapeBBMenu.Add(Title, objMenu)
 
    }
-   ;----------------------------------------------------------------------
-   ; Menu Callback Handler, common to multiple sub-menus
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Common menu item callback shared across all value sub-menus.
+    *   Assigns the selected item name back to the referenced global variable.
+    * @param {VarRef} GlobVal - Reference to the variable to update.
+    * @param {String} ItemName - The menu item text, used as the new value.
+    * @param {Integer} ItemPos - Position of the selected item in the menu.
+    * @param {Menu} MyMenu - The menu object that triggered this callback.
+    */
    Static ButtonMenu_Handler(&GlobVal, ItemName, ItemPos, MyMenu) {
       GlobVal := ItemName
    }
 
-   ;----------------------------------------------------------------------
-   ; Indicates move/resize in progress so don't process WM_CURSOR messages
-   ;----------------------------------------------------------------------
+   /**
+    * @description Looks up a shape name string in the ShapeName array and returns its
+    *   1-based index (shape number). Used to convert a queued command name into the
+    *   numeric draw mode used internally.
+    * @param {String} name - Shape name to search for (matched against the part before " - ").
+    * @returns {Integer} 1-based shape index if found, or 0 if not found.
+    */
    Static NameToNumber(name) {
       For sn in this.ShapeName {
          sn := Trim(StrSplit(sn, "-")[1])
@@ -351,10 +387,16 @@ Class Shapes {
       }
       Return 0
    }
-   ;----------------------------------------------------------------------
-   ; Callback for click event on a shape
-   ; If we are actively drawing, then continue to do so
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description OnEvent click callback for an existing shape control. If the mouse
+    *   button is still held, either initiates a new draw on the snip surface (when a
+    *   draw mode is active and Ctrl is not held) or delegates to MoveSize for
+    *   moving/resizing the clicked shape.
+    * @param {String} Key - Mouse button identifier (e.g. "lButton").
+    * @param {Object} ShapeObj - The shape control object that was clicked.
+    * @param {*} * - Additional event parameters (ignored).
+    */
    Static ShapeClickHandler(Key, ShapeObj, *) {
       ; make sure mouse key is pressed down NOTE - A key may not be down if
       ; clicking from another active window, get two events, one with mouse up
@@ -366,6 +408,7 @@ Class Shapes {
          }
       }
    }
+
    /**
     * Called from lButton callback if we have an active Snip
     * and a drawing mode is active.
@@ -406,11 +449,16 @@ Class Shapes {
       }
       Return
    }
-   ;----------------------------------------------------------------------
-   ; Paste a shape if possible from the clipboard
-   ; IDEA - ask if both text and bitmap available?
-   ; Clipboard.hasText(), Clipboard.hasImage()
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Attempts to paste content from the clipboard as a new shape. Prefers
+    *   text over images when both are available and both flags are set. Displays a tray
+    *   tip on failure. Mouse position is used as the insertion point unless overridden.
+    * @param {Integer} tryText - If 1, attempt to paste clipboard text first. Defaults to 1.
+    * @param {Integer} tryImage - If 1, attempt to paste a clipboard bitmap. Defaults to 1.
+    * @param {Number} [wX] - Optional X coordinate override for insertion (window-relative).
+    * @param {Number} [wY] - Optional Y coordinate override for insertion (window-relative).
+    */
    Static PasteNewShape(tryText :=1, tryImage :=1, wX?, wY?) {
       CoordMode('Mouse', 'Window')
       MouseGetPos(&X, &Y, &mhWnd)
@@ -439,6 +487,7 @@ Class Shapes {
          qTrayTip("Nothing suitable found on Clipboard",2)
       }
    }
+
    /**
     * Optional pass in existing shape and if so hide it then replace layer
     * In that case also the mouse start/end positions that are the shape boundaries
@@ -875,6 +924,7 @@ Class Shapes {
          return {Valid : False, X: -1, Y: -1}
       }
    }
+
    /**
     * Click on an object to move it, corner to resize it
     * Responds to a click on the existing control (OnEvent click)
@@ -1124,6 +1174,7 @@ Class Shapes {
 
       distance(x, y) => Sqrt(x ** 2 + y ** 2)
    }
+
    /**
     * Duplicate an object
     * @param key - 'lbutton' 
@@ -1253,6 +1304,7 @@ Class Shapes {
          }
       }
    }
+
    /**
     * Slice a section out of the bitmap
     * @param GuiCtrlObj Is the crop rectangle just drawn
@@ -1294,6 +1346,7 @@ Class Shapes {
          }
       }
    }
+
     /**
     * Extend or expand the image to one of the drawn shapes/pictures
     * @param GuiCtrlObj Is the crop rectangle just drawn
@@ -1433,12 +1486,26 @@ Class Shapes {
          Return 0
       }
    }
+
+   /**
+    * @description Placeholder for creating a picture shape directly from clipboard image data.
+    * @param {Object} SnipObj - The target snip GUI object.
+    * @param {Number} sX - X coordinate for placement (window-relative).
+    * @param {Number} sY - Y coordinate for placement (window-relative).
+    */
    Static CreatePicFromClipboard(SnipObj, sX, sY) {
    }
 
-   ;----------------------------------------------------------------------
-   ; Create a picture from a file name or HBITMAP
-   ;----------------------------------------------------------------------
+   /**
+    * @description Creates a new picture/bitmap shape control on the snip from either a
+    *   file path or an HBITMAP handle string. Brings the new control to the top of the
+    *   z-order and marks the snip as dirty.
+    * @param {Object} SnipObj - The target snip GUI object to add the shape to.
+    * @param {String} SelectedFileOrBitmap - Full file path or "HBITMAP:*<handle>" string.
+    * @param {Number} sX - X coordinate for placement (window-relative).
+    * @param {Number} sY - Y coordinate for placement (window-relative).
+    * @returns {Object|Integer} The new shape control object, or 0 if the source was not found.
+    */
    Static CreatePicFromSource(SnipObj, SelectedFileOrBitmap, sX, sY) {
       If (FileExist(SelectedFileOrBitmap) OR SelectedFileOrBitmap ~= "HBITMAP") {
          Shape := FileExist(SelectedFileOrBitmap) ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
@@ -1455,9 +1522,12 @@ Class Shapes {
       }
    }
 
-   ;----------------------------------------------------------------------
-   ; Set the common shape color
-   ;----------------------------------------------------------------------
+   /**
+    * @description Sets the global shape color, pushes it onto the color queue for any
+    *   active drawing loop, updates the snip border color, and refreshes the button bar.
+    * @param {String|Integer} val - Color value (name or RGB integer).
+    * @param {*} * - Additional event parameters (ignored).
+    */
    Static setShapeColor(val,*) {
       nc := RGBval(val)
       this.ColorQueue.push(nc)
@@ -1467,10 +1537,14 @@ Class Shapes {
          ButtonBar.BackColor := nc
       }
    }
-   ;----------------------------------------------------------------------
-   ; Associate a bitmap for the static control
-   ; Returns the prior image
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Sends STM_SETIMAGE to assign a new HBITMAP to a static picture control,
+    *   and deletes the prior image handle if one was replaced.
+    * @param {Ptr} hwnd - Handle to the static picture control.
+    * @param {Ptr} hBitmap - Handle to the new bitmap to assign.
+    * @returns {Ptr} Handle to the previous bitmap, or 0 if none was set.
+    */
    Static SetImage(hwnd, hBitmap) {
       ; STM_SETIMAGE
       _E := DllCall("SendMessage", "Ptr", hwnd, "UInt", 0x172, "UInt", 0x0, "Ptr", hBitmap)
@@ -1478,9 +1552,13 @@ Class Shapes {
          GDI.DeleteObject(_E)      
       Return _E
    }
-   ;----------------------------------------------------------------------
-   ; Return the number of visible text shapes in this snip
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Counts and returns the number of currently visible Text shape controls
+    *   in the specified snip window.
+    * @param {Ptr} hWnd - Handle to the snip window. Defaults to the currently active window if 0.
+    * @returns {Integer} Number of visible Text shapes found.
+    */
    Static VisibleTextShapes(hWnd := 0) {
       if NOT hWnd
          hWnd := WinExist("A")
@@ -1493,9 +1571,16 @@ Class Shapes {
       Return Count
    }
 
-   ;----------------------------------------------------------------------
-   ; Draw a numbered tag in unicode
-   ;----------------------------------------------------------------------
+   /**
+    * @description Draws an auto-incrementing numbered tag at the current mouse position.
+    *   Resets the snip counter if no text shapes are present. The tag background color is
+    *   sampled from the snip bitmap at the mouse location. The tag is centered on the
+    *   mouse cursor after rendering.
+    * @param {Object} SnipObj - The snip GUI object to draw the tag on.
+    * @param {Integer} fColor - Foreground color for the tag text (RGB integer).
+    * @param {Number} Factor - Font size scaling factor. Defaults to 1.
+    * @returns {Integer} Always returns 1.
+    */
    Static DrawTag(SnipObj, fColor, Factor:=1) {
       if (this.VisibleTextShapes(SnipObj.hWnd) = 0)
          SnipObj.Counter := 0
@@ -1520,10 +1605,18 @@ Class Shapes {
       }
       Return 1
    }
-   ;----------------------------------------------------------------------
-   ; Insert text, typically from clipboard
-   ; Coordinates are window relative
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Inserts text (typically from the clipboard) as a new FillText shape on
+    *   the snip at the given window-relative coordinates. If the coordinates fall outside
+    *   the snip bounds, the text is placed at the snip center instead. CRLF line endings
+    *   are normalized to LF before rendering.
+    * @param {Object} SnipObj - The snip GUI object to insert text into.
+    * @param {Number} wX - X insertion coordinate (window-relative).
+    * @param {Number} wY - Y insertion coordinate (window-relative).
+    * @param {String} Text - The text content to insert.
+    * @returns {Object|Integer} The new text shape object on success, or 0 on failure.
+    */
    Static InsertText(SnipObj, wX, wY, Text) {
       ; Keep the text on the GUI
       SnipObj.GetPos(&gX, &gY, &gW, &gH)
@@ -1549,9 +1642,18 @@ Class Shapes {
          Return 0
       }
    }
-   ;----------------------------------------------------------------------
-   ; Add user prompted text 
-   ;----------------------------------------------------------------------
+
+   /**
+    * @description Prompts the user for text input via a dialog and draws the result as
+    *   a text shape at the current mouse position. Font, style, size, and alignment are
+    *   pre-populated from the appropriate TextShape defaults for the given shape type.
+    *   The resulting shape is vertically centered on the mouse click point.
+    * @param {Ptr} hWnd - Handle to the snip window.
+    * @param {Integer} Shape - Shape type constant (e.g. SHAPE_FILLTEXT, SHAPE_TAG, SHAPE_OLTEXT).
+    * @param {String} letter - Hotkey letter to wait for release before showing the dialog. Empty string to skip.
+    * @param {Number} factor - Font size scaling factor. Defaults to 1.
+    * @returns {Integer} 1 on success, 0 if the dialog was cancelled or the draw failed.
+    */
    Static AddDispText(hWnd, Shape, letter := "", factor := 1) {
       CoordMode('Mouse', 'Window')
       MouseGetPos(&sX, &sY)

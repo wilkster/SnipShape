@@ -35,6 +35,10 @@ Class ButtonBar {
    Static colorNameArray := Array()
    Static colorCodeMap   := Map()
    Static colorIconsObj  := ImageList()
+   /**
+    * Initialize the button bar GUI, build all shape and color buttons,
+    * read settings, and measure the bar height for later positioning
+    */
    Static __New() {
       Global SETTINGS
       logGDI("Building ButtonBar")
@@ -54,9 +58,7 @@ Class ButtonBar {
       win11RoundCorners(this.bbGui.hwnd)
       ; Setting the font size sets the button size as well, later we re-read the button size for this DPI
       this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
-      ;----------------------------------------------------------------------
       ; Close Bar Button
-      ;----------------------------------------------------------------------
       cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
       b := this.bbGui.AddPicButton("Y" this.Margin " X+" this.Margin * 3, SETTINGS.CursorPath . "BBClose.ico", "W" cH " H" cH)
 
@@ -73,12 +75,10 @@ Class ButtonBar {
 
       ; First button tells us what hull size to use, leave a small margin for cursors
       this.buttonTips[b.hWnd] := "Close Button Bar (F1)"
-      ;----------------------------------------------------------------------
       ; Grab the cursors and make a button bar
       ; Show them in desired order
       ; Button1, Button2 .... and so on for MouseGetPos name of control
       ; Could keep a hash by Buttonnn name to the tooltip string
-      ;----------------------------------------------------------------------
       this.shapeIconsObj := ImageList()
       this.shapeIconsObj.Size := this.ButSize
 
@@ -88,18 +88,14 @@ Class ButtonBar {
       for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
          this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
       logGDI("Built Shape Buttons")
-      ;----------------------------------------------------------------------
       ; Build a button or menu entry for each color in settings
-      ;----------------------------------------------------------------------
       this.MenuColors := Menu()
       b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "colors.ico", "W" bs " H" bs)
       this.buttonCallbacks[b.hWnd] := this.PostColorMenu.bind(this) ; this.PostColors.bind(this) ; callback is mouse down not a full click
       this.buttonTips[b.hWnd] := "Set Shape Colors (1-9)"
       this.colorIconsObj.Size := bs
       o := this.ButSize/2
-      ;----------------------------------------------------------------------
       ; Loop up to 20 colors that may be in the settings file
-      ;----------------------------------------------------------------------
       For idx, defColor in Shapes.DefaultColorNames {
          cName := IniReadValue("User Shape Color", "Color " idx, 123)
          If cName = 123 ; Create default setting if not already done
@@ -140,18 +136,14 @@ Class ButtonBar {
       }
       logGDI("Built Color Buttons")
 
-      ;----------------------------------------------------------------------
       ; Minimize Snip Button
-      ;----------------------------------------------------------------------
       b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Minimize.ico", "W" cH " H" cH)
 
       b.OnEvent("Click", this.MinimizeSnip.bind(this,0))
       this.buttonTips[b.hWnd] := "Minimize Active Snip (⌄)"
       logGDI("Built Snip Buttons")
 
-      ;----------------------------------------------------------------------
       ; Close Snip Button
-      ;----------------------------------------------------------------------
       b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, SETTINGS.CursorPath . "Close.ico", "W" ch " H" ch)
       b.OnEvent("Click", this.CloseSnip.bind(this))
       ; Also handle Escape
@@ -173,10 +165,14 @@ Class ButtonBar {
       this.bbgui.Hide()
       logGDI("ButtonBar Complete")
    }
-   ;----------------------------------------------------------------------
-   ; Build a button and submenu
-   ;----------------------------------------------------------------------
-   Static BuildShapeButtons(Button, SubButtons,pad:=3) {
+   /**
+    * Build a shape category button on the bar and cache all of its cursor icons into the shared ImageList.
+    * Also registers a right-click handler on the button for shape settings.
+    * @param {String} Button - Shape category name used as the button icon filename and menu label
+    * @param {Array} SubButtons - Array of "CursorName - HotkeyChar" strings defining the submenu entries
+    * @param {Integer} [pad=3] - Horizontal pixel padding to insert before this button
+    */
+   Static BuildShapeButtons(Button, SubButtons, pad:=3) {
       static key      := "lButton"
       fileName := SETTINGS.CursorPath . "Menu\" . Button . ".png"
       b        := this.bbGui.AddPicButton("Y" this.Margin " X+" . pad, fileName, "W" this.ButSize " H" this.ButSize) ; 4 obj
@@ -201,8 +197,9 @@ Class ButtonBar {
       ; logGDI("  Built " Button)
    }
    /**
-    * Post the shape menu for the selected shape
-    * @param SubButtons Array of menu items
+    * Build and display the shape selection popup menu for a shape category button,
+    * populating it with cursor icons from the shared ImageList
+    * @param {Array} SubButtons - Array of "CursorName - HotkeyChar" strings defining the menu entries
     */
    Static PostShapeMenu(SubButtons) {
       this.MenuShapes.Delete()
@@ -219,7 +216,8 @@ Class ButtonBar {
       this.MenuShapes.Delete()
    }
    /**
-    * Post the color menu, doesn't tie up resources
+    * Build and display the color selection popup menu,
+    * populating it with the color circle icons built during initialization
     */
    Static PostColorMenu() {
       this.MenuColors.Delete()
@@ -231,9 +229,11 @@ Class ButtonBar {
       ; Blocks here
       this.MenuColors.Delete()
    }
-   ;----------------------------------------------------------------------
-   ; Change the back color of the window and the buttons
-   ;----------------------------------------------------------------------
+   /**
+    * Get or set the background color of the button bar window and all its buttons.
+    * Setting this property also updates each button's BackGround option so edges blend seamlessly.
+    * @type {Integer}
+    */
    Static BackColor {
       get => this.bbGUI.BackColor
       set {
@@ -247,9 +247,14 @@ Class ButtonBar {
          }
       }
    }
-   ;----------------------------------------------------------------------
-   ; Shape button handler, push the shape onto the queue
-   ;----------------------------------------------------------------------
+   /**
+    * Handle a shape button click by queuing the selected shape name,
+    * updating lastShape, and briefly showing a tooltip confirmation
+    * @param {String} btn - Base name of the selected shape (cursor filename without extension)
+    * @param {String} key - Hotkey character associated with the shape
+    * @param {Object} ctl - Control that was clicked (unused)
+    * @param {Integer} info - Additional event info (unused)
+    */
    Static _cmdHandler(btn, key, ctl, info, *) {
       this.shapeQueue := btn
       this.lastShape := btn
@@ -258,23 +263,31 @@ Class ButtonBar {
       SetTimer(ToolTip, -2000)
    }
 
-   ;----------------------------------------------------------------------
-   ; Called by the Snip when the cursor enters the GUI to pull any
-   ; pending command/colors pressed from this GUI (message passing)
-   ;----------------------------------------------------------------------
+   /**
+    * Consume and return the pending queued shape command, clearing the queue
+    * @returns {String|Integer} The queued shape name, or 0 if the queue is empty
+    */
    Static GetQueuedCommand() {
       cmd := this.shapeQueue
       this.shapeQueue := 0
       return cmd
    }
+   /**
+    * Consume and return the pending queued color value, clearing the queue
+    * @returns {Integer} The queued RGB color value, or 0 if the queue is empty
+    */
    Static GetQueuedColor() {
       cmd := this.colorQueue
       this.colorQueue := 0
       return cmd
    }
-   ;----------------------------------------------------------------------
-   ; Color button handler, push the color/shape onto the queue
-   ;----------------------------------------------------------------------
+   /**
+    * Handle a color button selection by queuing the color, showing a tooltip,
+    * updating the bar's background to match, and clearing the color menu
+    * @param {Integer} btn - RGB color value of the selected color
+    * @param {Object} ctl - Control that was clicked (unused)
+    * @param {Integer} info - Additional event info (unused)
+    */
    Static _colorHandler(btn, ctl, info,*) {
       ToolTip
       ToolTip(btn " color pressed")
@@ -285,9 +298,15 @@ Class ButtonBar {
       this.BackColor := rgbClr
       this.MenuColors.Delete()
    }
-   ;----------------------------------------------------------------------
-   ; Place the button bar right above the active snip
-   ;----------------------------------------------------------------------
+   /**
+    * Position and show the button bar directly above the specified snip window.
+    * Clamps the position to remain within the active monitor's work area.
+    * Optionally overrides the enabled state before showing.
+    * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active SnipShapeWindow
+    * @param {Integer} [Enable] - If provided, sets the Enabled state before deciding whether to show
+    * @param {Integer} [X] - Override X screen coordinate (used during live drag via WM_MOVING)
+    * @param {Integer} [Y] - Override Y screen coordinate (used during live drag via WM_MOVING)
+    */
    Static Show(hWnd := 0, Enable?, X?, Y?) {
       If (IsSet(Enable))
          this.Enabled := Enable
@@ -311,26 +330,27 @@ Class ButtonBar {
          }
       }
    }
-   ;----------------------------------------------------------------------
-   ; Hide the button bar and optionally disable it
-   ;----------------------------------------------------------------------
+   /**
+    * Hide the button bar and optionally change its enabled state
+    * @param {Integer} [enabled] - If provided, sets the Enabled state; pass 0 to disable, 1 to keep enabled
+    */
    Static Hide(enabled?, *) {
       if (IsSet(enabled))
          this.Enabled := enabled
       this.bbgui.Hide()
       ToolTip
    }
-   ;----------------------------------------------------------------------
-   ; Minimize the last active snip
-   ;----------------------------------------------------------------------
+   /**
+    * Minimize the foremost SnipShapeWindow via Snips.Minimize
+    */
    Static MinimizeSnip(*) {
      if (hWnd := WinExist("SnipShapeWindow")) {
          Snips.Minimize(hWnd)
       }
    }
-   ;----------------------------------------------------------------------
-   ; Close the last active snip
-   ;----------------------------------------------------------------------
+   /**
+    * Close the foremost SnipShapeWindow and activate the next available snip
+    */
    Static CloseSnip(*) {
       If (hWnd := WinExist("SnipShapeWindow")) {
          Snips.Close(hWnd, 0)
