@@ -250,7 +250,7 @@ Class ObscureShape extends commonShape {
     * @param amt % of change
     */
    ChangeThickness(amt) {
-      this.Factor *= (1 + amt) ; blur/pixelate
+      this.Factor *= (1 + amt * 2.0) ; blur/pixelate
       this.createImageBrush()
    }
    ;----------------------------------------------------------------------
