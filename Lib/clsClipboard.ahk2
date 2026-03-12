@@ -85,11 +85,14 @@ Class Clipboard {
          Return -2
       }
       ; Structure to hold the bitmap data
-      ds           := tagDIBSECTION()
-      bmHeaderSize := tagBITMAPINFOHEADER().size
+      ds  := tagDIBSECTION()
       GDI.GetObject(hBitmap, ds.size, ds.ptr)
 
       ; Allocate a moveable global block large enough for: BITMAPINFOHEADER (40 bytes) + raw pixel data
+      dibSize := ((ds.dsBm.bmWidth * ds.dsBm.bmBitsPixel + 31) // 32) * 4 * ds.dsBm.bmHeight
+      if (dibSize != ds.dsBmih.biSizeImage)
+         elog("DIB Size Mismatch: " dibSize " vs " ds.dsBmih.biSizeImage)
+
       dwBytes := ds.dsBmih.size + ds.dsBmih.biSizeImage
       If not (hdib := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
          DllCall("CloseClipboard")
@@ -99,14 +102,14 @@ Class Clipboard {
       ; Lock down the object while we work with it
       pdib := this.GlobalLock(hdib)
       ; Copy BITMAPINFOHEADER into the front of the global block
-      this.CopyMemory(pdib, ds.dsBmih.Ptr, bmHeaderSize)
+      this.CopyMemory(pdib, ds.dsBmih.Ptr, ds.dsBmih.Size)
       ; ; Copy raw pixel data after the header
-      this.CopyMemory(pdib + bmHeaderSize, ds.dsBm.bmBits, ds.dsBmih.biSizeImage)
+      this.CopyMemory(pdib + ds.dsBmih.Size, ds.dsBm.bmBits, ds.dsBmih.biSizeImage)
       this.GlobalUnlock(hdib)
 
       ; Place the DIB on the clipboard — on success clipboard owns hdib, do NOT free it
       If not this.SetClipboardData(CF_DIB := 8, hdib) {
-         this.GlobalFree(hdib)
+         this.GlobalFree(hdib) ; only free if failed
          this.CloseClipboard()
          Gdi.DeleteObject(hBitmap)
          Return -4
