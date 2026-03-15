@@ -3967,6 +3967,8 @@ Class GDIp {
 /**
  * Base class for all typed buffer structures, providing Size and Ptr properties
  * compatible with DllCall parameter passing
+ * TODO - Alpha 22, no longer needed
+ * TODO - Alpha 22, Class -> Struct
  */
 Class _baseStructure {
    Size => ObjGetDataSize(this)
