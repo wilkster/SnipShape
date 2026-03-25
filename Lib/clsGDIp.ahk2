@@ -6,7 +6,8 @@
  * @version 1.0.0
  ***********************************************************************/
 
-#Requires AutoHotkey v2.1-
+#Requires AutoHotkey v2.1-alpha.23
+
 #DllLoad "Gdi32.dll" 
 #DllLoad "GdiPlus.dll" 
 #DllLoad "Shcore.dll"
@@ -60,7 +61,7 @@ Class GDI {
          , "Ptr"  , hdc2
          , "Ptr"  , bi.ptr    ; BITMAPINFO
          , "uint" , Usage     ; DIB_RGB_COLORS := 0
-         , "UPtr*", &ppvBits
+         , "Ptr*", &ppvBits
          , "Ptr"  , hSection
          , "uint" , Offset, "Ptr")
 
@@ -644,7 +645,7 @@ int DrawText(
          , "UInt", 0     	; _In_ DWORD   fdwQuality, (DEFAULT_QUALITY)
          , "UInt", 0     	; _In_ DWORD   fdwPitchAndFamily, (FF_DONTCARE|DEFAULT_PITCH)
          , "Str", Face   	; _In_ LPCTSTR  lpszFace typeface name of the font (32 char max)
-         , "UPtr")
+         , "Ptr")
    }
    /**
     * Return the associated font structure for a control
@@ -703,7 +704,7 @@ Class GDIp {
       si := Buffer(A_PtrSize = 4 ? 20 : 32, 0) ; sizeof(GdiplusStartupInputEx) = 20, 32
       NumPut("uint", 0x2, si) ; version 2
       ; NumPut("uint", 0x4, si, A_PtrSize = 4 ? 16 : 24) ; does this suppress hooks? 2024-11-16 commented out
-      DllCall("gdiplus\GdiplusStartup", "UPtr*", &pToken := 0, "Ptr", si.ptr, "Ptr", 0)
+      DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", si.ptr, "Ptr", 0)
       If (!pToken) {
          Throw Error("Gdiplus failed to start. Please ensure you have gdiplus on your system")
       } Else {
@@ -735,7 +736,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static Flush(pGraphics, intent := 1) {
-      Return DllCall("gdiplus\GdipFlush", "UPtr", pGraphics, "int", intent)
+      Return DllCall("gdiplus\GdipFlush", "Ptr", pGraphics, "int", intent)
    }
 
    ;----------------------------------------------------------------------
@@ -1379,7 +1380,7 @@ Class GDIp {
        */
       Translate(x, y, MatrixOrder := 0) {
          GDIp.ResetWorldTransform(this.iG)
-         if (res:= DllCall("gdiplus\GdipTranslateWorldTransform", "UPtr", this.iG, "float", x, "float", y, "int", MatrixOrder))
+         if (res:= DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.iG, "float", x, "float", y, "int", MatrixOrder))
             Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
          return res
       }
@@ -1501,7 +1502,7 @@ Class GDIp {
     * @param pGrahics 
     */
    Static GetDC(pGrahics) {
-      if (res := DllCall("gdiplus\GdipGetDC", "Ptr", pGrahics, "UPtr*", &DC := 0))
+      if (res := DllCall("gdiplus\GdipGetDC", "Ptr", pGrahics, "Ptr*", &DC := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return DC
    }
@@ -1512,7 +1513,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static ReleaseDC(pGrahics, DC) {
-      if (res := DllCall("gdiplus\GdipReleaseDC", "Ptr", pGrahics, "UPtr", DC))
+      if (res := DllCall("gdiplus\GdipReleaseDC", "Ptr", pGrahics, "Ptr", DC))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
@@ -1522,7 +1523,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the GDI+ bitmap, 0 on failure
     */
    Static CreateBitmapFromFile(sFile) {
-      if (res := DllCall("gdiplus\GdipCreateBitmapFromFile", "WStr", sFile, "UPtr*", &pBitmap:=0))
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromFile", "WStr", sFile, "Ptr*", &pBitmap:=0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return pBitmap
    }
@@ -1533,7 +1534,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the GDI+ bitmap
     */
    Static CreateBitmapFromHICON(hIcon) {
-      if (res := DllCall("gdiplus\GdipCreateBitmapFromHICON", "Ptr", hIcon, "UPtr*", &pBitmap := 0))
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromHICON", "Ptr", hIcon, "Ptr*", &pBitmap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmap
    }
@@ -1544,7 +1545,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the newly created icon
     */
    Static CreateHICONFromBitmap(pBitmap) {
-      if (res := DllCall("gdiplus\GdipCreateHICONFromBitmap", "Ptr", pBitmap, "UPtr*", &hIcon := 0))
+      if (res := DllCall("gdiplus\GdipCreateHICONFromBitmap", "Ptr", pBitmap, "Ptr*", &hIcon := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return hIcon
    }
@@ -1558,7 +1559,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the newly created GDI+ bitmap
     */
    Static CreateBitmap(Width, Height, Format := 0x26200A) {
-      if (res := DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", Width, "Int", Height, "Int", 0, "Int", Format, "Ptr", 0, "UPtr*", &pBitmap := 0))
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", Width, "Int", Height, "Int", 0, "Int", Format, "Ptr", 0, "Ptr*", &pBitmap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmap
    }
@@ -1570,7 +1571,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the newly created GDI+ bitmap
     */
    Static CreateBitmapFromGraphics(pGraphics, Width, Height) {
-      if (res := DllCall("gdiplus\GdipCreateBitmapFromGraphics", "int", Width, "int", Height, "UPtr", pGraphics, "UPtr*", &pBitmap := 0))
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromGraphics", "int", Width, "int", Height, "Ptr", pGraphics, "Ptr*", &pBitmap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmap
    }
@@ -1586,7 +1587,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the GDI+ bitmap
     */
    Static CreateBitmapFromHBITMAP(hBitmap, hPalette := 0) {
-      if (res := DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hBitmap, "Ptr", hPalette, "UPtr*", &pBitmap := 0))
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hBitmap, "Ptr", hPalette, "Ptr*", &pBitmap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmap
    }
@@ -1605,9 +1606,9 @@ Class GDIp {
       ; struct BITMAP - https://docs.microsoft.com/en-us/windows/desktop/api/wingdi/ns-wingdi-tagbitmap
       dib:= tagBITMAP()
       DllCall("GetObject"
-         , "UPtr", hImage
+         , "Ptr", hImage
          , "int" , dib.Size
-         , "UPtr", dib.ptr) ; sizeof(DIBSECTION) = x86:84, x64:104
+         , "Ptr", dib.ptr) ; sizeof(DIBSECTION) = x86:84, x64:104
       width  := dib.bmWidth ; NumGet(dib, 4, "uint")
       height := dib.bmHeight ; NumGet(dib, 8, "uint")
       bpp    := dib.bmBitsPixel ;NumGet(dib, 18, "ushort")
@@ -1638,17 +1639,17 @@ Class GDIp {
       bmd.PixelFormat := 0xE200B
       bmd.Scan0       := pBits
       DllCall("gdiplus\GdipBitmapLockBits"
-         , "UPtr", pBitmap
-         , "UPtr", Rect.ptr
+         , "Ptr", pBitmap
+         , "Ptr", Rect.ptr
          , "uint", 6            ; ImageLockMode.UserInputBuffer | ImageLockMode.WriteOnly
          , "int" , 0xE200B      ; Format32bppPArgb
-         , "UPtr", bmd.ptr)
+         , "Ptr", bmd.ptr)
 
       ; Ensure that our hBitmap (hImage) is top-down by copying it to a top-down bitmap.
       GDI.BitBlt(cdc, 0, 0, width, height, hdc, 0, 0)
 
       ; Convert the pARGB pixels copied into the device independent bitmap (hbm) to ARGB.
-      DllCall("gdiplus\GdipBitmapUnlockBits", "UPtr", pBitmap, "UPtr", bmd.ptr)
+      DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", pBitmap, "Ptr", bmd.ptr)
 
       ; Cleanup the buffer and device contexts.
       GDI.SelectObject(cdc, ob2)
@@ -1664,7 +1665,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the Graphics object for drawing onto the bitmap
     */
    Static GraphicsFromImage(pBitmap) {
-      if (res := DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", pBitmap, "UPtr*", &pGraphics := 0))
+      if (res := DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", pBitmap, "Ptr*", &pGraphics := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pGraphics
    }
@@ -1702,14 +1703,14 @@ Class GDIp {
       ;    , NumPut("UInt",    height, bmd,  4) ; Height
       ;    , NumPut("Int",  4 * width, bmd,  8) ; Stride
       ;    , NumPut("Int",    0xE200B, bmd, 12) ; PixelFormat
-      ;    , NumPut("UPtr",      pBits, bmd, 16) ; Scan0
+      ;    , NumPut("Ptr",      pBits, bmd, 16) ; Scan0
       DllCall("gdiplus\GdipBitmapLockBits"
-            ,    "UPtr", pBitmap
-            ,    "UPtr", Rect.ptr
+            ,    "Ptr", pBitmap
+            ,    "Ptr", Rect.ptr
             ,    "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly
             ,    "int", 0xE200B       ; Format32bppPArgb
-            ,    "UPtr", bmd.ptr)     ; Contains the pointer (pBits) to the hbm.
-      DllCall("gdiplus\GdipBitmapUnlockBits", "UPtr", pBitmap, "UPtr", bmd.ptr)
+            ,    "Ptr", bmd.ptr)     ; Contains the pointer (pBits) to the hbm.
+      DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", pBitmap, "Ptr", bmd.ptr)
 
       ; Cleanup the hBitmap and device contexts.
       GDi.SelectObject(hdc, obm)
@@ -1726,7 +1727,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the GDI hBitmap
     */
    Static CreateHBITMAPFromBitmap(pBitmap, Background := 0xffffffff) {
-      if (res:= DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", pBitmap, "UPtr*", &hBitmap := 0, "int", Background))
+      if (res:= DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", pBitmap, "Ptr*", &hBitmap := 0, "int", Background))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return hBitmap
    }
@@ -1758,9 +1759,9 @@ Class GDIp {
     */
    Static GraphicsFromHDC(hDC, hDevice := "", InterpolationMode := "", SmoothingMode := "", PageUnit := "", CompositingQuality := "") {
       If hDevice
-         res := DllCall("Gdiplus\GdipCreateFromHDC2", "Ptr", hDC, "Ptr", hDevice, "UPtr*", &pGraphics := 0)
+         res := DllCall("Gdiplus\GdipCreateFromHDC2", "Ptr", hDC, "Ptr", hDevice, "Ptr*", &pGraphics := 0)
       Else
-         res := DllCall("gdiplus\GdipCreateFromHDC", "Ptr", hDC, "UPtr*", &pGraphics := 0)
+         res := DllCall("gdiplus\GdipCreateFromHDC", "Ptr", hDC, "Ptr*", &pGraphics := 0)
       if (res)
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       If pGraphics {
@@ -1964,7 +1965,7 @@ Class GDIp {
     * Creates an blank ImageAttributes object.
     */
    Static CreateImageAttributes() {
-      DllCall("gdiplus\GdipCreateImageAttributes", "UPtr*", &ImageAttr := 0)
+      DllCall("gdiplus\GdipCreateImageAttributes", "Ptr*", &ImageAttr := 0)
       Return ImageAttr
    }
    /*
@@ -2074,9 +2075,9 @@ Class GDIp {
       ch1 := Buffer(numEntries * sizeofUInt, 0)
       ch2 := Buffer(numEntries * sizeofUInt, 0)
       If (whichFormat = 2)
-         r := DllCall("gdiplus\GdipBitmapGetHistogram", "UPtr", pBitmap, "UInt", whichFormat, "UInt", numEntries, "UPtr", ch0.ptr, "UPtr", ch1.ptr, "UPtr", ch2.ptr, "UPtr", 0)
+         r := DllCall("gdiplus\GdipBitmapGetHistogram", "Ptr", pBitmap, "UInt", whichFormat, "UInt", numEntries, "Ptr", ch0.ptr, "Ptr", ch1.ptr, "Ptr", ch2.ptr, "Ptr", 0)
       Else If (whichFormat > 2)
-         r := DllCall("gdiplus\GdipBitmapGetHistogram", "UPtr", pBitmap, "UInt", whichFormat, "UInt", numEntries, "UPtr", ch0.ptr, "UPtr", 0, "UPtr", 0, "UPtr", 0)
+         r := DllCall("gdiplus\GdipBitmapGetHistogram", "Ptr", pBitmap, "UInt", whichFormat, "UInt", numEntries, "Ptr", ch0.ptr, "Ptr", 0, "Ptr", 0, "Ptr", 0)
 
       Loop numEntries {
          i := A_Index - 1
@@ -2165,7 +2166,7 @@ Class GDIp {
    Static GetImageBounds(pBitmap) {
       rData := {}
       RectF := stRECTF()
-      status := DllCall("gdiplus\GdipGetImageBounds", "UPtr", pBitmap, "UPtr", RectF.ptr, "Int*", 0)
+      status := DllCall("gdiplus\GdipGetImageBounds", "Ptr", pBitmap, "Ptr", RectF.ptr, "Int*", 0)
 
       If (!status) {
          rData.x := RectF.x1
@@ -2283,7 +2284,7 @@ Class GDIp {
          , "Float", length
          , "Float", width
          , "UInt", isFilled  ; block arrow or line arrow
-         , "UPtr*", &pCap := 0))
+         , "Ptr*", &pCap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       else if Inset
          GDIp.SetAdjustableArrowCapMiddleInset(pCap, Inset)
@@ -2435,7 +2436,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static FlattenPath(pPath, flatness, hMatrix:=0) {
-      return DllCall("gdiplus\GdipFlattenPath", "UPtr", pPath, "UPtr", hMatrix, "float", flatness)
+      return DllCall("gdiplus\GdipFlattenPath", "Ptr", pPath, "Ptr", hMatrix, "float", flatness)
    }
       ; Replaces this path with curves that enclose the area that is filled when this path is drawn by a specified pen.
       ; This method also flattens the path.
@@ -2465,7 +2466,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static PathOutline(pPath, flatness:=1, hMatrix:=0) {
-      return DllCall("gdiplus\GdipWindingModeOutline", "UPtr", pPath, "UPtr", hMatrix, "float", flatness)
+      return DllCall("gdiplus\GdipWindingModeOutline", "Ptr", pPath, "Ptr", hMatrix, "float", flatness)
    }      
    ; Function				Static DrawLine
    ; Description			This function uses a pen to draw a line into the Graphics of a bitmap
@@ -2582,7 +2583,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static TranslateWorldTransform(pGraphics, x, y, MatrixOrder := 0) {
-      If (res := DllCall("gdiplus\GdipTranslateWorldTransform", "UPtr", pGraphics, "float", x, "float", y, "int", MatrixOrder))
+      If (res := DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", pGraphics, "float", x, "float", y, "int", MatrixOrder))
          warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return res
    }
@@ -2592,7 +2593,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static ResetWorldTransform(pGraphics) {
-      Return DllCall("gdiplus\GdipResetWorldTransform", "UPtr", pGraphics)
+      Return DllCall("gdiplus\GdipResetWorldTransform", "Ptr", pGraphics)
    }
 
    /**
@@ -2628,7 +2629,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static ScaleWorldTransform(pGraphics, ScaleX, ScaleY, MatrixOrder := 0) {
-      if (res := DllCall("gdiplus\GdipScaleWorldTransform", "UPtr", pGraphics, "float", ScaleX, "float", ScaleY, "int", MatrixOrder))
+      if (res := DllCall("gdiplus\GdipScaleWorldTransform", "Ptr", pGraphics, "float", ScaleX, "float", ScaleY, "int", MatrixOrder))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
@@ -2756,7 +2757,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the new matrix
     */
    Static CreateMatrix() {
-      if (res := DllCall("gdiplus\GdipCreateMatrix", "UPtr*", &Matrix := 0))
+      if (res := DllCall("gdiplus\GdipCreateMatrix", "Ptr*", &Matrix := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return Matrix
    }
@@ -2779,7 +2780,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static ScaleMatrix(hMatrix, ScaleX, ScaleY, MatrixOrder := 0) {
-      Return DllCall("gdiplus\GdipScaleMatrix", "UPtr", hMatrix, "float", ScaleX, "float", ScaleY, "Int", MatrixOrder)
+      Return DllCall("gdiplus\GdipScaleMatrix", "Ptr", hMatrix, "float", ScaleX, "float", ScaleY, "Int", MatrixOrder)
    }
    /**
     * Apply a rotation to a matrix
@@ -2920,7 +2921,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static DrawPolygon(pGraphics, pPen, Points, iCount, dummy:=0) {
-      if (res := DllCall("gdiplus\GdipDrawPolygon", "UPtr", pGraphics, "UPtr", pPen, "UPtr", Points, "UInt", iCount))
+      if (res := DllCall("gdiplus\GdipDrawPolygon", "Ptr", pGraphics, "Ptr", pPen, "Ptr", Points, "UInt", iCount))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
@@ -2933,7 +2934,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static DrawPolygonI(pGraphics, pPen, Points, Count) {
-      if (res := DllCall("gdiplus\GdipDrawPolygonI", "UPtr", pGraphics, "UPtr", pPen, "Ptr", Points, "UInt", Count))
+      if (res := DllCall("gdiplus\GdipDrawPolygonI", "Ptr", pGraphics, "Ptr", pPen, "Ptr", Points, "UInt", Count))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
@@ -3162,7 +3163,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the newly created GraphicsPath
     */
    Static CreatePath(BrushMode := 0) {
-      if (res := DllCall("gdiplus\GdipCreatePath", "int", BrushMode, "UPtr*", &pPath := 0))
+      if (res := DllCall("gdiplus\GdipCreatePath", "int", BrushMode, "Ptr*", &pPath := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pPath
    }
@@ -3185,7 +3186,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the cloned GraphicsPath
     */
    Static ClonePath(pPath) {
-      if (res := DllCall("gdiplus\GdipClonePath", "Ptr", pPath, "UPtr*", &pPathClone := 0))
+      if (res := DllCall("gdiplus\GdipClonePath", "Ptr", pPath, "Ptr*", &pPathClone := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pPathClone
    }
@@ -3484,7 +3485,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static FillEllipse(pGraphics, pBrush, x, y, w, h) {
-      If (res := DllCall("gdiplus\GdipFillEllipse", "UPtr", pGraphics, "UPtr", pBrush, "Float", x, "Float", y, "Float", w, "Float", h))
+      If (res := DllCall("gdiplus\GdipFillEllipse", "Ptr", pGraphics, "Ptr", pBrush, "Float", x, "Float", y, "Float", w, "Float", h))
          warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
@@ -3592,7 +3593,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the new pen
     */
    Static CreatePen(ARGB, w, Unit := 2) {
-      if (res := DllCall("gdiplus\GdipCreatePen1", "UInt", ARGB, "float", w, "int", Unit, "UPtr*", &pPen := 0))
+      if (res := DllCall("gdiplus\GdipCreatePen1", "UInt", ARGB, "float", w, "int", Unit, "Ptr*", &pPen := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pPen
    }
@@ -3602,7 +3603,7 @@ Class GDIp {
     * @returns {Ptr} Handle to the cloned pen
     */
    Static ClonePen(pPen) {
-      if (res := DllCall("gdiplus\GdipClonePen", "ptr", pPen, "UPtr*", &cPen := 0))
+      if (res := DllCall("gdiplus\GdipClonePen", "ptr", pPen, "Ptr*", &cPen := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return cPen
    }
@@ -3746,7 +3747,7 @@ Class GDIp {
       Loop PointsCount
          NumPut("Float", Points[A_Index], PointsF, 4*(A_Index - 1))
 
-      Return DllCall("gdiplus\GdipSetPenDashArray", "UPtr", pPen, "UPtr", PointsF.ptr, "int", PointsCount)
+      Return DllCall("gdiplus\GdipSetPenDashArray", "Ptr", pPen, "Ptr", PointsF.ptr, "int", PointsCount)
    }
 
    ; Sets the distance from the start of the line to the start of the first space in a dashed line
@@ -3760,7 +3761,7 @@ Class GDIp {
     */
    Static SetPenDashOffset(pPen, Offset) {
 
-      Return DllCall("gdiplus\GdipSetPenDashOffset", "UPtr", pPen, "float", Offset)
+      Return DllCall("gdiplus\GdipSetPenDashOffset", "Ptr", pPen, "float", Offset)
    }
    ; DeleteGraphics
    /**
@@ -3796,7 +3797,7 @@ Class GDIp {
     */
    Static CreateRegionPath(pPath) {
       ; Creates a region that is defined by a GraphicsPath [pPath object]. Written by Learning one.
-      If (res := DllCall("gdiplus\GdipCreateRegionPath", "UPtr", pPath, "UPtr*", &Region:=0)) {
+      If (res := DllCall("gdiplus\GdipCreateRegionPath", "Ptr", pPath, "Ptr*", &Region:=0)) {
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
          Return 0
       } Else {
@@ -3814,7 +3815,7 @@ Class GDIp {
     */
    Static CreateRegionRect(x, y, w, h) {
       this.CreateRectF(&RectF, x, y, w, h)
-      Return (DllCall("gdiplus\GdipCreateRegionRect", "UPtr", RectF.ptr, "UPtr*", &Region := 0)) ? -1 : Region
+      Return (DllCall("gdiplus\GdipCreateRegionRect", "Ptr", RectF.ptr, "Ptr*", &Region := 0)) ? -1 : Region
    }
    /**
     * Delete a GDI+ region and free its resources
@@ -3822,7 +3823,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static DeleteRegion(Region) {
-      if (res := DllCall("gdiplus\GdipDeleteRegion", "UPtr", Region))
+      if (res := DllCall("gdiplus\GdipDeleteRegion", "Ptr", Region))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return res
    }
@@ -3833,7 +3834,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static SetInfiniteRegion(Region) {
-      Return DllCall("gdiplus\GdipSetInfinite", "UPtr", Region)
+      Return DllCall("gdiplus\GdipSetInfinite", "Ptr", Region)
    }
    
    /*
@@ -3855,7 +3856,7 @@ Class GDIp {
       ; pPen to use for calculating the boundaries
       ; Both will not affect the actual GraphicsPath.
       RectF := stRECTF()
-      res := DllCall("gdiplus\GdipGetPathWorldBounds", "UPtr", pPath, "UPtr", RectF.ptr, "UPtr", hMatrix, "UPtr", pPen)
+      res := DllCall("gdiplus\GdipGetPathWorldBounds", "Ptr", pPath, "Ptr", RectF.ptr, "Ptr", hMatrix, "Ptr", pPen)
       If (!res) {
          rData := { X: RectF.X1, Y: RectF.y1, W: RectF.X2, H: RectF.y2 }
          Return rData
@@ -3891,7 +3892,7 @@ Class GDIp {
     */
    Static GetRegionBounds(pGraphics, Region) {
       RectF := stRECTF()
-      res := DllCall("gdiplus\GdipGetRegionBounds", "UPtr", Region, "UPtr", pGraphics, "UPtr", RectF.ptr)
+      res := DllCall("gdiplus\GdipGetRegionBounds", "Ptr", Region, "Ptr", pGraphics, "Ptr", RectF.ptr)
       If (!res) {
          rData := { X: RectF.X1, Y: RectF.Y1, W: RectF.X2, H: RectF.y2 }
          Return rData
@@ -3911,7 +3912,7 @@ Class GDIp {
     */
    Static GetRegionBoundsI(pGraphics, Region) {
       RectI := stRECTI()
-      res := DllCall("gdiplus\GdipGetRegionBoundsI", "UPtr", Region, "UPtr", pGraphics, "UPtr", RectI.ptr)
+      res := DllCall("gdiplus\GdipGetRegionBoundsI", "Ptr", Region, "Ptr", pGraphics, "Ptr", RectI.ptr)
       If (!res) {
          rData := { X: RectI.X1, Y: RectI.Y1, W: RectI.X2, H: RectI.y2 }
       } Else {
@@ -3960,6 +3961,19 @@ Class GDIp {
 ; 2.1 Structures used herein
 ; Base Rectangle Structure
 ;----------------------------------------------------------------------
+Struct baseStructure {
+   CopyTo(objTarget) {
+      ; Don't necessarly need the propery names to match, but they have to be the same size
+      if (this.Size > 0 AND objTarget.Size = this.Size) {
+         DllCall("RtlCopyMemory", IntPtr, objTarget.Ptr, IntPtr, this.Ptr, IntPtr, this.Size)
+         Return 1
+      } else  {
+         Error("Object Size Mismatch on " this.__Class, -1, objTarget.__Class)
+      }
+   }
+   ; Bug fix for alpha 22, Size doesn't work in nested structures
+   ; Size => ObjGetDataSize(this) ; this will fix it but shouldn't be necessary
+}
 ;----------------------------------------------------------------------
 ; Commonly used structures
 ;----------------------------------------------------------------------
@@ -3970,16 +3984,13 @@ Class GDIp {
  * TODO - Alpha 22, no longer needed
  * TODO - Alpha 22, Class -> Struct
  */
-Class _baseStructure {
-   Size => ObjGetDataSize(this)
-   Ptr  => ObjGetDataPtr(this)
-}
+
 
 /**
  * Base rectangle class providing w, h computed properties and a shift method.
- * Extends _baseStructure for direct use in DllCall.
+ * for direct use in DllCall.
  */
-Class _clsRECT extends _baseStructure {
+Struct _clsRECT {
    ; For speed we don't use __New for every creation
    /**
     * Initialize the rectangle fields
@@ -4032,11 +4043,11 @@ Class _clsRECT extends _baseStructure {
 /**
  * Integer rectangle structure (RECT) for use in DllCall and GDI/GDI+ operations
  */
-Class stRECTI extends _clsRECT {
-   x1: i32
-   y1: i32
-   x2: i32
-   y2: i32
+Struct stRECTI extends _clsRECT {
+   x1: Int32
+   y1: Int32
+   x2: Int32
+   y2: Int32
    ; Helper properties
 }
 ;----------------------------------------------------------------------
@@ -4047,23 +4058,23 @@ Class stRECTI extends _clsRECT {
 /**
  * Floating-point rectangle structure (RectF) for use in GDI+ operations
  */
-Class stRECTF extends _clsRECT {
-   x1: f32
-   y1: f32
-   x2: f32
-   y2: f32
+Struct stRECTF extends _clsRECT {
+   x1: Float32
+   y1: Float32
+   x2: Float32
+   y2: Float32
 }
 ; https://learn.microsoft.com/en-us/previous-versions/ms534421(v=vs.85)
 /**
  * GDI+ BitmapData structure, used with LockBits/UnlockBits to access raw pixel data
  */
-Class BitmapData extends _baseStructure {
-   Width      : u32
-   Height     : u32
-   Stride     : I32
-   PixelFormat: u32
-   Scan0      : uptr
-   Reserved   : uptr
+Struct BitmapData {
+   Width      : UInt32
+   Height     : UInt32
+   Stride     : Int32
+   PixelFormat: UInt32
+   Scan0      : IntPtr
+   Reserved   : IntPtr
 }
 ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
 ; // ----------------------------------------------------------
@@ -4085,14 +4096,14 @@ Class BitmapData extends _baseStructure {
 /**
  * GDI BITMAP structure, maps the tagBITMAP layout for use with GetObject
  */
-Class tagBITMAP extends _baseStructure {
-   bmType      : I32 ;0
-   bmWidth     : I32 ;4
-   bmHeight    : I32 ;8
-   bmWidthBytes: I32 ;16
-   bmPlanes    : i16 ;18
-   bmBitsPixel : i16 ; 20
-   bmBits      : uptr ;28
+Struct tagBITMAP {
+   bmType      : Int32 ;0
+   bmWidth     : Int32 ;4
+   bmHeight    : Int32 ;8
+   bmWidthBytes: Int32 ;16
+   bmPlanes    : Int16 ;18
+   bmBitsPixel : Int16 ; 20
+   bmBits      : IntPtr ;28
 }
 ; // ----------------------------------------------------------
 ; // 2. tagBITMAPINFOHEADER  (the dsBmih member of tagDIBSECTION)
@@ -4116,26 +4127,27 @@ Class tagBITMAP extends _baseStructure {
 /**
  * GDI BITMAPINFOHEADER structure (40 bytes, identical on x86 and x64)
  */
-Class tagBITMAPINFOHEADER extends _baseStructure {
-   biSize         : u32 ; 4
-   biWidth        : i32 ; 4
-   biHeight       : i32 ; 4
-   biPlanes       : I16 ; 2
-   biBitCount     : i16 ; 2
-   biCompression  : u32 ; 4
-   biSizeImage    : u32 ; 4
-   biXPelsPerMeter: i32 ; 4
-   biYPelsPerMeter: i32 ; 4
-   biClrUsed      : u32 ; 4
-   biClrImportant : u32 ; 4
+Struct tagBITMAPINFOHEADER {
+   biSize         : UInt32 ; 4
+   biWidth        : Int32 ; 4
+   biHeight       : Int32 ; 4
+   biPlanes       : Int16 ; 2
+   biBitCount     : Int16 ; 2
+   biCompression  : UInt32 ; 4
+   biSizeImage    : UInt32 ; 4
+   biXPelsPerMeter: Int32 ; 4
+   biYPelsPerMeter: Int32 ; 4
+   biClrUsed      : UInt32 ; 4
+   biClrImportant : UInt32 ; 4
+   ; Size => ObjGetDataSize(this)
 }
 /**
  * Simple RGB channel structure holding three 32-bit unsigned values (R, G, B)
  */
-Class stRGB extends _baseStructure {
-   R         : u32
-   G         : u32
-   B         : u32
+Struct stRGB {
+   R         : UInt32
+   G         : UInt32
+   B         : UInt32
 }
 ; ----------------------------------------------------------
 ; 3. tagDIBSECTION  (the top-level structure)
@@ -4158,18 +4170,19 @@ Class stRGB extends _baseStructure {
 /**
  * GDI DIBSECTION structure combining BITMAP, BITMAPINFOHEADER, color masks, section handle and offset
  */
-Class tagDIBSECTION extends _baseStructure {
+Struct tagDIBSECTION {
    dsBm       : tagBITMAP
    dsBmih     : tagBITMAPINFOHEADER
    dsBitfields: stRGB
-   dshSection : uptr
-   dsOffset   : u32
+   dshSection : IntPtr
+   dsOffset   : UInt32
+   ; Size => ObjGetDataSize(this)
 }
 
 /**
- * Integer 2D point structure with Init helper and i32 X/Y fields
+ * Integer 2D point structure with Init helper and Int32 X/Y fields
  */
-Class stPointI extends _baseStructure {
+Struct stPointI {
    /**
     * Initialize the point coordinates
     * @param X X coordinate (default: 0)
@@ -4179,13 +4192,13 @@ Class stPointI extends _baseStructure {
       this.X := X
       this.Y := Y
    }
-   X: i32
-   Y: i32
+   X: Int32
+   Y: Int32
 }
 /**
- * Floating-point 2D point structure with Init helper and f32 X/Y fields
+ * Floating-point 2D point structure with Init helper and Float32 X/Y fields
  */
-Class stPointF extends _baseStructure {
+Struct stPointF {
    /**
     * Initialize the point coordinates
     * @param X X coordinate (default: 0)
@@ -4195,17 +4208,17 @@ Class stPointF extends _baseStructure {
       this.X := X
       this.Y := Y
    }
-   X: f32
-   Y: f32
+   X: Float32
+   Y: Float32
 }
 /**
  * MONITORINFOEX structure for use with GetMonitorInfo, including the monitor name string
  */
-Class stMONITORINFOEX extends _baseStructure {
-   cbSize   : i32 := ObjGetDataSize(this)
+Struct stMONITORINFOEX {
+   cbSize   : Int32 := ObjGetDataSize(this)
    rcMonitor: stRECTI
    rcWork   : stRECTI
-   dwFlags  : i32
+   dwFlags  : Int32
    _name    : 64
    /**
     * Return the monitor device name as a string from the raw _name field

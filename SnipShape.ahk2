@@ -1,3 +1,4 @@
+#Requires AutoHotkey v2.1-alpha.23
 /************************************************************************
  * @description Windows Snipper and Annotation tool in Autohotkey 2.1
  * @file SnipShape.ahk2
@@ -6,8 +7,6 @@
  * @version 1.0.0
  ***********************************************************************/
 TraySetIcon(A_ScriptDir "\Cursors\SnipShape.ico") ; Scissors
-#Requires AutoHotkey v2.1-
-
 ;-----------------------------------------------
 ;
 ; AutoHotkey alternate to Windows Snipping Tool with additional features
