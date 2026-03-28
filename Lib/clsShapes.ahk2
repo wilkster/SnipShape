@@ -1222,7 +1222,7 @@ Class Shapes {
          Case "Text":
             CloneObj                := SnipObj.AddNewShape(ShapeObj.Shape)
             CloneObj.shapeThickness := ShapeObj.shapeThickness
-            vShift                  := round(random(10,100)) ; must round to whole number
+            vShift                  := ShapeObj.shapeCoord.H
 
             If (CloneObj.DrawText(csX, csY + vShift, ShapeObj.FontSize, ShapeObj.Text, ShapeObj.FontName, ShapeObj.Alignment, ShapeObj.FontStyle, ShapeObj.Color, ShapeObj.BGColor)) {
                ShapeOnTop(CloneObj)
