@@ -702,7 +702,7 @@ Class GDIp {
    Static SystemStartup() {
       Critical("On")
       si := Buffer(A_PtrSize = 4 ? 20 : 32, 0) ; sizeof(GdiplusStartupInputEx) = 20, 32
-      NumPut("uint", 0x2, si) ; version 2
+      NumPut("uint", 0x2, si) ; version 1.1 = 2
       ; NumPut("uint", 0x4, si, A_PtrSize = 4 ? 16 : 24) ; does this suppress hooks? 2024-11-16 commented out
       DllCall("gdiplus\GdiplusStartup", "Ptr*", &pToken := 0, "Ptr", si.ptr, "Ptr", 0)
       If (!pToken) {

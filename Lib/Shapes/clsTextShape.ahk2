@@ -488,6 +488,15 @@ Class TextShape extends CommonShape {
       If (Obj.Result = "OK") {
          this.Shape := Obj.Shape
          this.DrawText(C.X1, C.Y1, Obj.Size, Trim(Obj.Value, " `n"), Obj.Font, Obj.ALignment, Obj.FontStyle, RGBval(Obj.Color))
+         ; Reposition if alignment not left after editing
+         Cn := this.shapeCoord
+         Switch Obj.ALignment {
+            Case "Left" :
+            Case "Center" :
+               this.Move(Cn.X1 + (C.W - Cn.W) / 2, Cn.Y1)
+            Case "Right" :
+               this.Move(Cn.X1 + C.W - Cn.W, Cn.Y1)
+         }
       }
    }
 
