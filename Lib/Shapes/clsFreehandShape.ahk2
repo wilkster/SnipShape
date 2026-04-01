@@ -116,7 +116,7 @@ Class FreeHandShape extends commonShape {
          Default:
             warning("Unknown Shape " this.Shape)
       }
-      this.MyPoints              := FreeHandShape.clsPoints(this.pPrime, this.minGap, this.Alpha)
+      this.MyPoints              := FreeHandShape.clsPoints(this.pPrime, this.minGap, this.Beta, this.Cutoff)
       this.MyPoints.pPrime       := this.pPrime
       this.MyPoints.blankBrush   := this.blankBrush
       this.MyPoints.pOutline     := this.pOutline
@@ -132,34 +132,41 @@ Class FreeHandShape extends commonShape {
     */
    setSmoothingFactor(amount) {
       ; Ratio of minGap to alpha smoothing
-      r := 3
       Switch amount {
          Case "Extreme":
-            this.alpha := 0.04
-            this.sm := r / this.alpha ; 40 visible pixels (96 DPI)
+            this.beta   := 0.0015
+            this.cutoff := 0.0
+            this.minGap := 25
          Case "Very High":
-            this.alpha := 0.07
-            this.sm := r / this.alpha ; 40 visible pixels (96 DPI)
+            this.beta   := 0.008
+            this.cutoff := 0.10
+            this.minGap := 15
          Case "High":
-            this.alpha := 0.15
-            this.sm := r / this.alpha ; 25
+            this.beta   := 0.015
+            this.cutoff := 0.5
+            this.minGap := 10
          Case "Medium":
-            this.alpha := 0.25
-            this.sm := r / this.alpha ; 15
+            this.beta   := 0.03
+            this.cutoff := 1.5
+            this.minGap := 5
          Case "Low":
-            this.alpha := 0.4
-            this.sm := r / this.alpha ; 5
+            this.beta   := 0.05
+            this.cutoff := 5.0
+            this.minGap := 5
          Case "Minimal":
-            this.alpha := 0.8
-            this.sm := r / this.alpha ; 1
+            this.beta   := 0.1
+            this.cutoff := 10
+            this.minGap := 2
          Case "None":
-            this.alpha := 1
-            this.sm := 1
+            this.beta   := 5
+            this.cutoff := 30
+            this.minGap := 1
          Default:
-            this.alpha := 0.9
-            this.sm := r / this.alpha ; 3
+            this.beta   := 5
+            this.cutoff := 30
+            this.minGap := 1
       }
-      this.minGap := this.sm * this.DPIFactor    ; default minimum gap between curve points
+      this.minGap *= this.DPIFactor    ; default minimum gap between curve points
    }
 
    /**
@@ -316,12 +323,15 @@ Class FreeHandShape extends commonShape {
                this.Color := res
                this.Refresh()
             } Else {
-               Super.Move(wX?, wY?, wW?, wH?)
+               Super.Move(wX?, wY?, wW?, wH?, true)
             }
-         Default:
-            ; Allow refresh to do the actual move to prevent flickering on resize
+         Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
+            ; Have to recompute/shift texture
             Super.Move(wX?, wY?, wW?, wH?, false)
             this.Refresh()
+         Default:
+            ; No redraw necessary unless resizing for normal pens
+            Super.Move(wX?, wY?, wW?, wH?, true)
       }
       Critical("Off")
    }
@@ -457,29 +467,33 @@ Class FreeHandShape extends commonShape {
        * @param {Number} [Alpha=0.3] - Smoothing alpha value
        * @param {Integer} [Count=100] - Initial size of buffer in points
        */
-      __New(_Pen, minGap := 20, Alpha := 0.3, Count := 100) {
-         this.pBuf          := Buffer(Count * 8) ; x = 4, y = 4 bytes
-         this.maxOffset     := this.pBuf.Size
-         this.Offset        := 0
-         this.Added         := 1
-         this.shapeOpacity  := 0xFF
-         this.pOutline      := 0
-         this.pPrime        := 0
-         this.blankBrush    := 0
-         this.Pen           := _Pen
-         this.lastInX       := -1000
-         this.lastInY       := -1000
-         this.lastX         := -1000
-         this.lastY         := -1000
-         this.closeMinGap   := 50 ; threshold to close a curve
-         this.minGap        := minGap
-         this.Alpha         := Alpha
-         this.nextTick      := A_TickCount
-         this.coord         := { X1: 10000, Y1: 10000, X2: -10000, Y2: -10000 }
-         this.firstPoint    := { X: -1000, Y: -1000 }
-         this.DrawFunction  := GDIp.DrawCurve2 ; default
-         this.OkToClose     := true
-         this.InitValue     := false
+      __New(_Pen, minGap := 20, beta := 0.03, cutoff:=1.5, Count := 100) {
+         this.pBuf         := Buffer(Count * 8) ; x = 4, y = 4 bytes
+         this.maxOffset    := this.pBuf.Size
+         this.Offset       := 0
+         this.Added        := 1
+         this.shapeOpacity := 0xFF
+         this.pOutline     := 0
+         this.pPrime       := 0
+         this.blankBrush   := 0
+         this.Pen          := _Pen
+         this.lastInX      := -1000
+         this.lastInY      := -1000
+         this.lastX        := -1000
+         this.lastY        := -1000
+         this.lastXc       := -1000
+         this.lastYc       := -1000
+         this.closeMinGap  := 50 ; threshold to close a curve
+         this.minGap       := minGap
+         this.nextTick     := A_TickCount
+         this.coord        := { X1: 10000, Y1: 10000, X2: -10000, Y2: -10000 }
+         this.firstPoint   := { X: -1000, Y: -1000 }
+         this.DrawFunction := GDIp.DrawCurve2 ; default
+         this.OkToClose    := true
+         this.InitValue    := false
+         this.mincutoff    := cutoff ; hand tuned
+         this.beta         := beta ; hand tuned
+         this.FS           := 50 ; 50Hz draw rate approx
       }
 
       /**
@@ -514,14 +528,24 @@ Class FreeHandShape extends commonShape {
          If ( this.firstPoint.X = -1000) {
             this.firstPoint := { X: X, Y: Y }
          } else if (NOT useLines) {
-            ; Some exponential smoothing on the inputs (curves only)
-            X := X * this.alpha + (1 - this.alpha) * this.lastInX
-            Y := Y * this.alpha + (1 - this.alpha) * this.lastInY
+               ; One Euro Filtering, dynamic alpha based on drawing speed
+            velocity := this.distance(Xc, this.lastXc, Yc, this.lastYc) * this.Fs
+            ; Dynamiclly adjust alpha based on mouse speed
+            k := 2 * 3.14159265 * (this.mincutoff + this.beta * velocity)
+            ; NOTE alpha is linear with K (velocity)
+            alpha := k / (k + this.Fs)
+            Y := Y * alpha + (1 - alpha) * this.lastInY
+            X := X * alpha + (1 - alpha) * this.lastInX
          }
          ; Decide whether to add this as an official point
          ; If we dwell then also place a point if using lines
          dist := this.distance(X, this.lastX, Y, this.lastY)
-         If ((dist > minGap) OR (now > this.nextTick AND useLines)) {
+         ; TODO - idea is to check the angle, and if it is really small than replace the last point with this point
+         ; ang := this.CurveDot(X, Y, this.lastX, this.lastY)
+         ; If Ang > .96 (15 deg) then replace the prior saved point since we are on a straight line
+         ; TODO - better to also check angle and distance not just distance
+         
+         If ((dist > minGap)) OR (now > this.nextTick AND useLines) {
             this.lastX := X, this.lastY := Y
             ; Replace latest temp point with last valid smoothed point
             NumPut("Float", X, "Float", Y, this.pBuf, this.Offset)
@@ -533,6 +557,52 @@ Class FreeHandShape extends commonShape {
          NumPut("Float", Xc, "Float", Yc, this.pBuf, this.Offset)
          this.lastInX := X, this.lastInY := Y
          this.nextTick := A_TickCount + 300 ; HC of 300 ms pause
+         this.lastXc   := Xc, this.lastYc := Yc
+      }
+      /*
+      p2 = newest point
+      p1 = previous point (the one you're deciding about)
+      p0 = older point
+      You are not deciding whether to add p2 based on curvature at p2.
+      You are deciding whether p1 was important enough to keep.
+      When you use this in curvature logic:
+         cosTheta near +1 → very little change in direction → straight line
+         cosTheta smaller (toward 0 or negative) → more turning → curvature / corner
+         Angle (θ)	cos(θ)
+         0°	1.000
+         15°	≈0.966
+         30°	≈0.866
+         60°	0.500
+         90°	0.000         
+      */
+      /**
+       * 
+       * @param x2 Latest smoothed point,x
+       * @param y2 Latest smoothed point,y
+       * @param x1 Prior placed point, x, candidate to replace
+       * @param y1 Prior placed point, y, candidate to replace
+       * @returns {Float | Integer} -1 to 1 value where 0 means minimal angle difference
+       */
+      CurveDot(x2, y2, x1, y1) {
+         If (this.Offset >= 24) {
+            ; xtract prior to smoothed points
+            x0 := NumGet(this.pBuf, this.Offset - 16, "Float")
+            y0 := NumGet(this.pBuf, this.Offset - 12, "Float")
+
+            ; debug(x0 " " x1 " " x2)
+
+            v1x := x1 - x0, v1y := y1 - y0
+            v2x := x2 - x1, v2y := y2 - y1
+            If (v1x * v1x + v1y * v1y < 1e-12 || v2x * v2x + v2y * v2y < 1e-12)
+               Return 1.0
+            dot := v1x * v2x + v1y * v2y
+            len1 := v1x * v1x + v1y * v1y
+            len2 := v2x * v2x + v2y * v2y
+            mag := Sqrt(len1 * len2)
+
+            Return dot / mag
+         } Else
+            Return 0.0
       }
 
       /**
