@@ -573,6 +573,7 @@ Class TextShape extends CommonShape {
     */
    Refresh(*) {
       this.GetPos(&_X, &_Y)
+      ; NOTE - if we are changing size it would be nice to adhere to text justification, as of now we are locked to left coordinates
       this.DrawText(_X, _Y)
       this.UpdateCoord()
       focusBorder.Sync()

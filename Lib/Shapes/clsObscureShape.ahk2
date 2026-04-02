@@ -211,7 +211,7 @@ Class ObscureShape extends commonShape {
       ; Super handles W/H, here we do if X/Y
       If (this.IsOverSnip() AND NOT (IsSet(W) or IsSet(H))) {
          ; Since we are redrawing at new pos, just do the coordinates calc
-         super.Move(X?, Y?, W?, H?, false)
+         Super.Move(X?, Y?, W?, H?, false)
          ; REDAC is local over shape only
          if (this.Shape = Shapes.SHAPE_REDAC)
             this.createImageBrush()

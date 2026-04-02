@@ -181,7 +181,6 @@ Class commonShape extends Gui.Pic {
       ; Brush to fill in behind free hand
       this.bGrab := this.myBrushes.Add(0x01000000)
       this.blankBrush := this.myBrushes.Add(0x00000000)
-
       this.Started := true
    }
    /**

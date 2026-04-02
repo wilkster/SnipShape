@@ -92,7 +92,7 @@ Class BodyShape extends commonShape {
    Refresh() {
       If (NOT this.Started) {
          this.Startup()
-         started := true
+         Started := true
       }
       ; internal shape boundaries
       C := this.shapeCoord

@@ -640,9 +640,8 @@ Class FreeHandShape extends commonShape {
 
             Offset := 0
             Loop this.added {
-               X := NumGet(this.pBuf.Ptr, Offset, "Float")
-               Y := NumGet(this.pBuf.Ptr, Offset + 4, "Float")
-               GDIp.DrawEllipse(G, bpen, X - 5, Y - 5, 10, 10)
+               point := stPointF.At(this.pBuf.Ptr + Offset)
+               GDIp.DrawEllipse(G, bpen, point.X - 5, point.Y - 5, 10, 10)
                Offset += 8
             }
             GDIp.DeletePen(bpen)

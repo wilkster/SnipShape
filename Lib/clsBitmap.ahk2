@@ -921,8 +921,8 @@ Class BitMap {
       DllCall("VirtualProtect", "ptr", p, "ptr", size, "uint", 0x40, "uint*", &op := 0) ; Allow execution from memory.
       DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", p, "uint*", &size, "ptr", 0, "ptr", 0)
       e := DllCall(p, "ptr", Scan01, "ptr", Scan02, "uint", width, "uint", height, "uint", 4, "uint", radius, "float", opacity)
-      if (NOT e)
-         logError("Failed to return a gaussian blur image")
+      ; if (NOT e)
+      ;    logError("Failed to return a gaussian blur image")
       DllCall("GlobalFree", "ptr", p)
       ; Free resources.
       DllCall("gdiplus\GdipBitmapUnlockBits", "ptr", TpBitmapIn, "ptr", pBitmapData)
