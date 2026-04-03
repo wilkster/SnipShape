@@ -132,7 +132,7 @@ Hotkey(IniReadValue("HotKey", "ClipActiveWindow", "+PrintScreen"), ClipActiveWin
  */
 SnipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
-      Area := Snips.getWindowArea(hWnd)
+      Area := getWindowArea(hWnd)
       Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
       qTrayTip("Captured Active Window")
    } else {
@@ -147,7 +147,7 @@ Hotkey(IniReadValue("HotKey", "SnipActiveWindow", "!PrintScreen"), SnipActiveWin
  * @param {*} * - Unused hotkey parameter.
  */
 SnipActiveMonitor(*) {
-   Area := Snips.activeMonArea()
+   Area := activeMonArea()
    Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)
    qTrayTip("Captured Active Monitor")
 }
@@ -286,14 +286,14 @@ HotIfWinActive
       ; Copy active snip and shapes to the clipboard
       ; NOTE - We will copy focus border if it is active
       if (sw := WinExist("A")) {
-         Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
          Snips.Minimize(sw)
       }
    }
    ^x:: {
       ; Cut active snip and shapes to the clipboard
       if (sw := WinExist("A")) {
-         Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
          Snips.Close(sw, 0)
       }
    }
@@ -412,7 +412,6 @@ Suspend(0)
  * @param {Integer} ExitCode - The exit code associated with the exit event.
  */
 Exiting(ExitReason, ExitCode) {
-   Global SETTINGS
 
    ; Shut down messages
    OnMessage(0x201, Snips.WM_LBUTTONDOWN, 0)
@@ -422,83 +421,7 @@ Exiting(ExitReason, ExitCode) {
    OnMessage(0x0216, Snips.WM_SIZEEMOVE,0) ; WM_MOVING
 
    Try Snips.CloseAll()
-   ;----------------------------------------------------------------------
-   ; Save Settings, IniWriteIfBlank means it only comes from settings file
-   ;----------------------------------------------------------------------
-   ; Snips
-   IniWriteIfBlank(Snips.rawBorderWidth, "User Snips", "Border Width")
-   IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
-   IniWriteIfBlank(SETTINGS.SavePath_Icons, "User Snips", "IconPath")
-   IniWriteIfBlank(SETTINGS.SavePath_Image, "User Snips", "SnipPath")
-   IniWriteIfBlank(SETTINGS.CursorPath, "User Snips", "CursorPath")
-   IniWriteIfBlank(SETTINGS.Scale_Freehand, "User Shapes", "ScaleFreehand")
-   IniWriteIfBlank(SETTINGS.DIBPad, "User Shapes", "Padding")
-   
-   IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
-   IniWriteValue(Snips.BorderWithCopy,  "Snips", "Border With Copy")
-   IniWriteValue(Snips.BorderWithSave,  "Snips", "Border With Save")
-   IniWriteValue(Snips.autoSaveToFile,  "Snips", "Auto Save Clips to File")
-   IniWriteValue(Snips.minimizeOnSnip,  "Snips", "Minimize On Snip to File")
-   IniWriteValue(Snips.confirmClose,  "Snips", "Confirm Snip Close if it has Shapes") 
-   IniWriteValue(Snips.dimScreen,  "Snips", "Dim Screen When Selecting") 
-   IniWriteValue(Snips.snipGuides,  "Snips", "Snip Guides When Selecting") 
-   IniWriteValue(Snips.captureStatic,  "Snips", "Capture Static Screen")
-   IniWriteValue(Snips.topMost,  "Snips", "Keep Snip Always On Top")
-
-
-   ;Button Bar   
-   IniWriteIfBlank(ButtonBar.FontSize,  "User Button Bar", "Font Size")
-   IniWriteValue(ButtonBar.Enabled,  "Button Bar", "Enabled")
-
-   ; Common Shapes
-   IniWriteIfBlank(hex(Shapes.outlineColor), "User Shape Color", "Outline Color")
-   IniWriteValue(Shapes.outlineOpacity, "Common Shape", "Outline Opacity")
-   IniWriteValue(Shapes.rawLineThickness, "Common Shape", "Line Thickness")
-   IniWriteValue(Shapes.outlineThickFactor, "Common Shape", "Outline Thickness Factor")
-   IniWriteValue(hex(Shapes.globalShapeColor), "Common Shape", "Default Shape Color")
-   IniWriteValue(Shapes.shapeOpacity, "Common Shape", "Shape Opacity")
-   ; Arrows
-   IniWriteValue(Shapes.arrowLineThickness, "Arrow Shape", "Arrow Thickness")
-   IniWriteValue(Shapes.ArrowSmoothFactor, "Arrow Shape", "Arrow Smoothing Factor")
-   IniWriteValue(Shapes.arrowOpacity, "Arrow Shape", "Arrow Opacity")
-   ; Body
-   IniWriteValue(Shapes.fillOpacity, "Body Shape", "Shape Fill Opacity")
-   ; Freehand
-   IniWriteValue(Shapes.penLineThickness, "Freehand Shape", "Pen Thickness")
-   IniWriteValue(Shapes.widePenThickness, "Freehand Shape", "Wide Pen Thickness")
-   IniWriteValue(Shapes.penOpacity, "Freehand Shape", "Pen Opacity")
-   IniWriteValue(Shapes.PenSmoothFactor, "Freehand Shape", "Pen Smoothing Factor")
-   ; Highlighters / Redact
-   IniWriteValue(Shapes.highLightThickness, "Highlight Shape", "Highlight/Whiteout Factor")
-   IniWriteValue(Shapes.HighlightSmoothFactor, "Highlight Shape", "Highlight/Whiteout Smoothing Factor")
-   IniWriteValue(Shapes.highlightOpacity, "Highlight Shape", "Highlighter Opacity")
-   IniWriteValue(hex(Shapes.highlightColor), "Highlight Shape", "Highlighter Color")
-   ; Obscure
-   IniWriteValue(Shapes.PixelateBlockSize, "Obscure Shape", "Pixelate Block Size")
-   IniWriteValue(Shapes.BlurDivisor, "Obscure Shape", "Blur Factor")
-   ; Text
-   IniWriteValue(TextShape.textOpacity, "Text", "Text Opacity")
-   IniWriteValue(TextShape.TagFontName, "Text", "Tag Font Name")
-   IniWriteValue(TextShape.TagFontStyle, "Text", "Tag Font Style")
-   IniWriteValue(TextShape.TagFontSize, "Text", "Tag Font Size")
-   IniWriteValue(TextShape.TCOpacity, "Text", "Tag Center Opacity")
-
-   IniWriteValue(TextShape.FillFontName, "Text", "Fill Font Name")
-   IniWriteValue(TextShape.FillFontStyle, "Text", "Fill Font Style")
-   IniWriteValue(TextShape.FillAlignment, "Text", "Fill Text Alignment")
-   IniWriteValue(TextShape.FillFontSize, "Text", "Fill Font Size")
-   IniWriteValue(TextShape.FTOpacity, "Text", "Fill Text Opacity")
-   IniWriteValue(TextShape.FTOLOpacity, "Text", "Outline Opacity")
-   IniWriteValue(TextShape.FillOutline, "Text", "Rectangle Around Text")
-
-   IniWriteValue(TextShape.OLFontName, "Text", "Outline Font Name")
-   IniWriteValue(TextShape.OLFontStyle, "Text", "Outline Font Style")
-   IniWriteValue(TextShape.OLBlur, "Text", "Outline Blur Value")
-   IniWriteValue(TextShape.OLAlignment, "Text", "Outline Font Alignment")
-   IniWriteValue(TextShape.OLFontSize, "Text", "Outline Font Size")
-   IniWriteValue(TextShape.OLFillThickness, "Text", "Outline Width Percent")
-   IniWriteValue(TextShape.OLOpacity, "Text", "Outline Edge Opactiy")
-
+   SaveSettings()
    GDIp.SystemShutdown()
 
    dLog("Exiting Snipper:" ExitReason)

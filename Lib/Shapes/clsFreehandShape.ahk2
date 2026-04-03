@@ -25,7 +25,6 @@ Class FreeHandShape extends commonShape {
     * @param {Any} args - Optional arguments
     */
    Init(*) {
-      Global SETTINGS
       Super.Init()
       this._Points               := ""
       this.OkToClose             := true  ; If it is OK to close the curve/polygon if start/end points are close
@@ -217,7 +216,7 @@ Class FreeHandShape extends commonShape {
       }
       ; During a move we may have changed the translation
       GDIp.ResetTextureTransform(this.imageBrush)
-      GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth)
+      GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth)
       ; Set the Pen brush to draw with the image
       GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
       this.hasImage  := true
@@ -391,7 +390,7 @@ Class FreeHandShape extends commonShape {
                ; Replace the pen contents with the highlighted background under the shape
                this.createImageBrush() ; Added just in case bitmap changed size or colors
                GDIp.ResetTextureTransform(this.imageBrush)
-               GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth) ;Snips.BorderWidth
+               GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Settings.BorderWidth, -C.Y1 + Settings.BorderWidth) ;Settings.BorderWidth
                GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
             }
             ; Draw the outline and fill it in blank

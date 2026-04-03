@@ -40,7 +40,6 @@ Class Cursor {
     *   and registers the WM_SETCURSOR message handler.
     */
    Static __New() {
-      Global SETTINGS
       ; https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
       ; Load the stock cursors by name and by ID
       for name, ID in this.CL {
@@ -262,7 +261,7 @@ Class focusBorder {
       this.wW            := 0
       this.wH            := 0
       this.ShapeObj      := 0 ; Save the last know shapeObj
-      if (Snips.focusRectangle)
+      if (Settings.focusRectangle)
          this.focusBorderGui.Show('NA')
 
    }
@@ -277,7 +276,7 @@ Class focusBorder {
     * @param {Number} [H] - Height of the focus rectangle; defaults to the last known height.
     */
    Static Move(X, Y, W?, H?) {
-      If (Snips.focusRectangle) {
+      If (Settings.focusRectangle) {
          if (this.RenderFocusRect(this.wX + X, this.wY + Y, W ?? this.W, H ?? this.H))
             Warning("Failed to move focus border")
       }
@@ -288,7 +287,7 @@ Class focusBorder {
     *   shape coordinates, re-rendering it in place.
     */
    Static Sync() {
-      If (Snips.focusRectangle) {
+      If (Settings.focusRectangle) {
          C := this.ShapeObj.shapeCoord
          if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
             Warning("Failed to Sync Focus border")
@@ -315,7 +314,7 @@ Class focusBorder {
     * @param {Integer} Block - If 1, blocks HideFocus from hiding the rectangle until UnBlockMe fires. Defaults to 0.
     */
    Static ShowFocus(hWnd, Block:=0) {
-      If (Snips.focusRectangle AND (this.IsNotShown OR this.lastHwnd != hWnd OR Block)) {
+      If (Settings.focusRectangle AND (this.IsNotShown OR this.lastHwnd != hWnd OR Block)) {
          This.ShapeObj := GuiCtrlFromHwnd(hWnd)
          If WinActive(This.ShapeObj.Gui) {
             C := This.ShapeObj.shapeCoord
@@ -338,7 +337,7 @@ Class focusBorder {
     * @param {Integer} Force - If 1, hides unconditionally and clears the Block flag. Defaults to 0.
     */
    Static HideFocus(Force := false) {
-      If (Snips.focusRectangle and this.IsShown) {
+      If (Settings.focusRectangle and this.IsShown) {
          If (Force) {
             this.focusBorderGui.Hide()
             this.Block := false

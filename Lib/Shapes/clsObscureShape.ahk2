@@ -11,7 +11,7 @@
 #include ..\libMisc.ahk2
 #Include ..\clsBitmap.ahk2
 #Include ..\clsShapes.ahk2
-#Include ..\clsSnips.ahk2
+; #Include ..\clsSnips.ahk2
 
 ;----------------------------------------------------------------------
 ; Blur and other obscure shapes
@@ -132,7 +132,7 @@ Class ObscureShape extends commonShape {
       ; Shift to account for Snip border (PIC inset)
       If (this.imageBrush) {
          GDIp.ResetTextureTransform(this.imageBrush)
-         GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth)
+         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth)
          this.hasImage := true
       }
    }
@@ -148,7 +148,7 @@ Class ObscureShape extends commonShape {
       ; During a move we may have changed the translation
       If (this.imageBrush) {
          GDIp.ResetTextureTransform(this.imageBrush)
-         GDIp.TranslateTextureBrush(this.imageBrush, Snips.BorderWidth, Snips.BorderWidth) ;Snips.BorderWidth
+         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
       }
    }
 
@@ -230,7 +230,7 @@ Class ObscureShape extends commonShape {
       If (this.imageBrush) {
          ; Brush sits over SNIP so we have to translate it to line up with the shape < 2ms
          GDIp.ResetTextureTransform(this.imageBrush)
-         GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Snips.BorderWidth, -C.Y1 + Snips.BorderWidth)
+         GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Settings.BorderWidth, -C.Y1 + Settings.BorderWidth)
          brush := this.imageBrush
       } Else {
          brush := this.redactBrush

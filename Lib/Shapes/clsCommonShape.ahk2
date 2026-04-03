@@ -571,7 +571,7 @@ Class commonShape extends Gui.Pic {
    }
    /**
     * Build a GDI+ texture brush from the full snip bitmap with a highlight
-    * color matrix applied. The brush origin is shifted by Snips.BorderWidth
+    * color matrix applied. The brush origin is shifted by Settings.BorderWidth
     * so it aligns correctly with the snip content area.
     * @param color   - RGB highlight color to apply
     * @param opacity - Highlight opacity (0–255, default 0xFF)
@@ -581,7 +581,7 @@ Class commonShape extends Gui.Pic {
       If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
          CC     := BitMap.GetBackgroundColor(pBitInput, &Perc := 0)
          tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC, Perc)
-         GDIp.TranslateTextureBrush(tBrush, Snips.BorderWidth, Snips.BorderWidth)
+         GDIp.TranslateTextureBrush(tBrush, Settings.BorderWidth, Settings.BorderWidth)
          Return tBrush
       } else
          Return 0

@@ -41,7 +41,6 @@ Class ButtonBar {
     * read settings, and measure the bar height for later positioning
     */
    Static __New() {
-      Global SETTINGS
       logGDI("Building ButtonBar")
       ; 0x08000000 not foreground
       this.Enabled         := IniReadValue("Button Bar", "Enabled", 1)
@@ -319,7 +318,7 @@ Class ButtonBar {
             Else
                WinGetPos(&sX, &sY,,, hWnd)
             ; Keep it visible on current monitor
-            MonInfo := Snips.activeMonArea()
+            MonInfo := activeMonArea()
             newY    := Max(sY - this.bbHeight, MonInfo.Y)
             sX      := Max(sX, MonInfo.X)
             this.bbgui.Show("NA Y" newY " X" sX)

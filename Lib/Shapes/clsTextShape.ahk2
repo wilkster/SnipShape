@@ -897,7 +897,6 @@ Class GDIpText {
  *                   Alignment, FontStyle, Shape, Color
  */
 TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
-   Global SETTINGS
    Static typeMap  := Map("Fill Text", Shapes.SHAPE_FILLTEXT, "Outline", Shapes.SHAPE_OLTEXT, "Tag", Shapes.SHAPE_TAG, "Left Arrow", Shapes.SHAPE_LEFTARROWTEXT, "Right Arrow", Shapes.SHAPE_RIGHTARROWTEXT, "Text Only", Shapes.SHAPE_TEXT)
    Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
    ; Any more than this request subclassing, not really worth it.

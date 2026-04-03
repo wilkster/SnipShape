@@ -62,7 +62,7 @@ Class ToolShape extends commonShape {
             }
             GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
             If (this.Shape = Shapes.SHAPE_EXTEND) {
-               BW := Snips.BorderWidth / 2
+               BW := Settings.BorderWidth / 2
                GDIp.DrawRectangle(G, this.pPrime, X - BW, Y - BW, W + BW, H + BW) ; zero upper/left corner always
             }
 

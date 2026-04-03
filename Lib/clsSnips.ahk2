@@ -37,14 +37,9 @@ Class Snips {
     * Read in the settings and add some tray menu run-time settings
     */
    Static __New() {
-      Global SETTINGS
       logGDI("Building Snip Menus")
-      this.rawBorderWidth  := IniReadValue("User Snips", "Border Width",2)
+
       this.vertSync        := IniReadValue("User Snips", "Vertical Sync on Select", false)
-      this.UpdateClipboard := IniReadValue("Snips", "Auto Update Clipboard", false)
-      this.borderWithCopy  := IniReadValue("Snips", "Border With Copy", false)
-      this.borderWithSave  := IniReadValue("Snips", "Border With Save", false)
-      this.focusRectangle  := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
       this.autoSaveToFile  := IniReadValue("Snips", "Auto Save Clips to File", false)
       this.minimizeOnSnip  := IniReadValue("Snips", "Minimize On Snip", false)
       this.confirmClose    := IniReadValue("Snips", "Confirm Snip Close if it has Shapes", true)
@@ -53,6 +48,11 @@ Class Snips {
       this.captureStatic   := IniReadValue("Snips", "Capture Static Screen", false)
       this.topMost         := IniReadValue("Snips", "Keep Snip Always On Top", true)
       this.updateInterval  := 10
+
+      this.UpdateClipboard := IniReadValue("Snips", "Auto Update Clipboard", false)
+      this.borderWithCopy  := IniReadValue("Snips", "Border With Copy", false)
+      this.borderWithSave  := IniReadValue("Snips", "Border With Save", false)
+
       ; +E0x20 doesn't trigger cursor
       ; WS_EX_LAYERED     := +E0x80000 - required for DrawBorder,                                         helps with dragging text around also
       ; WS_EX_TRANSPARENT := +E0x20 - Prevents any mouse/key events from interactive with the window
@@ -602,7 +602,6 @@ Class Snips {
     * @returns {String|Integer} Full path of the opened file, or 0 if no file was selected
     */
    Static OpenSnipDialog(*) {
-      Global SETTINGS
       If (SnipObj := Snips.IsValid(WinActive("A"))) {
          SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
       }
@@ -616,15 +615,7 @@ Class Snips {
       }
    }
    /**
-    * Get or set the border width in physical pixels, auto-scaled by the active monitor DPI factor.
-    * The stored raw value is always at 96 DPI; getting converts to physical pixels.
-    * @type {Integer}
-    */
-   Static BorderWidth {
-      get => round(this.rawBorderWidth * activeMonDPIFactor(1))
-      set => rawBorderWidth := round(Value / activeMonDPIFactor(1))
-   }
-   /**
+    * 
     * Briefly flash the snip border to a bright green to signal a completed action (e.g. clipboard copy)
     * @param {Integer} hWnd - Window handle of the target snip
     * @param {Integer} [flash=100] - Duration in milliseconds for each flash phase
@@ -687,9 +678,9 @@ Class Snips {
          ; Get Region 
          this.SnipMode := SnipMode   ; for cursor detection
          ; NOTE - for now use active monitor since it is slower by Nx for N monitors
-         ; MonInfo := this.allMonArea()
-         MonInfo := this.activeMonArea(0)
-         BW      := this.BorderWidth 
+         ; MonInfo := allMonArea()
+         MonInfo := activeMonArea(0)
+         BW      := Settings.BorderWidth 
          ; for slower computers grab the mouse start before any delays
          If (mode = 3) {
             GetCursorPos(&sX, &sY)
@@ -697,7 +688,7 @@ Class Snips {
          ; If we want a static overlay, then put it up now
          if (captureStatic) {
             ; Almost all of the delay is in here, bitblt is the majority of the time
-            TempCap := this.OverlayScreen(this.activeMonArea(0))
+            TempCap := this.OverlayScreen(activeMonArea(0))
          }
          winX    := MonInfo.X, winY := MonInfo.Y
          winW    := MonInfo.W, winH := MonInfo.H
@@ -907,7 +898,6 @@ Class Snips {
     * @param {Object} [SnipObj=false] - Existing GuiSnip object to reuse instead of creating a new one
     */
    Static SnipArea(Area, SetClipboard := false, SaveFile := false, CreateSnip := true, SnipObj := false) {
-      global SETTINGS
       If (Area.W > 15 and Area.H > 15) {
 
          ; hBitmap will be the responsibility for the clipboard/gui to clean up
@@ -915,7 +905,7 @@ Class Snips {
          ; NOTE : If PrintWindow worked on non DPI aware apps, it would be preferred
          ;        so we would get parts of the window that is off screen or covered.
          If CreateSnip {
-            BW := this.BorderWidth
+            BW := Settings.BorderWidth
             If (!SnipObj) {
                SnipObj := this.GuiSnip(Area)
                ; Use Margin as the border, color will be set when activated
@@ -931,14 +921,14 @@ Class Snips {
             ; Shifting by neg border width will align the snip exactly over the screen capture region
             SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + BW * 2 " H" Area.H + BW * 2) ; NA -> want active
             If (SaveFile) {
-               this.Snip2File(SETTINGS.SavePath_Image, this.borderWithSave)
+               this.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
                Snips.flashBorder(SnipObj.hWnd)
             }
             If Snips.minimizeOnSnip {
                SnipObj.Minimize()
             }
             If SetClipboard {
-               Snips.Snip2Clipboard(Snips.borderWithCopy, SnipObj.hWnd)
+               Snips.Snip2Clipboard(Snips.UpdateClipboard, SnipObj.hWnd)
                Snips.flashBorder(SnipObj.hWnd)
             }
 
@@ -973,11 +963,11 @@ Class Snips {
       If (SnipObj := Snips.IsValid(hWnd)) {
          If (haveWindow) {
             ; Using a snip, ignore any window on top by grabbing the window handle screen
-            hBitMap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : this.BorderWidth)
+            hBitMap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : Settings.BorderWidth)
          } Else {
             ; Using active window, not a Snip
             WinGetPosEx(&X, &Y, &W, &H, hWnd)
-            BW := this.BorderWidth
+            BW := Settings.BorderWidth
             If !Borders
                X += BW, Y += BW, W -= BW * 2, H -= BW * 2
             hBitMap := BitMap.hBitmapFromScreen({ X: X, Y: Y, W: W, H: H })
@@ -997,7 +987,7 @@ Class Snips {
     * @returns {String} Full path of the saved file, or empty string on failure
     */
    Static Snip2File(SavePath, Borders := false, hWnd?) {
-      BW := this.BorderWidth
+      BW := Settings.BorderWidth
       If !FileExist(SavePath)
          DirCreate(SavePath)
       hWnd ??= WinActive("SnipShapeWindow") ; Alpha 2+
@@ -1005,7 +995,7 @@ Class Snips {
       if (hWnd) {
          if (SnipObj := Snips.IsValid(hWnd))
             SnipObj.Dirty := 0
-         hBitmap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : this.BorderWidth)
+         hBitmap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : Settings.BorderWidth)
          FileName := this.SaveHBitMapFile(hBitmap, SavePath, SnipObj)
          GDI.DeleteObject(hBitmap)
 
@@ -1022,7 +1012,6 @@ Class Snips {
     * @returns {String} Full path of the saved file, or empty string on failure
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
-      Global SETTINGS
       try {
          pBitmap := Gdip.CreateBitmapFromHBITMAP(hBitmap)
          If IsSet(SnipObj) {
@@ -1072,7 +1061,7 @@ Class Snips {
     */
    Static Clipboard2Snip(hWnd :=0, BorderColor := 0xff00FF00) {
       If (Clipboard.hasImage()) {
-         BW := this.BorderWidth
+         BW := Settings.BorderWidth
          If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
             CoordMode('Mouse', 'Screen')
             ; MouseGetPos(&X, &Y)
@@ -1080,7 +1069,7 @@ Class Snips {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             } Else {
-               monArea := Snips.activeMonArea()
+               monArea := activeMonArea()
                ; debug("CB=" W " " H)
                ; GDI.GetHBitmapDimensions(hBitmap, &W, &H)
                ; debug("BM=" W " " H)
@@ -1152,7 +1141,7 @@ Class Snips {
          ; Use the raw picture without any shapes
          hBitmap := this.GetGuiObj(hWnd).Pic.Handle
          if (IncludeShapes)
-            pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, this.BorderWidth)
+            pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, Settings.BorderWidth)
          else
             pBitmap := gdip.CreateBitmapFromHBITMAP(hBitmap)
          WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
@@ -1165,7 +1154,7 @@ Class Snips {
          ; Need an hBitmap for the picture
          hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
-         BW := this.BorderWidth
+         BW := Settings.BorderWidth
          ; Setup the new Snip information
          Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          SnipObj         := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
@@ -1186,12 +1175,12 @@ Class Snips {
    Static CreateSnipFromFile(sFile) {
       pBitmap := Gdip.CreateBitmapFromFile(sFile)
       if (pBitmap) {
-         MonInfo := this.activeMonArea(1)
+         MonInfo := activeMonArea(1)
          GDIp.GetImageDimensions(pBitmap, &W, &H)
          ; Need an hBitmap for the picture
          hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
-         BW := this.BorderWidth
+         BW := Settings.BorderWidth
          ; Center image
          X := MonInfo.X + MonInfo.W/2 - W/2
          Y := MonInfo.Y + MonInfo.H/2 - H/2
@@ -1214,9 +1203,9 @@ Class Snips {
     */
    Static CreateSnipFromHBitmap(hBitmap, useArea?) {
       if (hBitmap) {
-         MonInfo := this.activeMonArea(1)
+         MonInfo := activeMonArea(1)
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         BW := this.BorderWidth
+         BW := Settings.BorderWidth
          ; Center image
          X := MonInfo.X + MonInfo.W/2 - W/2
          Y := MonInfo.Y + MonInfo.H/2 - H/2
@@ -1463,49 +1452,6 @@ Class Snips {
          Return StrReplace( Format( "{:0" Count "}", "" ), 0, Str )
       }      
    }
-   /**
-    * Return active monitor metrics based on the current cursor position
-    * @param {Integer} [workArea=1] - If true, exclude the taskbar from the returned area
-    * @returns {Object} Area object with X, Y, X2, Y2, W, H of the active monitor
-    */
-   Static activeMonArea(workArea := 1) {
-      Static mnInfo := stMONITORINFOEX()
-      DllCall("User32\GetCursorPos", "uint64*", &POINT := 0)
-      hMon := DllCall("User32\MonitorFromPoint", "int64", POINT, "uint", 0)
-      DllCall("User32\GetMonitorInfo", "ptr", hMon, "ptr", mnInfo)
-      base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
-      Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
-      Return Area
-   }
-
-   /**
-    * Return the bounding area covering all monitors combined
-    * @returns {Object} Area object with X, Y, W, H of the virtual screen spanning all monitors
-    */
-   Static allMonArea() {
-      Area := Object()
-      Area.X := DllCall("GetSystemMetrics", "Int", 76)
-      Area.Y := DllCall("GetSystemMetrics", "Int", 77)
-      Area.W := DllCall("GetSystemMetrics", "Int", 78)
-      Area.H := DllCall("GetSystemMetrics", "Int", 79)
-      Return Area
-   }
-   /**
-    * Get the position and dimensions of a window as an area object
-    * @param {Integer} hWnd - Window handle to query
-    * @returns {Object} Area object with X, Y, X2, Y2, W, H of the window
-    */
-   Static getWindowArea(hWnd) {
-      Area := Object()
-      If (hWnd) {
-         WinGetPosEx(&X, &Y, &W, &h, hWnd)
-         Area.X  := X,     Area.Y  := Y
-         Area.X2 := X + W, Area.Y2 := Y + h
-         Area.W  := W,     Area.H  := h
-      }
-      Return Area
-   }
-
    /**
     * Generate a timestamped snip title string using a scissors emoji prefix
     * @type {String}

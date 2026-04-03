@@ -29,7 +29,6 @@ Class SnipMenus {
     * and register the tray message handler
     */
    Static __New() {
-      Global SETTINGS
       this.AddEntry('Copy Snip to Clipboard (Ctrl-C)', "Clipboard.ico")
       this.AddEntry('Cut Snip to Clipboard (Ctrl-X)', "SnipShape.ico")
       this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
@@ -104,10 +103,10 @@ Class SnipMenus {
     */
    Static ContextSnipMenu_Handler(ItemName, ItemPos, MyMenu) {
       Switch {
-         Case ItemName ~= "Copy Snip to Clipboard": Snips.Snip2Clipboard(Snips.borderWithCopy, WinExist("A"))                           
+         Case ItemName ~= "Copy Snip to Clipboard": Snips.Snip2Clipboard(Snips.UpdateClipboard, WinExist("A"))                           
          Case ItemName ~= "Cut Snip to Clipboard": 
             if (sw := WinExist("A")) {
-               Snips.Snip2Clipboard(Snips.borderWithCopy, sw)
+               Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
                Snips.Close(sw, 0)
             }
          Case ItemName ~= "Invert Snip": Snips.TransformSnip(WinExist("A"),1)                           
@@ -229,7 +228,7 @@ Class SnipMenus {
       static iconObj := ImageList()
       DPI      := WinDPI(hWnd)
       butSize  := Round(20 * DPI / 96) ; Pixel size of 20
-      MonInfo  := Snips.activeMonArea(1)
+      MonInfo  := activeMonArea(1)
       ; Wrap     := Floor(MonInfo.H / Height)
       if (iconObj.Count == 0)
          iconObj.Size := butSize
@@ -470,7 +469,6 @@ Class ShapeMenus {
     * @param {String} [icon=""] - Icon filename (relative to SETTINGS.CursorPath\) to display; omit for no icon
     */
    Static AddEntry(Menu, shapeObj, title, icon:="") {
-      Global SETTINGS
       Menu.Add(Title, ShapeMenus.ContextShapeMenu_Handler.bind(this, shapeObj))    ;1
       if (icon)
          Menu.SetIcon(title, SETTINGS.CursorPath . "\" . icon)
