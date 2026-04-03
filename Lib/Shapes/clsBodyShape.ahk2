@@ -8,6 +8,7 @@
 #Requires AutoHotkey v2.1-
 #include ..\clsGDip.ahk2
 #include ..\clsBitmap.ahk2
+#include ..\clsShapes.ahk2
 #include clsCommonShape.ahk2
 
 Class BodyShape extends commonShape {

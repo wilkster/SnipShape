@@ -6,12 +6,13 @@
  * @version 1.0.0
  ***********************************************************************/
 #include Settings.ahk2
+#include LibMisc.ahk2
 #include clsBitmap.ahk2
 #include clsSnips.ahk2
 #include clsShapes.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
-#include Shapes\clsCommonShape.ahk2
+; #include Shapes\clsCommonShape.ahk2
 /**
  * Static Class for menus
  * @param None

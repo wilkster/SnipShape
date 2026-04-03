@@ -5,6 +5,7 @@
  * @date 2024/04/20
  * @version 1.0.0
  ***********************************************************************/
+#include libMisc.ahk2
 Class Settings {
    Static Path               := A_AppData . "\SnipShape"
    Static File               := Settings.Path . "\SnipShape.ini"
@@ -87,12 +88,12 @@ SaveSettings() {
    ;----------------------------------------------------------------------
    ; Snips
    IniWriteIfBlank(SETTINGS.rawBorderWidth, "User Snips", "Border Width")
-   IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
    IniWriteIfBlank(SETTINGS.SavePath_Icons, "User Snips", "IconPath")
    IniWriteIfBlank(SETTINGS.SavePath_Image, "User Snips", "SnipPath")
    IniWriteIfBlank(SETTINGS.CursorPath, "User Snips", "CursorPath")
    IniWriteIfBlank(SETTINGS.Scale_Freehand, "User Shapes", "ScaleFreehand")
    IniWriteIfBlank(SETTINGS.DIBPad, "User Shapes", "Padding")
+   IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
    
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Border With Copy")
