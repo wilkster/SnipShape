@@ -6,6 +6,7 @@
  * @version 1.0.0
  ***********************************************************************/
 #Requires AutoHotkey v2.1-
+#include Settings.ahk2
 #include clsGDIp.ahk2
 #include libMisc.ahk2
 #include clsShapes.ahk2

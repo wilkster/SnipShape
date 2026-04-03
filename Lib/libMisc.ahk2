@@ -12,41 +12,6 @@
 ;======================================================================
 ;     M I S C   F U N C T I O N S    B E L O W
 ;======================================================================
-;
-Global SETTINGS
-;----------------------------------------------------------------------
-; INI Helper Function
-; IniWriteIfBlank - Setting is not changed herein
-; IniWriteValue - Setting is changed herein
-;----------------------------------------------------------------------
-/**
- * Write a value to the INI file only if the parameter does not already exist
- * @param V Value to write
- * @param Section INI section name
- * @param Parameter INI parameter name
- */
-IniWriteIfBlank(V, Section, Parameter) {
-   If IniRead(SETTINGS.File, Section, Parameter, "XX") = "XX"
-      IniWrite(V, SETTINGS.File, Section, Parameter)
-}
-/**
- * Write a value to the INI file, overwriting any existing value
- * @param V Value to write
- * @param Section INI section name
- * @param Parameter INI parameter name
- */
-IniWriteValue(V, Section, Parameter) {
-   IniWrite(V, SETTINGS.File, Section, Parameter)
-}
-/**
- * Read a value from the INI file
- * @param Section INI section name
- * @param Item INI parameter name
- * @param Default Default value if parameter is not found
- * @returns {String} The value read from the INI file
- */
-IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Default)
-
 ;======================================================================
 ; Theme Related
 ;======================================================================
@@ -823,20 +788,7 @@ qTrayTip(Message, Code:=4, Title := "SnipShape", Timeout:=2000) {
 ;======================================================================
 ; File Name/Path Related
 ;======================================================================
-;----------------------------------------------------------------------
-; Full path name from relative path
-;----------------------------------------------------------------------
-/**
- * Resolve a relative path to its full absolute path
- * @param path Relative or partial file path
- * @returns {String} Fully qualified absolute path
- */
-GetFullPathName(path) {
-   cc := DllCall('GetFullPathNameW', 'str', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
-   buf := Buffer(cc * 2)
-   DllCall('GetFullPathNameW', 'str', path, 'uint', cc, 'ptr', buf, 'ptr', 0, 'uint')
-   Return StrGet(buf)
-}
+
 ;----------------------------------------------------------------------
 ; Base File Name from a path
 ;----------------------------------------------------------------------

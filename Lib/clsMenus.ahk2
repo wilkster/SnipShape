@@ -5,6 +5,7 @@
  * @date 2024/04/20
  * @version 1.0.0
  ***********************************************************************/
+#include Settings.ahk2
 #include clsBitmap.ahk2
 #include clsSnips.ahk2
 #include clsShapes.ahk2

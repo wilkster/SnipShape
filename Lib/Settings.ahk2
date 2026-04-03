@@ -1,0 +1,71 @@
+/************************************************************************
+ * @description Settings Common Code
+ * @file libMisc.ahk2
+ * @author Tom Wilkason
+ * @date 2024/04/20
+ * @version 1.0.0
+ ***********************************************************************/
+Global SETTINGS := Object()
+SETTINGS.Path               := A_AppData . "\SnipShape"
+SETTINGS.File               := SETTINGS.Path . "\SnipShape.ini"
+SETTINGS.CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
+; Use same folder as Windows Snipper
+SETTINGS.SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
+SETTINGS.SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
+SETTINGS.SavePath_Icons     := IniReadValue("User Snips", "IconPath",GetFullPathName('.\Stickies\'))
+SETTINGS.DIBPad             := IniReadValue("User Shapes", "Padding", 450)
+SETTINGS.Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
+If !FileExist(SETTINGS.Path)
+   DirCreate(SETTINGS.Path)
+If !FileExist(SETTINGS.SavePath_Image)
+   DirCreate(SETTINGS.SavePath_Image)
+If !FileExist(SETTINGS.SavePath_Icons)
+   DirCreate(SETTINGS.SavePath_Icons)
+
+
+;----------------------------------------------------------------------
+; INI Helper Function
+; IniWriteIfBlank - Setting is not changed herein
+; IniWriteValue - Setting is changed herein
+;----------------------------------------------------------------------
+/**
+ * Write a value to the INI file only if the parameter does not already exist
+ * @param V Value to write
+ * @param Section INI section name
+ * @param Parameter INI parameter name
+ */
+IniWriteIfBlank(V, Section, Parameter) {
+   If IniRead(SETTINGS.File, Section, Parameter, "XX") = "XX"
+      IniWrite(V, SETTINGS.File, Section, Parameter)
+}
+/**
+ * Write a value to the INI file, overwriting any existing value
+ * @param V Value to write
+ * @param Section INI section name
+ * @param Parameter INI parameter name
+ */
+IniWriteValue(V, Section, Parameter) {
+   IniWrite(V, SETTINGS.File, Section, Parameter)
+}
+/**
+ * Read a value from the INI file
+ * @param Section INI section name
+ * @param Item INI parameter name
+ * @param Default Default value if parameter is not found
+ * @returns {String} The value read from the INI file
+ */
+IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Default)
+;----------------------------------------------------------------------
+; Full path name from relative path
+;----------------------------------------------------------------------
+/**
+ * Resolve a relative path to its full absolute path
+ * @param path Relative or partial file path
+ * @returns {String} Fully qualified absolute path
+ */
+GetFullPathName(path) {
+   cc := DllCall('GetFullPathNameW', 'str', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
+   buf := Buffer(cc * 2)
+   DllCall('GetFullPathNameW', 'str', path, 'uint', cc, 'ptr', buf, 'ptr', 0, 'uint')
+   Return StrGet(buf)
+}

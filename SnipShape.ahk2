@@ -50,23 +50,8 @@ GDIp.SystemStartup()
 ;-----------------------------------------------
 ; DEFAULT SETTING - VARIABLES
 ;-----------------------------------------------
-Global SETTINGS := Object()
-SETTINGS.Path               := A_AppData . "\SnipShape"
-SETTINGS.File               := SETTINGS.Path . "\SnipShape.ini"
-SETTINGS.CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
-; Use same folder as Windows Snipper
-SETTINGS.SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
-SETTINGS.SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
-SETTINGS.SavePath_Icons     := IniReadValue("User Snips", "IconPath",GetFullPathName('.\Stickies\'))
-SETTINGS.DIBPad             := IniReadValue("User Shapes", "Padding", 450)
-SETTINGS.Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
-If !FileExist(SETTINGS.Path)
-   DirCreate(SETTINGS.Path)
-If !FileExist(SETTINGS.SavePath_Image)
-   DirCreate(SETTINGS.SavePath_Image)
-If !FileExist(SETTINGS.SavePath_Icons)
-   DirCreate(SETTINGS.SavePath_Icons)
-
+#Include %A_ScriptDir%\Lib ;          ; Set Lib folder
+#include Settings.ahk2
 ;-----------------------------------------------
 ; INITIALIZATION - VARIABLES
 ;-----------------------------------------------
@@ -77,7 +62,6 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 ;                          I N C L U D E S
 ; =====================================================================
 ; SnipShape related files
-#Include %A_ScriptDir%\Lib ;          ; Set Lib folder
 #include libMisc.ahk2
 #include clsGDIp.ahk2
 #include clsBitmap.ahk2
