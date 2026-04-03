@@ -6,6 +6,7 @@
  ***********************************************************************/
 #Requires AutoHotkey v2.0 
 #include clsCommonShape.ahk2
+#include ..\Settings.ahk2
 #Include ..\libMisc.ahk2
 #Include ..\clsGDIp.ahk2
 #Include ..\clsBitmap.ahk2
@@ -1220,6 +1221,7 @@ GetInstalledFontNames() {
    Return aFonts
 
    EnumFontFamExProc(lpelfe, lpntme, FontType, lParam) {
+      ; lpelfe is ENUMLOGFONTEX structure
       lfFaceName := StrGet(lpelfe + 28)
       ; charSet := NumGet(LOGFONT,27,"Char")
       ; debug(lfFaceName "=" charSet)
