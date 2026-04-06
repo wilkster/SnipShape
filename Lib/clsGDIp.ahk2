@@ -12,6 +12,7 @@
 #DllLoad "GdiPlus.dll" 
 #DllLoad "Shcore.dll"
 #DllLoad "Dwmapi.dll"
+#include libMisc.ahk2
 ;----------------------------------------------------------------------
 ; GDI Related Items (don't require Startup/Shutdown)
 ;----------------------------------------------------------------------
@@ -1427,13 +1428,12 @@ Class GDIp {
          Static pptSrc    := stPointI()
          Static RCanvas   := stRECTI()
          Static RShape    := stRECTI()
-         Static ROut      := stRECTI()
          ; Canvas dims
          RCanvas.Init(0, 0, this.W, this.H)
          ;Shape dims
          RShape.Init(X + Pad, Y + Pad, X + Pad + W, Y + Pad + H)
          ; Intersect the two for the updated window
-         If DllCall("user32\IntersectRect", "Ptr", ROut, "Ptr", RCanvas, "Ptr", RShape) {
+         If DllCall("user32\IntersectRect", stRECTI.Ptr, &ROut, "Ptr", RCanvas, "Ptr", RShape) {
             ; Constrain where to copy from to be in the canvas
             pptSrc.Init(Max(X + Pad, 0),Max((Y + Pad), 0))
             pptDst.Init(ROut.X1 - Pad, ROut.Y1 - Pad)
@@ -2165,8 +2165,7 @@ Class GDIp {
     */
    Static GetImageBounds(pBitmap) {
       rData := {}
-      RectF := stRECTF()
-      status := DllCall("gdiplus\GdipGetImageBounds", "Ptr", pBitmap, "Ptr", RectF.ptr, "Int*", 0)
+      status := DllCall("gdiplus\GdipGetImageBounds", "Ptr", pBitmap, stRECTF.Ptr, &RectF, "Int*", 0)
 
       If (!status) {
          rData.x := RectF.x1
@@ -3855,8 +3854,7 @@ Class GDIp {
       ; hMatrix to use for calculating the boundaries
       ; pPen to use for calculating the boundaries
       ; Both will not affect the actual GraphicsPath.
-      RectF := stRECTF()
-      res := DllCall("gdiplus\GdipGetPathWorldBounds", "Ptr", pPath, "Ptr", RectF.ptr, "Ptr", hMatrix, "Ptr", pPen)
+      res := DllCall("gdiplus\GdipGetPathWorldBounds", "Ptr", pPath, stRECTF.Ptr, &RectF, "Ptr", hMatrix, "Ptr", pPen)
       If (!res) {
          rData := { X: RectF.X1, Y: RectF.y1, W: RectF.X2, H: RectF.y2 }
          Return rData
@@ -3874,8 +3872,7 @@ Class GDIp {
     * @returns {Object} Object with X, Y, W, H properties, or GDI+ status on failure
     */
    Static GetPathWorldBoundsI(pPath, pen:=0, matrix := 0) {
-      RectI := stRECTI()
-      res := DllCall('Gdiplus\GdipGetPathWorldBoundsI', 'ptr', pPath, 'ptr', RectI.ptr, 'ptr', matrix, 'ptr', pen, 'uint')
+      res := DllCall('Gdiplus\GdipGetPathWorldBoundsI', 'ptr', pPath, stRECTI.Ptr, &RectI, 'ptr', matrix, 'ptr', pen, 'uint')
       If (!res) {
          rData := { X: RectI.X1, Y: RectI.y1, W: RectI.X2, H: RectI.y2 }
          Return rData
@@ -3891,8 +3888,7 @@ Class GDIp {
     * @returns {Object} Object with X, Y, W, H properties, or GDI+ status on failure
     */
    Static GetRegionBounds(pGraphics, Region) {
-      RectF := stRECTF()
-      res := DllCall("gdiplus\GdipGetRegionBounds", "Ptr", Region, "Ptr", pGraphics, "Ptr", RectF.ptr)
+      res := DllCall("gdiplus\GdipGetRegionBounds", "Ptr", Region, "Ptr", pGraphics, stRECTF.Ptr, &RectF)
       If (!res) {
          rData := { X: RectF.X1, Y: RectF.Y1, W: RectF.X2, H: RectF.y2 }
          Return rData
@@ -3911,8 +3907,7 @@ Class GDIp {
     * @returns {Object} Object with X, Y, W, H properties, or GDI+ status on failure
     */
    Static GetRegionBoundsI(pGraphics, Region) {
-      RectI := stRECTI()
-      res := DllCall("gdiplus\GdipGetRegionBoundsI", "Ptr", Region, "Ptr", pGraphics, "Ptr", RectI.ptr)
+      res := DllCall("gdiplus\GdipGetRegionBoundsI", "Ptr", Region, "Ptr", pGraphics, stRECTI.Ptr, &RectI)
       If (!res) {
          rData := { X: RectI.X1, Y: RectI.Y1, W: RectI.X2, H: RectI.y2 }
       } Else {

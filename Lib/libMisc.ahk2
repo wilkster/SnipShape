@@ -351,8 +351,7 @@ GetClientRect(&x?, &y?, &w?, &h?, hWnd := 0) {
  * @returns {Integer} GetCursorPos Result 
  */
 GetCursorPos(&X, &Y) {
-   static pt  := stPointI()
-   res := DllCall("User32\GetCursorPos", "Ptr", pt)
+   res := DllCall("User32\GetCursorPos", stPointI.Ptr, &pt)
    X   := pt.X ; NumGet(pt, 0, "uint")
    Y   := pt.Y ;NumGet(pt, 4, "uint")
    return res
@@ -373,10 +372,9 @@ SetCursorPos(X, Y) {
  * @returns {Object} Area object with X, Y, X2, Y2, W, H of the active monitor
  */
 activeMonArea(workArea := 1) {
-   Static mnInfo := stMONITORINFOEX()
    DllCall("User32\GetCursorPos", "uint64*", &POINT := 0)
    hMon := DllCall("User32\MonitorFromPoint", "int64", POINT, "uint", 0)
-   DllCall("User32\GetMonitorInfo", "ptr", hMon, "ptr", mnInfo)
+   DllCall("User32\GetMonitorInfo", "ptr", hMon, stMONITORINFOEX.Ptr, &mnInfo)
    base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
    Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
    Return Area
@@ -865,10 +863,9 @@ BFN(fpath) {
  */
 IntersectRect(l1, t1, r1, b1, l2, t2, r2, b2) {
     Static rect1 := Buffer(16), rect2 := Buffer(16)
-    rectOut := stRECTI()
     NumPut("int", l1, "int", t1, "int", r1, "int", b1, rect1)
     NumPut("int", l2, "int", t2, "int", r2, "int", b2, rect2)
-    if DllCall("user32\IntersectRect", "Ptr", rectOut, "Ptr", rect1, "Ptr", rect2)
+    if DllCall("user32\IntersectRect", stRECTI.Ptr, &rectOut, "Ptr", rect1, "Ptr", rect2)
         Return { l: rectOut.X1, t: rectOut.Y1, r: rectOut.X2, b: rectOut.Y2, w: rectOut.X2 - rectOut.X1, h: rectOut.y2 - rectOut.y1 }
 }
 

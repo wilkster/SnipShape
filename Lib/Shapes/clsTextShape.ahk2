@@ -685,7 +685,6 @@ Class GDIpText {
     * @returns Bounding rectangle to hold the string along with # Chars and # Lines that will fit in the rectangle 
     */
    Static MeasureString(G, sString, hFont, hFormat, RectF, &Lines?) {
-      RC := stRECTF()
       DllCall("gdiplus\GdipMeasureString"
          , "Ptr", G
          , "Ptr", StrPtr(sString)
@@ -693,7 +692,7 @@ Class GDIpText {
          , "Ptr", hFont
          , "Ptr", RectF.Ptr
          , "Ptr", hFormat
-         , "Ptr", RC.Ptr
+         , stRECTF.Ptr, &RC
          , "uint*", &Chars := 0
          , "uint*", &Lines := 0)
       Return RC
