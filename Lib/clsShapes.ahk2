@@ -13,7 +13,7 @@
 #include clsClipboard.ahk2
 #include LibMisc.ahk2
 #include StopWatch.ahk2
-; #include OCR.ahk2
+#include OCR.ahk2
 #include clsButtonBar.ahk2
 #include clsCursor.ahk2
 #include clsSnips.ahk2
