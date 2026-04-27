@@ -2399,10 +2399,6 @@ Class GDIp {
     * Set the start cap style for a pen
     * @param pPen Handle to the Pen
     * @param LineCap LineCap enumeration value (0=flat, 1=square, 2=round, 3=triangle, etc.)
-    * @returns {Integer} GDI+ status code
-    */
-   Static SetPenStartCap(pPen, LineCap)     =>   DllCall("gdiplus\GdipSetPenStartCap", "Ptr", pPen, "int", LineCap)
-   /*
   LineCapFlat          = 0,
   LineCapSquare        = 1,
   LineCapRound         = 2,
@@ -2414,6 +2410,10 @@ Class GDIp {
   LineCapArrowAnchor   = 0x14,
   LineCapCustom        = 0xff,
   LineCapAnchorMask    = 0xf0
+    * @returns {Integer} GDI+ status code
+    */
+   Static SetPenStartCap(pPen, LineCap)     =>   DllCall("gdiplus\GdipSetPenStartCap", "Ptr", pPen, "int", LineCap)
+   /*
    */
    /**
     * Set the end cap style for a pen
@@ -4123,7 +4123,7 @@ Struct tagBITMAP {
  * GDI BITMAPINFOHEADER structure (40 bytes, identical on x86 and x64)
  */
 Struct tagBITMAPINFOHEADER {
-   biSize         : UInt32 ; 4
+   biSize         : UInt32 := this.Size ; 4
    biWidth        : Int32 ; 4
    biHeight       : Int32 ; 4
    biPlanes       : Int16 ; 2

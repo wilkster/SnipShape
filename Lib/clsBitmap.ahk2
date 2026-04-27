@@ -1007,7 +1007,7 @@ Class BitMap {
     * Apply a Gaussian blur effect to a pBitmap in place using GdipBitmapApplyEffect.
     * @param {Integer} pBitmap Handle to the pBitmap to blur (modified in place)
     * @param {Float} Radius Convolution kernel blur radius (0–255)
-    * @param {Integer} paramB 0 for clean edges (default)
+    * @param {Integer} paramB 0 for clean edges (default), 1 to expand edges
     * @returns {Integer} pBitmap on success, or a negative GDI+ error code on failure
     */
    Static GaussianBlur(pBitmap, Radius, paramB := 0) => this.ApplyEffect(1, pBitmap, Radius, paramB)
@@ -1117,6 +1117,7 @@ Class BitMap {
 
       If (strEffect := strCLIS.Get(Effect, 0)) {
          eFXguid := this.CLSIDFromString(strEffect)
+         passes := 1
          ; 64 bit only
          If (E := DllCall("gdiplus\GdipCreateEffect", "Ptr", eFXguid.Ptr, "Ptr*", &pEffect := 0)) {
             warning("Error " E " in GdipCreateEffect")
@@ -1124,7 +1125,10 @@ Class BitMap {
          }
          FXparams := Buffer(16, 0)
          Switch Effect {
-            Case 1:  ; Blur
+            Case 1:  ; Gaussian Blur @20 blue changes
+               ; BUG - convolution kernal jumps at 20, so keep below 20 and run multiple passes
+               passes := (param1 // 19 + 1)
+               param1 := param1 / passes
                NumPut("Float", param1, "Uchar", param2, FXparams)
             Case 2:  ; Sharpen
                NumPut("Float", param1, "Float", param2, FXparams)
@@ -1144,17 +1148,18 @@ Class BitMap {
             Return -E
          }
          ; Area to be modified is entire image (RectF)
-         GDIp.GetImageDimensions(pBitmap, &Width, &Height)
-         GDIp.CreateRectF(&RectF := 0, 0, 0, Width, Height)
+         ; GDIp.GetImageDimensions(pBitmap, &Width, &Height)
+         ; GDIp.CreateRectF(&RectF := 0, 0, 0, Width, Height)
          ; Apply in-place
-         E := DllCall("gdiplus\GdipBitmapApplyEffect"
-            , "Ptr", pBitmap
-            , "Ptr", pEffect
-            , "Ptr", RectF.Ptr
-            , "Ptr", 0
-            , "Ptr", 0
-            , "Ptr", 0)
-
+         Loop passes {
+            E := DllCall("gdiplus\GdipBitmapApplyEffect"
+               , "Ptr", pBitmap
+               , "Ptr", pEffect
+               , "Ptr", 0 ; RectF.Ptr ; Can also use 0 for entire image
+               , "Ptr", 0
+               , "Ptr", 0
+               , "Ptr", 0)
+         }
          GDIp.DisposeEffect(pEffect)
          If E {
             warning("Error " E " in GdipBitmapApplyEffect")
@@ -1221,14 +1226,14 @@ Class BitMap {
          Return -E
       }
       ; Area to be modified is entire image (RectF)
-      GDIp.GetImageDimensions(pBitmap, &Width, &Height)
-      GDIp.CreateRectF(&RectF := 0, 0, 0, Width, Height)
+      ; GDIp.GetImageDimensions(pBitmap, &Width, &Height)
+      ; GDIp.CreateRectF(&RectF := 0, 0, 0, Width, Height)
 
       ; Apply in-place
       E := DllCall("gdiplus\GdipBitmapApplyEffect"
          , "Ptr", pBitmap
          , "Ptr", pEffect
-         , "Ptr", RectF.Ptr
+         , "Ptr", 0 ;RectF.Ptr
          , "Ptr", 0
          , "Ptr", 0
          , "Ptr", 0)

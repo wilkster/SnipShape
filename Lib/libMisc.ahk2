@@ -365,7 +365,6 @@ GetCursorPos(&X, &Y) {
 SetCursorPos(X, Y) {
    Return DllCall("User32\SetCursorPos", "int", X, "int", Y)
 }
-; TODO - Move these monitor functions into libMisc
 /**
  * Return active monitor metrics based on the current cursor position
  * @param {Integer} [workArea=1] - If true, exclude the taskbar from the returned area
@@ -757,17 +756,23 @@ debug(stuff, back := 0) {
  * Output an informational log message with file and line context to the debug stream
  * @param stuff Message or value to log
  */
-dlog(stuff)     =>   OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " stuff)
+dlog(stuff) {
+   OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " stuff)
+}
 /**
  * Output a warning message with multi-level call-site context to the debug stream
  * @param stuff Message or value to log
  */
-warning(stuff)  =>   OutputDebug("(W) AHK2 (" Error("", -4).what "@" Error("", -3).line " => (" Error("", -3).what "@" Error("", -2).line " -> (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+warning(stuff) {
+   OutputDebug("(W) AHK2 (" Error("", -4).what "@" Error("", -3).line " => (" Error("", -3).what "@" Error("", -2).line " -> (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+}
 /**
  * Output an error message with call-site context to the debug stream
  * @param stuff Message or value to log
  */
-logError(stuff) =>   OutputDebug("(E) AHK2 (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+logError(stuff) {
+   OutputDebug("(E) AHK2 (" Error("", -2).what "@" Error("", -1).line ") " stuff)
+}
 /**
  * Log a caught Error object to the debug stream, including message, source location,
  * extra info, and full stack trace. Also displays a tray tip notification.

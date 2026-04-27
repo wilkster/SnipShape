@@ -16,7 +16,7 @@
 #include clsMenus.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
-#include OCR.ahk2
+; #include OCR.ahk2
 #Include Shapes\clsTextShape.ahk2
 ; Cancel start of selection with escape, when hidden won't meet WinExist criteria
 #HotIf IsWindowVisible(Snips.guiSSR.hWnd)

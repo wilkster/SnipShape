@@ -12,6 +12,7 @@
 #include ..\clsMenus.ahk2
 #include ..\clsCursor.ahk2
 #include ..\clsSnips.ahk2
+#include ..\Settings.ahk2
 #include clsTextShape.ahk2
 #include clsBodyShape.ahk2
 #include clsLineShape.ahk2

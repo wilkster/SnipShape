@@ -13,7 +13,7 @@
 #include clsClipboard.ahk2
 #include LibMisc.ahk2
 #include StopWatch.ahk2
-#include OCR.ahk2
+; #include OCR.ahk2
 #include clsButtonBar.ahk2
 #include clsCursor.ahk2
 #include clsSnips.ahk2
@@ -635,8 +635,9 @@ Class Shapes {
          }
          ;----------------------------------------------------------------------
          ; Drawing Loop starts here
+         ; Bug in alpha ~23+ where phyiscal state is missed when click is released
          ;----------------------------------------------------------------------
-         While GetKeyState(pressedKey, 'p') {
+         While GetKeyState(pressedKey) { ; ,"p"
             If GetKeyState("Esc", "P") {
                AddedPoints := W := H := 0
                focusBorder.HideFocus(true)

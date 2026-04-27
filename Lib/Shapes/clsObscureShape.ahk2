@@ -27,6 +27,7 @@ Class ObscureShape extends commonShape {
       this.imageBrush        := 0
       this.redactBrush       := 0
       this.hasImage          := 0
+      this.Color             :=0xFFFFFF
       Switch this.Shape {
          Case Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_BLUR:
             this.Factor *= Shapes.BlurDivisor
@@ -85,7 +86,8 @@ Class ObscureShape extends commonShape {
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
-               pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey)
+               pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey) ;MCodeGaussianBlur
+               ; pBitOutput      := BitMap.MCodeGaussianBlur(pBitInput, brushKey) ;MCodeGaussianBlur
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
                Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
@@ -250,7 +252,7 @@ Class ObscureShape extends commonShape {
     * @param amt % of change
     */
    ChangeThickness(amt) {
-      this.Factor *= (1 + amt * 2.0) ; blur/pixelate
+      this.Factor *= (1 + amt * 5.0) ; blur/pixelate
       this.createImageBrush()
    }
    ;----------------------------------------------------------------------

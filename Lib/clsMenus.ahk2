@@ -10,6 +10,7 @@
 #include clsBitmap.ahk2
 #include clsSnips.ahk2
 #include clsShapes.ahk2
+#include clsCursor.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
 ; #include Shapes\clsCommonShape.ahk2

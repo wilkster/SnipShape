@@ -57,6 +57,7 @@ Class FreeHandShape extends commonShape {
             this.shapeThickness := Shapes.highLightThickness * this.DPIFactor * this.Factor
             this.smoothFactor   := Shapes.HighlightSmoothFactor
             this.Factor         := Shapes.BlurDivisor
+            this.Color          := 0xFFFFFF
          Case Shapes.SHAPE_PEN:
             this.shapeThickness := Shapes.penLineThickness * this.DPIFactor * this.Factor
             this.shapeOpacity   := Shapes.penOpacity

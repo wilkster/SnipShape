@@ -94,22 +94,22 @@ Class Clipboard {
          elog("DIB Size Mismatch: " dibSize " vs " ds.dsBmih.biSizeImage)
 
       dwBytes := ds.dsBmih.size + ds.dsBmih.biSizeImage
-      If not (hdib := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
+      If not (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
          DllCall("CloseClipboard")
          Gdi.DeleteObject(hBitmap)
          Return -3
       }
       ; Lock down the object while we work with it
-      pdib := this.GlobalLock(hdib)
+      pDIB := this.GlobalLock(hDIB)
       ; Copy BITMAPINFOHEADER into the front of the global block
-      this.CopyMemory(pdib, ds.dsBmih.Ptr, ds.dsBmih.Size)
+      this.CopyMemory(pDIB, ds.dsBmih.Ptr, ds.dsBmih.Size)
       ; ; Copy raw pixel data after the header
-      this.CopyMemory(pdib + ds.dsBmih.Size, ds.dsBm.bmBits, ds.dsBmih.biSizeImage)
-      this.GlobalUnlock(hdib)
+      this.CopyMemory(pDIB + ds.dsBmih.Size, ds.dsBm.bmBits, ds.dsBmih.biSizeImage)
+      this.GlobalUnlock(hDIB)
 
       ; Place the DIB on the clipboard — on success clipboard owns hdib, do NOT free it
-      If not this.SetClipboardData(CF_DIB := 8, hdib) {
-         this.GlobalFree(hdib) ; only free if failed
+      If not this.SetClipboardData(CF_DIB := 8, hDIB) {
+         this.GlobalFree(hDIB) ; only free if failed
          this.CloseClipboard()
          Gdi.DeleteObject(hBitmap)
          Return -4
@@ -136,7 +136,24 @@ Class Clipboard {
             Gdi.DeleteObject(hBitmap)
             Return -6
          }
-      }
+         ; Unicode text as well
+         textBytes := StrPut(pszText, "UTF-16")          ; byte count including null terminator
+         If not (htext := this.GlobalAlloc(GMEM_MOVEABLE := 2, textBytes)) {
+            this.CloseClipboard()
+            Gdi.DeleteObject(hBitmap)
+            Return -7
+         }
+         ptext := this.GlobalLock(htext)
+         StrPut(pszText, ptext, textBytes, "UTF-16")          ; CP0 = system ANSI code page
+         this.GlobalUnlock(htext)
+         ; Place the text on the clipboard — on success clipboard owns htext, do NOT free it
+         If not this.SetClipboardData(CF_TEXT := 13, htext) {
+            this.GlobalFree(htext)
+            this.CloseClipboard()
+            Gdi.DeleteObject(hBitmap)
+            Return -8
+         }
+      }      
       this.CloseClipboard()
       Gdi.DeleteObject(hBitmap)
       Return 0
