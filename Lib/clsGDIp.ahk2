@@ -1241,7 +1241,7 @@ Class GDIp {
          |______________|___________|______________|
       */
       /**
-       * 
+       * The values must be in integer units
        * @param hX1 Starting col 
        * @param hY1 Starting Row
        * @param hW  Right side col
@@ -1286,7 +1286,7 @@ Class GDIp {
                   Continue 2
             ; Fell thru, must be blank row
             bndBx.Y1 := Y - DIBPad - boxPad
-            ; debug("Found Y1=" bounds.Y1 " vs " hY1- DIBPad)
+            ; debug("Found Y1=" bndBx.Y1 " vs " hY1- DIBPad)
             Break
          }
          ; StopWatch.cumText("3 Found Boundaries")
@@ -1296,7 +1296,7 @@ Class GDIp {
                If (argb := this.Pixel(X, Y))
                   Continue 2
             bndBx.Y2 := Y - DIBPad + boxPad
-            ; debug("Found Y2=" bounds.Y2 " vs " hY2- DIBPad)
+            ; debug("Found Y2=" bndBx.Y2 " vs " hY2- DIBPad)
             Break
          }
          bndBx.W := bndBx.X2 - bndBx.X1

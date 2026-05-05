@@ -679,10 +679,10 @@ Class Shapes {
             ; Compute the new unadjusted shape dimensions
             ; Account for non down/right drags
             ;----------------------------------------------------------------------
-            W := Abs(shapeStart.X - mouseNew.X)
-            H := Abs(shapeStart.Y - mouseNew.Y)
             X := Min(shapeStart.X, mouseNew.X)
             Y := Min(shapeStart.Y, mouseNew.Y)
+            W := Abs(shapeStart.X - mouseNew.X)
+            H := Abs(shapeStart.Y - mouseNew.Y)
             
             surfSource.GraphicsClear(0)
             ;----------------------------------------------------------------------
@@ -699,8 +699,8 @@ Class Shapes {
                   sisterShapeSnap := findNearestFocusPoint(mouseNew.X, mouseNew.Y)
                   ; Of we dodm't snape to another line then snap to horz/vert/45 deg lines
                   If (sisterShapeSnap.Valid) {
-                     mouseNew.X := sisterShapeSnap.X
-                     mouseNew.Y := sisterShapeSnap.Y
+                     mouseNew.X := round(sisterShapeSnap.X)
+                     mouseNew.Y := round(sisterShapeSnap.Y)
                      ; BUG - on resize the focus blocks should stay on the resized object
                      ; focusBorder.ShowFocus(sisterShapeSnap.hWnd, true)
                   } else {
@@ -847,6 +847,7 @@ Class Shapes {
             ; both size of the drawing coordinates, thus the need for DIBPadding
             ;----------------------------------------------------------------------
             bndBx := surfSource.FindExtent(X, Y, W, H, 5)
+            ; debug("H=" bndBx.H ", W=" bndBx.W)
             ; Save the padding (if shape used it) so we know the shape vs window
             ; size differences for moving
             ShapeObj.savePadding(bndBx.L, bndBx.T, bndBx.R, bndBx.B)
@@ -984,7 +985,7 @@ Class Shapes {
       ; Resize or Redraw Loop Starts Here
       ;-----------------------------------------------------
       If (corner) {
-         MouseMove(ccX, ccY)
+         MouseMove(ccX, ccY,0)
          ; If ShapeObj.Source = "FreeHand" {
          ;    ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
          ; }
