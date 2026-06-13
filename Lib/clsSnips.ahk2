@@ -1093,6 +1093,40 @@ Class Snips {
          Return false
       }
    }
+      /**
+    * Transform the snip colors to make it easier in some cases.
+    * Shapes are not impacted.
+    * @param {Integer} hWnd - Snip window handle
+    * @param {Integer} [Angle=0] - Degress to rotate bitmap
+    * @param {Integer} [FlipHow=0] - Flip type: 1=Top/Bottom, 2=left/right
+    */
+   Static RotateFlipSnip(hWnd, Angle := 0, FlipHow := 0) {
+      If (snipObj := this.IsValid(hWnd)) {
+         snipObj.SaveMyBitmap()
+         pBitmap  := GDIp.CreateBitmapFromHBITMAP(snipObj.Pic.Handle)
+         ; Transform in place
+         if (Angle)
+            pBitmap := Bitmap.Rotate(pBitmap, Angle)
+         if (FlipHow)
+            pBitmap := Bitmap.Flip(pBitmap, FlipHow)
+
+         ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDI.GetHBitmapDimensions(ihBitmap, &W, &H)
+         BW := Settings.BorderWidth*2
+         ; Replace the picture
+         snipObj.Pic.Handle := ihBitmap ; destroys og hBitmap
+         ; Cleanup
+         GDIp.DisposeImage(pBitmap) ; 
+         ; Recompute textures
+         snipObj.RefreshTextures()
+         ; TODO - any other computation needed here?
+         ; Autosize may pad image if there are shapes partially off the image
+         snipObj.Show("W" BW + W " H" BW + H)
+         WinRedraw(hWnd)
+      } Else {
+         qTrayTip("Failed to get the Snip handle!",2)
+      }
+   }
    /**
     * Transform the snip colors to make it easier in some cases.
     * Shapes are not impacted.
@@ -1124,8 +1158,10 @@ Class Snips {
       If this.IsValid(hwnd) {
          snipObj := this.GetGuiObj(hwnd)
          If (snipObj.RestoreBitmap()) {
+            DM := snipObj.Pic.Dimensions
+            BW := Settings.BorderWidth*2
             ; Note - if slicing/cropping occured before this will restore the image
-            snipObj.Show("AutoSize")
+            snipObj.Show("W" BW + DM.W " H" BW + DM.H)
             WinRedraw(hWnd)
          }
       }
@@ -1596,5 +1632,15 @@ Class SnipPicture extends Gui.Pic {
       ; Resize control to actual bitmap size
       set => this.Value := "*W0 *H0 HBITMAP:" Value
    }  
+   /**
+    * Return the dimensions of the picture bitmap.
+    * @type {Object} W/H
+    */
+   Dimensions {
+      get {
+         GDI.GetHBitmapDimensions(this.Handle, &W, &H)
+         return {W:W, H:H}
+      }
+   }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")

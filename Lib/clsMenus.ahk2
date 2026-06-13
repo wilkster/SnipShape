@@ -50,6 +50,13 @@ Class SnipMenus {
       this.csMenu.Add("Bitmap Effects",this.BitmapMenu)
       this.csMenu.SetIcon("Bitmap Effects", SETTINGS.CursorPath . "screenshot.ico")
 
+
+      this.BitmapMenu.Add("↻ Rotate +90", this.ContextSnipMenu_Handler.bind(this)) ;  
+      this.BitmapMenu.Add("↺ Rotate -90", this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.Add("Flip ⟺", this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.Add("Flip ⇕", this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.Add()
+
       this.BitmapMenu.Add('Invert Snip (Ctrl-I)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Invert Snip (Ctrl-I)", SETTINGS.CursorPath . "screenshot.ico")
 
@@ -58,6 +65,7 @@ Class SnipMenus {
 
       this.BitmapMenu.Add('B&W Snip (Ctrl-B)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("B&W Snip (Ctrl-B)", SETTINGS.CursorPath . "screenshot.ico")
+      this.BitmapMenu.Add()
 
       this.BitmapMenu.Add('Restore Snip (Ctrl-R)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Restore Snip (Ctrl-R)", SETTINGS.CursorPath . "screenshot.ico")
@@ -111,10 +119,16 @@ Class SnipMenus {
                Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
                Snips.Close(sw, 0)
             }
-         Case ItemName ~= "Invert Snip": Snips.TransformSnip(WinExist("A"),1)                           
-         Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)                           
-         Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)                           
-         Case ItemName ~= "Restore Snip": Snips.RestoreMySnip(WinExist("A"))                           
+
+         Case ItemName ~= "Flip ⟺": Snips.RotateFlipSnip(WinExist("A"), 0, 2)
+         Case ItemName ~= "Flip ⇕": Snips.RotateFlipSnip(WinExist("A"), 0, 1)
+         Case ItemName = "↻ Rotate +90": Snips.RotateFlipSnip(WinExist("A"), 90, 0)
+         Case ItemName = "↺ Rotate -90": Snips.RotateFlipSnip(WinExist("A"), -90, 0)
+
+         Case ItemName ~= "Invert Snip": Snips.TransformSnip(WinExist("A"),1)
+         Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)
+         Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)
+         Case ItemName ~= "Restore Snip": Snips.RestoreMySnip(WinExist("A"))
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           
