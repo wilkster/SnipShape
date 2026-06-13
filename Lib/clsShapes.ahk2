@@ -465,12 +465,16 @@ Class Shapes {
       MouseGetPos(&X, &Y, &mhWnd)
       lX := wx ?? X
       lY := wy ?? Y
-      SnipObj  := GuiFromHwnd(WinActive("A"))
-      ; Prefer text if desired and available
-      If (tryText AND Clipboard.hasText()) {
-         If NOT (Shapes.InsertText(SnipObj, lX, lY, A_Clipboard)) {
-            qTrayTip("Failed to paste Text found from Clipboard",2)
+      If (SnipObj := GuiFromHwnd(WinActive("A")) ?? false) {
+         ; Prefer text if desired and available
+         If (tryText AND Clipboard.hasText()) {
+            If NOT (Shapes.InsertText(SnipObj, lX, lY, A_Clipboard)) {
+               qTrayTip("Failed to paste Text found from Clipboard", 2)
+            }
+            Return
          }
+      } Else {
+         qTrayTip("Failed to find active window object", 2)
          Return
       }
       ; Paste image if desired and available

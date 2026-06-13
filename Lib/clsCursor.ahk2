@@ -201,10 +201,12 @@ Class Cursor {
    Static MouseOnEdge(shapehWnd) {
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
-      ShapeObj := GuiCtrlFromHwnd(shapehWnd)
-      CI := ShapeObj.CornerInfo(mX, mY)
-      cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
-      Return this.Cursors[Cur]
+      If (ShapeObj := GuiCtrlFromHwnd(shapehWnd) ?? false) {
+         CI := ShapeObj.CornerInfo(mX, mY)
+         cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
+         Return this.Cursors[cur]
+      } else
+         Return this.Cursors[0] ; Return default cursor
    }
 
    /**
@@ -315,16 +317,17 @@ Class focusBorder {
     */
    Static ShowFocus(hWnd, Block:=0) {
       If (Settings.focusRectangle AND (this.IsNotShown OR this.lastHwnd != hWnd OR Block)) {
-         This.ShapeObj := GuiCtrlFromHwnd(hWnd)
-         If WinActive(This.ShapeObj.Gui) {
-            C := This.ShapeObj.shapeCoord
-            ; Get and save the Snip window coordinates for offsets
-            this.ShapeObj.Gui.GetPos(&this.wX, &this.wY, &this.wW, &this.wH)
-            if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
-               warning("Failed to Show Focus Border")
-            this.focusBorderGui.Show('NA')
-            this.lastHwnd := hWnd
-            this.Block    := Block
+         If (this.ShapeObj := GuiCtrlFromHwnd(hWnd) ?? false) {
+            If WinActive(this.ShapeObj.Gui) {
+               C := this.ShapeObj.shapeCoord
+               ; Get and save the Snip window coordinates for offsets
+               this.ShapeObj.Gui.GetPos(&this.wX, &this.wY, &this.wW, &this.wH)
+               If (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
+                  warning("Failed to Show Focus Border")
+               this.focusBorderGui.Show('NA')
+               this.lastHwnd := hWnd
+               this.Block := Block
+            }
          }
       }
    }
