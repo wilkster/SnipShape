@@ -65,7 +65,6 @@ Class Clipboard {
       }
       this.SetHBitmapToClipboard(hBitmap, pszText)
    }
-
    /**
     * Take an hBitmap DIB and put it on the clipboard
     * @param {Integer} hBitmap Handle to bitmap to use; will be discarded after the call
@@ -73,6 +72,8 @@ Class Clipboard {
     * @returns {Integer} 0 on success, or negative error code on failure
     */
    Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
+
+      hBitmap:= GDIp.NormalizeHBitmap(hBitmap)
 
       pid  := DllCall("GetCurrentProcessId", "uint")
       hwnd := WinExist("ahk_pid " . pid)

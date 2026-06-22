@@ -56,7 +56,7 @@ Class GDI {
       hdc2 := hdc ?? this.GetDC()
       bi := Buffer(40, 0) ; BITMAPINFO
    ;                 0                4          8            12            14          16
-      NumPut("UInt", bi.size, "Int", w, "Int", h, "UShort", 1, "UShort", bpp, "UInt", 0, bi)
+      NumPut("UInt", bi.size, "Int", w, "Int", h, "UShort", 1, "UShort", bpp, "UInt", 0, bi) ; -h will flip the DIBSection
 
       hbm := DllCall("Gdi32\CreateDIBSection"
          , "Ptr"  , hdc2
@@ -1169,7 +1169,7 @@ Class GDIp {
          Static buf := Buffer(24 + A_PtrSize) ; BITMAP
          GDI.GetObject(this.ihbm, buf.Size, buf.Ptr)
          this.Stride := NumGet(buf, 12, "Uint")
-         ; debug(this.Stride " " Stride)
+         ; debug(this.Stride " " this.Stride)
       }
       /**
        * Return a pBitmap from this DIB Surface
@@ -1590,6 +1590,24 @@ Class GDIp {
       if (res := DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hBitmap, "Ptr", hPalette, "Ptr*", &pBitmap := 0))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return pBitmap
+   }
+   /**
+    * Make sure an hBitmap is bottom up for use in functions that needed it that way
+    * @param hBitmap hBitmap to flip
+    * @returns {Any} 
+    */
+   Static NormalizeHBitmap(hBitmap) {
+      Static bm := tagBITMAP()
+      If (GDI.GetObject(hBitmap, bm.Size, bm.Ptr)) {
+         ; Positive stride is negative height (top to bottom), need to flip it
+         If (bm.bmWidthBytes > 0) {
+            TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
+            GDI.DeleteObject(hBitmap)
+            hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
+            GDIp.DisposeImage(TpBitmap)
+         }
+      }
+      Return hBitmap
    }
 
    /**
