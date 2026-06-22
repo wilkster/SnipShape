@@ -454,60 +454,159 @@ Class BitMap {
    ;====================== BACKGROUND STUFF ===========================
    /**
     * Return the most common rgb value from a pBitmap, typically the background.
-    * Very fast method using GDI+ histogram.
-    * NOTE - This will find the most prevalent R, G & B values independently,
-    *        not necessarily from the same pixel.
     * @param {Integer} pBitmap Handle to the source pBitmap
-    * @param {Float} percent Output variable set to the average peak-count ratio across channels.
-    *                        Low values (<=10%) indicate a photo-like image; the average color is
-    *                        returned in that case instead of the mode.
-    * @returns {Integer} RGB color value as R<<16 | G<<8 | B
+    * @returns {Integer} RGB color value as R<<16 | G<<8 | B without alpha channel
+    * NOTE, could be adpted to use an hBitmap as well
     */
-   Static GetBackgroundColor(pBitmap, &percent?) {
-      Static sizeofUInt := 4
-      Static HistogramFormatRGB := 2 ; RGB
-      ; HistogramFormats := {ARGB: 0, PARGB: 1, RGB: 2, Gray: 3, B: 4, G: 5, R: 6, A: 7}
-      z := DllCall("gdiplus\GdipBitmapGetHistogramSize", "UInt", HistogramFormatRGB, "UInt*", &numEntries := 0)
-      ; Should return 256 entries for 8 bit RGB
-      ch0 := Buffer(numEntries * sizeofUInt, 0) ;R
-      ch1 := Buffer(numEntries * sizeofUInt, 0) ;G
-      ch2 := Buffer(numEntries * sizeofUInt, 0) ;B
-      rCnt := DllCall("gdiplus\GdipBitmapGetHistogram", "Ptr", pBitmap, "UInt", HistogramFormatRGB, "UInt", numEntries, "Ptr", ch0.ptr, "Ptr", ch1.ptr, "Ptr", ch2.ptr, "Ptr", 0, "Uint")
-      rMax := gMax := bMax := -1
-      totalR := totalG := totalB := 0
-      Loop numEntries {
-         i := A_Index - 1
-         idx := i * sizeofUInt
-         ; Get the number hits for this color I (in each channel)
-         rCnt := NumGet(ch0, idx, "UInt")
-         ; Compute the numerator for the average
-         totalR += rCnt * i
-         If (rCnt > rMax)
-            rMax := rCnt, rVal := i
+   Static GetBackgroundColor(pBitmap) {
+      /*
+      This method uses less memory by hashing the pixels and using a smaller histogram,
+      #include <stdint.h>
+      #include <stdlib.h>
+      #include <string.h>
 
-         gCnt := NumGet(ch1, idx, "UInt")
-         totalG += gCnt * i
-         If (gCnt > gMax)
-            gMax := gCnt, gVal := i
+      uint32_t find_background_color_hash(const uint8_t* pixels, int width, int height, int stride)
+      {
+         if (width <= 0 || height <= 0)
+            return 0xFF000000;
 
-         bCnt := NumGet(ch2, idx, "UInt")
-         totalB += bCnt * i
-         If (bCnt > bMax)
-            bMax := bCnt, bVal := i
+         // 14-bit table: 16384 slots, 256KB, fits in L2 cache
+         const uint32_t TABLE_BITS = 14;
+         const uint32_t TABLE_SIZE = 1u << TABLE_BITS;
+         const uint32_t TABLE_MASK = TABLE_SIZE - 1;
+
+         // Interleaved {color, count} pairs
+         uint32_t* table = (uint32_t*)calloc(TABLE_SIZE * 2, sizeof(uint32_t));
+         if (!table) return 0xFF000000;
+
+         // Sample every other pixel in both axes — background colors survive this easily
+         const int step = (width > 64 && height > 64) ? 2 : 1;
+
+         const uint8_t* row = pixels;
+         for (int y = 0; y < height; y += step) {
+            const uint8_t* p = row;
+            for (int x = 0; x < width; x += step) {
+                  // GDI+ BGRA layout
+                  uint32_t b = p[0];
+                  uint32_t g = p[1];
+                  uint32_t r = p[2];
+                  uint32_t a = p[3];
+                  p += 4 * step;
+
+                  if (a == 0)
+                     continue;
+
+                  uint32_t rgb = (r << 16) | (g << 8) | b;
+
+                  // Knuth multiplicative hash — one multiply, one shift
+                  uint32_t h = (rgb * 2654435761u) >> (32 - TABLE_BITS);
+
+                  // Robin Hood linear probing
+                  uint32_t probe_dist = 0;
+                  for (;;) {
+                     uint32_t idx   = (h & TABLE_MASK) * 2;
+                     uint32_t count = table[idx + 1];
+
+                     if (count == 0) {
+                        // Empty — insert here
+                        table[idx + 0] = rgb;
+                        table[idx + 1] = 1;
+                        break;
+                     }
+                     if (table[idx + 0] == rgb) {
+                        // Hit — increment
+                        table[idx + 1] = count + 1;
+                        break;
+                     }
+
+                     // Robin Hood: if the existing entry is "richer" (closer to home)
+                     // than us, swap and continue inserting the displaced entry
+                     uint32_t existing_home = (table[idx + 0] * 2654435761u) >> (32 - TABLE_BITS);
+                     uint32_t existing_dist = (h - existing_home) & TABLE_MASK;
+                     if (existing_dist < probe_dist) {
+                        // Steal this slot
+                        uint32_t tmp_rgb   = table[idx + 0];
+                        uint32_t tmp_count = table[idx + 1];
+                        table[idx + 0] = rgb;
+                        table[idx + 1] = 1;
+                        rgb        = tmp_rgb;
+                        count      = tmp_count;
+                        probe_dist = existing_dist;
+                        // Continue inserting the displaced entry
+                        // (its count is intentionally discarded — see note below)
+                     }
+
+                     h++;
+                     probe_dist++;
+
+                     // Safety: table full — evict minimum (should be extremely rare
+                     // with TABLE_SIZE=16384 and step=2 sampling)
+                     if (probe_dist >= TABLE_SIZE) {
+                        uint32_t min_idx   = 0;
+                        uint32_t min_count = UINT32_MAX;
+                        for (uint32_t j = 0; j < TABLE_SIZE; j++) {
+                              if (table[j * 2 + 1] < min_count) {
+                                 min_count = table[j * 2 + 1];
+                                 min_idx   = j;
+                              }
+                        }
+                        table[min_idx * 2 + 0] = rgb;
+                        table[min_idx * 2 + 1] = 1;
+                        break;
+                     }
+                  }
+            }
+            row += stride * step;
+         }
+
+         // Find most frequent
+         uint32_t best_color = 0;
+         uint32_t best_count = 0;
+         for (uint32_t i = 0; i < TABLE_SIZE; i++) {
+            uint32_t count = table[i * 2 + 1];
+            if (count > best_count) {
+                  best_count = count;
+                  best_color = table[i * 2 + 0];
+            }
+         }
+
+         free(table);
+         return best_color;
       }
-      ; Return the % used for this color
-      ; NOTE if all three are close to the same value then we probably got it right
-      GDIp.GetImageDimensions(pBitmap, &W, &H)
-      pCount := W * H
-      percent := ((rMax + gMax + bMax) / 3) / pCount
-      ; For photos, the percent will typically be < 1%, in those cases use the average instead
-      If (percent <= 0.10) {
-         rVal := Round(totalR / pCount)
-         gVal := Round(totalG / pCount)
-         bVal := Round(totalB / pCount)
+      */
+
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+         ; Using MFC.exe to compile
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            QVdBVkFVQVRVV1ZTSIPsOESJhCSQAAAAhdIPjhsCAABFhcAPjhICAABIic+J1rkAgAAAugQAAABEicvoAAAAAEiJwUiFwA+E7wEAAIP+QA+O5gAAAIO8JJAAAABAD47YAAAAuAIAAABBvwgAAABBvgIAAAAPr9jHRCQkAAAAAEhjw0iJ
+            RCQoSYn8RTHt6xCQRQH1TQH8RDnuD44dAQAAQYB8JAMAdOlFD7ZUJAJBD7ZEJAFFMcDB4AhBweIQQQnCQQ+2BCRBCcJBadKxeTeeweoSZg8fRAAAidAl/z8AAAHARI1IAUiNLIFOjRyJQYsbhdsPhCgBAABEi00ARTnRD4QrAQAAQWnZ
+            sXk3nonQwesSKdgl/z8AAEE5wHY7RIlVAIPCAUSNQAFBxwMBAAAAPf8/AAB0OUWJyuuduAEAAABBvwQAAABBvgEAAADpI////w8fgAAAAABBg8ABg8IBQYH4AEAAAA+FbP///0WJ0THAQbj/////RTHSZg8fRAAAi1TBBEQ5wnMGQYnQ
+            QYnCSIPAAUg9AEAAAHXlQ40EEkUB9U0B/ESJDIGNQAHHBIEBAAAARDnuD4/j/v//RAF0JCRIA3wkKItEJCQ5hCSQAAAAD4+w/v//SInITI2JAAACAEUxwEUx5GYPH4QAAAAAAItQBEQ5wnYGRIsgQYnQSIPACEk5wXXp6AAAAABIg8Q4
+            RIngW15fXUFcQV1BXkFfw0SJVQBBxwMBAAAA6WD+//+DwwFBiRvpVf7//0G8AAAA/+vJkJCQkJCQkJCQkJCQkA==|msvcrt:calloc:60:4|msvcrt:free:520:4
+            )"
+            mCodeFunc := BitMap.GetMcodePtr(x64)
+         } Else {
+            MsgBox("32 bit Not Implemented")
+            return
+         }
       }
-      Return rVal << 16 | gVal << 8 | bVal
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         GDIp.GetImageDimensions(pBitmap, &w, &h)
+         GDIp.LockBits(pBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1, 0x26200A) ; 1 is read only
+         ; FindBackgroundColor(const uint8_t *pixels, int width, int height, int stride) {
+         r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride)
+         GDIp.UnlockBits(pBitmap, &iData)
+         Return r
+      } Else {
+         elog("Failed to compile MCode")
+         Return 0
+      }
    }
+
    ;====================== DONE BACKGROUND STUFF ===========================
 
    /**
@@ -747,6 +846,156 @@ Class BitMap {
     *                    -1 = dimension mismatch, -2 = BlockSize exceeds image dimensions,
     *                    -3 = failed to lock bits
     */
+   /*
+   C/C++ Function by Tic and fixed by Fincs;
+   https://autohotkey.com/board/topic/29449-gdi-standard-library-145-by-tic/page-55
+
+   int __stdcall Gdip_PixelateBitmap(unsigned char * sBitmap, unsigned char * dBitmap, int w, int h, int Stride, int Size)
+   {
+      int sA, sR, sG, sB, rw, rh, o;
+
+      for (int y1 = 0; y1 < h/Size; ++y1)
+      {
+         for (int x1 = 0; x1 < w/Size; ++x1)
+         {
+               sA = sR = sG = sB = 0;
+               for (int y2 = 0; y2 < Size; ++y2)
+               {
+                  for (int x2 = 0; x2 < Size; ++x2)
+                  {
+                     o = 4*(x2+x1*Size)+Stride*(y2+y1*Size);
+                     sA += sBitmap[3+o];
+                     sR += sBitmap[2+o];
+                     sG += sBitmap[1+o];
+                     sB += sBitmap[o];
+                  }
+               }
+
+               sA /= Size*Size;
+               sR /= Size*Size;
+               sG /= Size*Size;
+               sB /= Size*Size;
+               for (int y2 = 0; y2 < Size; ++y2)
+               {
+                  for (int x2 = 0; x2 < Size; ++x2)
+                  {
+                     o = 4*(x2+x1*Size)+Stride*(y2+y1*Size);
+                     dBitmap[3+o] = sA;
+                     dBitmap[2+o] = sR;
+                     dBitmap[1+o] = sG;
+                     dBitmap[o] = sB;
+                  }
+               }
+         }
+
+         if (w % Size != 0)
+         {
+               sA = sR = sG = sB = 0;
+               for (int y2 = 0; y2 < Size; ++y2)
+               {
+                  for (int x2 = 0; x2 < w % Size; ++x2)
+                  {
+                     o = 4*(x2+(w/Size)*Size)+Stride*(y2+y1*Size);
+                     sA += sBitmap[3+o];
+                     sR += sBitmap[2+o];
+                     sG += sBitmap[1+o];
+                     sB += sBitmap[o];
+                  }
+               }
+
+               {
+               int tmp = (w % Size)*Size;
+               sA = tmp ? (sA / tmp) : 0;
+               sR = tmp ? (sR / tmp) : 0;
+               sG = tmp ? (sG / tmp) : 0;
+               sB = tmp ? (sB / tmp) : 0;
+               }
+               for (int y2 = 0; y2 < Size; ++y2)
+               {
+                  for (int x2 = 0; x2 < w % Size; ++x2)
+                  {
+                     o = 4*(x2+(w/Size)*Size)+Stride*(y2+y1*Size);
+                     dBitmap[3+o] = sA;
+                     dBitmap[2+o] = sR;
+                     dBitmap[1+o] = sG;
+                     dBitmap[o] = sB;
+                  }
+               }
+         }
+      }
+
+      for (int x1 = 0; x1 < w/Size; ++x1)
+      {
+         sA = sR = sG = sB = 0;
+         for (int y2 = 0; y2 < h % Size; ++y2)
+         {
+               for (int x2 = 0; x2 < Size; ++x2)
+               {
+                  o = 4*(x2+x1*Size)+Stride*(y2+(h/Size)*Size);
+                  sA += sBitmap[3+o];
+                  sR += sBitmap[2+o];
+                  sG += sBitmap[1+o];
+                  sB += sBitmap[o];
+               }
+         }
+
+         {
+         int tmp = Size*(h % Size);
+         sA = tmp ? (sA / tmp) : 0;
+         sR = tmp ? (sR / tmp) : 0;
+         sG = tmp ? (sG / tmp) : 0;
+         sB = tmp ? (sB / tmp) : 0;
+         }
+
+         for (int y2 = 0; y2 < h % Size; ++y2)
+         {
+               for (int x2 = 0; x2 < Size; ++x2)
+               {
+                  o = 4*(x2+x1*Size)+Stride*(y2+(h/Size)*Size);
+                  dBitmap[3+o] = sA;
+                  dBitmap[2+o] = sR;
+                  dBitmap[1+o] = sG;
+                  dBitmap[o] = sB;
+               }
+         }
+      }
+
+      sA = sR = sG = sB = 0;
+      for (int y2 = 0; y2 < h % Size; ++y2)
+      {
+         for (int x2 = 0; x2 < w % Size; ++x2)
+         {
+               o = 4*(x2+(w/Size)*Size)+Stride*(y2+(h/Size)*Size);
+               sA += sBitmap[3+o];
+               sR += sBitmap[2+o];
+               sG += sBitmap[1+o];
+               sB += sBitmap[o];
+         }
+      }
+
+      {
+      int tmp = (w % Size)*(h % Size);
+      sA = tmp ? (sA / tmp) : 0;
+      sR = tmp ? (sR / tmp) : 0;
+      sG = tmp ? (sG / tmp) : 0;
+      sB = tmp ? (sB / tmp) : 0;
+      }
+
+      for (int y2 = 0; y2 < h % Size; ++y2)
+      {
+         for (int x2 = 0; x2 < w % Size; ++x2)
+         {
+               o = 4*(x2+(w/Size)*Size)+Stride*(y2+(h/Size)*Size);
+               dBitmap[3+o] = sA;
+               dBitmap[2+o] = sR;
+               dBitmap[1+o] = sG;
+               dBitmap[o] = sB;
+         }
+      }
+      return 0;
+   }
+
+   */
    Static PixelateBitmap(TpBitmapIn, BlockSize) {
       Static PixelateBitmap := 0
       If (!PixelateBitmap) {
@@ -835,6 +1084,191 @@ Class BitMap {
       Return pBitmapOut
    }
 
+
+
+   /**
+    * Not working, box blur algorithem
+    * @param TpBitmapIn 
+    * @param radius 
+    * @returns {Any} 
+    */
+   /*
+         #include <stdint.h>
+      #include <stdlib.h>
+      #include <string.h>
+
+      // Efficient in-place box blur using sliding window sums.
+      // One horizontal pass + one vertical pass = O(w*h) regardless of radius.
+      // pixels: BGRA bitmap (GDI+ PixelFormat32bppARGB in memory)
+      // stride: bytes per row (may include padding)
+      // w, h:   region dimensions in pixels
+      // radius: blur radius in pixels (1 = 3x3 kernel, 2 = 5x5, etc.)
+      void blur_bitmap(uint8_t* pixels, int stride, int w, int h, int radius)
+      {
+         if (!pixels || w <= 0 || h <= 0 || radius <= 0)
+            return;
+
+         // Clamp radius so the kernel never exceeds the image dimensions
+         if (radius >= w / 2) radius = w / 2 - 1;
+         if (radius >= h / 2) radius = h / 2 - 1;
+         if (radius <= 0) return;
+
+         const int diameter = 2 * radius + 1;
+
+         // Intermediate row buffer: one row of BGRA uint32_t sums
+         // (uint32_t is wide enough: max sum = 255 * diameter, diameter <= min(w,h),
+         //  real screenshots won't exceed ~4000px so max = 255*4000 = 1,020,000 < 2^20)
+         uint32_t* row_buf = (uint32_t*)malloc((size_t)w * 4 * sizeof(uint32_t));
+         if (!row_buf) return;
+
+         // --- Horizontal pass ---
+         // For each row, slide a window of width (2*radius+1) across and write
+         // the average back. We work in uint32_t to avoid repeated clamping.
+         for (int y = 0; y < h; y++) {
+            uint8_t*  src = pixels + (size_t)y * stride;
+            uint32_t* dst = row_buf;
+
+            // Prime the window with the first (radius+1) pixels,
+            // clamping to the left edge for the out-of-bounds portion.
+            uint32_t sb = 0, sg = 0, sr = 0, sa = 0;
+            for (int i = -radius; i <= radius; i++) {
+                  int xi = i < 0 ? 0 : i;          // clamp left
+                  const uint8_t* p = src + (size_t)xi * 4;
+                  sb += p[0]; sg += p[1]; sr += p[2]; sa += p[3];
+            }
+
+            for (int x = 0; x < w; x++) {
+                  dst[x * 4 + 0] = sb / (uint32_t)diameter;
+                  dst[x * 4 + 1] = sg / (uint32_t)diameter;
+                  dst[x * 4 + 2] = sr / (uint32_t)diameter;
+                  dst[x * 4 + 3] = sa / (uint32_t)diameter;
+
+                  // Slide window: add incoming right pixel, remove outgoing left pixel
+                  int x_add = x + radius + 1; if (x_add >= w) x_add = w - 1;  // clamp right
+                  int x_sub = x - radius;     if (x_sub <  0) x_sub = 0;       // clamp left
+
+                  const uint8_t* p_add = src + (size_t)x_add * 4;
+                  const uint8_t* p_sub = src + (size_t)x_sub * 4;
+                  sb += p_add[0] - p_sub[0];
+                  sg += p_add[1] - p_sub[1];
+                  sr += p_add[2] - p_sub[2];
+                  sa += p_add[3] - p_sub[3];
+            }
+
+            // Write blurred row back
+            for (int x = 0; x < w; x++) {
+                  uint8_t* q = src + (size_t)x * 4;
+                  q[0] = (uint8_t)dst[x * 4 + 0];
+                  q[1] = (uint8_t)dst[x * 4 + 1];
+                  q[2] = (uint8_t)dst[x * 4 + 2];
+                  q[3] = (uint8_t)dst[x * 4 + 3];
+            }
+         }
+
+         // --- Vertical pass ---
+         // Same idea but column-by-column. We need a column-sized scratch buffer
+         // since stride means we can't alias rows easily.
+         uint32_t* col_buf = (uint32_t*)malloc((size_t)h * 4 * sizeof(uint32_t));
+         if (!col_buf) { free(row_buf); return; }
+
+         for (int x = 0; x < w; x++) {
+            // Helper macro: pointer to pixel (x, y)
+            #define PX(y_) (pixels + (size_t)(y_) * stride + (size_t)(x) * 4)
+
+            uint32_t sb = 0, sg = 0, sr = 0, sa = 0;
+            for (int i = -radius; i <= radius; i++) {
+                  int yi = i < 0 ? 0 : i;          // clamp top
+                  const uint8_t* p = PX(yi);
+                  sb += p[0]; sg += p[1]; sr += p[2]; sa += p[3];
+            }
+
+            for (int y = 0; y < h; y++) {
+                  col_buf[y * 4 + 0] = sb / (uint32_t)diameter;
+                  col_buf[y * 4 + 1] = sg / (uint32_t)diameter;
+                  col_buf[y * 4 + 2] = sr / (uint32_t)diameter;
+                  col_buf[y * 4 + 3] = sa / (uint32_t)diameter;
+
+                  int y_add = y + radius + 1; if (y_add >= h) y_add = h - 1;
+                  int y_sub = y - radius;     if (y_sub <  0) y_sub = 0;
+
+                  const uint8_t* p_add = PX(y_add);
+                  const uint8_t* p_sub = PX(y_sub);
+                  sb += p_add[0] - p_sub[0];
+                  sg += p_add[1] - p_sub[1];
+                  sr += p_add[2] - p_sub[2];
+                  sa += p_add[3] - p_sub[3];
+            }
+
+            // Write blurred column back
+            for (int y = 0; y < h; y++) {
+                  uint8_t* q = PX(y);
+                  q[0] = (uint8_t)col_buf[y * 4 + 0];
+                  q[1] = (uint8_t)col_buf[y * 4 + 1];
+                  q[2] = (uint8_t)col_buf[y * 4 + 2];
+                  q[3] = (uint8_t)col_buf[y * 4 + 3];
+            }
+
+            #undef PX
+         }
+
+         free(row_buf);
+         free(col_buf);
+      }
+
+   */
+   Static ClaudeBoxBlur(TpBitmapIn, kernel) {
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            QVdBVkFVQVRVV1ZTSIPseIu8JOAAAABIiUwkOESJRCRcRIlMJCyJfCRISIXJdD1FhcB+OESJy0WFyX4whf9+LEHR+NH7SGPqRInAidpBOfh/LoPoAYlEJEg52HwHjUL/iUQkSItEJEiFwH8aSIPEeFteX11BXEFdQV5BX8MPHwA5XCRI
+            fddIY0wkXItcJEhIic9IweEEjXQbAegAAAAASIlEJGBIhcB0w4nYjVMB99PHRCREAAAAAPfYiVQkWEiLTCQ4RTHtiUQkTI1EAP9BifyJRCQwjUf/iVwkNIlEJEBIiWwkaA8fAItEJExEi0wkSDHtMf8x20Ux22YPH0QAAIXARInqD0nQ
+            g8ABSGPSSI0UkUQPtgJFAcNED7ZCAUQBw0QPtkICD7ZSA0QBxwHVRDnIfsxMi1QkYESLRCRYRItMJDRMiVQkUA8fhAAAAAAARInYMdL39jHSQYkCidj39jHSQYlCBIn49/Yx0kGJQgiJ6Pf2RTnEQYlCDItEJEBBD0/ASJhIjRSBi0Qk
+            MEQPtjJEAcBBD0jFQYPAAUmDwhBImEiNBIFED7Y4RSn+RA+2eAFFAfNED7ZyAUUp/kQPtngCD7ZAA0QB80QPtnICD7ZSA0Up/inCQ40EAUQB9wHVQTnED49n////TItMJFAxwEGLEUmDwRCIFIFBi1H0iFSBAUGLUfiIVIECQYtR/IhU
+            gQNIg8ABQTnEf9WDRCREAUgDTCRoi0QkRDlEJCwPj7X+//9IY0wkLEiLbCRoSMHhBOgAAAAASIlEJGhIhcAPhLABAACLRCQsRTHkRTHtiffHRCREAAAAAIPoAYlEJECQi1QkTEiLTCQ4MfYx20SLRCRIRTHbRTHSDx+EAAAAAACF0kSJ
+            6A9JwoPCAUiYSA+vxUwB4EgByEQPtghFAcpED7ZIAUUBy0QPtkgCD7ZAA0QBywHGRDnCfsdMi0wkaItMJFhMi0QkOEyJTCRQDx9AAESJ0DHS9/cx0kGJAUSJ2Pf3MdJBiUEEidj39zHSQYlBCInw9/eLVCRAOUwkLA9P0Uhj0kgPr9VM
+            AeJMAcJED7YyQYlBDItEJDAByEEPSMWDwQFJg8EQSJhID6/FTAHgTAHARA+2OEUp/kQPtngBRQHyRA+2cgFFKf5ED7Z4Ag+2QANFAfNED7ZyAg+2UgNFKf5Ei3wkNCnCRAHzAdZBjQQPOUQkLA+PVf///0iLRCQ4TItEJFAx0kSLTCQs
+            TAHgkEGLCIPCAUmDwBCICEGLSPSISAFBi0j4iEgCQYtI/IhIA0gB6EE50X/Xg0QkRAFJg8QEi0QkRDlEJFwPj5D+//9Ii0wkYOgAAAAASItMJGhIg8R4W15fXUFcQV1BXkFf6QAAAABIi0wkYOvkkJCQkJA=|msvcrt:malloc:155:4
+            |msvcrt:malloc:578:4|msvcrt:free:998:4|msvcrt:free:1024:4
+            )"
+            mCodeFunc := BitMap.GetMcodePtr(x64)
+
+         } Else {
+            ; Have undeclared malloc/free here
+            x86 := "
+            (
+            VVdWU4PsbIuEJIQAAACLjCSAAAAAi7QkjAAAAIucJJAAAACJRCQgi4QkiAAAAIlMJBSJRCQciXQkGIlcJCSFyXQwhcB+LIX2fiiF234k0f7R+InyOdh/KIPoAYlEJCQ58HwHjUL/iUQkJItEJCSFwH8Ug8RsW15fXcONtgAAAAA5dCQk
+            fd2LdCQki1wkHI1ENgGJRCRIidjB4ASJBCToAAAAAIlEJFiFwHTHifCJ8Yt0JBTHRCREAAAAAPfZjXgB99CJTCRMjUwJ/4lEJDiNQ/+JfCRQiUwkPIlEJECJdCQQjbQmAAAAAItEJEwx/zHbMckx9o10JgCFwLoAAAAAi2wkEA9J0IPA
+            AY1UlQAPtioB7g+2agEB6Q+2agIPtlIDAesB1ztEJCR+zolMJCyLTCRYi0QkUIl8JDSJTCRUiXQkKIt0JEiJXCQwicONdCYAi0QkKDHSi3wkPItsJBD39jHSiQGLRCQs9/Yx0olBBItEJDD39jHSiUEIi0QkNPf2i1QkQDlcJBwPT9MB
+            341UlQCJQQyJ+L8AAAAAD0jHD7Y6g8MBg8EQjUSFAA+2KCnvD7ZoAQF8JCgPtnoBKe8PtmgCAXwkLA+2QAMPtnoCD7ZSAynvAXwkMCnCi0QkOAFUJDQB2DlEJBwPj2L///+LXCRUi3QkEDHAi0wkHI10JgCLE4PDEIgUhotT9IhUhgGL
+            U/iIVIYCi1P8iFSGA4PAATnBf9yDRCREAYtMJCCLRCREAUwkEDlEJBgPj6n+//+LRCQYweAEiQQk6AAAAACJRCRchcAPhLYBAACLRCQYx0QkRAAAAACD6AGJRCRAjXYAi0QkRItUJEwx/zH2MdsxycHgAolEJBCNtCYAAAAAZpCF0rgA
+            AAAAD0nCD69EJCADRCQQg8IBA0QkFA+2KAHpD7ZoAQHrD7ZoAg+2QAMB7gHHO1QkJH7JiXQkMIt0JFyJfCQ0iXQkVIlMJCiLTCRQiVwkLItcJEiNtCYAAAAAZpCLRCQoMdKLbCQgi3wkPPfzMdKJBotEJCz38zHSiUYEi0QkMPfzMdKJ
+            RgiLRCQ09/OLVCRAOUwkGA9P0Q+v1QNUJBADVCQUAc+JRgyJ+L8AAAAAD0jHD7Y6g8EBg8YQD6/FA0QkEANEJBQPtigp7w+2aAEBfCQoD7Z6ASnvD7ZoAgF8JCwPtkADD7Z6Ag+2UgMp7wF8JDApwgFUJDSLRCQ4Acg5RCQYD49U////
+            i1wkVIt0JCAx0ot8JBiLRCQQA0QkFI22AAAAAIsLg8IBg8MQiAiLS/SISAGLS/iISAKLS/yISAMB8DnXf96DRCREAYtEJEQ5RCQcD4+D/v//i0QkWIkEJOgAAAAAi0QkXImEJIAAAACDxGxbXl9d6QAAAACLRCRY6+eQkJCQkJCQkJCQ
+            |msvcrt:_malloc:159:4|msvcrt:_malloc:586:4|msvcrt:_free:1013:4|msvcrt:_free:1036:4
+            )"            
+            mCodeFunc := BitMap.GetMcodePtr(x86)
+            return
+         }
+      }
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         GDIp.GetImageDimensions(TpBitmapIn, &w, &h)
+         GDIp.LockBits(TpBitmapIn, 0, 0, w, h, &stride, &iScan, &iData, 3, 0x26200A) ; 3 is read/write for in-place editing
+         ; Gdip_GaussianBlurBitmap(unsigned char * pBitmap, int w, int h, int Stride, int KernelSize
+         r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", stride, "uint", w, "uint", h, "uInt", kernel//2-1)
+         GDIp.UnlockBits(TpBitmapIn, &iData)
+         Return TpBitmapIn
+      } Else {
+         elog("Failed to compile MCode")
+         Return 0
+      }
+
+   }
+
+
    /**
     * Apply a Gaussian blur to a pBitmap in place using compiled machine code.
     * Produces better results than BlurBitmap for text content.
@@ -920,6 +1354,7 @@ Class BitMap {
       p := DllCall("GlobalAlloc", "uint", 0, "uptr", size, "ptr")
       DllCall("VirtualProtect", "ptr", p, "ptr", size, "uint", 0x40, "uint*", &op := 0) ; Allow execution from memory.
       DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", p, "uint*", &size, "ptr", 0, "ptr", 0)
+      ; Call the custom function
       e := DllCall(p, "ptr", Scan01, "ptr", Scan02, "uint", width, "uint", height, "uint", 4, "uint", radius, "float", opacity)
       ; if (NOT e)
       ;    logError("Failed to return a gaussian blur image")
@@ -1257,6 +1692,131 @@ Class BitMap {
       If res := DllCall("ole32\CLSIDFromString", "WStr", IID, "Ptr", CLSID, "UInt")
          Throw Error("CLSIDFromString failed. Error: " . Format("{:#x}", res))
       Return CLSID
+   }
+
+   /**
+    * Encrypt the mcode string into a run-time dll entry point
+    * @param mcode base64 Encoded mcode
+    * @returns Pointer to memory based function 
+    */
+   Static RunMCode(mcode) {
+      Static e := Map(1, 4, 2, 1 , "1", 4, "2", 1)
+      , c := (A_PtrSize = 8) ? "x64" : "x86"
+
+      If (!RegExMatch(mcode, "^([0-9]+),(" c ":|.*?," c ":)([^,]+)", &m))
+         Return 0
+      ; m[1] is 2
+      ; m[2] is x64: or x86:
+      ; m[3] is raw string
+      If (!DllCall("crypt32\CryptStringToBinary", "str", m[3], "uint", StrLen(m[3]), "uint", e[m[1]], "UPtr", 0, "uint*", &s := 0, "UPtr", 0, "UPtr", 0))
+         Return 0
+
+      p := DllCall("GlobalAlloc", "uint", 0, "UPtr", s, "UPtr")
+      ; if (c="x64")
+      DllCall("VirtualProtect", "UPtr", p, "UPtr", s, "uint", 0x40, "uint*", &op := 0)
+
+      If (DllCall("crypt32\CryptStringToBinary", "str", m[3], "uint", StrLen(m[3]), "uint", e[m[1]], "UPtr", p, "uint*", &s, "UPtr", 0, "UPtr", 0))
+         Return p ; success here
+
+      DllCall("GlobalFree", "UPtr", p)
+      Return 0
+   }
+
+   /**
+    * Return the mcode binary created by MCF (Mcode Factory app)
+    * Handles external DLLs in parsing
+    * @param {String} x64 64 bit or 32 bit mcode to process
+    * @param {String} x86 
+    * @returns {Float | Integer | String} 
+    */
+   Static GetMcodePtr(x64 := "", x86 := "") {
+      p := A_PtrSize, code := StrSplit(RegExReplace(p=8 ? x64 : x86, "\s+"), "|")
+      if ((SubStr(code[1], 1, 1) == "$")) {
+         oSize   := Integer("0x" SubStr(code[1], 2, 6))
+         cmpFmt  := Integer(SubStr(code[1], 8, 1))
+         code[1] := SubStr(code[1], 9)
+         DllCall("Crypt32\CryptStringToBinary", "Str", code[1], "UInt", 0, "UInt", 1, "Ptr", 0, "UInt*", &size := 0, "Ptr", 0, "Ptr", 0)
+         DllCall("Crypt32\CryptStringToBinary", "Str", code[1], "UInt", 0, "UInt", 1, "Ptr", cbuf := Buffer(size), "UInt*", size, "Ptr", 0, "Ptr", 0)
+         DllCall("ntdll\RtlDecompressBuffer", "UShort", cmpFmt, "Ptr", ubuf := Buffer(oSize), "UInt", oSize, "Ptr", cbuf, "UInt", size, "UInt*", &sz := 0, "UInt")
+         ptr := DllCall("VirtualAlloc", "Ptr", 0, "Ptr", sz + (code.Length - 1) * 16, "UInt", 0x3000, "UInt", 0x40, "Ptr")
+         DllCall("RtlMoveMemory", "Ptr", ptr, "Ptr", ubuf, "Ptr", oSize)
+      } else {
+         crypt := RegExMatch(code[1], "^[0-9a-fA-F]+$") ? 12 : 1
+         DllCall("Crypt32\CryptStringToBinary", "Str", code[1], "UInt", 0, "UInt", crypt, "Ptr", 0, "UInt*", &sz := 0, "Ptr", 0, "Ptr", 0)
+         ptr := DllCall("VirtualAlloc", "Ptr", 0, "Ptr", sz + (code.Length - 1) * 16, "UInt", 0x3000, "UInt", 0x40, "Ptr")
+         DllCall("Crypt32\CryptStringToBinary", "Str", code[1], "UInt", 0, "UInt", crypt, "Ptr", ptr, "UInt*", sz, "Ptr", 0, "Ptr", 0)
+      }
+
+      iatOffset := 0
+      Loop (code.Length - 1) {
+         item := StrSplit(code[A_Index + 1], ":")
+         if (item[1] == "VA") {
+               VAsz := Integer(item[2]), offset := Integer(item[3])
+               val := NumGet(ptr + offset, VAsz == 8 ? "UInt64" : "UInt")
+               NumPut(VAsz == 8 ? "UInt64" : "UInt", val + ptr, ptr + offset)
+               continue
+         }
+
+         pFunc := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", item[1], "Ptr"), "AStr", item[2], "Ptr")
+         patchOffset := Integer(item[3]), disp := Integer(item[4])
+         pEntry := ptr + sz + iatOffset
+
+         opcode := NumGet(ptr + patchOffset - 1, "UChar")
+         if (opcode == 0xE8 || opcode == 0xE9) {
+               if (p == 8) {
+                  NumPut("UShort", 0x25FF, "UInt", 0x00000000, "Ptr", pFunc, pEntry)
+                  NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
+                  iatOffset += 16
+               } else {
+                  NumPut("Int", pFunc - (ptr + patchOffset + disp), ptr + patchOffset)
+               }
+         } else {
+               NumPut("Ptr", pFunc, pEntry)
+               if (p == 8) {
+                  NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
+               } else {
+                  NumPut("UInt", pEntry, ptr + patchOffset)
+               }
+               iatOffset += p
+         }
+      }
+      return ptr
+   }
+   ; Returns {ptr, stride, w, h} for an hBitmap created via CreateDIBSection.
+   ; Throws if hBitmap is not a DIB section (bmBits will be 0).
+   ; This can be used to handle the bits directly in an hBitmap like we do for a pBitmap in mcode examples
+   Static GetDIBSectionInfo(hBitmap) {
+      static dibSize := A_PtrSize == 8 ? 104 : 84  ; generous upper bound, real struct is smaller
+      buf := Buffer(dibSize, 0)
+
+      if !DllCall("GetObject", "Ptr", hBitmap, "Int", buf.Size, "Ptr", buf.Ptr, "Int")
+         throw Error("GetObject failed")
+
+      bmWidth      := NumGet(buf, 4, "Int")
+      bmHeight     := NumGet(buf, 8, "Int")        ; abs value, always positive in BITMAP struct
+      bmWidthBytes := NumGet(buf, 12, "Int")       ; stride, DWORD-aligned
+      bmBitsOffset := A_PtrSize == 8 ? 24 : 20
+      pBits        := NumGet(buf, bmBitsOffset, "Ptr")
+
+      if !pBits
+         throw Error("hBitmap is not a DIB section - no direct pixel access")
+
+      ; biHeight (signed) lives in the BITMAPINFOHEADER right after the BITMAP struct.
+      bmihOffset  := A_PtrSize == 8 ? 32 : 24
+      biHeight    := NumGet(buf, bmihOffset + 8, "Int")
+
+      stride := bmWidthBytes
+      ptr    := pBits
+
+      if (biHeight > 0) {
+         ; bottom-up storage: first row in memory is the bottom of the image.
+         ; Walk it as if top-down by starting at the last row and using negative stride.
+         ptr    := pBits + (bmHeight - 1) * bmWidthBytes
+         stride := -bmWidthBytes
+      }
+      ; biHeight < 0 means already top-down; stride/ptr as-is.
+
+      return {ptr: ptr, stride: stride, w: bmWidth, h: bmHeight}
    }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")

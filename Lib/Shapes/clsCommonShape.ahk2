@@ -447,8 +447,8 @@ Class commonShape extends Gui.Pic {
     * @param Percent       - Optional override for the background color dominance percentage
     * @returns             - GDI+ texture brush, or 0 on failure
     */
-   HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?, Percent?) {
-      bgColor := userBgColor ?? this.ShapeBackgroundColor(TpInputBitmap, &Percent := 0)
+   HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?) {
+      bgColor := userBgColor ?? this.ShapeBackgroundColor(TpInputBitmap)
       If (bgColor >= 0) {
          GDIp.GetImageDimensions(TpInputBitmap, &sWidth, &sHeight)
          attrib := GDIp.CreateImageAttributes()
@@ -461,7 +461,7 @@ Class commonShape extends Gui.Pic {
          ; If background is dark, then replace the background color with something a bit lighter
          ; 50 is a threshold indicating a pretty dark background where text is most likely white or light
          ; High Percent indicates a solid background (like text), vs a photo or texture
-         If ((lv := Luminosity(bgColor)) < 64 AND Percent > 0.10) {
+         If ((lv := Luminosity(bgColor)) < 64) {
             ; This looks better as it retains the highlight colors more accuratly
             ; Flip the highlight color as we will flip it back when we invert
             InvHlColor := Round((1 - cr) * 255 * scale) << 16 | Round((1 - cg) * 255 * scale) << 8 | Round((1 - cb) * 255 * scale)
@@ -516,10 +516,10 @@ Class commonShape extends Gui.Pic {
     * @param Perc  - Output variable receiving the dominance percentage of the returned color
     * @returns     - RGB color value (no alpha), or -1 on failure
     */
-   ShapeBackgroundColor(pBit?, &Perc?) {
+   ShapeBackgroundColor(pBit?) {
       pBitmap := pBit ?? this.pBitmapUnderShape()
       If (pBitmap) {
-         CC := BitMap.GetBackgroundColor(pBitmap, &Perc)
+         CC := BitMap.GetBackgroundColor(pBitmap)
          if (NOT IsSet(pBit))
             GDIp.DisposeImage(pBitmap)
          Return CC
@@ -580,8 +580,8 @@ Class commonShape extends Gui.Pic {
     */
    getHighlightedSnipBrush(color, opacity := 0xFF) {
       If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
-         CC     := BitMap.GetBackgroundColor(pBitInput, &Perc := 0)
-         tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC, Perc)
+         CC     := BitMap.GetBackgroundColor(pBitInput)
+         tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC)
          GDIp.TranslateTextureBrush(tBrush, Settings.BorderWidth, Settings.BorderWidth)
          Return tBrush
       } else

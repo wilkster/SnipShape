@@ -86,8 +86,12 @@ Class ObscureShape extends commonShape {
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
-               pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey) ;MCodeGaussianBlur
-               ; pBitOutput      := BitMap.MCodeGaussianBlur(pBitInput, brushKey) ;MCodeGaussianBlur
+               ; These are too slow for scroll wheel real time updates
+               ; pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey)
+               ; pBitOutput      := BitMap.MCodeGaussianBlur(pBitInput, brushKey//2+1) ;MCodeGaussianBlur
+               ; Call this up to three times to converge to a gaussian blur, fairly fast
+               pBitOutput      := BitMap.ClaudeBoxBlur(pBitInput, brushKey)
+               pBitOutput      := BitMap.ClaudeBoxBlur(pBitInput, brushKey)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
                Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
