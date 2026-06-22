@@ -458,136 +458,60 @@ Class BitMap {
     * @returns {Integer} RGB color value as R<<16 | G<<8 | B without alpha channel
     * NOTE, could be adpted to use an hBitmap as well
     */
-   Static GetBackgroundColor(pBitmap) {
+   Static GetBackgroundColor(uBitmap) {
       /*
       This method uses less memory by hashing the pixels and using a smaller histogram,
-      #include <stdint.h>
-      #include <stdlib.h>
-      #include <string.h>
+         #include <stdint.h>
+         #include <stdlib.h>
+         #include <string.h>
 
-      uint32_t find_background_color_hash(const uint8_t* pixels, int width, int height, int stride)
-      {
-         if (width <= 0 || height <= 0)
-            return 0xFF000000;
+         // Returns most common color as 0x00RRGGBB (alpha ignored).
+         // pixels: pointer to top-left pixel of the full bitmap
+         // width:  width of bitmap in pixels
+         // height: height of bitmap in pixels
+         // stride: bytes per row (may include padding)
+         uint32_t FindBackgroundColor(const uint8_t *pixels, intptr_t width, intptr_t height, intptr_t stride)
+         {
+            if (width <= 0 || height <= 0)
+               return 0;
 
-         // 14-bit table: 16384 slots, 256KB, fits in L2 cache
-         const uint32_t TABLE_BITS = 14;
-         const uint32_t TABLE_SIZE = 1u << TABLE_BITS;
-         const uint32_t TABLE_MASK = TABLE_SIZE - 1;
+            uint32_t *hist = (uint32_t *)calloc((size_t)1 << 24, sizeof(uint32_t)); // 64MB
+            if (!hist) return 0;
 
-         // Interleaved {color, count} pairs
-         uint32_t* table = (uint32_t*)calloc(TABLE_SIZE * 2, sizeof(uint32_t));
-         if (!table) return 0xFF000000;
+            uint32_t bestColor = 0, bestCount = 0;
 
-         // Sample every other pixel in both axes — background colors survive this easily
-         const int step = (width > 64 && height > 64) ? 2 : 1;
-
-         const uint8_t* row = pixels;
-         for (int y = 0; y < height; y += step) {
-            const uint8_t* p = row;
-            for (int x = 0; x < width; x += step) {
-                  // GDI+ BGRA layout
-                  uint32_t b = p[0];
-                  uint32_t g = p[1];
-                  uint32_t r = p[2];
-                  uint32_t a = p[3];
-                  p += 4 * step;
-
-                  if (a == 0)
-                     continue;
-
-                  uint32_t rgb = (r << 16) | (g << 8) | b;
-
-                  // Knuth multiplicative hash — one multiply, one shift
-                  uint32_t h = (rgb * 2654435761u) >> (32 - TABLE_BITS);
-
-                  // Robin Hood linear probing
-                  uint32_t probe_dist = 0;
-                  for (;;) {
-                     uint32_t idx   = (h & TABLE_MASK) * 2;
-                     uint32_t count = table[idx + 1];
-
-                     if (count == 0) {
-                        // Empty — insert here
-                        table[idx + 0] = rgb;
-                        table[idx + 1] = 1;
-                        break;
+            for (intptr_t y = 0; y < height; y++) {
+               const uint32_t *row = (const uint32_t *)(pixels + (size_t)y * stride);
+               for (intptr_t x = 0; x < width; x++) {
+                     uint32_t pixel = row[x];
+                     // Skip fully transparent pixels (alpha is the high byte in 0xAARRGGBB)
+                     if ((pixel >> 24) == 0)
+                        continue;
+                     uint32_t rgb   = pixel & 0x00FFFFFF;
+                     uint32_t count = ++hist[rgb];
+                     if (count > bestCount) {
+                        bestCount = count;
+                        bestColor = rgb;
                      }
-                     if (table[idx + 0] == rgb) {
-                        // Hit — increment
-                        table[idx + 1] = count + 1;
-                        break;
-                     }
-
-                     // Robin Hood: if the existing entry is "richer" (closer to home)
-                     // than us, swap and continue inserting the displaced entry
-                     uint32_t existing_home = (table[idx + 0] * 2654435761u) >> (32 - TABLE_BITS);
-                     uint32_t existing_dist = (h - existing_home) & TABLE_MASK;
-                     if (existing_dist < probe_dist) {
-                        // Steal this slot
-                        uint32_t tmp_rgb   = table[idx + 0];
-                        uint32_t tmp_count = table[idx + 1];
-                        table[idx + 0] = rgb;
-                        table[idx + 1] = 1;
-                        rgb        = tmp_rgb;
-                        count      = tmp_count;
-                        probe_dist = existing_dist;
-                        // Continue inserting the displaced entry
-                        // (its count is intentionally discarded — see note below)
-                     }
-
-                     h++;
-                     probe_dist++;
-
-                     // Safety: table full — evict minimum (should be extremely rare
-                     // with TABLE_SIZE=16384 and step=2 sampling)
-                     if (probe_dist >= TABLE_SIZE) {
-                        uint32_t min_idx   = 0;
-                        uint32_t min_count = UINT32_MAX;
-                        for (uint32_t j = 0; j < TABLE_SIZE; j++) {
-                              if (table[j * 2 + 1] < min_count) {
-                                 min_count = table[j * 2 + 1];
-                                 min_idx   = j;
-                              }
-                        }
-                        table[min_idx * 2 + 0] = rgb;
-                        table[min_idx * 2 + 1] = 1;
-                        break;
-                     }
-                  }
+               }
             }
-            row += stride * step;
-         }
 
-         // Find most frequent
-         uint32_t best_color = 0;
-         uint32_t best_count = 0;
-         for (uint32_t i = 0; i < TABLE_SIZE; i++) {
-            uint32_t count = table[i * 2 + 1];
-            if (count > best_count) {
-                  best_count = count;
-                  best_color = table[i * 2 + 0];
-            }
+            free(hist);
+            return bestColor;
          }
-
-         free(table);
-         return best_color;
-      }
       */
 
       Static mCodeFunc := 0
       If (mCodeFunc = 0) {
-         ; Using MFC.exe to compile
+         ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRVV1ZTSIPsOESJhCSQAAAAhdIPjhsCAABFhcAPjhICAABIic+J1rkAgAAAugQAAABEicvoAAAAAEiJwUiFwA+E7wEAAIP+QA+O5gAAAIO8JJAAAABAD47YAAAAuAIAAABBvwgAAABBvgIAAAAPr9jHRCQkAAAAAEhjw0iJ
-            RCQoSYn8RTHt6xCQRQH1TQH8RDnuD44dAQAAQYB8JAMAdOlFD7ZUJAJBD7ZEJAFFMcDB4AhBweIQQQnCQQ+2BCRBCcJBadKxeTeeweoSZg8fRAAAidAl/z8AAAHARI1IAUiNLIFOjRyJQYsbhdsPhCgBAABEi00ARTnRD4QrAQAAQWnZ
-            sXk3nonQwesSKdgl/z8AAEE5wHY7RIlVAIPCAUSNQAFBxwMBAAAAPf8/AAB0OUWJyuuduAEAAABBvwQAAABBvgEAAADpI////w8fgAAAAABBg8ABg8IBQYH4AEAAAA+FbP///0WJ0THAQbj/////RTHSZg8fRAAAi1TBBEQ5wnMGQYnQ
-            QYnCSIPAAUg9AEAAAHXlQ40EEkUB9U0B/ESJDIGNQAHHBIEBAAAARDnuD4/j/v//RAF0JCRIA3wkKItEJCQ5hCSQAAAAD4+w/v//SInITI2JAAACAEUxwEUx5GYPH4QAAAAAAItQBEQ5wnYGRIsgQYnQSIPACEk5wXXp6AAAAABIg8Q4
-            RIngW15fXUFcQV1BXkFfw0SJVQBBxwMBAAAA6WD+//+DwwFBiRvpVf7//0G8AAAA/+vJkJCQkJCQkJCQkJCQkA==|msvcrt:calloc:60:4|msvcrt:free:520:4
+            QVRVV1ZTSIPsIEiF0g+OnQAAAEyJx02FwA+OkQAAAEiJy0iJ1rkAAAABugQAAABMic3oAAAAAEmJwEiFwHRxSYnbRTHJMdtFMeRmDx9EAAAx0mYPH0QAAEGLBJOJwcHpGHQdJf///wCJwU2NFIhBiwqDwQFBiQo52XYFictBicRIg8IB
+            SDnWf89Jg8EBSQHrTDnPf7tMicHoAAAAAEiDxCBEieBbXl9dQVzDDx9EAABIg8QgRTHkW0SJ4F5fXUFcw5CQkJCQkJCQkJCQkJCQkA==|msvcrt:calloc:51:4|msvcrt:free:153:4
             )"
-            mCodeFunc := BitMap.GetMcodePtr(x64)
+
+            mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
             MsgBox("32 bit Not Implemented")
             return
@@ -595,11 +519,21 @@ Class BitMap {
       }
       ; get dimensions and reference to first pixel in memory (iScan)
       If (mCodeFunc) {
-         GDIp.GetImageDimensions(pBitmap, &w, &h)
-         GDIp.LockBits(pBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1, 0x26200A) ; 1 is read only
-         ; FindBackgroundColor(const uint8_t *pixels, int width, int height, int stride) {
-         r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride)
-         GDIp.UnlockBits(pBitmap, &iData)
+         r := 0
+         Switch BitMap.getImageType(uBitmap) {
+            Case "pBitmap":
+               GDIp.GetImageDimensions(uBitmap, &w, &h)
+               ; debug("pBitmap=" NumGet(iScan,"Uint"))
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1, 0x26200A) ; 1 is read only
+               ; FindBackgroundColor(const uint8_t *pixels, int width, int height, int stride) {
+               r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride)
+               GDIp.UnlockBits(uBitmap, &iData)
+            Case "hBitmap":
+               res := BitMap.GetDIBSectionInfo(uBitmap)
+               r := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride)
+            Default:
+         }
+
          Return r
       } Else {
          elog("Failed to compile MCode")
@@ -1786,37 +1720,41 @@ Class BitMap {
    ; Throws if hBitmap is not a DIB section (bmBits will be 0).
    ; This can be used to handle the bits directly in an hBitmap like we do for a pBitmap in mcode examples
    Static GetDIBSectionInfo(hBitmap) {
-      static dibSize := A_PtrSize == 8 ? 104 : 84  ; generous upper bound, real struct is smaller
-      buf := Buffer(dibSize, 0)
+      ds  := tagDIBSECTION()
 
-      if !DllCall("GetObject", "Ptr", hBitmap, "Int", buf.Size, "Ptr", buf.Ptr, "Int")
+      If (GDI.GetObject(hBitmap, ds.Size, ds.Ptr) == 0)
          throw Error("GetObject failed")
 
-      bmWidth      := NumGet(buf, 4, "Int")
-      bmHeight     := NumGet(buf, 8, "Int")        ; abs value, always positive in BITMAP struct
-      bmWidthBytes := NumGet(buf, 12, "Int")       ; stride, DWORD-aligned
-      bmBitsOffset := A_PtrSize == 8 ? 24 : 20
-      pBits        := NumGet(buf, bmBitsOffset, "Ptr")
-
-      if !pBits
+      if (ds.dsBm.bmBits == 0)
          throw Error("hBitmap is not a DIB section - no direct pixel access")
 
-      ; biHeight (signed) lives in the BITMAPINFOHEADER right after the BITMAP struct.
-      bmihOffset  := A_PtrSize == 8 ? 32 : 24
-      biHeight    := NumGet(buf, bmihOffset + 8, "Int")
-
-      stride := bmWidthBytes
-      ptr    := pBits
-
-      if (biHeight > 0) {
+      if (ds.dsBmih.biHeight > 0) {
          ; bottom-up storage: first row in memory is the bottom of the image.
          ; Walk it as if top-down by starting at the last row and using negative stride.
-         ptr    := pBits + (bmHeight - 1) * bmWidthBytes
-         stride := -bmWidthBytes
+         ds.dsBm.bmBits += (ds.dsBm.bmHeight - 1) * ds.dsBm.bmWidthBytes
+         ds.dsBm.bmWidthBytes := -ds.dsBm.bmWidthBytes
       }
-      ; biHeight < 0 means already top-down; stride/ptr as-is.
+      return {ptr: ds.dsBm.bmBits, stride: ds.dsBm.bmWidthBytes, w: ds.dsBm.bmWidth, h: ds.dsBm.bmHeight}
+   }
 
-      return {ptr: ptr, stride: stride, w: bmWidth, h: bmHeight}
+   /**
+    * Return the type of bitmap based on a handle
+    * @param handle either hBitmap or pBitmap handle
+    * @returns {String} 
+    */
+   Static getImageType(handle) {
+      bm := Buffer(100, 0)
+      result := DllCall("GetObject", "Ptr", handle, "Int", bm.Size, "Ptr", bm)
+      If (result > 0) {
+         Return "hBitmap"
+      } Else {
+         result := DllCall("gdiplus\GdipGetImageType", "Ptr", handle, "Int*", &imgType := 0)
+         If (result == 0 and imgType == 1)  ; Ok for pBitmap
+            Return "pBitmap"
+         Else
+            Return "unknown"
+      }
    }
 }
+
 logGDI(BFN(Error("", -1).File) " loaded...")
