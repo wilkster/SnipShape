@@ -90,8 +90,7 @@ Class ObscureShape extends commonShape {
                ; pBitOutput      := BitMap.GaussianBlur(pBitInput, brushKey)
                ; pBitOutput      := BitMap.MCodeGaussianBlur(pBitInput, brushKey//2+1) ;MCodeGaussianBlur
                ; Call this up to three times to converge to a gaussian blur, fairly fast
-               pBitOutput      := BitMap.ClaudeBoxBlur(pBitInput, brushKey)
-               pBitOutput      := BitMap.ClaudeBoxBlur(pBitInput, brushKey)
+               pBitOutput      := BitMap.BoxBlurMultiPass(pBitInput, brushKey)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
                Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
