@@ -48,7 +48,6 @@ Class ObscureShape extends commonShape {
     */
    createImageBrush() {
       Snip := this.GUI
-      Pic  := Snip.PIC
       If (this.imageBrush) {
          Snip.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
@@ -253,7 +252,8 @@ Class ObscureShape extends commonShape {
     * @param amt % of change
     */
    ChangeThickness(amt) {
-      this.Factor *= (1 + amt * 5.0) ; blur/pixelate
+      this.Factor *= (1 + amt * 4.0) ; blur/pixelate
+      this.Factor := max(1,this.Factor)
       this.createImageBrush()
    }
    ;----------------------------------------------------------------------
