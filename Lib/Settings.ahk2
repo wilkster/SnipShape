@@ -13,7 +13,7 @@ Class Settings {
    Static SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
    Static SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
    Static SavePath_Icons     := IniReadValue("User Snips", "IconPath", GetFullPathName('.\Stickies\'))
-   Static DIBPad             := IniReadValue("User Shapes", "Padding", 450)
+   Static DIBPad             := Integer(IniReadValue("User Shapes", "Padding", 450))
    Static Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
    Static rawBorderWidth     := IniReadValue("User Snips", "Border Width",2)
    Static focusRectangle     := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
