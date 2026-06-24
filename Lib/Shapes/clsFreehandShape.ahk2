@@ -678,6 +678,7 @@ Class FreeHandShape extends commonShape {
             ; If we are using the pen approach, just rely on GDI+ to compute the boundaries, no need for padding
             ; NOTE - for Arrow head pens we get a LOT of padding, so it may not be desireable, but does allow for increasing width
             If (pen) {
+               ; This generally returns more padding than FindExtent
                C := oPath.GetPathWorldBoundsI(Pen)
                oPath := ""
                Return { X1: C.X, X2: C.X + C.W, Y1: C.Y, Y2: C.Y + C.H, W: C.W, H: C.H, B: 0, L: 0, R: 0, T: 0 }
@@ -687,7 +688,7 @@ Class FreeHandShape extends commonShape {
                C := oPath.GetPathWorldBoundsI()
                oPath := ""
                ; NOTE - adding hard coded pad, we could add a penwidth or account for arrow heads
-               Return surface.FindExtent(C.X, C.Y, C.W, C.H, 10) ; include padding for later pen width increase
+               Return surface.FindExtent(C.X, C.Y, C.W, C.H, 15) ; include padding for later pen width increase
             }
          } Else {
             Return { X1: 0, X2: 0, Y1: 0, Y2: 0, W: 0, H: 0, B:0, L:0, R:0, T:0 }
