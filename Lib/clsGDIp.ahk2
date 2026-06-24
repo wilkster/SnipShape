@@ -1169,7 +1169,7 @@ Class GDIp {
          Static buf := Buffer(24 + A_PtrSize) ; BITMAP
          GDI.GetObject(this.ihbm, buf.Size, buf.Ptr)
          this.Stride := NumGet(buf, 12, "Uint")
-         ; debug(this.Stride " " this.Stride)
+         ; debug(this.Stride " " this.H)
       }
       /**
        * Return a pBitmap from this DIB Surface
@@ -1224,8 +1224,6 @@ Class GDIp {
       ; Pass in coordinates and find the true extent
       ; Account for any border padding
       ; Takes just a couple ms to do this (5-20)
-      ; IDEA - implement in MCode
-      ; NOTE - should I call GlobalLock/GlobalUnlock on the dib?
       ;----------------------------------------------------------------------
       /* Search these areas in this order
          ___________________________________________
@@ -1242,6 +1240,7 @@ Class GDIp {
       */
       /**
        * The values must be in integer units
+       * Same goals as GetPathWorldBoundsI but doesn't require a path drawn
        * @param hX1 Starting col 
        * @param hY1 Starting Row
        * @param hW  Right side col
@@ -1250,65 +1249,7 @@ Class GDIp {
        * @returns {Object} 
        */
       FindExtent(hX1, hY1, hW, hH ,boxPad := 0) {
-         ; StopWatch.Start()
-         DIBPad := this.padding
-         hX2 := hX1 + hW, hY2 := hY1 + hH
-         hX1 += DIBPad, hX2 += DIBPad
-         hY1 += DIBPad, hY2 += DIBPad
-         ; Check Left, Right, Top & Bottom
-         hX1 := Constrain(0, this.W - 1, hX1), hX2 := Constrain(0, this.W - 1, hX2)
-         hY1 := Constrain(0, this.H - 1, hY1), hY2 := Constrain(0, this.H - 1, hY2)
-         ; Default bounds if edge is reached
-         bndBx := { X1: hX1 - DIBPad, X2: hX2 - DIBPad, Y1: hY1 - DIBPad, Y2: hY2 - DIBPad, W: hX2 - hX1 , H: hY2 - hY1 }
-         ; Search left side back
-         While (X := hX1 - A_Index - 1) >= 0 {
-            While (Y := hY1 + A_Index - 1) <= hY2 ; vert
-               If (argb := this.Pixel(X, Y))  ; if we found a non-blank pixek then jump to previous column
-                  Continue 2 ; go to next X
-            ; Fell thru, must be blank col
-            bndBx.X1 := X - DIBPad - boxPad
-            Break
-         }
-         ; StopWatch.cumText("1 Found Boundaries")
-         ; search right side foward
-         While (X := hX2 + A_Index - 1) < this.W {
-            While (Y := hY1 + A_Index - 1) <= hY2 ; vert
-               If (argb := this.Pixel(X, Y))
-                  Continue 2
-            bndBx.X2 := X - DIBPad + boxPad
-            ; debug("Start " hX2 ", finish " X)
-            Break
-         }
-         ; StopWatch.cumText("2 Found Boundaries")
-         While (Y := hY1 - A_Index - 1) >= 0 {
-            While (X := hX1 + A_Index - 1) <= hX2 ; horz
-               If (argb := this.Pixel(X, Y))
-                  Continue 2
-            ; Fell thru, must be blank row
-            bndBx.Y1 := Y - DIBPad - boxPad
-            ; debug("Found Y1=" bndBx.Y1 " vs " hY1- DIBPad)
-            Break
-         }
-         ; StopWatch.cumText("3 Found Boundaries")
-         ; search bottom side down by row
-         While (Y := hY2 + A_Index - 1) < this.H {
-            While (X := hX1 + A_Index - 1) <= hX2 ; horz
-               If (argb := this.Pixel(X, Y))
-                  Continue 2
-            bndBx.Y2 := Y - DIBPad + boxPad
-            ; debug("Found Y2=" bndBx.Y2 " vs " hY2- DIBPad)
-            Break
-         }
-         bndBx.W := bndBx.X2 - bndBx.X1
-         bndBx.H := bndBx.Y2 - bndBx.Y1
-         ; Also padding
-         bndBx.L := hX1 - DIBPad - bndBx.X1
-         bndBx.T := hY1 - DIBPad - bndBx.Y1
-         bndBx.R := hX1 - DIBPad + hW - bndBx.X2
-         bndBx.B := hY1 - DIBPad + hH - bndBx.Y2
-
-         ; StopWatch.cumText("4 Found Boundaries")
-         Return bndBx
+         Return BitMap.FindExtent(this.ihbm, hX1, hY1, hW, hH, boxPad, this.padding)
       }
       ;----------------------------------------------------------------------
       ; Resize the DIB, leave everything else the same
