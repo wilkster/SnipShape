@@ -452,6 +452,73 @@ Class BitMap {
    Static PrintWindow(hwnd, hdc, Flags := 2) => DllCall("User32\PrintWindow", "Ptr", hwnd, "Ptr", hdc, "uint", Flags)
 
    ;====================== BACKGROUND STUFF ===========================
+   /**FindExtent
+    * Search outward from an ARGB HBitmap and find the last known coordinates that contain pixel data
+    * Used to include wide lines while drawing. Pad the values and adjust for DIB Padding
+    * @param {Integer} hBitmap Handle to the source pBitmap
+    * @param {Integer} x1,x2,x3,x4 Initial coordinates (addjusted for offset) of known pixels
+    * @param {Integer} pad Space to add to the coordinates for resizing later
+    * @param {Integer} offset Amount the input coordinates are translated in the DIB
+    * @returns {Integer} Updated x1, x2, y1, y2 coordinates with padding
+    */
+   Static FindExtent(hBitmap, x1, y1, w, h, pad, offset) {
+
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+         ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
+         ; FindExtent.cpp
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            QVdBVkFVQVRVV1ZTSIHsmAAAAEiJlCToAAAAumgAAABMiYQk8AAAAEyNRCQgTImMJPgAAAD/FQAAAACF
+            wHQUTItkJDgxwE2F5HQIZoN8JE4gdB1IgcSYAAAAW15fXUFcQV1BXkFfw2YPH4QAAAAAAEiLvCToAAAA
+            i0QkRIs/RI14/4X/D4gJAgAAOcdBD03/SIu0JPAAAABFifiLFjnCfQyF0kG4AAAAAEQPScJEi0wkSESJ
+            yMH4H0GJxUUxzUEpxUiLhCT4AAAARY1d/4swhfYPiMoBAABEOe5BD03zSIuEJAABAABEidmLAEQ56H0K
+            hcC5AAAAAA9JyItEJCxEi1QkLMH4H0ExwkEpwoX/fliNLL38////SGPtOc5/SmaQRI13/4nySY0cLOsL
+            Dx9AAIPCATnRfDFEidgp0EWFyQ9IwkEPr8JImIsEA4XAdOFIg+0ERYX2D4Q+AQAARIn3Oc5+vQ8fRAAA
+            Qo0shQQAAABIY+1FOfh9SDnOf0RFjXABifJJjRws6w8PH4QAAAAAAIPCATnRfClEidgp0EWFyQ9IwkEP
+            r8JImIsEA4XAdOFIg8UERYnwRTn+db0PH0QAAIX2fkxEOcd/R0SJ6o1e/0hjxynyRYXJD0jTQQ+v0khj
+            0kwB4usTZi4PH4QAAAAAAEiDwAFBOcB8F0SLNIJFhfZ07onehdt1vA8fhAAAAAAAQYPtAkQ52X1HRDnH
+            f0JEieqNWQFIY8cpykWFyQ9I00EPr9JIY9JMAeLrDg8fRAAASIPAAUE5wHwXiyyChe108InZRDnbdcJm
+            Dx+EAAAAAABIi4Qk6AAAAIk4SIuEJPAAAABEiQBIi4Qk+AAAAIkwSIuEJAABAACJCLgBAAAA6cD9//8x
+            /+n2/f//Mf/px/7//zH26Tb+//+QkJCQkJCQkA==|Gdi32:GetObjectA:55:4
+            )"
+            mCodeFunc := Bitmap.GetMcodePtr(x64)
+         } Else {
+            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            return
+         }
+      }
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         ; Save OG starting points for alter
+         hx1 := x1, hy1 := y1, hx2 := x1 + w, hy2 := y1 + h
+         ; Shift the coordinates into true DIB coordinates for the search
+         x1 += offset, y1 += offset, x2 := x1 + w, y2 := y1 + h
+         ; RefineAlphaBounds(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2)
+         r := DllCall(mCodeFunc, "UPtr", hBitmap, "uInt*", &x1, "uInt*", &x2, "uInt*", &y1, "Uint*", &y2, "Int")
+
+         bndBx := {}
+         ; Put coordinates back into original coordinates and pad them
+         bndBx.X1 := X1 - offset - pad
+         bndBx.X2 := X2 - offset + pad
+         bndBx.Y1 := Y1 - offset - pad
+         bndBx.Y2 := Y2 - offset + pad
+         ; new dimension with padding
+         bndBx.W := bndBx.X2 - bndBx.X1
+         bndBx.H := bndBx.Y2 - bndBx.Y1
+         ; Also real positive padding between pixel data and returned coordinates
+         bndBx.L := hX1 - bndBx.X1
+         bndBx.T := hY1 - bndBx.Y1
+         bndBx.R := hX2 - bndBx.X2
+         bndBx.B := hY2 - bndBx.Y2
+
+         Return bndBx
+      } Else {
+         elog("Failed to compile MCode")
+         Return 0
+      }
+   }
    /**GetBackgroundColor
     * Return the most common rgb value from a pBitmap, typically the background.
     * @param {Integer} pBitmap Handle to the source pBitmap
@@ -466,14 +533,22 @@ Class BitMap {
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRVV1ZTSIPsSEiJjCSQAAAAiZQkmAAAAESJhCSgAAAAhdIPjtoCAABFhcAPjtECAACBvCSYAAAAAAIAAEWJzn9IgbwkoAAAAAACAAB/O4O8JJgAAABAD4+uAgAAg7wkoAAAAEAPj6ACAACLhCSYAAAARInCuwEAAABIx0Qk
-            IAQAAAC9AQAAAOsni4QkmAAAALsEAAAAvQQAAACLlCSgAAAASMdEJCAQAAAAwfgCwfoCD6/CweACPQBAAAAPhnMCAAA9AIAAAA+GlwIAAD0AAAEAD4aZAgAAPQAAAgAPhpsCAAA9AAAEAA+GaQIAAEG9EwAAAL8AAAgAPQAACAAPhjwC
-            AAC+//8PAL8AABAAuQAAIABBvRQAAAC6BAAAAOgAAAAASYnESIXAD4TUAQAAQQ+v3sdEJCwAAAAAuSAAAABEKelIY8NIiUQkOIn4SIlEJDAPH4QAAAAAAEyLrCSQAAAARTH26xkPHwBBAe5MA2wkIEQ5tCSYAAAAD44aAQAAQYB9AwB0
-            40UPtlUCQQ+2RQFFMcDB4AhBweIQQQnCQQ+2RQBBCcJBadKxeTee0+oPHwBBidFBIfFFAclBjUEBS40cjE2NHIRBiwOFwA+EoAAAAESLC0U50Q+ErAAAAEFpwbF5N57T6EGJx4nQRCn4IfBBOcB2JESNQAFEiRODwgFBxwMBAAAARDnH
-            dh1FicrroWYPH4QAAAAAAEGDwAGDwgFBOfhyjEWJ0UyLXCQwMcBBuP////9FMdKQQYtUxAREOcJzBkGJ0EGJwkiDwAFJOcN150ONBBJFiQyEjUABQccEhAEAAADp//7//w8fgAAAAABEiRNBxwMBAAAA6en+//9mDx+EAAAAAACDwAFB
-            iQPp1f7//w8fRAAASItEJDgBbCQsSAGEJJAAAACLRCQsOYQkoAAAAA+Pnv7//41X/0yJ4DHJRTHtTY1E1AhmDx9EAACLUAQ5ynYFRIsoidFIg8AISTnAdetMieHoAAAAAEiDxEhEiehbXl9dQVxBXUFeQV/DQb0AAAD/6+SLhCSYAAAA
-            uwIAAAC9AgAAAIuUJKAAAABIx0QkIAgAAADR+NH66Xz9//9BvQ4AAAC/AEAAALgCAAAARInpicbT5kiJ8Y13/+nC/f//Qb0SAAAAvwAABADr3EG9DwAAAL8AgAAA689BvRAAAAC/AAABAOvCQb0RAAAAvwAAAgDrtZCQkJCQkJCQkJCQ
-            kJCQkA==|msvcrt:calloc:293:4|msvcrt:free:753:4
+            QVdBVkFVQVRVV1ZTSIPsSEiJjCSQAAAAiZQkmAAAAESJhCSgAAAAhdIPjtoCAABFhcAPjtECAACBvCSY
+            AAAAAAIAAEWJzn9IgbwkoAAAAAACAAB/O4O8JJgAAABAD4+uAgAAg7wkoAAAAEAPj6ACAACLhCSYAAAA
+            RInCuwEAAABIx0QkIAQAAAC9AQAAAOsni4QkmAAAALsEAAAAvQQAAACLlCSgAAAASMdEJCAQAAAAwfgC
+            wfoCD6/CweACPQBAAAAPhnMCAAA9AIAAAA+GlwIAAD0AAAEAD4aZAgAAPQAAAgAPhpsCAAA9AAAEAA+G
+            aQIAAEG9EwAAAL8AAAgAPQAACAAPhjwCAAC+//8PAL8AABAAuQAAIABBvRQAAAC6BAAAAOgAAAAASYnE
+            SIXAD4TUAQAAQQ+v3sdEJCwAAAAAuSAAAABEKelIY8NIiUQkOIn4SIlEJDAPH4QAAAAAAEyLrCSQAAAA
+            RTH26xkPHwBBAe5MA2wkIEQ5tCSYAAAAD44aAQAAQYB9AwB040UPtlUCQQ+2RQFFMcDB4AhBweIQQQnC
+            QQ+2RQBBCcJBadKxeTee0+oPHwBBidFBIfFFAclBjUEBS40cjE2NHIRBiwOFwA+EoAAAAESLC0U50Q+E
+            rAAAAEFpwbF5N57T6EGJx4nQRCn4IfBBOcB2JESNQAFEiRODwgFBxwMBAAAARDnHdh1FicrroWYPH4QA
+            AAAAAEGDwAGDwgFBOfhyjEWJ0UyLXCQwMcBBuP////9FMdKQQYtUxAREOcJzBkGJ0EGJwkiDwAFJOcN1
+            50ONBBJFiQyEjUABQccEhAEAAADp//7//w8fgAAAAABEiRNBxwMBAAAA6en+//9mDx+EAAAAAACDwAFB
+            iQPp1f7//w8fRAAASItEJDgBbCQsSAGEJJAAAACLRCQsOYQkoAAAAA+Pnv7//41X/0yJ4DHJRTHtTY1E
+            1AhmDx9EAACLUAQ5ynYFRIsoidFIg8AISTnAdetMieHoAAAAAEiDxEhEiehbXl9dQVxBXUFeQV/DQb0A
+            AAD/6+SLhCSYAAAAuwIAAAC9AgAAAIuUJKAAAABIx0QkIAgAAADR+NH66Xz9//9BvQ4AAAC/AEAAALgC
+            AAAARInpicbT5kiJ8Y13/+nC/f//Qb0SAAAAvwAABADr3EG9DwAAAL8AgAAA689BvRAAAAC/AAABAOvC
+            Qb0RAAAAvwAAAgDrtZCQkJCQkJCQkJCQkJCQkA==|msvcrt:calloc:293:4|msvcrt:free:753:4
             )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
@@ -500,7 +575,7 @@ Class BitMap {
          Return r
       } Else {
          elog("Failed to compile MCode")
-         Return 0
+         Return uBitmap
       }
    }
 
@@ -815,72 +890,59 @@ Class BitMap {
     * BoxBlurMultiPass
     * @param TpBitmapIn 
     * @param kernel size
-    * @returns pBitmapOut
+    * @param passses number of passes, 3 approximates a gaussian filter
+    * @param horzOnly Set 1 non-zero if only horizontal filtering is done. Looks better on text blurring
+    * @returns pBitmapOut Blurred bitmap
     */
 
-   Static BoxBlurMultiPass(TpBitmapIn, kernel, passses := 3) {
+   Static BoxBlurMultiPass(TpBitmapIn, kernel, passses := 3, horzOnly := 1) {
       Static mCodeFunc := 0
       If (mCodeFunc = 0) {
          ; -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables (O3 is bigger code)
          If (A_PtrSize = 8) {
             x64 := "
             (
-            VUiJ5UFXQVZBVUFUV1ZTSIPk8EiB7GABAACLRTCLXTiLdUCJTCRESImUJAgBAABMiUQkSImEJDABAACJnCRcAQAAibQkNAEAAEiF0g+E7QcAAE2FwA+E5AcAAIXAD47cBwAAhdsPjtQHAACF9g+OzAcAAIXJD47EBwAA0fiJwonY0fg5
-            8g+OxQcAADmEJDQBAAB8GYPoAYmEJDQBAACLhCQ0AQAAhcAPjpIHAACLhCQ0AQAASGOcJFwBAABEjXwAAUljwUiJhCQQAQAASA+vw0iJwUiJRCQo6AAAAABIiUQkOEiFwA+EVAcAAEjB4wRIidnoAAAAAEiJhCQgAQAASIXAD4TJDgAA
-            i4wkNAEAAItEJESJz/ffg+gBibwkOAEAAImEJPAAAAAPhIQHAABMi4wkEAEAAESLnCRcAQAAx0QkVAAAAABIi5wkIAEAAEyLdCRISY1BA0iD+AZIiUQkMA+XwkGD+wMPn8AhwrgBAAAARYXbicZKjQSNAAAAAIiUJAcBAABBD0/zSImE
-            JOgAAACJ8Im0JAABAACD5vzB6AKJtCT0AAAASMHgBkgB2EiJhCT4AAAAS40ESUiJhCTgAAAAifBJD6/BSImEJNgAAACNBLUAAAAASGPQSI0Uk0iJlCTQAAAAjVABSGPSSI0Uk0iJlCSwAAAAjVACSGPSSI0Uk0iJlCS4AAAAjVADSGPS
-            SI0Uk0iJlCTAAAAAjVYBiZQkyAAAAEkPr9FIiZQkqAAAAI1QBEhj0kiNFJNIiZQkmAAAAI1QBUhj0kiNFJNIiZQkkAAAAI1QBkhj0kiNFJNIiZQkiAAAAI1QB0hj0kiNFJNIiZQkoAAAAI1WAomUJIAAAABJD6/RSIlUJHiNUAhIY9JI
-            jTSTjVAJSGPSSIl0JHBIjTSTjVAKg8ALSJhIY9JIiXQkaEiNBINIjTSTSIlEJFiNQQH30YmEJFgBAACNRD//iYQkUAEAAEGNQ/9IiXQkYIlMJFCJhCRUAQAAi4QkMAEAAGYPbx2zDQAAg+gBiYQkPAEAAGYPH4QAAAAAAMeEJEgBAAAA
-            AAAAi7wkMAEAAEyJtCQoAQAARItkJFBIx4QkQAEAAAAAAAAPH0QAAIuEJDgBAAAx20Ux20Ux0ouMJDQBAABIi7QkCAEAAEUxyUgDtCRAAQAADx+AAAAAAIXAugAAAAAPSdCDwAFIY9JIjRSWRA+2AkUBwUQPtkIBRQHCRA+2QgIPtlID
-            RQHDAdM5yH7LSIuEJCgBAABMi4QkQAEAAIuMJFgBAABIiYQkGAEAAEkBwGYPH4QAAAAAAESJyDHSQb4AAAAAQff3MdJBiABEidBB9/cx0kGIQAFEidhB9/cx0kGIQAKJ2EH39znPQYhAA4uEJDwBAAAPT8FImEiNFIaLhCRQAQAARA+2
-            KgHIQQ9IxoPBAUmDwARImEiNBIZED7YwRSn1RA+2cAFFAelED7ZqAUUp9UQPtnACD7ZAA0UB6kQPtmoCD7ZSA0Up9SnCQY0EDEUB6wHTOccPj1r///+DhCRIAQAAAUiLtCQQAQAAi4QkSAEAAEgBtCRAAQAAOYQkXAEAAA+Pnv7//0yL
-            tCQoAQAASYnzSMeEJCgBAAAAAAAADx+AAAAAAEiLhCQoAQAARTHSRTHJMcmLlCQ4AQAAi5wkNAEAAEUxwEyNLIUAAAAADx+AAAAAAIXSuAAAAAAPScKDwgFImEkPr8NMAehMAfAPtjAB8Q+2cAFBAfAPtnACD7ZAA0EB8UEBwjnafsmL
-            tCQ4AQAATIukJCABAABMiZwkQAEAADHbQYnLDx9EAABEidgx0kH39zHSicdEicBB9/cx0mYPbseJhCRIAQAARInIQff3MdKJwUSJ0EH392YPbslIi4wkQAEAALoAAAAAZg9u6IuEJFgBAABmD2LNZg9urCRIAQAAAdg5hCRcAQAAD06E
-            JFQBAABmD2LFSJhmD2zBSA+vwUEPEQQkTAHoTAHwhfYPSdaDwwFJg8QQg8YBSGPSSA+v0Q+2CEwB6kwB8g+2Oin5D7Z6AUEByw+2SAEp+Q+2egIPtlIDQQHID7ZIAg+2QAMp+SnQQQHJQQHCOZwkXAEAAA+PI////4C8JAcBAAAATIuc
-            JEABAABIi5QkGAEAAEiLhCQgAQAAD4QlAgAASIuMJPgAAABMi4Qk6AAAAEyLjCTgAAAADx9EAADzD28A8w9vaBBIg8BA8w9vYPBmD2/IZg9hxWYPac1mD2/QZg9p0WYPYcHzD29I4GYPYcJmD2/RZg9hzGYP28NmD2nUZg9v4WYPaeJm
-            D2HKZg9hzGYP28tmD2fBZg9wyFVmD34CZkIPfgwaZg9vyGYPashmD3DA/2ZCD34MWmZCD34ECkwBwkg5yA+Fcf///4ucJPQAAAA5nCQAAQAAD4TXAAAASIucJNAAAABIi4Qk2AAAAIsTTAHoSIucJLAAAABMAfCIEIsTSIucJLgAAACI
-            UAGLE0iLnCTAAAAAiFACixOLnCRcAQAAiFADi4QkyAAAADnDD46AAAAASIu0JJgAAABIi4QkqAAAAIsWTAHoSIu0JJAAAABMAfCIEIsWSIu0JIgAAACIUAGLFkiLtCSgAAAAiFACixaIUAOLhCSAAAAAOcN+NEiLRCRwTANsJHhNAfWL
-            AEGIRQBIi0QkaIsAQYhFAUiLRCRgiwBBiEUCSItEJFiLAEGIRQNIg4QkKAEAAAFIi4QkKAEAAEiDhCQYAQAABDmEJDABAAAPj7f8//9MOXQkSA+ESQgAAINEJFQBi0QkVDuEJPAAAAAPjQwIAABIi0QkSEyJtCQIAQAASYnG6dH6//9I
-            jWXIW15fQVxBXUFeQV9dw41a/4mcJDQBAAA5ww+MPPj//+kt+P//Zg8fhAAAAAAARIuMJFwBAAAxyWYPH0QAAESLAIPBAUiDwBBEiAJEi0D0RIhCAUSLQPhEiEICRItA/ESIQgNMAdpBOcl/0+kw////SItEJEhIiYQkGAEAAEiLhCQQ
-            AQAASIPAA0iJRCQwi4QkNAEAAI1YAffQiUQkUIuEJFwBAACJnCRYAQAAg+gBiYQkVAEAAIuMJDQBAACLnCRcAQAASIu8JBABAABmD28dmgcAAPfZSIN8JDAGD5fCg/sDD5/AIcK4AQAAAIXbicZIjQS9AAAAAIiUJAcBAAAPT/NIiYQk
-            6AAAAEiLnCQgAQAAifCJtCQAAQAAg+b8wegCibQk9AAAAEjB4AZIAdhIiYQk+AAAAEiNBH9IiYQk4AAAAInwSA+vx0iJhCSwAAAAjQS1AAAAAEhj0EiNFJNIiZQkuAAAAI1QAUhj0kiNFJNIiZQk0AAAAI1QAkhj0kiNFJNIiZQkyAAA
-            AI1QA0hj0kiNFJNIiZQkwAAAAI1WAYmUJNgAAABID6/XSImUJIAAAACNUARIY9JIjRSTSImUJIgAAACNUAVIY9JIjRSTSImUJJAAAACNUAZIY9JIjRSTSImUJKgAAACNUAdIY9JIjRSTSImUJKAAAACNVgKJlCSYAAAASA+v10iJVCR4
-            jVAISGPSSI00k41QCUhj0kiJdCRwSI00k41QCoPAC0iYSGPSSIl0JGhIjQSDSI00k0iJRCRYjUQJ/4mEJFABAACLhCQwAQAASIl0JGCD6AGJhCQ8AQAAZg8fhAAAAAAAx4QkQAEAAAAAAACLvCQwAQAASMeEJEgBAAAAAAAARItkJFAP
-            H0QAAIuEJDgBAAAx20UxyUUx0ouMJDQBAABIi7QkCAEAAEUx20gDtCRIAQAADx+AAAAAAIXAugAAAAAPSdCDwAFIY9JIjRSWRA+2AkUBw0QPtkIBRQHCRA+2QgIPtlIDRQHBAdM5wX3Li4wkWAEAAEyLhCRIAQAATAOEJBgBAAAPH0AA
-            RInYMdJBvgAAAABB9/cx0kGIAESJ0EH39zHSQYhAAUSJyEH39zHSQYhAAonYQff3OflBiEADi4QkPAEAAA9MwUiYSI0UhouEJFABAABED7YqAchBD0jGg8EBSYPABEiYSI0EhkQPtjBFKfVED7ZwAUUB60QPtmoBRSn1RA+2cAIPtkAD
-            RQHqRA+2agIPtlIDRSn1KcJBjQQMRQHpAdM5+A+MWv///4OEJEABAAABSIu0JBABAACLhCRAAQAASAG0JEgBAAA5hCRcAQAAD4+u/v//SMeEJCgBAAAAAAAATIu0JBgBAABIifMPH4AAAAAASIuEJCgBAAAxyUUxwEUxyYuUJDgBAACL
-            tCQ0AQAARTHSTI0chQAAAAAPH4AAAAAAhdK4AAAAAA9JwoPCAUiYSA+vw0wB2EwB8A+2OEEB+g+2eAFBAfkPtngCD7ZAA0EB+AHBOdZ9yYu8JDgBAABMi6wkIAEAAEiJnCRAAQAAMfZEidMPH0QAAInYMdJB9/cx0kGJxESJyEH39zHS
-            ZkEPbsRBvAAAAACJhCRIAQAARInAZg9urCRIAQAAQff3MdJmD2LFQYnCichB9/dmQQ9uykyLlCRAAQAAZg9u4IuEJFgBAABmD2LMAfA7hCRcAQAAZg9swQ9NhCRUAQAAQQ8RRQBImEkPr8JMAdhMAfCF/0QPSeeDxgFJg8UQg8cBSWPU
-            SQ+v0kQPthBMAdpMAfJED7YiRSniRA+2YgFEAdNED7ZQAUUp4kQPtmICD7ZSA0UB0UQPtlACD7ZAA0Up4inQRQHQAcE5tCRcAQAAD48X////gLwkBwEAAABIi5wkQAEAAA+EIQIAAEiLhCQgAQAASIuMJPgAAABLjRQeTIuEJOgAAABM
-            i4wk4AAAAA8fRAAA8w9vYBDzD28ASIPAQGYPb8hmD2HEZg9pzGYPb9DzD29g8GYPadFmD2HB8w9vSOBmD2HCZg9v0WYPYcxmD9vDZg9p1GYPb+FmD2niZg9hymYPYcxmD9vLZg9nwWYPcMhVZg9+AmYPfgwaZg9vyGYPashmD3DA/2YP
-            fgxaZkIPfgQKTAHCSDnBD4Vz////i7Qk9AAAADm0JAABAAAPhNAAAABIi7QkuAAAAEiLhCSwAAAAixZMAdhIi7Qk0AAAAEwB8IgQixZIi7QkyAAAAIhQAYsWSIu0JMAAAACIUAKLFou0JFwBAACIUAOLhCTYAAAAOcZ+fUiLvCSIAAAA
-            SIuEJIAAAACLF0wB2EiLvCSQAAAATAHwiBCLF0iLvCSoAAAAiFABixdIi7wkoAAAAIhQAosXiFADObQkmAAAAH0zSItEJHBMA1wkeE0B84sAQYgDSItEJGiLAEGIQwFIi0QkYIsAQYhDAkiLRCRYiwBBiEMDSIOEJCgBAAABSIuEJCgB
-            AAA5hCQwAQAAD4/B/P//g4Qk8AAAAAGLhCTwAAAAOUQkRA+PEPv//0iLRCRISIucJBgBAABIOdh0EkyLRCQoSItUJDhIicHoAAAAAEiLjCQgAQAA6AAAAABIi0wkOEiNZchbXl9BXEFdQV5BX13pAAAAAA8fRAAASIuEJCABAABEi4Qk
-            XAEAAE0B8zHSDx8AiwiDwgFIg8AQQYgLi0j0QYhLAYtI+EGISwKLSPxBiEsDSQHbQTnQf9fpM////0yJtCQIAQAAOUQkRH6AiYQk8AAAAEiLRCRISImEJBgBAADpm/j//4NEJFQBi0QkVDuEJPAAAAB9CkiLRCQ46bb3//9Ii1wkOEyJ
-            tCQIAQAAiYQk8AAAAEiJnCQYAQAAOUQkRA+PWfj//+n8/v//kJCQkJCQkJCQkJCQ/wD/AP8A/wD/AP8A/wD/AA==|msvcrt:malloc:217:4|msvcrt:malloc:243:4|msvcrt:memcpy:4032:4|msvcrt:free:4045:4|msvcrt:
-            free:4071:4
-            )"
+            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|msvcrt:malloc:236:4|msvcrt:memcpy:1279:4|msvcrt:free:13
+            00:4|msvcrt:malloc:1395:4|msvcrt:malloc:1449:4|msvcrt:malloc:4482:4|msvcrt:free:1326:4
+            )"            
             mCodeFunc := BitMap.GetMcodePtr(x64)
 
          } Else {
-            ; Have undeclared malloc/free here (probably not working here)
-            ; -m32 -O2 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
-            x86 := "
-            (
-            VVdWU4HsjAAAAIu0JKwAAACLlCSgAAAAi4QkpAAAAIuMJKgAAACJdCQki5wktAAAAIu0JLAAAACLvCS4AAAAiVQkbIlEJGCJTCRwiXQkKIlcJCCJfCQ8hcAPhBMEAACFyQ+ECwQAAIX2D44DBAAAidiF2w+O+QMAAIX/D47xAwAAhdIP
-            jukDAADR/tH4Of4PjugDAAA5RCQ8fBOD6AGJRCQ8i0QkPIXAD47EAwAAi0QkPIt0JCCNRAABiUQkVItEJCQPr8aJBCSJRCR86AAAAACJRCR4hcAPhJUDAACJ8MHgBIkEJOgAAAAAiUQkZIXAD4RiAwAAi0QkbItcJHDHRCRoAAAAAIPo
-            AYlcJBiJRCR0i0QkPInGjVgB99D33olcJFyJdCRYjXQ2/4l0JECJRCREjbYAAAAAi0QkKMdEJFAAAAAAx0QkTAAAAACD6AGJRCRIjXQmAJCLRCRgA0QkUDH2Mf+JRCQ0i0QkWDHbMcmFwLoAAAAAi2wkNA9J0IPAAY1UlQAPtioB6Q+2
-            agEB6w+2agIPtlIDAe8B1jtEJDx+zol8JDCJTCQci0wkXIl0JDiLdCRUiVwkLItcJBgDXCRQjbYAAAAAi0QkHDHSi3wkQItsJDT39jHSiAOLRCQs9/Yx0ohDAYtEJDD39jHSiEMCi0QkOPf2i1QkSDlMJCgPT9EBz41UlQCIQwOJ+L8A
-            AAAAD0jHD7Y6g8EBg8MEjUSFAA+2KCnvD7ZoAQF8JBwPtnoBKe8PtmgCAXwkLA+2QAMPtnoCD7ZSAynvAXwkMCnCi0QkRAFUJDgByDlEJCgPj2L///+DRCRMAYtcJCSLRCRMAVwkUDlEJCAPj9f+//+LRCQgx0QkTAAAAACD6AGJRCRI
-            jXQmAItEJEyLVCRYMf8x9jHbMcnB4AKJRCQckIXSuAAAAAAPScIPr0QkJANEJByDwgEDRCQYD7YoAekPtmgBAesPtmgCD7ZAAwHuAcc7VCQ8fsmJdCQ0i3QkZIl8JDiJdCRQiUwkLItMJFyJXCQwi1wkVI20JgAAAABmkItEJCwx0ots
-            JCSLfCRA9/Mx0okGi0QkMPfzMdKJRgSLRCQ09/Mx0olGCItEJDj384tUJEg5TCQgD0/RD6/VA1QkHANUJBgBz4lGDIn4vwAAAAAPSMcPtjqDwQGDxhAPr8UDRCQcA0QkGA+2KCnvD7ZoAQF8JCwPtnoBKe8PtmgCAXwkMA+2QAMPtnoC
-            D7ZSAynvAXwkNCnCAVQkOItEJEQByDlEJCAPj1T///+LXCRQi3QkJDHSi3wkIItEJBwDRCQYjbYAAAAAiwuDwgGDwxCICItL9IhIAYtL+IhIAotL/IhIAwHwOdd/3oNEJEwBi0QkTDlEJCgPj4v+//+LdCR0OXQkaHx6g0QkaAGLRCRo
-            OUQkbA+PDv3//4tEJHA5RCQYdBiLdCR8iQQkiXQkCIt0JHiJdCQE6AAAAACLRCRkiQQk6AAAAACLRCR4iYQkoAAAAIHEjAAAAFteX13pAAAAAIHEjAAAAFteX13DjXb/iXQkPDnGD4wW/P//6Qr8//+LdCQYOXQkcHQVi0QkGIlEJGCL
-            RCRwiUQkGOln////i0QkcIlEJGCLRCR4iUQkGOlS////kJCQkJCQkJCQkJA=|msvcrt:_malloc:205:4|msvcrt:_malloc:230:4|msvcrt:_memcpy:1096:4|msvcrt:_free:1108:4|msvcrt
-            :_free:1134:4
-            )"            
-            mCodeFunc := BitMap.GetMcodePtr(x86)
-            return
+            MsgBox("BoxBlurMultiPass 32 bit not implemented")
          }
       }
       ; get dimensions and reference to first pixel in memory (iScan)
@@ -891,117 +953,23 @@ Class BitMap {
          GDIp.LockBits(pBitmapOut, 0, 0, w, h, &strideo, &iScano, &iDatao, 3, 0x26200A) ; 3 is read/write for in-place editing
          ; Gdip_GaussianBlurBitmap(unsigned char * pBitmap, int w, int h, int Stride, int KernelSize
          radius := Max(1, kernel // 2 - 1)
-         r := DllCall(mCodeFunc, "Uint", passses, "UPtr", iScani, "UPtr", iScano, "uInt", stridei, "uint", w, "uint", h, "uInt", radius)
+         
+         r := DllCall(mCodeFunc, "Uint", passses, "UPtr", iScani, "UPtr", iScano, "uInt", stridei, "uint", w, "uint", h, "uInt", radius, "Uint", horzOnly)
          GDIp.UnlockBits(TpBitmapIn, &iDatai)
          GDIp.UnlockBits(pBitmapOut, &iDatao)
          GDIp.DisposeImage(TpBitmapIn)
          Return pBitmapOut
       } Else {
          elog("Failed to compile MCode")
-         Return 0
+         Return TpBitmapIn
       }
 
    }
-   /**
-    * Apply a Gaussian blur to a pBitmap in place using compiled machine code.
-    * Produces better results than BlurBitmap for text content.
-    * License: MIT - Author: Edison Hua (iseahound) - https://github.com/iseahound/TextRender
-    * @param {Integer} TpBitmapIn Handle to the pBitmap to blur (modified in place)
-    * @param {Integer} radius Blur radius; controls the convolution kernel size
-    * @param {Float} opacity Opacity factor for the blur result (default: 1)
-    * @returns {Integer} pBitmap handle (same as input, modified in place)
-    */
-   Static MCodeGaussianBlur(TpBitmapIn, radius, opacity := 1) {
-      Static code := (A_PtrSize = 4)
-         ? "
-            ( LTrim                                    ; 32-bit machine code
-            VYnlV1ZTg+xci0Uci30c2UUgx0WsAwAAAI1EAAGJRdiLRRAPr0UYicOJRdSLRRwP
-            r/sPr0UYiX2ki30UiUWoi0UQjVf/i30YSA+vRRgDRQgPr9ONPL0SAAAAiUWci0Uc
-            iX3Eg2XE8ECJVbCJRcCLRcSJZbToAAAAACnEi0XEiWXk6AAAAAApxItFxIllzOgA
-            AAAAKcSLRaiJZcjHRdwAAAAAx0W8AAAAAIlF0ItFvDtFFA+NcAEAAItV3DHAi12c
-            i3XQiVXgAdOLfQiLVdw7RRiNDDp9IQ+2FAGLTcyLfciJFIEPtgwDD69VwIkMh4tN
-            5IkUgUDr0THSO1UcfBKLXdwDXQzHRbgAAAAAK13Q6yAxwDtFGH0Ni33kD7YcAQEc
-            h0Dr7kIDTRjrz/9FuAN1GItF3CtF0AHwiceLRbg7RRx/LDHJO00YfeGLRQiLfcwB
-            8A+2BAgrBI+LfeQDBI+ZiQSPjTwz933YiAQPQevWi0UIK0Xci03AAfCJRbiLXRCJ
-            /itdHCt13AN14DnZfAgDdQwrdeDrSot1DDHbK3XcAf4DdeA7XRh9KItV4ItFuAHQ
-            A1UID7YEGA+2FBop0ItV5AMEmokEmpn3fdiIBB5D69OLRRhBAUXg66OLRRhDAUXg
-            O10QfTIxyTtNGH3ti33Ii0XgA0UID7YUCIsEjynQi1XkAwSKiQSKi1XgjTwWmfd9
-            2IgED0Hr0ItF1P9FvAFF3AFF0OmE/v//i0Wkx0XcAAAAAMdFvAAAAACJRdCLRbAD
-            RQyJRaCLRbw7RRAPjXABAACLTdwxwItdoIt10IlN4AHLi30Mi1XcO0UYjQw6fSEP
-            thQBi33MD7YMA4kUh4t9yA+vVcCJDIeLTeSJFIFA69Ex0jtVHHwSi13cA10Ix0W4
-            AAAAACtd0OsgMcA7RRh9DYt95A+2HAEBHIdA6+5CA03U68//RbgDddSLRdwrRdAB
-            8InHi0W4O0UcfywxyTtNGH3hi0UMi33MAfAPtgQIKwSPi33kAwSPmYkEj408M/d9
-            2IgED0Hr1otFDCtF3ItNwAHwiUW4i10Uif4rXRwrddwDdeA52XwIA3UIK3Xg60qL
-            dQgx2yt13AH+A3XgO10YfSiLVeCLRbgB0ANVDA+2BBgPthQaKdCLVeQDBJqJBJqZ
-            933YiAQeQ+vTi0XUQQFF4Ouji0XUQwFF4DtdFH0yMck7TRh97Yt9yItF4ANFDA+2
-            FAiLBI+LfeQp0ItV4AMEj4kEj408Fpn3fdiIBA9B69CLRRj/RbwBRdwBRdDphP7/
-            //9NrItltA+Fofz//9no3+l2PzHJMds7XRR9OotFGIt9CA+vwY1EBwMx/zt9EH0c
-            D7Yw2cBHVtoMJFrZXeTzDyx15InyiBADRRjr30MDTRDrxd3Y6wLd2I1l9DHAW15f
-            XcM=
-            )" : "
-            ( LTrim                                    ; 64-bit machine code
-            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
-            )"
-      ; Get width and height.
-      DllCall("gdiplus\GdipGetImageWidth", "ptr", TpBitmapIn, "uint*", &width := 0)
-      DllCall("gdiplus\GdipGetImageHeight", "ptr", TpBitmapIn, "uint*", &height := 0)
-      ; Create a buffer of raw 32-bit ARGB pixel data.
-      Rect := Buffer(16, 0)                ; sizeof(Rect) = 16
-      NumPut("uint", width, Rect, 8) ; Width
-      NumPut("uint", height, Rect, 12) ; Height
-      pBitmapData := Buffer(16 + 2 * A_PtrSize, 0) ; sizeof(BitmapData) = 24, 32 ; V1toV2: if 'BitmapData' is a UTF-16 string, use 'VarSetStrCapacity(&BitmapData, 16+2*A_PtrSize)'
-      DllCall("gdiplus\GdipBitmapLockBits", "ptr", TpBitmapIn, "ptr", Rect, "uint", 3, "int", 0x26200A, "ptr", pBitmapData)
-      ; Get the Scan0 of the pixel data. Create a working buffer of the exact same size.
-      stride := NumGet(pBitmapData, 8, "int")
-      Scan01 := NumGet(pBitmapData, 16, "ptr")
-      Scan02 := DllCall("GlobalAlloc", "uint", 0x40, "uptr", stride * height, "ptr")
-      ; Call machine code function.
-      DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", 0, "uint*", &size := 0, "ptr", 0, "ptr", 0)
-      p := DllCall("GlobalAlloc", "uint", 0, "uptr", size, "ptr")
-      DllCall("VirtualProtect", "ptr", p, "ptr", size, "uint", 0x40, "uint*", &op := 0) ; Allow execution from memory.
-      DllCall("crypt32\CryptStringToBinary", "str", code, "uint", 0, "uint", 0x1, "ptr", p, "uint*", &size, "ptr", 0, "ptr", 0)
-      ; Call the custom function
-      e := DllCall(p, "ptr", Scan01, "ptr", Scan02, "uint", width, "uint", height, "uint", 4, "uint", radius, "float", opacity)
-      ; if (NOT e)
-      ;    logError("Failed to return a gaussian blur image")
-      DllCall("GlobalFree", "ptr", p)
-      ; Free resources.
-      DllCall("gdiplus\GdipBitmapUnlockBits", "ptr", TpBitmapIn, "ptr", pBitmapData)
-      DllCall("GlobalFree", "ptr", Scan02)
-      Return TpBitmapIn
-   }
+   
 
    /**
     * Blur a pBitmap by two-step reduction and enlargement using GDI+.
     * The input pBitmap is disposed after blurring.
-    * Note: MCodeGaussianBlur produces better results; use this for a simpler alternative.
     * Fixed to use TileFlipXY wrap mode to prevent phantom border artifacts.
     * Based on Marius Șucan's GDIP_ALL library.
     * @param {Integer} TpInputBitmap Handle to the source pBitmap (disposed on return)
@@ -1012,7 +980,7 @@ Class BitMap {
    ; Fixed to force XYWrap mode to prevent the drawing of a phantom border
    ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
    ; https://stackoverflow.com/questions/1890605/ghost-borders-ringing-when-resizing-in-gdi    */
-   Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 0) {
+   Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 1) {
       Static TileFlipXY := 3
       ; 0x26200A is default format
       BlurAmount := Round(BlurAmount)
