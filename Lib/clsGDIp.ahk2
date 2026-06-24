@@ -54,10 +54,9 @@ Class GDI {
     */
    Static CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0, Usage := 0, hSection := 0, Offset := 0) {
       hdc2 := hdc ?? this.GetDC()
+      ; TODO - add a settings check to invert the height, we can't retrieve it from the DIB so we have to keep track of it as a global
       bi := Buffer(40, 0) ; BITMAPINFO
-   ;                 0                4          8            12            14          16
       NumPut("UInt", bi.size, "Int", w, "Int", h, "UShort", 1, "UShort", bpp, "UInt", 0, bi) ; -h will flip the DIBSection
-
       hbm := DllCall("Gdi32\CreateDIBSection"
          , "Ptr"  , hdc2
          , "Ptr"  , bi.ptr    ; BITMAPINFO
@@ -1539,14 +1538,13 @@ Class GDIp {
     */
    Static NormalizeHBitmap(hBitmap) {
       Static bm := tagBITMAP()
-      If (GDI.GetObject(hBitmap, bm.Size, bm.Ptr)) {
+      info := Bitmap.GetDIBSectionInfo(hBitmap)
+      If (0) {
          ; Positive stride is negative height (top to bottom), need to flip it
-         If (bm.bmWidthBytes > 0) {
-            TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
-            GDI.DeleteObject(hBitmap)
-            hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
-            GDIp.DisposeImage(TpBitmap)
-         }
+         TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
+         GDI.DeleteObject(hBitmap)
+         hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
+         GDIp.DisposeImage(TpBitmap)
       }
       Return hBitmap
    }
