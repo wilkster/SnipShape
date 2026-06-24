@@ -1,15 +1,14 @@
 #include <windows.h>
-int RefineAlphaBounds(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2)
+int RefineAlphaBounds(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2, int topDown)
 {
    DIBSECTION ds;
    if (!GetObject(hBitmap, sizeof(ds), &ds))
       return 0;
 
-   int width = ds.dsBmih.biWidth;
+   int width  = ds.dsBmih.biWidth;
    int height = ds.dsBmih.biHeight;
-   int absH = height < 0 ? -height : height;
-   int topDown = height < 0;
-   int stride = ds.dsBm.bmWidthBytes < 0 ? -ds.dsBm.bmWidthBytes : ds.dsBm.bmWidthBytes;
+   int absH   = height < 0 ? -height : height; // Always positive
+   int stride = ds.dsBm.bmWidthBytes;
 
    BYTE *bits = (BYTE *)ds.dsBm.bmBits;
    if (!bits || ds.dsBmih.biBitCount != 32)
