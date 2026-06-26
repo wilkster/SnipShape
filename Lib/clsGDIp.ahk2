@@ -1589,7 +1589,7 @@ Class GDIp {
 
       ; Create a Scan0 buffer pointing to pBits. The buffer has pixel format pARGB.
       GDIp.CreateRect(&Rect, 0, 0, width, height)
-      bmd             := BitmapData()
+      bmd             := stBitmapData()
       bmd.Width       := width
       bmd.height      := height
       bmd.Stride      := 4 * width
@@ -1648,7 +1648,7 @@ Class GDIp {
 
       ; Transfer data from source pBitmap to an hBitmap manually.
       GDIp.CreateRect(&Rect, 0, 0, Width, Height)
-      bmd             := BitmapData()
+      bmd             := stBitmapData()
       bmd.Width       := width
       bmd.Height      := height
       bmd.Stride      := 4 * Width
@@ -3890,7 +3890,7 @@ Class GDIp {
     */
    Static LockBits(pBitmap, x, y, w, h, &Stride, &Scan0, &bmd, LockMode := 3, PixelFormat := 0x26200a) {
       this.CreateRect(&_Rect, x, y, w, h)
-      bmd := BitmapData()
+      bmd := stBitmapData()
       if (res := DllCall("Gdiplus\GdipBitmapLockBits", "Ptr", pBitmap, "Ptr", _Rect.Ptr, "UInt", LockMode, "Int", PixelFormat, "Ptr", bmd))
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Stride := bmd.Stride
@@ -4020,7 +4020,7 @@ Struct stRECTF extends _clsRECT {
 /**
  * GDI+ BitmapData structure, used with LockBits/UnlockBits to access raw pixel data
  */
-Struct BitmapData {
+Struct stBitmapData {
    Width      : UInt32
    Height     : UInt32
    Stride     : Int32
