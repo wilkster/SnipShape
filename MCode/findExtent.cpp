@@ -16,7 +16,11 @@ int __stdcall FindExtent(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2, in
 
 // Pixel(x, y) returns the DWORD value at logical (x, y) top-down coordinates
 #define Pixel(x, y) (*(DWORD *)(bits + (topDown ? (y) : (absH - 1 - (y))) * stride + (x) * 4))
-
+   // Expand the search out a bit to find corners
+   *x1 -= 20;
+   *x2 += 20;
+   *y1 -= 20;
+   *y2 += 20;
    int cx1 = *x1 < 0 ? 0 : (*x1 >= width ? width - 1 : *x1);
    int cx2 = *x2 >= width ? width - 1 : (*x2 < 0 ? 0 : *x2);
    int cy1 = *y1 < 0 ? 0 : (*y1 >= absH ? absH - 1 : *y1);
