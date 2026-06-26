@@ -234,7 +234,6 @@ Class LineShape extends commonShape {
       If (IsSet(started)) {
           this.CleanUp()
       }
-
    }
       /*
          1-------------------------------------------------2

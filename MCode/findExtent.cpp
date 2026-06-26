@@ -1,5 +1,5 @@
 #include <windows.h>
-int RefineAlphaBounds(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2, int topDown)
+int __stdcall FindExtent(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2, int topDown)
 {
    DIBSECTION ds;
    if (!GetObject(hBitmap, sizeof(ds), &ds))

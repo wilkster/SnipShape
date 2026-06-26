@@ -1,4 +1,4 @@
-int __stdcall Gdip_PixelateBitmap(unsigned char *sBitmap, unsigned char *dBitmap, int w, int h, int Stride, int Size)
+int __stdcall PixelateBitmap(unsigned char *sBitmap, unsigned char *dBitmap, int w, int h, int Stride, int Size)
 {
    if (!sBitmap || !dBitmap || w <= 0 || h <= 0 || Size <= 0)
       return -1;

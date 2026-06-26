@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint32_t find_background_color_hash(const uint8_t *pixels, int width, int height, int stride)
+uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int height, int stride)
 {
    if (width <= 0 || height <= 0)
       return 0xFF000000;
