@@ -430,8 +430,8 @@ Class commonShape extends Gui.Pic {
     * Used by Move() to translate between window and shape coordinate spaces.
     * @param L - Left padding in pixels (positive)
     * @param T - Top padding in pixels (positive)
-    * @param R - Right padding in pixels (positive, subtracted from width)
-    * @param B - Bottom padding in pixels (positive, subtracted from height)
+    * @param R - Right padding in pixels (negative, subtracted from width)
+    * @param B - Bottom padding in pixels (negative, subtracted from height)
     */
    savePadding(L, T, R, B) {
       this.sPad := { L: L, T: T, R: R, B: B }

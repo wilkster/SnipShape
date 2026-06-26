@@ -72,7 +72,6 @@ Class ObscureShape extends commonShape {
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
-               ; could use BoxBlurMultiPass with horz = 0, but this is snappier and looks about the same
                pBitOutput      := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
