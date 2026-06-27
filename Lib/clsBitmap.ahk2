@@ -461,7 +461,7 @@ Class BitMap {
     * @param {Integer} offset Amount the input coordinates are translated in the DIB
     * @returns {Integer} Updated x1, x2, y1, y2 coordinates with padding
     */
-   Static FindExtent(hBitmap, x1, y1, w, h, pad, offset) {
+   Static FindExtent(hBitmap, x1, y1, w, h, pad := 0, offset := 0) {
 
       Static mCodeFunc := 0
       If (mCodeFunc = 0) {
@@ -470,17 +470,19 @@ Class BitMap {
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRVV1ZTSIHsqAAAAEiJlCT4AAAAi5wkGAEAALpoAAAATImEJAABAABMjUQkMEyJjCQIAQAA/xUAAAAAhcB0FEyLZCRI
-            McBNheR0CGaDfCReIHQWSIHEqAAAAFteX11BXEFdQV5BX8NmkEiLhCT4AAAASIu8JBABAACLVCRURItsJFiDKBRIi4QkAAEAAESL
-            TCQ8RI16/4MAFEiLhCQIAQAAgygUSIuEJBABAACLAIlEJCyDwBSJB0iLvCT4AAAAiz+F/w+I4wEAADnXQQ9N/0iLtCQAAQAARYn4
-            iw450X0MhclBuAAAAABED0nBRInqSIu0JAgBAADB+h9BMdWLNkEp1UWNVf+F9g+IrAEAAEQ57kEPTfJEidFEOeh9CoXAuQAAAAAP
-            SciF/35WjSy9/P///0hj7TnOf0hEjXf/ifJNjRws6wsPH0AAg8IBOdF8MUSJ0CnQhdsPRcJBD6/BSJhBiwQDhcB04UiD7QRFhfYP
-            hD4BAABEifc5zn69Dx9EAABCjSyFBAAAAEhj7UU5+H1IOc5/REWNcAGJ8k2NHCzrDw8fhAAAAAAAg8IBOdF8KUSJ0CnQhdsPRcJB
-            D6/BSJhBiwQDhcB04UiDxQRFifBFOf51vQ8fRAAAhfZ+TEQ5x39HRInqRI1e/0hjxynyhdtBD0XTQQ+v0Uhj0kwB4usSZg8fhAAA
-            AAAASIPAAUE5wHwXRIs0gkWF9nTuRIneRYXbdbpmDx9EAABBg+0CRDnRfUdEOcd/QkSJ6kSNWQFIY8cpyoXbQQ9F00EPr9FIY9JM
-            AeLrDQ8fQABIg8ABQTnAfBeLLIKF7XTwRInZRTnTdcEPH4QAAAAAAEiLhCT4AAAAiThIi4QkAAEAAESJAEiLhCQIAQAAiTBIi4Qk
-            EAEAAIkIuAEAAADpp/3//zH/6Rz+//8x/+nH/v//MfbpVP7//5CQkJCQkJCQ|Gdi32:GetObjectA:62:4
-            )"
+            QVdBVkFVQVRVV1ZTSIHsqAAAAEiJlCT4AAAAi5wkGAEAALpoAAAATImEJAABAABMjUQkMEyJjCQIAQAA/xUAAAAAiUQkLIXAdBpM
+            i2QkSMdEJCwAAAAATYXkdAhmg3wkXiB0GItEJCxIgcSoAAAAW15fXUFcQV1BXkFfw0iLhCT4AAAAi1QkVESLKI1C/4lEJCBFhe0P
+            iEwCAABBOdVED03oSIuEJAABAABEi3QkIIsAOdB9DIXAQb4AAAAARA9J8ItEJFiLdCRYwfgfMcYpxonwiXQkJEiLtCQIAQAARI1Q
+            /4s+hf8PiFcCAAA5x0EPTfpIi4QkEAEAAEWJ0IsAO0QkJH0MhcBBuAAAAABED0nAi0QkJMdEJCwAAAAARItMJDyDRCQsAYPoAolE
+            JChFhe0PjpQBAABmDx+EAAAAAABGjRyt/P///0SJ7k1j20Q5x39NDx9EAACNbv+J+kuNDBzrDQ8fRAAAg8IBQTnQfDBEidAp0IXb
+            D0XCQQ+vwUiYiwQBhcB04UmD6wSF7Q+EpgEAAInuRDnHfr5mDx9EAABBOfVBD5THRDl0JCAPji0BAABCjSy1BAAAAESJ8Uhj7UQ5
+            x39LRI1pAYn6TY0cLOsPDx+AAAAAAIPCAUE50HwwRInQKdCF2w9FwkEPr8FImEGLBAOFwHTgSIPFBEQ5bCQgD4QmAQAARInpRDnH
+            fraQQTnOD5TAQSHHQYn7hf9+QDnOfzyLVCQkQY1r/0hjxkQp2oXbD0XVQQ+v0Uhj0kwB4usNDx9EAABIg8ABOcF8EESLLIJFhe10
+            70GJ64XtdcBEicVFOdAPjYQAAAA5zg+PfAAAAItUJChEjW0BSGPGKeqF20EPRdVBD6/RSGPSTAHi6w0PH0QAAEiDwAE5wXxQRIs0
+            gkWF9nTvRIntRTnVdbtBifWDRCQsAUGJ6ESJ30GJzkWF7Q+Pdf7//0SJ7kG/AQAAAEQ5dCQgD4/T/v//RInx6TL///9FMe3ps/3/
+            /5BFhP90vEQ533W3QTnodbJIi4Qk+AAAAIkwSIuEJAABAACJCEiLhCQIAQAARIkYSIuEJBABAACJKOk3/f//i0wkIEUx/+ng/v//
+            MfZFMf/pZP7//zH/6aj9//+QkJCQkJA=|Gdi32:GetObjectA:62:4
+            )"            
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
             MsgBox("32 bit GetBackgroundColor Not Implemented")
@@ -495,21 +497,28 @@ Class BitMap {
          x1 += offset, y1 += offset, x2 := x1 + w, y2 := y1 + h
          ; RefineAlphaBounds(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2)
          topDown := 0
-         r := DllCall(mCodeFunc, "UPtr", hBitmap, "uInt*", &x1, "uInt*", &x2, "uInt*", &y1, "Uint*", &y2, "Int", topDown, "Int")
+         passes := DllCall(mCodeFunc, "UPtr", hBitmap, "uInt*", &x1, "uInt*", &x2, "uInt*", &y1, "Uint*", &y2, "Int", topDown, "Int")
          bndBx := {}
          ; Put coordinates back into original coordinates and pad them
          bndBx.X1 := X1 - offset - pad
          bndBx.X2 := X2 - offset + pad
          bndBx.Y1 := Y1 - offset - pad
          bndBx.Y2 := Y2 - offset + pad
-         ; new dimension with padding
+         ; new shape dimension with padding
          bndBx.W := bndBx.X2 - bndBx.X1 + 1
          bndBx.H := bndBx.Y2 - bndBx.Y1 + 1
          ; Also real positive padding needed between initial pixel data and expanded pixel data + input padding
-         bndBx.L := hX1 - bndBx.X1
-         bndBx.T := hY1 - bndBx.Y1
-         bndBx.R := hX2 - bndBx.X2
-         bndBx.B := hY2 - bndBx.Y2
+         bndBx.L := hX1 - bndBx.X1 ; pos
+         bndBx.T := hY1 - bndBx.Y1 ; pos
+         bndBx.R := hX2 - bndBx.X2 ; neg
+         bndBx.B := hY2 - bndBx.Y2 ; neg
+
+         ; Actual padding found in bitmap
+         GDI.GetHBitmapDimensions(hBitmap, &hW, &hH)
+         bndBx.pL := x1 - offset 
+         bndBx.pR := hW - (x2 - offset) - 1
+         bndBx.pT := y1 - offset 
+         bndBx.pB := hH - (y2 - offset) - 1
 
          Return bndBx
       } Else {
@@ -758,15 +767,15 @@ Class BitMap {
       }
 
       ; Avoid drawing if no changes detected.
-      If (safe_w = width && safe_h = height)
+      If (safe_w = width AND safe_h = height)
          Return TpBitmap
 
       ; Force upscaling.
-      If (direction > 0 and (safe_w < width && safe_h < height))
+      If (direction > 0 and (safe_w < width AND safe_h < height))
          Return TpBitmap
 
       ; Force downscaling.
-      If (direction < 0 and (safe_w > width && safe_h > height))
+      If (direction < 0 and (safe_w > width AND safe_h > height))
          Return TpBitmap
 
       ; Create a new bitmap and get the graphics context.
