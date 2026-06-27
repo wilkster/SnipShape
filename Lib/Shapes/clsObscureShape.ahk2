@@ -255,10 +255,5 @@ Class ObscureShape extends commonShape {
       this.Factor := max(1,this.Factor)
       this.createImageBrush()
    }
-   ;----------------------------------------------------------------------
-   ; No padding used for obscure types
-   ;----------------------------------------------------------------------
-   savePadding(L, T, R, B) {
-      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
-   }
+
 }
