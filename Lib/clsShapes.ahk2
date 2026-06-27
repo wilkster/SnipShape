@@ -850,7 +850,7 @@ Class Shapes {
             ; Example, rounded rectangle is drawn with outline that extends beyound he coordinates
             ; both size of the drawing coordinates, thus the need for DIBPadding
             ;----------------------------------------------------------------------
-            bndBx := surfSource.FindExtent(X, Y, W, H, 25)
+            bndBx := surfSource.FindExtent(X, Y, W, H, 35)
             ; debug("H=" bndBx.H ", W=" bndBx.W)
             ; Save the padding (if shape used it) so we know the shape vs window
             ; size differences for moving
