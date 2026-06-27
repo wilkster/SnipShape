@@ -1198,7 +1198,8 @@ Class Snips {
          SnipObj.MarginX := BW, SnipObj.MarginY := BW
          SnipObj.Pic     := SnipObj.AddSnipPic(hBitmap)
          ; Minimize existing snip
-         this.GetGuiObj(hWnd).Minimize()
+         if (ScaleFactor != 1.0)
+            this.GetGuiObj(hWnd).Minimize()
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
          SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
       } else {
