@@ -943,7 +943,6 @@ Class Shapes {
    Static MoveSize(Key, ShapeObj) {
       Static mouseStart    := {X:0, Y:0} ; Location where first click is done (window)
       Static mouseNew      := {X:0, Y:0} ; location of mouse in real time (window)
-      Static mouseOld      := {X:0, Y:0}
       Static mouseDiff     := {X:0, Y:0}
       Static mouseLast     := {X:0, Y:0}
       Static controlStart  := {X:0, Y:0, W:0, H:0}
