@@ -456,7 +456,7 @@ Class BitMap {
     * Search outward from an ARGB HBitmap and find the last known coordinates that contain pixel data
     * Used to include wide lines while drawing. Pad the values and adjust for DIB Padding
     * @param {Integer} hBitmap Handle to the source pBitmap
-    * @param {Integer} x1,x2,x3,x4 Initial coordinates (addjusted for offset) of known pixels
+    * @param {Integer} x1,x2,w,h Initial coordinates (adjusted for offset) of known pixels
     * @param {Integer} pad Space to add to the coordinates for resizing later
     * @param {Integer} offset Amount the input coordinates are translated in the DIB
     * @returns {Integer} Updated x1, x2, y1, y2 coordinates with padding
@@ -508,10 +508,10 @@ Class BitMap {
          bndBx.W := bndBx.X2 - bndBx.X1 + 1
          bndBx.H := bndBx.Y2 - bndBx.Y1 + 1
          ; Also real positive padding needed between initial pixel data and expanded pixel data + input padding
-         bndBx.L := hX1 - bndBx.X1 ; pos
-         bndBx.T := hY1 - bndBx.Y1 ; pos
-         bndBx.R := hX2 - bndBx.X2 ; neg
-         bndBx.B := hY2 - bndBx.Y2 ; neg
+         bndBx.L := abs(hX1 - bndBx.X1) ; pos
+         bndBx.T := abs(hY1 - bndBx.Y1) ; pos
+         bndBx.R := abs(hX2 - bndBx.X2) ; neg
+         bndBx.B := abs(hY2 - bndBx.Y2) ; neg
 
          ; Actual padding found in bitmap
          GDI.GetHBitmapDimensions(hBitmap, &hW, &hH)
