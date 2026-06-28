@@ -97,18 +97,23 @@ Class BodyShape extends commonShape {
       }
       ; internal shape boundaries
       C := this.shapeCoord
-      ; shape window boundaries (can be bigger)
-      this.getPos(&iX, &iY, &iW, &iH)
-      Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
-      this.Draw(Surf.G, C.X1 - iX, C.Y1 - iY, C.W, C.H)      ; Scale from OG space to the new space
-      ; IDEA - would be nice to pad the dib then compute needed space with GetPathWorldBoundsI so we don't clip
-      this.shapeCoord := C
-      ; Restore old position
-      Surf.UpdateLayer(iX, iY)
+      P := this.sPad
+      ; Location of shape on surface (with padding)
+      shapeX := (C.X - P.l), shapeY := (C.Y - P.t)
+      ; Create DIB with padding
+      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      ; Draw shape (translate by snip position)
+      Surf.Translate(-shapeX, -shapeY)
+      this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
+      Surf.UpdateLayer(Min(C.x1, C.x2) - P.l, Min(C.y1, C.y2) - P.t)
+      ; Compute new padding for next time (for size/thickness changes)
+      ext := BitMap.FindExtent(Surf.ihbm, C.X - shapeX, C.Y - shapeY, C.W, C.H, Shapes.shapePad)
+      this.savePadding(ext.l, ext.t, ext.r, ext.b)
+      ; Locate shape on surface
       Surf := ""
+
       If (IsSet(started)) {
          this.CleanUp()
       }
    }
-
 }
