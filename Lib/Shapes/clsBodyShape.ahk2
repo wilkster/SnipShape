@@ -95,21 +95,21 @@ Class BodyShape extends commonShape {
          this.Startup()
          Started := true
       }
-      ; internal shape boundaries
+      ; internal shape boundaries and padding
       C := this.shapeCoord
       P := this.sPad
       ; Location of shape on surface (with padding)
-      shapeX := (C.X - P.l), shapeY := (C.Y - P.t)
+      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
       ; Create DIB with padding
       Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
       ; Draw shape (translate by snip position)
       Surf.Translate(-shapeX, -shapeY)
       this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
-      Surf.UpdateLayer(Min(C.x1, C.x2) - P.l, Min(C.y1, C.y2) - P.t)
-      ; Compute new padding for next time (for size/thickness changes)
-      ext := BitMap.FindExtent(Surf.ihbm, C.X - shapeX, C.Y - shapeY, C.W, C.H, Shapes.shapePad)
-      this.savePadding(ext.l, ext.t, ext.r, ext.b)
       ; Locate shape on surface
+      Surf.UpdateLayer(shapeX, shapeY)
+      ; Compute new padding for next time (for size/thickness changes)
+      ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+      this.savePadding(ext.L, ext.T, ext.R, ext.B)
       Surf := ""
 
       If (IsSet(started)) {

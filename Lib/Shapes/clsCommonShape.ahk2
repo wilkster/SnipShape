@@ -328,8 +328,6 @@ Class commonShape extends Gui.Pic {
       this.Enabled := false
       this.OnEvent("ContextMenu",this.bindMenu, false)
       this.OnEvent("Click", this.bindClick, false)
-; debug("UnBound Events for " hex(this.hWnd) ", Source =" this.Source)
-
       ; If layered window we want to blank it also
       If (this.Options ~= "E0x80000") {
          this.getPos(&iX, &iY, &iW, &iH)
