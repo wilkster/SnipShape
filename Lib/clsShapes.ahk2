@@ -144,6 +144,7 @@ Class Shapes {
 
       ; Padding around snip when drawing shapes
       this.DIBPad                := SETTINGS.DIBPad 
+      this.shapePad              := 15
       ; Line
       ; Blur / Redact / Highlight
       ;----------------------------------------------------------------------
@@ -851,7 +852,7 @@ Class Shapes {
             ; both size of the drawing coordinates, thus the need for DIBPadding
             ; Only add padding for line and body shapes, blurshapes recompute each move
             ;----------------------------------------------------------------------
-            pad := ShapeObj.Source = "BlurShape" ? 0 : 35
+            pad := ShapeObj.Source = "BlurShape" ? 0 : Shapes.shapePad
             bndBx := surfSource.FindExtent(X, Y, W, H, pad)
             ; debug("H=" bndBx.H ", W=" bndBx.W)
             ; Save the padding (if shape used it) so we know the shape vs window

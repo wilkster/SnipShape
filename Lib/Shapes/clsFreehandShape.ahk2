@@ -688,7 +688,7 @@ Class FreeHandShape extends commonShape {
                C := oPath.GetPathWorldBoundsI()
                oPath := ""
                ; NOTE - adding hard coded pad, we could add a penwidth or account for arrow heads
-               Return surface.FindExtent(C.X, C.Y, C.W, C.H, 25) ; include padding for later pen width increase
+               Return surface.FindExtent(C.X, C.Y, C.W, C.H, Shapes.shapePad) ; include padding for later pen width increase
             }
          } Else {
             Return { X1: 0, X2: 0, Y1: 0, Y2: 0, W: 0, H: 0, B:0, L:0, R:0, T:0 }
