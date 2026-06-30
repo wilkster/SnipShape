@@ -388,8 +388,8 @@ HotIfWinActive
       Critical("Off")
    }
 
-   $Wheelup::ThickenShape(+0.05)
-   $Wheeldown::ThickenShape(-0.05)
+   $Wheelup::ThickenShape(+0.02)
+   $Wheeldown::ThickenShape(-0.02)
    /**
     * Adjusts the line/pen thickness of the currently focused shape by a fractional delta,
     * then redraws the shape to reflect the change.
