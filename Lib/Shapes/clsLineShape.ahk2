@@ -234,9 +234,9 @@ Class LineShape extends commonShape {
       ; Locate shape on surface
       Surf.UpdateLayer(shapeX, shapeY)
       ; Compute new padding for next time
+      ; NOTE - if we jumped our pen thickness too much this won't be enough padding
       ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
       this.savePadding(ext.L, ext.T, ext.R, ext.B)
-      ; debug(ext.pl " " ext.pr " " ext.pt " " ext.pb)
       Surf := ""
       If (IsSet(started)) {
           this.CleanUp()

@@ -36,6 +36,7 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
          uint32_t r = p[2];
          uint32_t a = p[3];
          p += 4 * step;
+         // ignore if alpha channel is 0
          if (a == 0)
             continue;
          uint32_t rgb = (r << 16) | (g << 8) | b;
