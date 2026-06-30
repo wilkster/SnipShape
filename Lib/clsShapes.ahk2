@@ -144,7 +144,7 @@ Class Shapes {
 
       ; Padding around snip when drawing shapes
       this.DIBPad                := SETTINGS.DIBPad 
-      this.shapePad              := 15
+      this.shapePad              := 25
       ; Line
       ; Blur / Redact / Highlight
       ;----------------------------------------------------------------------
