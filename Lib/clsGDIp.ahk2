@@ -4171,7 +4171,7 @@ Struct stMONITORINFOEX {
    rcMonitor: stRECTI
    rcWork   : stRECTI
    dwFlags  : Int32
-   _name    : 64
+   _name    : Uint8[64]
    /**
     * Return the monitor device name as a string from the raw _name field
     */
