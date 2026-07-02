@@ -472,17 +472,17 @@ Class BitMap {
             (
             QVdBVkFVQVRVV1ZTSIHsqAAAAEiJlCT4AAAAi5wkGAEAALpoAAAATImEJAABAABMjUQkMEyJjCQIAQAA/xUAAAAAiUQkLIXAdBpM
             i2QkSMdEJCwAAAAATYXkdAhmg3wkXiB0GItEJCxIgcSoAAAAW15fXUFcQV1BXkFfw0iLhCT4AAAAi1QkVESLKI1C/4lEJCBFhe0P
-            iEwCAABBOdVED03oSIuEJAABAABEi3QkIIsAOdB9DIXAQb4AAAAARA9J8ItEJFiLdCRYwfgfMcYpxonwiXQkJEiLtCQIAQAARI1Q
-            /4s+hf8PiFcCAAA5x0EPTfpIi4QkEAEAAEWJ0IsAO0QkJH0MhcBBuAAAAABED0nAi0QkJMdEJCwAAAAARItMJDyDRCQsAYPoAolE
-            JChFhe0PjpQBAABmDx+EAAAAAABGjRyt/P///0SJ7k1j20Q5x39NDx9EAACNbv+J+kuNDBzrDQ8fRAAAg8IBQTnQfDBEidAp0IXb
-            D0XCQQ+vwUiYiwQBhcB04UmD6wSF7Q+EpgEAAInuRDnHfr5mDx9EAABBOfVBD5THRDl0JCAPji0BAABCjSy1BAAAAESJ8Uhj7UQ5
-            x39LRI1pAYn6TY0cLOsPDx+AAAAAAIPCAUE50HwwRInQKdCF2w9FwkEPr8FImEGLBAOFwHTgSIPFBEQ5bCQgD4QmAQAARInpRDnH
-            fraQQTnOD5TAQSHHQYn7hf9+QDnOfzyLVCQkQY1r/0hjxkQp2oXbD0XVQQ+v0Uhj0kwB4usNDx9EAABIg8ABOcF8EESLLIJFhe10
-            70GJ64XtdcBEicVFOdAPjYQAAAA5zg+PfAAAAItUJChEjW0BSGPGKeqF20EPRdVBD6/RSGPSTAHi6w0PH0QAAEiDwAE5wXxQRIs0
-            gkWF9nTvRIntRTnVdbtBifWDRCQsAUGJ6ESJ30GJzkWF7Q+Pdf7//0SJ7kG/AQAAAEQ5dCQgD4/T/v//RInx6TL///9FMe3ps/3/
-            /5BFhP90vEQ533W3QTnodbJIi4Qk+AAAAIkwSIuEJAABAACJCEiLhCQIAQAARIkYSIuEJBABAACJKOk3/f//i0wkIEUx/+ng/v//
-            MfZFMf/pZP7//zH/6aj9//+QkJCQkJA=|Gdi32:GetObjectA:62:4
-            )"            
+            iFwCAABBOdVED03oSIuEJAABAABEi3QkIIsAOdB9DIXAQb4AAAAARA9J8ItEJFiLdCRYwfgfMcYpxonwiXQkJEiLtCQIAQAARI1Q
+            /4s+hf8PiG0CAAA5x0EPTfpIi4QkEAEAAEWJ0IsAO0QkJH0MhcBBuAAAAABED0nAi0QkJMdEJCwAAAAARItMJDyDRCQsAYPoAolE
+            JChFhe0PjqQBAABmDx+EAAAAAABGjRyt/P///0SJ7k1j20Q5x39NDx9EAACNbv+J+kuNDBzrDQ8fRAAAg8IBQTnQfDBEidAp0IXb
+            D0XCQQ+vwUiY9wQBAAAA/3TfSYPrBIXtD4S6AQAAie5EOcd+vA8fQABBOfVBD5THRDt0JCAPjT0BAABCjSy1BAAAAESJ8Uhj7UQ5
+            x39TRI1pAYn6TY0cLOsPDx+AAAAAAIPCAUE50Hw4RInQKdCF2w9FwkEPr8FImEH3BAMAAAD/dN5Ig8UERDtsJCAPhDQBAABEielE
+            Ocd+tA8fgAAAAABBOc4PlMBBIcdBifuF/35IOc5/RItUJCRBjWv/SGPGRCnahdsPRdVBD6/RSGPSTAHi6w0PH0QAAEiDwAE5wXwY
+            9wSCAAAA/3TvQYnrhe11wA8fhAAAAAAARInFRTnQD42EAAAAOc4Pj3wAAACLVCQoRI1tAUhjxinqhdtBD0XVQQ+v0Uhj0kwB4usN
+            Dx9EAABIg8ABOcF8UPcEggAAAP9070SJ7UU51XW7QYn1g0QkLAFBiehEid9Bic5Fhe0Pj2X+//9Eie5BvwEAAABEO3QkIA+Mw/7/
+            /0SJ8ekq////RTHt6aP9//+QRYT/dLxEOd91t0E56HWySIuEJPgAAACJMEiLhCQAAQAAiQhIi4QkCAEAAESJGEiLhCQQAQAAiSjp
+            J/3//4tMJCBEOfEPlMBBIcfp0v7//zH2RTH/6U7+//8x/+mS/f//|Gdi32:GetObjectA:62:4
+            )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
             MsgBox("32 bit GetBackgroundColor Not Implemented")
@@ -510,15 +510,15 @@ Class BitMap {
          ; Also real positive padding needed between initial pixel data and expanded pixel data + input padding
          bndBx.L := abs(hX1 - bndBx.X1) ; pos
          bndBx.T := abs(hY1 - bndBx.Y1) ; pos
-         bndBx.R := abs(hX2 - bndBx.X2) ; neg
-         bndBx.B := abs(hY2 - bndBx.Y2) ; neg
+         bndBx.R := abs(hX2 - bndBx.X2) ; pos
+         bndBx.B := abs(hY2 - bndBx.Y2) ; pos
 
          ; Actual padding found in bitmap
          GDI.GetHBitmapDimensions(hBitmap, &hW, &hH)
          bndBx.pL := x1 - offset 
-         bndBx.pR := hW - (x2 - offset) - 1
+         bndBx.pR := hW - (x2 - offset)
          bndBx.pT := y1 - offset 
-         bndBx.pB := hH - (y2 - offset) - 1
+         bndBx.pB := hH - (y2 - offset)
 
          Return bndBx
       } Else {
