@@ -217,29 +217,31 @@ Class LineShape extends commonShape {
     * Adjust padding dynamicily to ensure we can spill shape beyound coordinates
     */
    Refresh() {
-      If (NOT this.Started) {
-          started := true
-          this.Startup()
-      }
       ; internal shape boundaries and padding
       C := this.shapeCoord
-      P := this.sPad
-      ; Location of shape on surface (with padding)
-      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-      ; Create DIB with padding
-      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-      ; Draw shape (translate by snip position)
-      Surf.Translate(-shapeX, -shapeY)
-      this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
-      ; Locate shape on surface
-      Surf.UpdateLayer(shapeX, shapeY)
-      ; Compute new padding for next time
-      ; NOTE - if we jumped our pen thickness too much this won't be enough padding
-      ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
-      this.savePadding(ext.L, ext.T, ext.R, ext.B)
-      Surf := ""
-      If (IsSet(started)) {
-          this.CleanUp()
+      If (C.W > 0 and C.H > 0) {
+         If (NOT this.Started) {
+            started := true
+            this.Startup()
+         }
+         P := this.sPad
+         ; Location of shape on surface (with padding)
+         shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+         ; Create DIB with padding
+         Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+         ; Draw shape (translate by snip position)
+         Surf.Translate(-shapeX, -shapeY)
+         this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
+         ; Locate shape on surface
+         Surf.UpdateLayer(shapeX, shapeY)
+         ; Compute new padding for next time
+         ; NOTE - if we jumped our pen thickness too much this won't be enough padding
+         ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+         this.savePadding(ext.L, ext.T, ext.R, ext.B)
+         Surf := ""
+         If (IsSet(started)) {
+            this.CleanUp()
+         }
       }
    }
       /*
