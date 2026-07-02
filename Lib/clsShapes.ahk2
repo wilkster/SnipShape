@@ -841,7 +841,7 @@ Class Shapes {
          If (ShapeObj.Source = "FreeHand") {
             ; Some freehand shapes will close if start/end points are close to each other
             ShapeObj.CloseCurve(surfSource.G, useLines)
-            ; Padding is not used for this shape
+            ; Return the outer bounding box, including padding
             bndBx := ShapeObj.saveCoords(surfSource)
          } Else {
             ;----------------------------------------------------------------------
@@ -854,7 +854,6 @@ Class Shapes {
             ;----------------------------------------------------------------------
             pad := ShapeObj.Source = "BlurShape" ? 0 : Shapes.shapePad
             bndBx := surfSource.FindExtent(X, Y, W, H, pad)
-            ; debug("H=" bndBx.H ", W=" bndBx.W)
             ; Save the padding (if shape used it) so we know the shape vs window
             ; size differences for moving
             ShapeObj.savePadding(bndBx.L, bndBx.T, bndBx.R, bndBx.B)
@@ -975,7 +974,7 @@ Class Shapes {
       ShapeObj.GetPos(&controlStart.X, &controlStart.Y, &controlStart.W, &controlStart.H)
       ; Box size to see if we are close to a corner/middle
       coord := ShapeObj.shapeCoord
-      ; debug("Coord  =" coord.X1 " " coord.Y1 " " coord.X2 - coord.X1 " " coord.Y2 - coord.Y1 " " ShapeObj.Shape)
+      ; debug("Coord  =" coord.X1 " " controlStart.X " "  coord.Y1 " " controlStart.Y " " ShapeObj.Shape)
       ; Get start/end points of the shape (may be different than the picture size due to padding)
       ; See if we are near upper right/lower left corner (or line/arrow end-points)
       CI := ShapeObj.CornerInfo(mouseStart.X, mouseStart.Y)
@@ -991,7 +990,8 @@ Class Shapes {
       ; Resize or Redraw Loop Starts Here
       ;-----------------------------------------------------
       If (corner) {
-         MouseMove(ccX, ccY,0)
+         MouseMove(ccX, ccY, 0)
+
          ; If ShapeObj.Source = "FreeHand" {
          ;    ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
          ; }
@@ -1047,7 +1047,6 @@ Class Shapes {
                
                MouseGetPos(&mouseNew.X, &mouseNew.Y)
                dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
-
                if ((abs(dx) + abs(dy)) > 0) {
                   mouseDiff.X := mouseNew.X - mouseStart.X
                   mouseDiff.Y := mouseNew.Y - mouseStart.Y
@@ -1078,11 +1077,11 @@ Class Shapes {
                         X := controlStart.X, W := controlStart.W
                         Y := controlStart.Y, H := Abs(controlStart.H + mouseDiff.Y)
                      Case 7: ;left Middle
-                        X := mouseNew.X,     W := Abs(controlStart.W - mouseDiff.X)
+                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
                         Y := controlStart.Y, H := controlStart.H
                      Case 8: ;top Middle
                         X := controlStart.X, W := controlStart.W
-                        Y := mouseNew.Y,     H := Abs(controlStart.H - mouseDiff.Y) 
+                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y) 
                      Default: ; not a corner, won't happen
                         X := Min(controlStart.X, mouseNew.X), W := Abs(mouseDiff.X)
                         Y := Min(controlStart.Y, mouseNew.Y), H := Abs(mouseDiff.Y)
@@ -1103,7 +1102,7 @@ Class Shapes {
                         ShapeObj.Move(Round(X), Round(controlStart.Y + deltaY), Round(fSize * cFact, 2))
                      }
                   } Else {
-                     ; Resize the shape
+                     ; Resize the shape, control coords, not shape
                      ; pictures are done here along with freehand
                      ShapeObj.Move(X, Y, W, H)
                   }
