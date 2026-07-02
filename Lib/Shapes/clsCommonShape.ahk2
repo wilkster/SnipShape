@@ -292,13 +292,14 @@ Class commonShape extends Gui.Pic {
       ; always compute as L→R, T→B
       X1 := IsSet(wX) ? wX + p.L : c.X1
       Y1 := IsSet(wY) ? wY + p.T : c.Y1
-      W  := IsSet(wW) ? wW - Abs(p.L) - Abs(p.R) : c.W
-      H  := IsSet(wH) ? wH - Abs(p.T) - Abs(p.B) : c.H
+      W  := IsSet(wW) ? wW - p.L - p.R : c.W
+      H  := IsSet(wH) ? wH - p.T - p.B : c.H
       X2 := X1 + W , Y2 := Y1 + H 
+
       ; Arrows have a direction
       SwapIf(c.X1 > c.X2, &X1, &X2)
       SwapIf(c.Y1 > c.Y2, &Y1, &Y2)
-      ; Replace coordinates with appropriate direction for lines
+      ; Replace shape coordinates with appropriate direction for lines
       this.sCoord := { X1: X1, Y1: Y1, X2: X2, Y2: Y2, W: W, H: H, X: Min(X1, X2), Y: Min(Y1, Y2) }
       ; If we set the width or height, then refresh the shape
       If (IsSet(wW) or IsSet(wH)) {
