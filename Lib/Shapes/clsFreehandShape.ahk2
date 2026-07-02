@@ -303,6 +303,7 @@ Class FreeHandShape extends commonShape {
       this.OG.W         := C.W
       this.OG.H         := C.H
       this.OG.PenWidth  := GDIp.GetPenWidth(this.pPrime)
+      pts := ""
       Return B
    }
    /**
@@ -358,11 +359,12 @@ Class FreeHandShape extends commonShape {
     * @param {Number} [wH] - Optional Height
     */
    Move(wX?, wY?, wW?, wH?) {
-      Critical("On")
       ; Post move updates for colors
       Switch this.Shape {
          Case Shapes.SHAPE_WHITEOUT:
             If (res := this.ShapeBackgroundColor()) >= 0 {
+               ; debug("Refreshing Freehand")
+               ; This call only refreshes the new position
                Super.Move(wX?, wY?, wW?, wH?, false)
                this.Color := res
                this.Refresh()
@@ -371,13 +373,20 @@ Class FreeHandShape extends commonShape {
             }
          Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
             ; Have to recompute/shift texture
+            ; debug("Refreshing Freehand")
+            ; This call only refreshes the new position
             Super.Move(wX?, wY?, wW?, wH?, false)
             this.Refresh()
          Default:
-            ; No redraw necessary unless resizing for normal pens
-            Super.Move(wX?, wY?, wW?, wH?, true)
+            ; Resize/redraw points if width or height set
+            if (isset(wW) or IsSet(wH)) {
+               Super.Move(wX?, wY?, wW?, wH?, false)
+               this.Refresh()
+            } Else {
+               ; Just move the points intact
+               Super.Move(wX?, wY?, wW?, wH?, true)
+            }
       }
-      Critical("Off")
    }
 
    /**
@@ -392,14 +401,14 @@ Class FreeHandShape extends commonShape {
     */
    Refresh() {
       If (type(this._Points) = "Buffer") {
-         If (NOT this.Started) {
-            Started := true
-            this.Startup()
-         }
          ; Have already set these if we are moving/resizing
          C   := this.shapeCoord
-         P   := this.sPad
-         If ((iH := Ceil(C.H)) > 0 AND (iW := Ceil(C.W)) > 0) {
+         If (C.H > 0 AND C.W > 0) {
+            If (NOT this.Started) {
+               Started := true
+               this.Startup()
+            }
+            P   := this.sPad
             ; The dib is sized to the enlarged surface
             shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
             Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
@@ -427,23 +436,21 @@ Class FreeHandShape extends commonShape {
             } Else {
                pm := GDIp.Matrix()
             }
-            ; Translate points them into translated DIB
+            ; Translate points into the translated DIB
             pm.Translate(C.X, C.Y)
             cpts := CloneBuffer(this.Points)
             pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
             pm := ""
 
-            ; If a highlighter, then do that vs drawing the lines
+            ; If a highlighter, then fill the pen with the image vs a solid color
             If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
-               ; Replace the pen contents with the highlighted background under the shape
-               this.createImageBrush() ; Added just in case bitmap changed size or colors
+               ; Replace the pen contents with the highlighted//blured background under the shape
                GDIp.ResetTextureTransform(this.imageBrush)
                GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
                GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
             }
             ; Draw the outline and fill it in blank (Arc Arrow)
-            if (this.pOutline)
-               this.OutlinePoints(Surf.G, this.useLines, cpts)
+            this.OutlinePoints(Surf.G, this.useLines, cpts)
             ; draw the inside line
             this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
             ; Grabber
@@ -453,11 +460,12 @@ Class FreeHandShape extends commonShape {
             ; Get recommended new padding for next time
             bbox := this.GetPathInfo(cpts, this.pPrime).bnd
             this.savePadding(bbox.L, bbox.T, bbox.R, bbox.B)
+
             cpts := ""
             Surf := ""
-         }
-         If (IsSet(Started)) {
-            this.CleanUp()
+            If (IsSet(Started)) {
+               this.CleanUp()
+            }
          }
       } Else {
          warning("Expected to have Points property but did not!")
@@ -468,7 +476,7 @@ Class FreeHandShape extends commonShape {
     * Enclose a set of lines with an outline and fill if necessary
     * @param {Ptr} G - Graphics Object
     * @param {Boolean} UseLines - True for lines, false for curves
-    * @param {Buffer} pBuf - Point buffer
+    * @param {Buffer} pBuf - Point object
     */
    OutlinePoints(G, UseLines, pBuf) {
       ; NOTE - doesn't handle closed curves
@@ -487,18 +495,6 @@ Class FreeHandShape extends commonShape {
          oPath := ""
       }
    }
-
-   /**
-    * Sets padding to zero as freehand shapes already include required padding
-    * @param {Integer} L - Left padding (ignored)
-    * @param {Integer} T - Top padding (ignored)
-    * @param {Integer} R - Right padding (ignored)
-    * @param {Integer} B - Bottom padding (ignored)
-    */
-   ; savePadding(L, T, R, B) {
-   ; ; Freehand shapes coordinates already include padding
-   ;    this.sPad := { L: 0, T: 0, R: 0, B: 0 }
-   ; }
 
    /**
     * Get a copy of the freehand points for cloning
