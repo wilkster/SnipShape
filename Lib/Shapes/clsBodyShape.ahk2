@@ -91,29 +91,31 @@ Class BodyShape extends commonShape {
     * @param {Integer} Startup - true to startup/shutdown also
     */
    Refresh() {
-      If (NOT this.Started) {
-         this.Startup()
-         Started := true
-      }
-      ; internal shape boundaries and padding
       C := this.shapeCoord
-      P := this.sPad
-      ; Location of shape on surface (with padding)
-      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-      ; Create DIB with padding
-      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-      ; Draw shape (translate by snip position)
-      Surf.Translate(-shapeX, -shapeY)
-      this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
-      ; Locate shape on surface
-      Surf.UpdateLayer(shapeX, shapeY)
-      ; Compute new padding for next time (for size/thickness changes)
-      ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
-      this.savePadding(ext.L, ext.T, ext.R, ext.B)
-      Surf := ""
+      If (C.W > 0 AND C.H > 0) {
+         If ( NOT this.Started) {
+            this.Startup()
+            Started := true
+         }
+         ; internal shape boundaries and padding
+         P := this.sPad
+         ; Location of shape on surface (with padding)
+         shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+         ; Create DIB with padding
+         Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+         ; Draw shape (translate by snip position)
+         Surf.Translate(-shapeX, -shapeY)
+         this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
+         ; Locate shape on surface
+         Surf.UpdateLayer(shapeX, shapeY)
+         ; Compute new padding for next time (for size/thickness changes)
+         ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+         this.savePadding(ext.L, ext.T, ext.R, ext.B)
+         Surf := ""
 
-      If (IsSet(started)) {
-         this.CleanUp()
+         If (IsSet(Started)) {
+            this.CleanUp()
+         }
       }
    }
 }
