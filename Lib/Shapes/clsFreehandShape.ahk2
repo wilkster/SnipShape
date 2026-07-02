@@ -288,28 +288,72 @@ Class FreeHandShape extends commonShape {
     * @returns {Object} - The calculated coordinate object
     */
    saveCoords(surface) {
-      ; If we pass in the pen the coordinates will be a bit larger allowing more
-      ; line resizing later
-      ; C := this.shapeCoord := this.MyPoints.CalcCoords(surface)
-      C := this.shapeCoord := this.MyPoints.CalcCoords(surface, this.pPrime) ; account for pen width
-      ; GDIp.FillRectangle(surface.G, this.bGrab, C.X1, C.Y1, C.W, C.H)
-      ; debug("Coords " c.X1 " " c.Y1 " " c.X2 " " c.Y2)
+      pts  := CloneBuffer(this.MyPoints.pBuf, this.MyPoints.Added * 8) ; skips any blank points in OG buffer
+      ; Get internal and external dimensions along with padding
+      Info := this.GetPathInfo(pts, this.pPrime)
+      C    := this.shapeCoord := Info.coord ; Internal Dimenstions
+      B    := Info.bnd                      ; Padding and external dimensions
+      this.savePadding(B.L, B.T, B.R, B.B)
+      ; Initial grabber
       GDIp.DrawRectangle(surface.G, this.pGrab, C.X1, C.Y1, C.W, C.H)
+      ; Translate points to 0,0
       ; Save a copy of the 0,0 translated points (vs. windows coordinates)
-      ; NOTE - if way off canvas then it doesn't get drawn
-      ;        lost in translation it looks like, for large negative X
       this._Points      := this.MyPoints.GetTransPoints(C.X1, C.Y1)
       this.DrawFunction := this.MyPoints.DrawFunction
-      this.OG.W         := Ceil(this.sCoord.W)
-      this.OG.H         := Ceil(this.sCoord.H)
+      this.OG.W         := C.W
+      this.OG.H         := C.H
       this.OG.PenWidth  := GDIp.GetPenWidth(this.pPrime)
-      Return this.shapeCoord
+      Return B
+   }
+   /**
+    * Compute the padding needed for a path
+    * @param Points buffer of points
+    * @param pen Pen to compute against
+    * @returns {Object} 
+    */
+   GetPathInfo(Points, pen) {
+      oPath := GDIp.Path()
+      added := Points.Size//8
+      if (added > 2)
+         oPath.AddPathLines(Points, added)
+      else
+         oPath.AddPathPolygon(Points, added)
+      Inner := oPath.GetPathWorldBoundsI()
+      Outer := oPath.GetPathWorldBoundsI(Pen)
+      oPath := ""
+      res := Object()
+      ; Outer dimeenstions
+      res.bnd := {
+         L: Abs(Inner.X - Outer.X),
+         T: Abs(Inner.Y - Outer.Y),
+         R: Abs((Inner.X + Inner.W) - (Outer.X + Outer.W)),
+         B: Abs((Inner.Y + Inner.W) - (Outer.Y + Outer.W)),
+         X1: Outer.X,
+         X2: Outer.X + Outer.W,
+         Y1: Outer.Y,
+         Y2: Outer.Y + Outer.H,
+         W : Outer.W,
+         H : Outer.H,
+         X : Outer.X,
+         Y : Outer.Y
+      }
+      res.coord := {
+         X1: Inner.X,
+         X2: Inner.X + Inner.W,
+         Y1: Inner.Y,
+         Y2: Inner.Y + Inner.H,
+         W : Inner.W,
+         H : Inner.H,
+         X : Inner.X,
+         Y : Inner.Y
+      }
+      return res
    }
 
    /**
     * Move the shape and refresh if it is a highlighter pen
-    * @param {Number} [wX] - Optional X location
-    * @param {Number} [wY] - Optional Y location
+    * @param {Number} [wX] - Optional X control location
+    * @param {Number} [wY] - Optional Y control location
     * @param {Number} [wW] - Optional Width
     * @param {Number} [wH] - Optional Height
     */
@@ -343,7 +387,6 @@ Class FreeHandShape extends commonShape {
       this.shapeThickness := this.OG.PenWidth
       this.Move(, , this.OG.W, this.OG.H) ; Move relys on GDI being active
    }
-
    /**
     * Redraw a freehand shape based on its current coordinates and points
     */
@@ -355,9 +398,14 @@ Class FreeHandShape extends commonShape {
          }
          ; Have already set these if we are moving/resizing
          C   := this.shapeCoord
+         P   := this.sPad
          If ((iH := Ceil(C.H)) > 0 AND (iW := Ceil(C.W)) > 0) {
             ; The dib is sized to the enlarged surface
-            Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+            ; We draw in snip coordinates
+            Surf.Translate(-shapeX, -shapeY)
+
             ; Scale from OG space to the new space
             ; We ALWAYS write into the OG sized space and the transform will
             ; do the scaling for us.
@@ -365,43 +413,47 @@ Class FreeHandShape extends commonShape {
             ; If we aren't changing dimensions then just redraw
             If (ogSize.W != C.W OR ogSize.H != C.H) {
                ; Scale pen size as well
-               ; NOTE - we may or may not want to change thickness as well
-               ; If we do scale the pen width we probably won't clip
                If (this.scaleFreeHand) {
-                  pRatio := (C.W * C.H) / (ogSize.W * ogSize.H)
-                  GDIp.SetPenWidth(this.pPrime, pRatio * this.shapeThickness)
+                  ; HACK - Until I figure out the pen width issue
+                  pWidth := min(50, (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness)
+                  GDIp.SetPenWidth(this.pPrime, pWidth)
                   if (this.pOutline)
-                     GDIp.SetPenWidth(this.pOutline, pRatio * this.shapeThickness * this.outlineThickFactor / 3)
+                     GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
                }
-               ; NOTE - if reducing size it may clip arrowheads and thick lines
-               ; This method will also maintain the arrow head size
-               pm := GDIp.Matrix(, , , C.W / ogSize.W, C.H / ogSize.H)
-               ; pm.Scale(C.W / ogSize.W, C.H / ogSize.H)
-               cpts := CloneBuffer(this.Points)
-               pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
-               pm := ""
-
+               WS := Min(C.W / ogSize.W, 500)
+               HS := Min(C.H / ogSize.H, 500)
+               ; Scale  points for the resize
+               pm := GDIp.Matrix(, , , WS, HS)
             } Else {
-               cpts := this.Points
+               pm := GDIp.Matrix()
             }
-            ; GDIp.FillRectangle(Surf.G, this.bGrab, 0, 0, C.W, C.H)
-            GDIp.DrawRectangle(Surf.G, this.pGrab, 0, 0, C.W, C.H)
+            ; Translate points them into translated DIB
+            pm.Translate(C.X, C.Y)
+            cpts := CloneBuffer(this.Points)
+            pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
+            pm := ""
 
             ; If a highlighter, then do that vs drawing the lines
             If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
                ; Replace the pen contents with the highlighted background under the shape
                this.createImageBrush() ; Added just in case bitmap changed size or colors
                GDIp.ResetTextureTransform(this.imageBrush)
-               GDIp.TranslateTextureBrush(this.imageBrush, -C.X1 + Settings.BorderWidth, -C.Y1 + Settings.BorderWidth) ;Settings.BorderWidth
+               GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
                GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
             }
-            ; Draw the outline and fill it in blank
-            this.OutlinePoints(Surf.G, this.useLines, cpts)
+            ; Draw the outline and fill it in blank (Arc Arrow)
+            if (this.pOutline)
+               this.OutlinePoints(Surf.G, this.useLines, cpts)
             ; draw the inside line
             this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
-            cpts := ""
+            ; Grabber
+            GDIp.DrawRectangle(Surf.G, this.pGrab, C.X, C.Y, C.W, C.H)
             ; Update the control window surface
-            Surf.UpdateLayer(C.X, C.Y)
+            Surf.UpdateLayer(shapeX, shapeY)
+            ; Get recommended new padding for next time
+            bbox := this.GetPathInfo(cpts, this.pPrime).bnd
+            this.savePadding(bbox.L, bbox.T, bbox.R, bbox.B)
+            cpts := ""
             Surf := ""
          }
          If (IsSet(Started)) {
@@ -443,10 +495,10 @@ Class FreeHandShape extends commonShape {
     * @param {Integer} R - Right padding (ignored)
     * @param {Integer} B - Bottom padding (ignored)
     */
-   savePadding(L, T, R, B) {
-   ; Freehand shapes coordinates already include padding
-      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
-   }
+   ; savePadding(L, T, R, B) {
+   ; ; Freehand shapes coordinates already include padding
+   ;    this.sPad := { L: 0, T: 0, R: 0, B: 0 }
+   ; }
 
    /**
     * Get a copy of the freehand points for cloning
@@ -576,7 +628,8 @@ Class FreeHandShape extends commonShape {
       GetTransPoints(X, Y) {
          ; debug("translate " . -X . " " . -Y)
          pts    := CloneBuffer(this.pBuf, this.Added * 8) ; skips any blank points in OG buffer
-         Matrix := GDIp.Matrix(,-X,-Y)
+         ; Translate for draw
+         Matrix := GDIp.Matrix(, -X, -Y)
          Matrix.TransformPoints(pts, this.Added)
          Matrix := ""
          Return pts
@@ -646,52 +699,6 @@ Class FreeHandShape extends commonShape {
                Offset += 8
             }
             GDIp.DeletePen(bpen)
-         }
-      }
-
-      /**
-       * Calculates the bounding coordinates for the current shape
-       * @param {Object} surface - DIB Section Object
-       * @param {Ptr} [pen=0] - Optional pen handle to include width in bounds
-       * @returns {Object} - Coordinate object containing X1, Y1, W, H, etc.
-       */
-      CalcCoords(surface, pen := 0) {
-         ; Need three points minimum to make a polygon
-         If (this.added > 1) {
-            ;----------------------------------------------------------------------
-            ; Stage 1: Get the extent of the line center points
-            ;          0,0 is the window excluding the padding
-            ;          Since we translated the 0,0 point of the graphics object by the padding
-            ;----------------------------------------------------------------------
-            oPath := GDIp.Path()
-            if (this.Added = 2)
-               oPath.AddPathLines(this.Points, this.Added)
-            else
-               oPath.AddPathPolygon(this.Points, this.Added)
-
-            ;----------------------------------------------------------------------
-            ; Stage 2 : Get the pixel level extents from the surface object
-            ;           Will account for dangling arrow heads and pen width
-            ;           X1/X2/Y1/Y2 is needed (padding is also returned but not needed here)
-            ;----------------------------------------------------------------------
-            ; Starting point for the path
-            ; If we are using the pen approach, just rely on GDI+ to compute the boundaries, no need for padding
-            ; NOTE - for Arrow head pens we get a LOT of padding, so it may not be desireable, but does allow for increasing width
-            If (pen) {
-               ; This generally returns more padding than FindExtent
-               C := oPath.GetPathWorldBoundsI(Pen)
-               oPath := ""
-               Return { X1: C.X, X2: C.X + C.W, Y1: C.Y, Y2: C.Y + C.H, W: C.W, H: C.H, B: 0, L: 0, R: 0, T: 0 }
-            } Else {
-               ; Get the X/Y/W/H initial guess
-               ; without a pen we get a very tight rectangle (at the center line), se we need to search out a bit
-               C := oPath.GetPathWorldBoundsI()
-               oPath := ""
-               ; NOTE - adding hard coded pad, we could add a penwidth or account for arrow heads
-               Return surface.FindExtent(C.X, C.Y, C.W, C.H, Shapes.shapePad) ; include padding for later pen width increase
-            }
-         } Else {
-            Return { X1: 0, X2: 0, Y1: 0, Y2: 0, W: 0, H: 0, B:0, L:0, R:0, T:0 }
          }
       }
 
