@@ -11,7 +11,7 @@ int __stdcall FindExtent(HBITMAP hBitmap, int *x1, int *x2, int *y1, int *y2, in
    BYTE *bits = (BYTE *)ds.dsBm.bmBits;
    if (!bits || ds.dsBmih.biBitCount != 32)
       return 0;
-#define Pixel(x, y) (*(DWORD *)(bits + (topDown ? (y) : (absH - 1 - (y))) * stride + (x) * 4))
+#define Pixel(x, y) (*(DWORD *)(bits + (topDown ? (y) : (absH - 1 - (y))) * stride + (x) * 4)) & 0xFF000000
    int cx1 = *x1 < 0 ? 0 : (*x1 >= width ? width - 1 : *x1);
    int cx2 = *x2 >= width ? width - 1 : (*x2 < 0 ? 0 : *x2);
    int cy1 = *y1 < 0 ? 0 : (*y1 >= absH ? absH - 1 : *y1);
