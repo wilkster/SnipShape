@@ -539,7 +539,9 @@ Class TextShape extends CommonShape {
     */
    Move(wX?, wY?, fontSize?) {
       ; 1st move to where we want to be
-      super.Move(wX?, wY?)
+      willRefresh := IsSet(fontSize)
+      if not willRefresh
+         super.Move(wX?, wY?)
       Switch this.Shape {
          ; Recompute the background color in real time
          Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
@@ -552,7 +554,7 @@ Class TextShape extends CommonShape {
          Default:
       }
       ; Redraw if size or color changed
-      If (IsSet(fontSize)) {
+      If (willRefresh) {
          this.DrawText(wX?, wY?, fontSize)
       }
    }
