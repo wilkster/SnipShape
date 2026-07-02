@@ -382,6 +382,11 @@ Class focusBorder {
       ; Can get interupted above
       dW := Round(w + RW * 2)
       dH := Round(h + RW * 2)
+      If (dH <= 0 OR dW <= 0) {
+         Critical("Off")
+         warning("Invalid Height or Width for DIB, W=" dW ", Height=" dH)
+         Return 1
+      }
       ; NOTE - Update layered window will need the DIBSection so can't just use only GDI+
       ihdc := GDI.CreateCompatibleDC()
       ihbm := GDI.CreateDIBSection(dW, dH, ihdc)
