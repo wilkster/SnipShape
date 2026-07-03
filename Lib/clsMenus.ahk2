@@ -65,6 +65,9 @@ Class SnipMenus {
 
       this.BitmapMenu.Add('B&W Snip (Ctrl-B)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("B&W Snip (Ctrl-B)", SETTINGS.CursorPath . "screenshot.ico")
+
+      this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "screenshot.ico")
       this.BitmapMenu.Add()
 
       this.BitmapMenu.Add('Restore Snip (Ctrl-R)', this.ContextSnipMenu_Handler.bind(this))
@@ -129,6 +132,7 @@ Class SnipMenus {
          Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)
          Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)
          Case ItemName ~= "Restore Snip": Snips.RestoreMySnip(WinExist("A"))
+         Case ItemName ~= "Replace Background Color": Snips.ReplaceSnipBGColor(WinExist("A"), this.MenuX, this.MenuY)
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           

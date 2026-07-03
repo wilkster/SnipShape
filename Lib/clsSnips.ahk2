@@ -214,6 +214,7 @@ Class Snips {
        * @param {Object} [objArea] - Area object with X, Y, W, H describing the captured region
        */
       PIC := 0 ; for lint
+
       __New(objArea := "") {
          ; Composted Layered window (+0x0100 isn't legit - WS_NOTIFY)
          ; Static Opt := '+E0x80000 +0x0100 +E0x02000000 -AlwaysOnTop -Caption -ToolWindow +OwnDialogs -DPIScale'
@@ -229,8 +230,8 @@ Class Snips {
          this.Dirty                := 0
          this.Title                := "SnipShapeWindow - " this.Time . ' (' this._Area.W 'x' this._Area.H ')'
          this._FileName            := ""
-         this.BrushMap             := Map()        
-         this.BrushCount           := Map()        
+         this.BrushMap             := Map()
+         this.BrushCount           := Map()
          this.saveBitmap           := 0
          Snips.guiSnips[this.hWnd] := this
          ; logGDI("+Create Snip:" this.Title)
@@ -1124,6 +1125,35 @@ Class Snips {
          ; Autosize may pad image if there are shapes partially off the image
          snipObj.Show("W" BW + W " H" BW + H)
          WinRedraw(hWnd)
+      } Else {
+         qTrayTip("Failed to get the Snip handle!",2)
+      }
+   }
+   /**
+    * Replace the background color of the snip with the color under the cursor where the menu was launched
+    * @param {Integer} hWnd - Snip window handle
+    */
+   Static ReplaceSnipBGColor(hWnd, X, Y, radius := 8) {
+      If (snipObj := this.IsValid(hWnd)) {
+         snipObj.SaveMyBitmap()
+         hBitmap := GDI.CopyImage(snipObj.Pic.Handle)
+         ; fromRGB := BitMap.GetBackgroundColor(hBitmap)
+         ; We are launched from a menu, so the coordinates are where the menu was launched
+         fromRGB := SnipObj.BackgroundPICColorFromXY(X, Y, radius)
+
+         toRGB := ColorSelectDialog(fromRGB, hWnd, Array(fromRGB), true)
+         If (toRGB >= 0 AND fromRGB != toRGB) {
+            hits := BitMap.ReplaceBackgroundColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
+            If (hits > 0) {
+               ; Replace the picture
+               snipObj.Pic.Handle := hBitmap ; destroys og hBitmap
+               snipObj.RefreshTextures()
+            } else {
+               GDI.DeleteObject(hBitmap)
+            }
+         } Else {
+            GDI.DeleteObject(hBitmap)
+         }
       } Else {
          qTrayTip("Failed to get the Snip handle!",2)
       }
