@@ -1364,8 +1364,10 @@ Class Shapes {
       myGUI := ExtendObj.Gui
       myPic := myGUI.Pic
       If (hBitmap := myPic.handle) {
-         ; TODO - Rather then background of extend shape, get closer to start of drag
-         bgColor := ExtendObj.ShapeBackgroundColor()
+         ; NOTE - Rather then background of extend shape, get closer to start of drag
+         ; bgColor := ExtendObj.ShapeBackgroundColor()
+         bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
+
          BW := Settings.BorderWidth
          sC :=ExtendObj.shapeCoord ; includes picture border offset
          ExtendObj.GetPos(&cX1, &cY1, &cW, &cH) 
@@ -1597,7 +1599,7 @@ Class Shapes {
 
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
-      BGColor := SnipObj.BackgroundPICColorFromXY(mX, mY, 50)
+      BGColor := SnipObj.BackgroundPICColorFromXY(mX, mY, 32)
       TextObj := SnipObj.AddNewShape(Shapes.SHAPE_TAG)
       TextObj.Visible := false
       ; No size until rendered, so BackgroundColorFromShape won't work here
@@ -1671,7 +1673,7 @@ Class Shapes {
       SnipObj := Snips.GetGuiObj(hWnd)
       SnipObj.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
       ; Background is fill for tags and fill style
-      BGColor := SnipObj.BackgroundPICColorFromXY(sX, sY, 100)
+      BGColor := SnipObj.BackgroundPICColorFromXY(sX, sY, 32)
       TextObj := SnipObj.AddNewShape(Shape)
       Switch Shape {
          Case Shapes.SHAPE_TAG:

@@ -429,7 +429,7 @@ Class Snips {
        * @param {Integer} [extent=0] - Radius around the center point to extend the search matrix
        * @returns {String} Most common color in hex string format
        */
-      BackgroundPICColorFromXY(winX, winY, extent := 0) {
+      BackgroundPICColorFromXY(winX, winY, extent := 10) {
          hBitmap := this.PIC.Handle
          ; Center of the region
          winX -= extent, winY -= extent
