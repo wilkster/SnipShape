@@ -1632,7 +1632,7 @@ Class Shapes {
       MouseGetPos(&mX, &mY)
       GDIp.CreateRect(&Rect, 0, 0, gW, gH)
       Pt := wY << 32 | wX
-      If ( NOT DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", Pt, "Uint")) {
+      If ( NOT PtInRect(Rect, Pt)) {
          wX := round(0.5 * gW)
          wY := round(0.5 * gH)
       }

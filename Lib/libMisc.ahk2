@@ -849,6 +849,13 @@ BFN(fpath) {
    SplitPath(fpath, &fName)
    Return fName
 }
+/**
+ * Return true if a point is within a rectangle
+ * @param Rect Rectangle Structure
+ * @param Pt Packed 64Bit word with point x < 32 || y
+ * @returns {Float | Integer | String} 
+ */
+PtInRect(Rect, Pt) => DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", Pt, "Uint")
 
 /**
  * Checks whether two rectangles intersect and if they do, then returns an object containing the

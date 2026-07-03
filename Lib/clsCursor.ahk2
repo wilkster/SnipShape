@@ -426,7 +426,7 @@ Class focusBorder {
          fn := this.ShapeObj.FocusSquare ? resizeSquare : resizeCircle
          For objFP in this.ShapeObj.FocusPoints() {
             ; Don't draw the grap points if they are off the shape, only the rectangle
-            If DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", (Round(Y + objFP.Y) << 32 | Round(X + objFP.X)), "Uint")
+            If (PtInRect(Rect, (Round(Y + objFP.Y) << 32 | Round(X + objFP.X)))) 
                fn(objFP.X, objFP.Y)
          }
          ; Show the updates, may be offset if we clamped
