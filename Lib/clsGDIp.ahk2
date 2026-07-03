@@ -443,7 +443,7 @@ int DrawText(
     * @param H Desired height (0 = use original)
     * @returns {Ptr} Handle to the newly created copy
     */
-   Static CopyImage(hSource, type:=0, W:=0, H:=0) => DllCall("User32\CopyImage", "Uint", hSource, "Uint", type:=0, "Int", W, "Int", H, "Uint", what := 0x00002000) ; LR_CREATEDIBSECTION
+   Static CopyImage(hSource, type:=0, W:=0, H:=0) => DllCall("User32\CopyImage", "Uint", hSource, "Uint", type:=0, "Int", W, "Int", H, "Uint", what := 0x00002000, "Ptr") ; LR_CREATEDIBSECTION
    /**
     * Retrieve information about a GDI graphics object (bitmap, brush, font, pen, etc.)
     * @param hObj Handle to the GDI object
