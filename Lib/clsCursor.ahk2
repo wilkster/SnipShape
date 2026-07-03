@@ -371,22 +371,21 @@ Class focusBorder {
     * @param {Number} h - Height of the target shape in screen units.
     * @returns {Integer} 0 on success, 1 if a GDI+ graphics object could not be created.
     */
-   Static RenderFocusRect(x, y, w, h) {
+   Static RenderFocusRect(X, Y, W, H) {
       Static PointsF := stPointF()
       Static Rect    := stRECTI()
+      ; Can get interupted above
       Critical("On")
       RW := Cursor.ResizeBox
-      If (Min(w, h) < RW * 2) ; small box for small shapes
+      If (Min(W, H) < RW * 2) ; small box for small shapes
          RW := RW * 2 / 3
       RW2 := RW / 2
-      ; Can get interupted above
-      dW := Round(w + RW * 2)
-      dH := Round(h + RW * 2)
-      If (dH <= 0 OR dW <= 0) {
-         Critical("Off")
-         warning("Invalid Height or Width for DIB, W=" dW ", Height=" dH)
-         Return 1
-      }
+      ; Cleamp W/H so we alwaays show something
+      ; TODO - Better handling of focus points when constrained
+      W := Max(W, 1)
+      H := Max(H, 1)
+      dW := Round(W + RW * 2)
+      dH := Round(H + RW * 2)
       ; NOTE - Update layered window will need the DIBSection so can't just use only GDI+
       ihdc := GDI.CreateCompatibleDC()
       ihbm := GDI.CreateDIBSection(dW, dH, ihdc)
@@ -405,14 +404,14 @@ Class focusBorder {
          GDIp.SetPenAlignment(dashPen, 0)
          ; Solid black
          GDIp.SetPenDashStyle(dashPen, 0)
-         GDIp.DrawRectangle(G, dashPen, RW, RW, w, h)
+         GDIp.DrawRectangle(G, dashPen, RW, RW, W, H)
          ; Solid White overlay
          GDIp.SetPenColor(dashPen, 0xFFFFFFFF)
          ; Even spaced dash line on top of solid line so it shows on any background
          PointsF.Init(RW2 / 2, RW2 / 2)
          ; NumPut("Float", RW2 / 2, "Float", RW2 / 2, PointsF.Ptr)
          DllCall("gdiplus\GdipSetPenDashArray", "Ptr", dashPen, "Ptr", PointsF, "int", 2)
-         GDIp.DrawRectangle(G, dashPen, RW, RW, w, h)
+         GDIp.DrawRectangle(G, dashPen, RW, RW, W, H)
          ; Put appropriate resize points
          compBrush := GDIp.BrushCreateSolid(0xC4000000 | cColor)
          colorPen  := GDIp.CreatePen(0xFF000000 | this.ShapeObj.Color, this.BW)
@@ -427,14 +426,14 @@ Class focusBorder {
          fn := this.ShapeObj.FocusSquare ? resizeSquare : resizeCircle
          For objFP in this.ShapeObj.FocusPoints() {
             ; Don't draw the grap points if they are off the shape, only the rectangle
-            If DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", (Round(y + objFP.Y) << 32 | Round(x + objFP.X)), "Uint")
+            If DllCall("User32\PtInRect", "UPtr", Rect.ptr, "Int64", (Round(Y + objFP.Y) << 32 | Round(X + objFP.X)), "Uint")
                fn(objFP.X, objFP.Y)
          }
-         ; Show the updates
-         GDI.UpdateLayeredWindow(this.focusBorderGui.hWnd, ihdc, Round(x - RW), Round(y - RW), dW, dH)
+         ; Show the updates, may be offset if we clamped
+         GDI.UpdateLayeredWindow(this.focusBorderGui.hWnd, ihdc, Round(X - RW), Round(Y - RW), dW, dH)
          ; Save the latest width for move functions
-         this.W := w
-         this.H := h
+         this.W := W
+         this.H := H
          ; Cleanup
          GDIp.DeletePen(dashPen)
          GDIp.DeletePen(colorPen)
