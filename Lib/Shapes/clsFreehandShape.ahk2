@@ -423,8 +423,7 @@ Class FreeHandShape extends commonShape {
             If (ogSize.W != C.W OR ogSize.H != C.H) {
                ; Scale pen size as well
                If (this.scaleFreeHand) {
-                  ; HACK - Until I figure out the pen width issue
-                  pWidth := min(50, (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness)
+                  pWidth := (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness
                   GDIp.SetPenWidth(this.pPrime, pWidth)
                   if (this.pOutline)
                      GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
@@ -479,7 +478,7 @@ Class FreeHandShape extends commonShape {
     * @param {Buffer} pBuf - Point object
     */
    OutlinePoints(G, UseLines, pBuf) {
-      ; NOTE - doesn't handle closed curves
+      ; NOTE - doesn't handle closed curves, which is OK since Arc Arrows aren't closed and are outlines
       If (this.pOutline) {
          oPath := GDIp.Path(G)
 
