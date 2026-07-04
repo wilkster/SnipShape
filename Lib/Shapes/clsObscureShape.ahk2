@@ -213,7 +213,7 @@ Class ObscureShape extends commonShape {
          ; Since we are redrawing at new pos, just do the coordinates calc
          this.UpdateCoordinates(X?, Y?, W?, H?)
          ; REDAC is local over shape only
-         if (this.Shape = Shapes.SHAPE_REDAC)
+         if (this.Shape = Shapes.SHAPE_REDAC OR NOT this.hasImage)
             this.createImageBrush()
          this.RefillFace()
       } Else {
