@@ -1225,6 +1225,7 @@ Class Shapes {
             }
             ; Move then redraw the cloned shape
             CloneObj.Move(csX, csY + vShift, cW, cH)
+            CloneObj.Refresh()
             ShapeOnTop(CloneObj)
             
          Case "Text":
