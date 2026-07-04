@@ -209,7 +209,7 @@ Class ObscureShape extends commonShape {
    Move(X?, Y?, W?, H?) {
       ; Super handles W/H, here we do if X/Y
       ; Reszing used the draw function, so would never get here
-      If (this.IsOverSnip() AND NOT (IsSet(W) or IsSet(H))) {
+      If (this.IsOverSnip()) {
          ; Since we are redrawing at new pos, just do the coordinates calc
          this.UpdateCoordinates(X?, Y?, W?, H?)
          ; REDAC is local over shape only

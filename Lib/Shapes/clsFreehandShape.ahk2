@@ -352,7 +352,7 @@ Class FreeHandShape extends commonShape {
    }
 
    /**
-    * Move the shape and refresh if it is a highlighter pen
+    * Move the shape and refresh if it is a highlighter/whiteout/smudge pen
     * @param {Number} [wX] - Optional X control location
     * @param {Number} [wY] - Optional Y control location
     * @param {Number} [wW] - Optional Width
@@ -362,8 +362,7 @@ Class FreeHandShape extends commonShape {
       ; Post move updates for colors
       Switch this.Shape {
          Case Shapes.SHAPE_WHITEOUT:
-            If (res := this.ShapeBackgroundColor()) >= 0 {
-               ; debug("Refreshing Freehand")
+            If (this.IsOverSnip() AND (res := this.ShapeBackgroundColor()) >= 0) {
                ; This call only refreshes the new position
                this.UpdateCoordinates(wX?, wY?, wW?, wH?)
                this.Color := res
@@ -373,7 +372,6 @@ Class FreeHandShape extends commonShape {
             }
          Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
             ; Have to recompute/shift texture
-            ; debug("Refreshing Freehand")
             ; This call only refreshes the new position
             this.UpdateCoordinates(wX?, wY?, wW?, wH?)
             this.Refresh()
