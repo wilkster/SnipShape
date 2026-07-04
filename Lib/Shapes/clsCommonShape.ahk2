@@ -282,11 +282,21 @@ Class commonShape extends Gui.Pic {
     * @param wH     - Optional new window height
     * @param okMove - Pass false to only recompute coordinates without calling super.Move (default true)
     */
-   Move(wX?, wY?, wW?, wH?, okMove := true) {
+   Move(wX?, wY?, wW?, wH?) {
       ; First actually move the shape as specified
+      super.Move(wX?, wY?, wW?, wH?)
+      ; Then updated the coordinates
+      this.UpdateCoordinates(wX?, wY?, wW?, wH?)
+   }
+   /**
+    * Update the coordinates of an object, called when it has been moved or refreshed
+    * @param wX     - Optional new X position of the window
+    * @param wY     - Optional new Y position of the window
+    * @param wW     - Optional new window width
+    * @param wH     - Optional new window height
+    */
+   UpdateCoordinates(wX?, wY?, wW?, wH?) {
       ; Account for the padding (window vs coordiantes)
-      If (okMove)
-         super.Move(wX?, wY?, wW?, wH?)
       c := this.sCoord ; shape coordinates, inside window
       p := this.sPad ; padding between shape and window edge L/T is positive, B=R/B is negative
       ; always compute as L→R, T→B
@@ -301,10 +311,7 @@ Class commonShape extends Gui.Pic {
       ; Replace shape coordinates with appropriate direction for lines
       this.sCoord := { X1: X1, Y1: Y1, X2: X2, Y2: Y2, W: W, H: H, X: Min(X1, X2), Y: Min(Y1, Y2) }
       Return
-      ;----------------------------------------------------------------------
-      ; Swap by reference if a condition is met
-      ; This would only be for lines
-      ;----------------------------------------------------------------------
+      ; Closure
       SwapIf(test, &L, &R) {
          If (test) {
             T := L
@@ -441,7 +448,7 @@ Class commonShape extends Gui.Pic {
     * @returns             - GDI+ texture brush, or 0 on failure
     */
    HighlightBrush(TpInputBitmap, hlColor, hlOpacity := 255, userBgColor?) {
-      bgColor := userBgColor ?? this.ShapeBackgroundColor(TpInputBitmap)
+      bgColor := userBgColor ?? BitMap.GetBackgroundColor(TpInputBitmap)
       If (bgColor >= 0) {
          GDIp.GetImageDimensions(TpInputBitmap, &sWidth, &sHeight)
          attrib := GDIp.CreateImageAttributes()
@@ -510,28 +517,31 @@ Class commonShape extends Gui.Pic {
     * @returns     - RGB color value (no alpha), or -1 on failure
     */
    ShapeBackgroundColor(pBit?) {
-      pBitmap := pBit ?? this.pBitmapUnderShape()
-      If (pBitmap) {
-         CC := BitMap.GetBackgroundColor(pBitmap)
-         if (NOT IsSet(pBit))
-            GDIp.DisposeImage(pBitmap)
-         Return CC
+      If (IsSet(pBit)) {
+         CC := BitMap.GetBackgroundColor(pBit)
       } Else {
-         Return -1
-      }
+         ; hbitmap is a bit more efficient
+         hBitmap := this.BitmapUnderShape()
+         If (hBitmap) {
+            CC := BitMap.GetBackgroundColor(hBitmap)
+            GDI.DeleteObject(hBitmap)
+         } else
+            CC := -1
+      }  
+      return CC
    }
    /**
-    * Capture and return a GDI+ pBitmap of the snip area covered by this shape.
+    * Capture and return a GDI+ pBitmap or GDI hBitmap of the snip area covered by this shape.
     * Off-snip regions appear black. No internal cropping is applied beyond
     * intersection clamping.
     * @param Cin - Optional coordinate object {X1,Y1,X2,Y2,W,H} to use instead of the shape's own coordinates
     * @returns   - GDI+ pBitmap, or 0 on failure
     */
-   pBitmapUnderShape(Cin?) {
+   BitmapUnderShape(format := "hBitmap") {
       ; Get the snips base snip handle
       hBitmap := this.GUI.PIC.Handle
       If (hBitmap) {
-         C := Cin ?? this.sCoord
+         C := this.sCoord
          If (C.W > 0 AND C.H > 0) {
             this.Gui.PIC.GetPos(&pX1, &pY1, &pW, &pH) ; pX1/pY1 are at border offset, pW and pH are correct
             ; C values may be wholly or partially off the picture
@@ -542,10 +552,18 @@ Class commonShape extends Gui.Pic {
                ; picHBitmap := BitMap.CropHBITMAP(hBitmap, C.X1 - pX1, C.Y1 - pY1, C.W, C.H, 1)
                ; Get a pBitmap version for GDI+
                If (picHBitmap) {
-                  picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
-                  ; Done with picHBitmap
-                  GDI.DeleteObject(picHBitmap)
-                  Return picPBitmap
+                  Switch format, false {
+                     Case "hBitmap" :
+                        Return picHBitmap
+                     Case "pBitmap" :
+                        picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
+                        ; Done with picHBitmap
+                        GDI.DeleteObject(picHBitmap)
+                        Return picPBitmap
+                     Default :
+                        warning("Unknown format: " format)
+                        Return 0
+                  }
                } Else {
                   warning("Failed to return a cropped handle from snip picture")
                   Return 0
@@ -563,6 +581,7 @@ Class commonShape extends Gui.Pic {
          Return 0
       }
    }
+
    /**
     * Build a GDI+ texture brush from the full snip bitmap with a highlight
     * color matrix applied. The brush origin is shifted by Settings.BorderWidth

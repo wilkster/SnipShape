@@ -365,26 +365,26 @@ Class FreeHandShape extends commonShape {
             If (res := this.ShapeBackgroundColor()) >= 0 {
                ; debug("Refreshing Freehand")
                ; This call only refreshes the new position
-               Super.Move(wX?, wY?, wW?, wH?, false)
+               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
                this.Color := res
                this.Refresh()
             } Else {
-               Super.Move(wX?, wY?, wW?, wH?, true)
+               Super.Move(wX?, wY?, wW?, wH?)
             }
          Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
             ; Have to recompute/shift texture
             ; debug("Refreshing Freehand")
             ; This call only refreshes the new position
-            Super.Move(wX?, wY?, wW?, wH?, false)
+            this.UpdateCoordinates(wX?, wY?, wW?, wH?)
             this.Refresh()
          Default:
             ; Resize/redraw points if width or height set
             if (isset(wW) or IsSet(wH)) {
-               Super.Move(wX?, wY?, wW?, wH?, false)
+               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
                this.Refresh()
             } Else {
                ; Just move the points intact
-               Super.Move(wX?, wY?, wW?, wH?, true)
+               Super.Move(wX?, wY?, wW?, wH?)
             }
       }
    }
