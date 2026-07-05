@@ -973,7 +973,10 @@ Class Shapes {
       ; outer coordinates used for moving and box size
       ShapeObj.GetPos(&controlStart.X, &controlStart.Y, &controlStart.W, &controlStart.H)
       ; Box size to see if we are close to a corner/middle
-      coord := ShapeObj.shapeCoord
+      coord   := ShapeObj.shapeCoord
+      ; Account for padding
+      pLR := ShapeObj.sPad.L + ShapeObj.sPad.R
+      pUD := ShapeObj.sPad.T + ShapeObj.sPad.B
       ; debug("Coord  =" coord.X1 " " controlStart.X " "  coord.Y1 " " controlStart.Y " " ShapeObj.Shape)
       ; Get start/end points of the shape (may be different than the picture size due to padding)
       ; See if we are near upper right/lower left corner (or line/arrow end-points)
@@ -1055,58 +1058,60 @@ Class Shapes {
                      ; Corners maintain aspect ratio
                      Case 1: ;UL 
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
-                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
-                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y)
+                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
+                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y)
                      Case 2: ;UR
                         q := (Aspect * mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
-                        X := controlStart.X,               W := Abs(controlStart.W + mouseDiff.X)
-                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y)
+                        X := controlStart.X,               W := (controlStart.W + mouseDiff.X)
+                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y)
                      Case 6: ;LL
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
-                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
-                        Y := controlStart.Y,               H := Abs(controlStart.H + mouseDiff.Y)
+                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
+                        Y := controlStart.Y,               H := (controlStart.H + mouseDiff.Y)
                      Case 4: ;LR
                         q := (Aspect * mouseDiff.X > mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
-                        X := controlStart.X, W := Abs(controlStart.W + mouseDiff.X)
-                        Y := controlStart.Y, H := Abs(controlStart.H + mouseDiff.Y)
+                        X := controlStart.X, W := (controlStart.W + mouseDiff.X)
+                        Y := controlStart.Y, H := (controlStart.H + mouseDiff.Y)
                         
                      Case 3: ;Right Middle
-                        X := controlStart.X, W := Abs(controlStart.W + mouseDiff.X)
+                        X := controlStart.X, W := (controlStart.W + mouseDiff.X)
                         Y := controlStart.Y, H := controlStart.H
                      Case 5: ;Bottom Middle
                         X := controlStart.X, W := controlStart.W
-                        Y := controlStart.Y, H := Abs(controlStart.H + mouseDiff.Y)
+                        Y := controlStart.Y, H := (controlStart.H + mouseDiff.Y)
                      Case 7: ;left Middle
-                        X := controlStart.X + mouseDiff.X, W := Abs(controlStart.W - mouseDiff.X)
+                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
                         Y := controlStart.Y, H := controlStart.H
                      Case 8: ;top Middle
                         X := controlStart.X, W := controlStart.W
-                        Y := controlStart.Y + mouseDiff.Y, H := Abs(controlStart.H - mouseDiff.Y) 
+                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y) 
                      Default: ; not a corner, won't happen
-                        X := Min(controlStart.X, mouseNew.X), W := Abs(mouseDiff.X)
-                        Y := Min(controlStart.Y, mouseNew.Y), H := Abs(mouseDiff.Y)
+                        X := Min(controlStart.X, mouseNew.X), W := (mouseDiff.X)
+                        Y := Min(controlStart.Y, mouseNew.Y), H := (mouseDiff.Y)
                   }
-
-                  ; Space adjusts the offset while resizing
-                  if (GetKeyState("Space","P")) {
-                     ; These kick in the next loop
-                     mouseStart.X   += dX, mouseStart.Y   += dY
-                     controlStart.X += dX, controlStart.Y += dY
-                     ShapeObj.Move(X, Y)
-                  } else If (ShapeObj.Source = "Text") {
-                     If (Abs(W / controlStart.W - cFact) > 0.001) {
-                        ; W is new width, controlStart.W is og width 
-                        cFact := W / controlStart.W
-                        ; ALso shift the control up/down to maintain the centerline
-                        deltaY := controlStart.H * (1 - cFact) / 2
-                        ShapeObj.Move(Round(X), Round(controlStart.Y + deltaY), Round(fSize * cFact, 2))
+                  ; If W and H are of shape are positiive then process change
+                  If (W > pLR AND H > pUD) {
+                     ; Space adjusts the offset while resizing
+                     If (GetKeyState("Space", "P")) {
+                        ; These kick in the next loop
+                        mouseStart.X += dX, mouseStart.Y += dY
+                        controlStart.X += dX, controlStart.Y += dY
+                        ShapeObj.Move(X, Y)
+                     } Else If (ShapeObj.Source = "Text") {
+                        If (Abs(W / controlStart.W - cFact) > 0.001) {
+                           ; W is new width, controlStart.W is og width
+                           cFact := W / controlStart.W
+                           ; ALso shift the control up/down to maintain the centerline
+                           deltaY := controlStart.H * (1 - cFact) / 2
+                           ShapeObj.Move(Round(X), Round(controlStart.Y + deltaY), Round(fSize * cFact, 2))
+                        }
+                     } Else {
+                        ; Resize the shape, control coords, not shape
+                        ; pictures are done here along with freehand
+                        ShapeObj.Move(X, Y, W, H)
                      }
-                  } Else {
-                     ; Resize the shape, control coords, not shape
-                     ; pictures are done here along with freehand
-                     ShapeObj.Move(X, Y, W, H)
+                     focusBorder.Sync()
                   }
-                  focusBorder.Sync()
                }
                mouseLast := mouseNew.Clone()
 
