@@ -1,0 +1,48 @@
+/*
+* Undo/reduce class
+*
+*/
+Class undo {
+   static ADD_SHAPE    := 1
+   static MOVE_SHAPE   := 2
+   static DELETE_SHAPE := 3
+   static RESIZE_SHAPE := 4
+   static ADD_SNIP     := 5
+   static CHANGE_SNIP  := 6
+   static DELETE_SNIP  := 7
+   Static __New() {
+      this.stack       := Array()
+   }
+   static PostAction(obj, action, noun:=0) {
+      Switch action {
+         Case this.ADD_SHAPE :
+         Case this.MOVE_SHAPE :
+            noun := { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
+         Case this.DELETE_SHAPE :
+            noun := obj.InstanceInfo()
+         Case this.RESIZE_SHAPE :
+            noun := { shapeCoord: obj.sCoord.clone()}
+         Case this.ADD_SNIP :
+         Case this.CHANGE_SNIP :
+         Case this.DELETE_SNIP :
+         Default :
+      }
+      item := { action: action, noun: noun }
+      this.stack.push(item)
+   }
+
+   Static UndoLast() {
+      if (this.stack.length > 0)
+         item := this.stack.RemoveAt(1) ; redo would keep a element counter
+         Switch item.action {
+            Case this.ADD_SHAPE :
+            Case this.MOVE_SHAPE :
+            Case this.DELETE_SHAPE :
+            Case this.RESIZE_SHAPE :
+            Case this.ADD_SNIP :
+            Case this.CHANGE_SNIP :
+            Case this.DELETE_SNIP :
+            Default :
+      }
+   }
+}

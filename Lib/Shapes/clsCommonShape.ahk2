@@ -114,6 +114,7 @@ Class commonShape extends Gui.Pic {
    Options   := ""
    myBrushes := ""
    Factor    := 1
+   Source    := ""
    /**
     * Initialize a newly created or recycled shape control.
     * Sets default colors, coordinates, event bindings, and visibility.
@@ -628,7 +629,55 @@ Class commonShape extends Gui.Pic {
    Rotate(Angle) {
       ; Shape specific
    }
+   /**
+    * Return instance Info for a shape so we can recreate it later
+    */
+   InstanceInfo() {
+      ; Needs file name for picture control
+      ; GetPos is shifted by Margin I think, where coords are not??
+      infoObj := Object()
+      this.GetPos(&csX, &csY, &cW, &cH)
+      infoObj.window := {X: csX, Y:csY, W:cW, H:cH}
+      Switch this.Source {
+         Case "File", "Clip":
+            ; png file
+            infoObj.FileName := this.FileName
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
+            ; infoObj                := SnipObj.AddNewShape(this.Shape)
+            infoObj.Shape          := this.Shape
+            infoObj.Color          := this.Color
+            infoObj.Factor         := this.Factor
+            infoObj.shapeThickness := this.shapeThickness  ;OG.PenWidth
+            infoObj.shapeOpacity   := this.shapeOpacity ; freehand specific
+            infoObj.outlineOpacity := this.outlineOpacity ; freehand specific
+            infoObj.shapeCoord     := this.shapeCoord.clone()
+            infoObj.sPad           := this.sPad.clone()
+            Switch this.Source {
+               Case "BlurShape":
+                  infoObj.hasImage := 0
+               Case "FreeHand":
+                  ; FreeHand specific properties
+                  infoObj.hasImage := 0
+                  infoObj.drawFunction := this.drawFunction ; GDIp draw function
+                  infoObj.Points       := this.Points.clone() ; will clone on set
+                  infoObj.OG           := this.OG.clone() ; Original size
+            }
+            
+         Case "Text":
+            infoObj.shapeThickness := this.shapeThickness
+            infoObj.FontSize       := this.FontSize
+            infoObj.Text           := this.Text
+            infoObj.FontName       := this.FontName
+            infoObj.Alignment      := this.Alignment
+            infoObj.FontStyle      := this.FontStyle
+            infoObj.Color          := this.Color
+            infoObj.BGColor        := this.BGColor
 
+         Default:
+      }
+      Return infoObj
+   }
+   
 }
 
 /**

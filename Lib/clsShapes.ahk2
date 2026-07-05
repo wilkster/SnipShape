@@ -1197,6 +1197,8 @@ Class Shapes {
    Static Duplicate(key, ShapeObj) {
       ; Needs file name for picture control
       ; GetPos is shifted by Margin I think, where coords are not??
+      ; Info := ShapeObj.InstanceInfo()
+
       ShapeObj.GetPos(&csX, &csY, &cW, &cH)
       SnipObj := ShapeObj.Gui
       Switch ShapeObj.Source {
@@ -1230,6 +1232,7 @@ Class Shapes {
             }
             ; Move then redraw the cloned shape
             CloneObj.Move(csX, csY + vShift, cW, cH)
+            CloneObj.Refresh() ; HACK, get rid of the need for this for line/body shapes
             ShapeOnTop(CloneObj)
             
          Case "Text":
