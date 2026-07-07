@@ -154,8 +154,8 @@ Class ObscureShape extends commonShape {
    /**
     * Done with shape, we can now get rid of the brushes
     */
-   Close() {
-      super.Close()
+   Close(skipUndo?) {
+      super.Close(skipUndo?)
       If (this.imageBrush) {
          this.GUI.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0

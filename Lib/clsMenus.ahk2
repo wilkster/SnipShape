@@ -69,10 +69,6 @@ Class SnipMenus {
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "screenshot.ico")
       this.BitmapMenu.Add()
-
-      this.BitmapMenu.Add('Restore Snip (Ctrl-R)', this.ContextSnipMenu_Handler.bind(this))
-      this.BitmapMenu.SetIcon("Restore Snip (Ctrl-R)", SETTINGS.CursorPath . "screenshot.ico")
-      this.csMenu.Add()
       ; Note, these two are renamed with current file name in Post
       this.AddEntry('Edit:', "Edit.ico")
       this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
@@ -131,7 +127,6 @@ Class SnipMenus {
          Case ItemName ~= "Invert Snip": Snips.TransformSnip(WinExist("A"),1)
          Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)
          Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)
-         Case ItemName ~= "Restore Snip": Snips.RestoreMySnip(WinExist("A"))
          Case ItemName ~= "Replace Background Color": Snips.ReplaceSnipBGColor(WinExist("A"), this.MenuX, this.MenuY)
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
@@ -546,6 +541,7 @@ Class ShapeMenus {
     * @param {Object} MyMenu - The Menu object that triggered the callback
     */
    Static Color_Handler(shapeObj, colorCode, ItemName, ItemPos, MyMenu) {
+      ShapeObj.PostAction(UnDo.SHAPE_COLOR)
       ShapeObj.Color := colorCode
       ShapeObj.Refresh()
       MyMenu.delete()

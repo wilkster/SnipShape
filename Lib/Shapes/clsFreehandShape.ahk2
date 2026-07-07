@@ -172,10 +172,10 @@ Class FreeHandShape extends commonShape {
    /**
     * Closing the shape for later reuse and releasing GDI+ resources
     */
-   Close() {
+   Close(skipUndo?) {
+      Super.Close(skipUndo?)
       this._Points := unset
       this.MyPoints := unset
-      Super.Close()
       If (this.imageBrush) {
          this.GUI.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
@@ -467,6 +467,19 @@ Class FreeHandShape extends commonShape {
       } Else {
          warning("Expected to have Points property but did not!")
       }
+   }
+   /**
+    * InstanceInfo
+    * Get the key unique instance info to recreate this shape instance
+    * @returns {FreeHandShape} 
+    */
+   InstanceInfo() {
+      infoObj              := super.InstanceInfo()
+      infoObj.hasImage     := 0
+      infoObj.drawFunction := this.drawFunction ; GDIp draw function
+      infoObj.Points       := CloneBuffer(this.Points) ; will clone on set
+      infoObj.OG           := this.OG.clone() ; Original size
+      return infoObj
    }
 
    /**

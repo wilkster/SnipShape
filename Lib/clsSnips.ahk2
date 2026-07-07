@@ -16,6 +16,7 @@
 #include clsMenus.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
+#include undo.ahk2
 #include OCR.ahk2
 #Include Shapes\clsTextShape.ahk2
 ; Cancel start of selection with escape, when hidden won't meet WinExist criteria
@@ -195,7 +196,7 @@ Class Snips {
          hWnd := WinExist("A")
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
-            If (Ctrl.Source != "Screen") {
+            If (Ctrl.Source != "Screen" and Ctrl.Visible) {  ; only visible ones, they have been closed already??
                Ctrl.Close()
             }
          }
@@ -232,8 +233,8 @@ Class Snips {
          this._FileName            := ""
          this.BrushMap             := Map()
          this.BrushCount           := Map()
-         this.saveBitmap           := 0
          Snips.guiSnips[this.hWnd] := this
+         this.UnDo                 := UnDo()
          ; logGDI("+Create Snip:" this.Title)
          ; RMB menu is on the screenshot picture control
          super.OnEvent("Close", this.Destroy.Bind(this))
@@ -251,6 +252,13 @@ Class Snips {
          this.BrushCount := Map()
       }
       /**
+       * Post an undo action to the Snip UnDo/ReDo class
+       * @param what Action
+       */
+      PostAction(what) {
+         this.UnDo.PostAction(this, what)
+      }
+      /**
        * Initiate orderly destruction of the snip: clear shapes, release the save bitmap,
        * remove from the global snip map, and hide the button bar if no snips remain
        */
@@ -259,8 +267,6 @@ Class Snips {
             title := this.Title
             Snips.ClearAllShapes(this.hWnd)  ; in case we have built in GC
             Snips.guiSnips.Delete(this.hWnd)
-            if (this.saveBitmap)
-               GDIp.DisposeImage(this.saveBitmap)
             super.Destroy()
             ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
          } Catch as E {
@@ -272,31 +278,8 @@ Class Snips {
          }
          Return 1
       }
-      /**
-       * Save the current bitmap for a potential redo later
-       */
-      SaveMyBitmap() {
-         If (NOT this.saveBitmap) {
-            this.saveBitmap := GDIp.CreateBitmapFromHBITMAP(this.PIC.Handle)
-         }
-      }
-      /**
-       * Restore the previously saved bitmap back onto the picture control,
-       * then trigger a refresh of all visible texture shapes
-       * @returns {Integer} 1 if a saved bitmap was restored, 0 otherwise
-       */
-      RestoreBitmap() {
-         If (this.saveBitmap) {
-            hBitmap := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
-            this.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(this.saveBitmap)
-            GDI.DeleteObject(hBitmap)
-            ; Force any textures to be refreshed
-            this.RefreshTextures()
-            return true
-            ; leave og bitmap around, clean up on close
-         } else 
-            return false
-      }
+
+
       /**
        * Iterate all visible non-screen shapes and call their Refresh method
        * to redraw texture brushes after a bitmap change
@@ -1104,7 +1087,7 @@ Class Snips {
     */
    Static RotateFlipSnip(hWnd, Angle := 0, FlipHow := 0) {
       If (snipObj := this.IsValid(hWnd)) {
-         snipObj.SaveMyBitmap()
+         SnipObj.PostAction(UnDo.CHANGE_SNIP)
          pBitmap  := GDIp.CreateBitmapFromHBITMAP(snipObj.Pic.Handle)
          ; Transform in place
          if (Angle)
@@ -1135,7 +1118,8 @@ Class Snips {
     */
    Static ReplaceSnipBGColor(hWnd, X, Y, radius := 8) {
       If (snipObj := this.IsValid(hWnd)) {
-         snipObj.SaveMyBitmap()
+         SnipObj.PostAction(UnDo.CHANGE_SNIP)
+
          hBitmap := GDI.CopyImage(snipObj.Pic.Handle)
          ; fromRGB := BitMap.GetBackgroundColor(hBitmap)
          ; We are launched from a menu, so the coordinates are where the menu was launched
@@ -1166,7 +1150,7 @@ Class Snips {
     */
    Static TransformSnip(hWnd, numEffect := 1) {
       If (snipObj := this.IsValid(hWnd)) {
-         snipObj.SaveMyBitmap()
+         SnipObj.PostAction( UnDo.CHANGE_SNIP)
          pBitmap  := GDIp.CreateBitmapFromHBITMAP(snipObj.Pic.Handle)
          ; Transform in place
          Bitmap.TransformBitmap(pBitmap, numEffect)
@@ -1182,19 +1166,21 @@ Class Snips {
       }
    }
    /**
-    * Restore a saved bitmap picture if one exists
-    * @param {Integer} hwnd - Snip GUI window handle
+    * Perform an undo action from the undo stack
+    * @param hwnd snip handle
     */
-   Static RestoreMySnip(hwnd) {
-      If this.IsValid(hwnd) {
-         snipObj := this.GetGuiObj(hwnd)
-         If (snipObj.RestoreBitmap()) {
-            DM := snipObj.Pic.Dimensions
-            BW := Settings.BorderWidth*2
-            ; Note - if slicing/cropping occured before this will restore the image
-            snipObj.Show("W" BW + DM.W " H" BW + DM.H)
-            WinRedraw(hWnd)
-         }
+   Static UnDoAction(hwnd) {
+      If (snipObj := this.IsValid(hwnd)) {
+         snipObj.UnDo.UndoLast()
+      }
+   }
+   /**
+    * Perform an redo action from the redo stack
+    * @param hwnd snip handle
+    */
+   Static ReDoAction(hwnd) {
+      If (snipObj := this.IsValid(hwnd)) {
+         snipObj.UnDo.RedoLast()
       }
    }
    /**
@@ -1622,6 +1608,7 @@ Class Snips {
             SnipObj.Destroy()
          }
       }
+      SnipObj.UnDo := unset
    }
 }
 

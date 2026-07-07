@@ -17,6 +17,7 @@
 #include clsButtonBar.ahk2
 #include clsCursor.ahk2
 #include clsSnips.ahk2
+#include undo.ahk2
 #include Shapes\clsCommonShape.ahk2
 #include Shapes\clsTextShape.ahk2
 
@@ -433,7 +434,7 @@ Class Shapes {
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
             PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
          Case Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
-            SnipObj.SaveMyBitmap()
+            SnipObj.PostAction(UnDo.CHANGE_SNIP)
             changed := Shapes.Draw(SnipObj,DrawMode)
             Snips.SetDrawMode(0)
          Case Shapes.SHAPE_TAG:
@@ -530,6 +531,7 @@ Class Shapes {
       ; If pre-existing shape to resize, then pull properties from the shape
       ;----------------------------------------------------------------------
       If IsObject(ShapeObj) {
+         newShape := false
          coord                 := ShapeObj.shapeCoord
          Shape                 := ShapeObj.Shape
          ; shapeColor            := ShapeObj.Color
@@ -577,6 +579,7 @@ Class Shapes {
          ResizeMode := True
          SisShapes := this.SisterShapes(ShapeObj)
       } else if (ShapeObj) {
+         newShape := true
          ; No passed in Shape, just the Shape type, so create one
          Shape := ShapeObj
          ShapeObj         := SnipObj.AddNewShape(Shape, baseThicknessOrFactor)
@@ -878,21 +881,24 @@ Class Shapes {
          Switch Shape {
             Case this.SHAPE_CROP:
                ; Crop the selection
-               ShapeObj.Close()
+               ShapeObj.Close(true)
                this.Crop(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_SLICE:
                ; Slice the selection
-               ShapeObj.Close()
+               ShapeObj.Close(true)
                this.Slice(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_EXTEND:
                ; Slice the selection
-               ShapeObj.Close()
+               ShapeObj.Close(true)
                this.Extend(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_OCR:
                ; OCR the selection
-               ShapeObj.Close()
+               ShapeObj.Close(true)
                this.OCRShape(ShapeObj)
             Default:
+               if (newShape)
+                  SnipObj.PostAction(UnDo.ADD_SHAPE)
+
          }
          ; Done with drawing now
          ShapeObj.Cleanup()
@@ -904,7 +910,7 @@ Class Shapes {
          ; used since shape shouldn't be visible yet anyway.
          ;----------------------------------------------------------------------
          If IsSet(ShapeObj) {
-            ShapeObj.Close()
+            ShapeObj.Close(true)
          }
          Snips.SetDrawMode(0)
          ShapeObj.Cleanup()
@@ -993,6 +999,7 @@ Class Shapes {
       ; Resize or Redraw Loop Starts Here
       ;-----------------------------------------------------
       If (corner) {
+         ShapeObj.PostAction(Undo.RESIZE_SHAPE)
          MouseMove(ccX, ccY, 0)
 
          ; If ShapeObj.Source = "FreeHand" {
@@ -1122,6 +1129,8 @@ Class Shapes {
             focusBorder.UnBlockMe()
          }
       } Else {
+         ShapeObj.PostAction(Undo.MOVE_SHAPE)
+
          ;-----------------------------------------------------
          ;               Move the control
          ;-----------------------------------------------------
@@ -1148,6 +1157,7 @@ Class Shapes {
             ;----------------------------------------------------------------------
             If (this.ColorQueue.Length) {
                ; NOTE SetColor requires GDI+ running, which we don't have here
+               ShapeObj.PostAction(UnDo.SHAPE_COLOR)
                ShapeObj.Color := this.ColorQueue.Pop()
                ShapeObj.Refresh()
             }
@@ -1197,53 +1207,45 @@ Class Shapes {
    Static Duplicate(key, ShapeObj) {
       ; Needs file name for picture control
       ; GetPos is shifted by Margin I think, where coords are not??
-      ; Info := ShapeObj.InstanceInfo()
-
+      Info := ShapeObj.InstanceInfo()
       ShapeObj.GetPos(&csX, &csY, &cW, &cH)
-      SnipObj := ShapeObj.Gui
-      Switch ShapeObj.Source {
+      SnipObj := Info.Gui
+      Switch Info.Source {
          Case "File", "Clip":
             ; png file
-            CoordMode('Mouse', 'Window')
-            MouseGetPos(&mouseStartX, &mouseStartY)
-            CloneObj := this.CreatePicFromSource(SnipObj, ShapeObj.FileName, mouseStartX, mouseStartY)
+            CloneObj := this.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+            For pr, v in Info.OwnProps() {
+               Try CloneObj.%pr% := v ; Can't set GUI (read only)
+            }
             ; IDEA - better detection/handling when importing hBitmaps so we don't have to force File
             CloneObj.Move(csX, csY + cH, cW, cH)
+            CloneObj.PostAction(UnDo.ADD_SHAPE)
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
-            vShift                  := round(random(10,100)) ; must round to whole number
-            CloneObj                := SnipObj.AddNewShape(ShapeObj.Shape)
-            CloneObj.Shape          := ShapeObj.Shape
-            CloneObj.Color          := ShapeObj.Color
-            CloneObj.Factor         := ShapeObj.Factor
-            CloneObj.shapeThickness := ShapeObj.shapeThickness  ;OG.PenWidth
-            CloneObj.shapeOpacity   := ShapeObj.shapeOpacity ; freehand specific
-            CloneObj.outlineOpacity := ShapeObj.outlineOpacity ; freehand specific
-            CloneObj.shapeCoord     := ShapeObj.shapeCoord.clone()
-            CloneObj.sPad           := ShapeObj.sPad.clone()
-            Switch ShapeObj.Source {
-               Case "BlurShape":
-                  CloneObj.hasImage := 0
-               Case "FreeHand":
-                  ; FreeHand specific properties
-                  CloneObj.hasImage := 0
-                  CloneObj.drawFunction := ShapeObj.drawFunction ; GDIp draw function
-                  CloneObj.Points       := ShapeObj.Points ; will clone on set
-                  CloneObj.OG           := ShapeObj.OG.clone() ; Original size
+            vShift   := round(random(10,100)) ; must round to whole number
+            CloneObj := SnipObj.AddNewShape(Info.Shape)
+            ; Blend in the properties
+            For pr, v in Info.OwnProps() {
+               Try CloneObj.%pr% := v ; Can't set GUI (read only)
             }
-            ; Move then redraw the cloned shape
-            CloneObj.Move(csX, csY + vShift, cW, cH)
-            CloneObj.Refresh() ; HACK, get rid of the need for this for line/body shapes
+            ; Redraw then shift the cloned shape
+            CloneObj.Refresh()
+            CloneObj.Move(csX, csY + vShift)
             ShapeOnTop(CloneObj)
+            CloneObj.PostAction(UnDo.ADD_SHAPE)
             
          Case "Text":
-            CloneObj                := SnipObj.AddNewShape(ShapeObj.Shape)
-            CloneObj.shapeThickness := ShapeObj.shapeThickness
-            vShift                  := ShapeObj.shapeCoord.H
+            CloneObj := SnipObj.AddNewShape(Info.Shape)
+            For pr, v in Info.OwnProps() {
+               Try CloneObj.%pr% := v ; Can't set GUI (read only)
+            }
+            vShift  := Info.shapeCoord.H
 
-            If (CloneObj.DrawText(csX, csY + vShift, ShapeObj.FontSize, ShapeObj.Text, ShapeObj.FontName, ShapeObj.Alignment, ShapeObj.FontStyle, ShapeObj.Color, ShapeObj.BGColor)) {
+            If (CloneObj.DrawText(csX, csY + vShift, CloneObj.FontSize, CloneObj.Text, CloneObj.FontName, CloneObj.Alignment, CloneObj.FontStyle, CloneObj.Color, CloneObj.BGColor)) {
                ShapeOnTop(CloneObj)
                ShapeObj.Gui.Dirty++
             }
+            ShapeOnTop(CloneObj)
+            CloneObj.PostAction(UnDo.ADD_SHAPE)
          Default:
       }
       Return
@@ -1621,6 +1623,7 @@ Class Shapes {
          TextObj.Visible := true
          TextObj.Gui.Dirty++
       }
+      TextObj.PostAction(UnDo.ADD_SHAPE)
       Return 1
    }
 
@@ -1712,6 +1715,7 @@ Class Shapes {
                TextObj.GetPos(, , &W, &H)
                dy := -H / 2
                TextObj.Move(sX, SY + dy)
+               TextObj.PostAction(UnDo.ADD_SHAPE)
                Return 1
             } Else
                Return 0

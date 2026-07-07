@@ -73,6 +73,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsCursor.ahk2
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
+#include undo.ahk2
 #include OCR.ahk2
 
 #include Shapes/clsCommonShape.ahk2
@@ -318,7 +319,9 @@ HotIfWinActive
    ^i::Snips.TransformSnip(WinExist("A"),1) ; invert
    ^g::Snips.TransformSnip(WinExist("A"),2) ; grayscale
    ^b::Snips.TransformSnip(WinExist("A"),3) ; black and white high contrast
-   ^r::Snips.RestoreMySnip(WinExist("A")) ; black and white high contrast
+   ; Undo / Redo hotkeys
+   ^z::Snips.UnDoAction(WinExist("A"))
+   ^y::Snips.ReDoAction(WinExist("A"))
    ; ~Down:: {
    ;    ; Only if not actively drawing
    ;    If NOT GetKeyState("lbutton", "P")

@@ -13,6 +13,7 @@
 #include ..\clsCursor.ahk2
 #include ..\clsSnips.ahk2
 #include ..\Settings.ahk2
+#include ..\UnDo.ahk2
 #include clsTextShape.ahk2
 #include clsBodyShape.ahk2
 #include clsLineShape.ahk2
@@ -100,9 +101,10 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
          pObj.base  := BitmapShape.Prototype
          MsgBox("Unknown Shape Requested:" Shape)
    }
-   pObj.Shape   := Shape
-   pObj.Factor  := Factor
-   pObj.Options := sOptions
+   pObj.Shape    := Shape
+   pObj.Factor   := Factor
+   pObj.Options  := sOptions
+   pObj.SnipObj  := guiObj ; ????
    pObj.Init(sPicSource)
    Return pObj ; ⇦ Will this always force the base object?
 }
@@ -150,6 +152,7 @@ Class commonShape extends Gui.Pic {
       this.DPIFactor := activeDPIFactor()
       this.ShapeName := this.Shape > 0 ? Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1]) : "Picture"
       this.SnipObj   := this.GUI
+      ; this.SnipObj   := this.GUI
 
    }
    /**
@@ -325,7 +328,9 @@ Class commonShape extends Gui.Pic {
     * Hide and disable this shape, release its bitmap, unregister events,
     * and blank the layered window surface when closing a Snip.
     */
-   Close() {
+   Close(skipUndo:=false) {
+      if not skipUndo
+         this.PostAction(UnDo.DELETE_SHAPE)
       this.Value := ""   ; Release any hbitmaps if associated with the picture
       this.Visible := false
       this.Enabled := false
@@ -341,6 +346,14 @@ Class commonShape extends Gui.Pic {
          }
       }
    }
+   /**
+    * Post an undo action to the Snip UnDo/ReDo class
+    * @param what Action
+    */
+   PostAction(what) {
+      this.SnipObj.UnDo.PostAction(this, what)
+   }
+
 
    /*
          1------------------------8------------------------2
@@ -630,54 +643,30 @@ Class commonShape extends Gui.Pic {
       ; Shape specific
    }
    /**
-    * Return instance Info for a shape so we can recreate it later
+    * InstanceInfo
+    * Get the key common instance info to recreate this shape instance
+    * @returns {FreeHandShape} 
     */
    InstanceInfo() {
       ; Needs file name for picture control
-      ; GetPos is shifted by Margin I think, where coords are not??
       infoObj := Object()
-      this.GetPos(&csX, &csY, &cW, &cH)
-      infoObj.window := {X: csX, Y:csY, W:cW, H:cH}
-      Switch this.Source {
-         Case "File", "Clip":
-            ; png file
-            infoObj.FileName := this.FileName
-         Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
-            ; infoObj                := SnipObj.AddNewShape(this.Shape)
-            infoObj.Shape          := this.Shape
-            infoObj.Color          := this.Color
-            infoObj.Factor         := this.Factor
-            infoObj.shapeThickness := this.shapeThickness  ;OG.PenWidth
-            infoObj.shapeOpacity   := this.shapeOpacity ; freehand specific
-            infoObj.outlineOpacity := this.outlineOpacity ; freehand specific
-            infoObj.shapeCoord     := this.shapeCoord.clone()
-            infoObj.sPad           := this.sPad.clone()
-            Switch this.Source {
-               Case "BlurShape":
-                  infoObj.hasImage := 0
-               Case "FreeHand":
-                  ; FreeHand specific properties
-                  infoObj.hasImage := 0
-                  infoObj.drawFunction := this.drawFunction ; GDIp draw function
-                  infoObj.Points       := this.Points.clone() ; will clone on set
-                  infoObj.OG           := this.OG.clone() ; Original size
-            }
-            
-         Case "Text":
-            infoObj.shapeThickness := this.shapeThickness
-            infoObj.FontSize       := this.FontSize
-            infoObj.Text           := this.Text
-            infoObj.FontName       := this.FontName
-            infoObj.Alignment      := this.Alignment
-            infoObj.FontStyle      := this.FontStyle
-            infoObj.Color          := this.Color
-            infoObj.BGColor        := this.BGColor
-
-         Default:
-      }
+      ; TODO: Not yet sure position is needed??
+      ; this.GetPos(&csX, &csY, &cW, &cH)
+      ; infoObj.window         := {X: csX, Y:csY, W:cW, H:cH}
+      infoObj.GUI            := this.GUI ; ok as a reference
+      infoObj.Source         := this.Source
+      infoObj.Shape          := this.Shape
+      infoObj.Color          := this.Color
+      infoObj.Factor         := this.Factor
+      infoObj.shapeThickness := this.shapeThickness  ;OG.PenWidth
+      infoObj.shapeOpacity   := this.shapeOpacity ; freehand specific
+      infoObj.outlineOpacity := this.outlineOpacity ; freehand specific
+      infoObj.shapeCoord     := this.shapeCoord.clone()
+      infoObj.sPad           := this.sPad.clone()
+      infoObj.FileName       := this.FileName
       Return infoObj
    }
-   
+
 }
 
 /**

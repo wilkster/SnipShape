@@ -1,48 +1,275 @@
 /*
-* Undo/reduce class
-*
+* Undo/Redo class
+* Core idea
+* undoStack and redoStack, both empty at start.
+* New action -> push entry onto undoStack, clear redoStack (new action invalidates redo branch).
+* Undo(): pop from undoStack, apply the revert, push the *reverse* snapshot onto redoStack.
+* Redo(): pop from redoStack, reapply, push the *reverse* snapshot back onto undoStack.
 */
-Class undo {
+Class UnDo {
    static ADD_SHAPE    := 1
    static MOVE_SHAPE   := 2
    static DELETE_SHAPE := 3
    static RESIZE_SHAPE := 4
-   static ADD_SNIP     := 5
-   static CHANGE_SNIP  := 6
-   static DELETE_SNIP  := 7
-   Static __New() {
-      this.stack       := Array()
-   }
-   static PostAction(obj, action, noun:=0) {
-      Switch action {
-         Case this.ADD_SHAPE :
-         Case this.MOVE_SHAPE :
-            noun := { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
-         Case this.DELETE_SHAPE :
-            noun := obj.InstanceInfo()
-         Case this.RESIZE_SHAPE :
-            noun := { shapeCoord: obj.sCoord.clone()}
-         Case this.ADD_SNIP :
-         Case this.CHANGE_SNIP :
-         Case this.DELETE_SNIP :
-         Default :
-      }
-      item := { action: action, noun: noun }
-      this.stack.push(item)
+   static CHANGE_SNIP  := 5
+   static SHAPE_COLOR  := 6
+   ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
+   static MAX_DEPTH    := 100  ; cap stack depth, oldest entries dropped first
+
+   __New() {
+      this.undoStack := Array()
+      this.redoStack := Array()
    }
 
-   Static UndoLast() {
-      if (this.stack.length > 0)
-         item := this.stack.RemoveAt(1) ; redo would keep a element counter
-         Switch item.action {
-            Case this.ADD_SHAPE :
-            Case this.MOVE_SHAPE :
-            Case this.DELETE_SHAPE :
-            Case this.RESIZE_SHAPE :
-            Case this.ADD_SNIP :
-            Case this.CHANGE_SNIP :
-            Case this.DELETE_SNIP :
-            Default :
+   /**
+    * Instance is deleted when snip is closed, remove all undo data
+    */
+   __Delete() {
+      this._clearStack(this.undoStack)
+      this._clearStack(this.redoStack)
+   }
+   
+   /**
+    * Undo the last action posted, moving its reverse onto the redo stack.
+    */
+   UndoLast() {
+      return this._PerformAction(this.undoStack, this.redoStack, true)
+   }
+
+   /**
+    * Redo the last undone action, moving its reverse back onto the undo stack.
+    */
+   RedoLast() {
+      return this._PerformAction(this.redoStack, this.undoStack, false)
+   }
+   /**
+    * Snapshot the necessary state prior to changing a snip or shape,
+    * and record it as a new undoable action. Any existing redo history
+    * is invalidated, since this is a fresh branch of edits.
+    * @param obj Shape or Snip Object
+    * @param action
+    */
+   PostAction(obj, action) {
+      dlog("Posting action " action)
+
+      this._clearStack(this.redoStack)
+
+      data := this._CaptureData(action, obj)
+      item := {obj: obj, action: action, data: data}
+      this.undoStack.push(item)
+
+      ; Cap undo depth - drop oldest entry, disposing any bitmap it holds
+      If (this.undoStack.Length > UnDo.MAX_DEPTH) {
+         old := this.undoStack.RemoveAt(1)
+         ; TODO - maybe other bitmaps under filename
+         If (old.data.HasProp("bitmap") && old.data.bitmap)
+            GDIp.DisposeImage(old.data.bitmap)
       }
    }
+
+   ; ===================== P R I V A T E  M E T H O D S  B E L O W ==============================
+   /**
+    * Clear out any reference data / dispose bitmaps held by a stack, then empty it.
+    * @param stack undo or redo stack (array)
+    */
+   _clearStack(stack) {
+      For idx, obj in stack {
+         debug("Undo Delete " idx " " Type(obj) " " obj.action)
+         For propName, value in obj.data.OwnProps() {
+            propValue := obj.data.%propName%
+            debug("    " type(propValue) " " propName)
+            Switch propName {
+               Case "FileName" : ; Integer (GDI+ pBitmap)
+                  debug("    File:" propValue)
+                  ; TODO HBITMAP:*335880837 may have to be deleted for pasted images, not sure about filename clips
+               Case "bitmap" : ; Integer (GDI+ pBitmap)
+                  If (propValue)
+                     GDIp.DisposeImage(propValue)
+               Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose
+               Default :
+            }
+         }
+      }
+      stack.Length := 0
+   }
+
+   /**
+    * Build the data payload needed to later reverse the given action,
+    * captured from the object's *current* state.
+    * @param action one of the UnDo.* action constants
+    * @param obj the shape or snip object to snapshot
+    */
+   _CaptureData(action, obj) {
+      Switch action {
+         Case UnDo.ADD_SHAPE :
+            return Object()
+         Case UnDo.SHAPE_COLOR :
+            return { Color: obj.Color}
+         Case UnDo.MOVE_SHAPE :
+            return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
+         Case UnDo.DELETE_SHAPE :
+            return obj.InstanceInfo()
+         Case UnDo.RESIZE_SHAPE :
+            return { shapeCoord: obj.sCoord.clone() }
+         Case UnDo.CHANGE_SNIP :
+            pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.PIC.Handle)
+            return { bitmap: pBitmap }
+         Default :
+            return Object()
+      }
+   }
+
+   /**
+    * Shared shape-recreation logic used by:
+    *  - UndoLast() when undoing a DELETE_SHAPE
+    *  - RedoLast() when redoing an ADD_SHAPE
+    * @param shapeObj reference shape used for positioning info
+    * @param Info InstanceInfo() snapshot to rebuild from
+    */
+   _RecreateShape(shapeObj, Info) {
+      SnipObj := Info.Gui
+      CloneObj := unset
+
+      Switch shapeObj.Source {
+         Case "File", "Clip" :
+            CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+            For pr, v in Info.OwnProps()
+               Try CloneObj.%pr% := v ; Can't set GUI (read only)
+            C := shapeObj.shapeCoord
+            P := shapeObj.sPad
+            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
+
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand" :
+            CloneObj := SnipObj.AddNewShape(Info.Shape)
+            For pr, v in Info.OwnProps()
+               Try CloneObj.%pr% := v
+            CloneObj.Refresh()
+            C := shapeObj.shapeCoord
+            P := shapeObj.sPad
+            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
+            ShapeOnTop(CloneObj)
+
+         Case "Text" :
+            CloneObj := SnipObj.AddNewShape(Info.Shape)
+            For p, v in Info.OwnProps()
+               Try CloneObj.%p% := v
+            C := shapeObj.shapeCoord
+            P := shapeObj.sPad
+            If (CloneObj.DrawText(C.X1 - P.L, C.Y1 - P.T, CloneObj.FontSize, CloneObj.Text, CloneObj.FontName, CloneObj.Alignment, CloneObj.FontStyle, CloneObj.Color, CloneObj.BGColor)) {
+               ShapeOnTop(CloneObj)
+               CloneObj.Gui.Dirty++
+            }
+            ShapeOnTop(CloneObj)
+
+         Default :
+      }
+      return CloneObj
+   }
+
+   /**
+    * Shared core for both Undo and Redo. Pops one entry from sourceStack,
+    * applies the appropriate reversal, and pushes the new reverse snapshot
+    * onto targetStack.
+    *
+    * The only branch-point between undo and redo is ADD_SHAPE/DELETE_SHAPE,
+    * where direction decides whether we recreate or close the shape:
+    *   - Undoing an ADD    -> close it     (reverse of "add")
+    *   - Redoing  an ADD    -> recreate it  (forward of "add")
+    *   - Undoing a DELETE  -> recreate it  (reverse of "delete")
+    *   - Redoing  a DELETE  -> close it     (forward of "delete")
+    * MOVE_SHAPE, RESIZE_SHAPE, and CHANGE_SNIP are self-symmetric: the same
+    * "swap stored data with current data" logic runs identically either way.
+    *
+    * @param sourceStack stack to pop the entry from (undoStack or redoStack)
+    * @param targetStack stack to push the reverse entry onto
+    * @param isUndo true when called from UndoLast(), false from RedoLast() -
+    *               only affects the ADD_SHAPE/DELETE_SHAPE branch
+    */
+   _PerformAction(sourceStack, targetStack, isUndo) {
+      If (sourceStack.Length = 0)
+         return false
+
+      item := sourceStack.Pop()
+      label := isUndo ? "Undo" : "Redo"
+
+      Switch item.action {
+         Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
+            ; recreate when: undoing a DELETE, or redoing an ADD
+            recreate := (item.action = UnDo.DELETE_SHAPE) = isUndo
+
+            If (recreate) {
+               shapeObj := item.obj
+               Info     := item.data
+               CloneObj := this._RecreateShape(shapeObj, Info)
+               ; The NEXT time this item is popped it will be a "close" op, which
+               ; doesn't read .data at all - so this snapshot is unused, but capture
+               ; the cheap ADD_SHAPE (empty) schema for consistency.
+               reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
+               targetStack.Push({obj: CloneObj, action: item.action, data: reverseData})
+               debug(label " (recreate) action " item.action " for " shapeObj.Shape)
+            } Else {
+               shapeObj := item.obj
+               ; The NEXT time this item is popped it will be a "recreate" op, which
+               ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
+               ; of what item.action says (it stays fixed across the whole chain,
+               ; while the operation itself alternates recreate/close each round).
+               reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
+               targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+               shapeObj.Close(true)
+               debug(label " (close) action " item.action " for " shapeObj.Shape)
+            }
+
+         Case UnDo.SHAPE_COLOR:
+            shapeObj := item.obj
+            reverseData := this._CaptureData(item.action, shapeObj)
+            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            shapeObj.Color := item.data.Color
+            shapeObj.Refresh()
+
+         Case UnDo.MOVE_SHAPE:
+            shapeObj := item.obj
+            reverseData := this._CaptureData(item.action, shapeObj)
+            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            For pr, v in item.data.OwnProps()
+               shapeObj.%pr% := v
+            C := shapeObj.shapeCoord
+            P := shapeObj.sPad
+            shapeObj.Move(C.X - P.L, C.Y - P.T)
+            focusBorder.Sync()
+            debug(label " MOVE action " item.action " for " shapeObj.Shape)
+
+         Case UnDo.RESIZE_SHAPE:
+            shapeObj := item.obj
+            reverseData := this._CaptureData(item.action, shapeObj)
+            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            For pr, v in item.data.OwnProps()
+               shapeObj.%pr% := v
+            C := shapeObj.shapeCoord
+            P := shapeObj.sPad
+            shapeObj.Move(C.X - P.L, C.Y - P.T)
+            shapeObj.Refresh()
+            focusBorder.Sync()
+            debug(label " RESIZE action " item.action " for " shapeObj.Shape)
+
+         Case UnDo.CHANGE_SNIP:
+            snipObj := item.obj
+            reverseData := this._CaptureData(item.action, snipObj)
+            targetStack.Push({obj: snipObj, action: item.action, data: reverseData})
+            pBitmap := item.data.bitmap
+            If (pBitmap) {
+               snipObj.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+               GDIp.GetImageDimensions(pBitmap, &W, &H)
+               GDIp.DisposeImage(pBitmap)
+               BW := Settings.BorderWidth * 2
+               snipObj.Show("W" BW + W " H" BW + H)
+               WinRedraw(snipObj.hWnd)
+               snipObj.RefreshTextures()
+            }
+            debug(label " CHANGE_SNIP action " item.action)
+
+         Default:
+      }
+      return true
+   }
+
 }

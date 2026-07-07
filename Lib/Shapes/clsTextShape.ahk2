@@ -510,10 +510,10 @@ Class TextShape extends CommonShape {
    /**
     * Close the text shape by rendering it invisible before calling the base class close
     */
-   Close() {
+   Close(skipUndo?) {
+      Super.Close(skipUndo?)
       this.DrawText(0,0,2,".",,,,0x0)
       ; this.OnEvent("DoubleClick", this.bindDClick, false)
-      Super.Close()
    }
 
    /**
@@ -617,6 +617,21 @@ Class TextShape extends CommonShape {
       return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
               { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
               { C: 7, x: 0, Y: C.h/2 },     { C: 6, x: 0, Y: C.h }]
+   }
+   /**
+    * InstanceInfo
+    * Get the key unique instance info to recreate this shape instance
+    * @returns {FreeHandShape} 
+    */
+   InstanceInfo() {
+      infoObj                := super.InstanceInfo()
+      infoObj.Text           := this.Text
+      infoObj.FontName       := this.FontName
+      infoObj.FontStyle      := this.FontStyle
+      infoObj.FontSize       := this.FontSize
+      infoObj.Alignment      := this.Alignment
+      infoObj._BGColor       := this._BGColor
+      Return infoObj
    }
 
 }
