@@ -1503,6 +1503,7 @@ Class Shapes {
          if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, sX, sY)) {
             SplitPath(SelectedFile,,&SETTINGS.SavePath_Icons)  ; Save new location for snips
             ShapeObj.Gui.Dirty++
+            ShapeObj.PostAction(UnDo.ADD_SHAPE)
          }
          Return ShapeObj
       } else {

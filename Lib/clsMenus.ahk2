@@ -276,9 +276,11 @@ Class SnipMenus {
          ; Saved when menu was launched
          SnipObj := Snips.GetGuiObj(hWnd)
 
-         If NOT (hOut := Shapes.CreatePicFromSource(SnipObj, fullPath, sX, sY)) {
+         If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, fullPath, sX, sY)) {
             qTrayTip("Failed to load image from " fullPath, 2)
             Warning("Failed to load image from " fullPath)
+         } Else {
+            ShapeObj.PostAction(UnDo.ADD_SHAPE)
          }
          MyMenu.Delete()
       }
