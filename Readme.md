@@ -73,7 +73,7 @@ Additional contributors are referenced in the source code.
 
 ## Requirements
 
-**Autohotkey 2.1 Alpha 14** or later (some 2.1 features are used including **structures**)
+**Autohotkey 2.1 Alpha 29** or later (some 2.1 features are used including **structures**)
 
 ## Installation
 
@@ -159,7 +159,8 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
 | Ctrl-B                   | Black and White the Snip Colors                                                                                          |
 | Ctrl-G                   | Gray Scale the Snip Colors                                                                                               |
-| Ctrl-R                   | Restore the Snip bitmap                                                                                                  |
+| Ctrl-Z                   | Undo the last snip action                                                                                                |
+| Ctrl-Y                   | Redo the last undo action on the snip                                                                                    |
 | Ctrl-Down                | Minimize all Snips                                                                                                       |
 | **Snip HotKey**          | **Scaling Action**                                                                                                       |
 | =                        | Duplicate and 2x the size of the current snip (without shapes)                                                           |
@@ -234,7 +235,6 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | --- | ---------------------------------------------------------------------- |
 | P   | Free-hand Pen in current color, shift to stay on an axis               |
 | M   | Free-hand Wide (Marker) Pen in current color, shift to stay on an axis |
-
 ## Highlighters
 
 | Key | Action                                                             |
