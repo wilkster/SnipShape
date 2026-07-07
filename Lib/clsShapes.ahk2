@@ -481,10 +481,13 @@ Class Shapes {
       }
       ; Paste image if desired and available
       If (tryImage AND Clipboard.hasImage()) {
+
          hBitmap := Clipboard.HBITMAPFromClipboard(&W:=0, &H:=0)
          If (hBitmap) {
-            If NOT (SnipObj := Shapes.CreatePicFromSource(SnipObj, "HBITMAP:*" hBitmap, lX, lY)) {
+            If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, "HBITMAP:*" hBitmap, lX, lY)) {
                qTrayTip("Failed to paste Bitmap found from Clipboard", 2)
+            } Else {
+               ShapeObj.PostAction(UnDo.ADD_SHAPE)
             }
             GDI.DeleteObject(hBitmap)
          } Else {
@@ -1527,8 +1530,8 @@ Class Shapes {
     * @returns {Object|Integer} The new shape control object, or 0 if the source was not found.
     */
    Static CreatePicFromSource(SnipObj, SelectedFileOrBitmap, sX, sY) {
-      If (FileExist(SelectedFileOrBitmap) OR SelectedFileOrBitmap ~= "HBITMAP") {
-         Shape := FileExist(SelectedFileOrBitmap) ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
+      If ((FE := FileExist(SelectedFileOrBitmap)) OR SelectedFileOrBitmap ~= "HBITMAP") {
+         Shape := FE ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
          ; BUG - layered windows are always on top of other pictures like this, work around would be to 
          ;       save the image and draw into a layered window. Would have to handle resizing manually
          ShapeObj := SnipObj.AddNewBitmap(Shape,"+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap) ; NOTE +E0x80000 hides the image
