@@ -519,6 +519,7 @@ Class ShapeMenus {
          Case ItemName = "↺ Rotate -90":
             shapeObj.Rotate(-90)
          Case ItemName ~= "Reset": 
+            shapeObj.PostAction(UnDo.RESIZE_SHAPE)
             shapeObj.ResetSize()
             focusBorder.Sync()
          Case ItemName ~= "to Clipboard":
@@ -526,8 +527,8 @@ Class ShapeMenus {
             hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
             Clipboard.SetHBITMAPToClipboard(hBitmap)
          Case ItemName ~= "Clear":
-             Snips.ClearAllShapes(shapeObj.GUI.hWnd)
-
+            Snips.PostClearAllShapes(shapeObj.GUI.hWnd)
+            Snips.ClearAllShapes(shapeObj.GUI.hWnd)
          Default:
       }
       MyMenu.delete()

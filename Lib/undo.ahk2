@@ -114,9 +114,9 @@ Class UnDo {
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
                Case "Text" :
-                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize}
+                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize, _ogFontSize : obj._ogFontSize}
                Default :
-                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone()}
+                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG}
             }
          Case UnDo.CHANGE_SNIP :
             pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.PIC.Handle)
@@ -140,29 +140,32 @@ Class UnDo {
       Switch shapeObj.Source {
          Case "File", "Clip" :
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+            ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
-            C := shapeObj.shapeCoord
-            P := shapeObj.sPad
+            C := CloneObj.shapeCoord.Clone()
+            P := CloneObj.sPad.Clone()
             CloneObj.Move(C.X1 - P.L, C.Y1 - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
             CloneObj.Refresh()
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
+            ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
-            C := shapeObj.shapeCoord
-            P := shapeObj.sPad
+            C := CloneObj.shapeCoord.Clone()
+            P := CloneObj.sPad.Clone()
             CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)
 
          Case "Text" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
+            ; Blend in saved properties
             For p, v in Info.OwnProps()
                Try CloneObj.%p% := v
-            C := shapeObj.shapeCoord
-            P := shapeObj.sPad
+            C := CloneObj.shapeCoord.Clone()
+            P := CloneObj.sPad.Clone()
             If (CloneObj.DrawText(C.X1 - P.L, C.Y1 - P.T, CloneObj.FontSize, CloneObj.Text, CloneObj.FontName, CloneObj.Alignment, CloneObj.FontStyle, CloneObj.Color, CloneObj.BGColor)) {
                ShapeOnTop(CloneObj)
                CloneObj.Gui.Dirty++
