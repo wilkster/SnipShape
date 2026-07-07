@@ -582,7 +582,7 @@ Class TextShape extends CommonShape {
       ; NOTE - if we are changing size it would be nice to adhere to text justification, as of now we are locked to left coordinates
       this.DrawText(_X, _Y)
       this.UpdateCoord()
-      focusBorder.Sync()
+      ; focusBorder.Sync() - not sure if necessary here
    }
    /**
     * No-op cleanup stub; satisfies the CommonShape interface

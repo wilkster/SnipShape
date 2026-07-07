@@ -1535,10 +1535,11 @@ Class Shapes {
          Shape := FE ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
          ; BUG - layered windows are always on top of other pictures like this, work around would be to 
          ;       save the image and draw into a layered window. Would have to handle resizing manually
-         ShapeObj := SnipObj.AddNewBitmap(Shape,"+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap) ; NOTE +E0x80000 hides the image
-         ShapeObj.SaveSize(SelectedFileOrBitmap)
-         ShapeOnTop(ShapeObj)
-         ShapeObj.Gui.Dirty++
+         If (ShapeObj := SnipObj.AddNewBitmap(Shape, "+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap)) { ; NOTE +E0x80000 hides the image
+            ShapeObj.SaveSize(SelectedFileOrBitmap)
+            ShapeOnTop(ShapeObj)
+            ShapeObj.Gui.Dirty++
+         }
          Return ShapeObj
       } Else {
          Warning("Did not Find Existing " SelectedFileOrBitmap)

@@ -76,18 +76,26 @@ Class UnDo {
     */
    _clearStack(stack) {
       For idx, obj in stack {
-         debug("Undo Delete " idx " " Type(obj) " " obj.action)
+         ; debug("Undo Delete " idx " " Type(obj) " " obj.action)
          For propName, value in obj.data.OwnProps() {
             propValue := obj.data.%propName%
-            debug("    " type(propValue) " " propName)
+            ; debug("    " type(propValue) " " propName)
             Switch propName {
                Case "FileName" : ; Integer (GDI+ pBitmap)
-                  debug("    File:" propValue)
-                  ; TODO HBITMAP:*335880837 may have to be deleted for pasted images, not sure about filename clips
+                  ; debug("    File:" propValue)
+                  If (RegExMatch(propValue, "(?<=HBITMAP:\*)-?\d+", &m)) {
+                     ; Pasted pictures from clipboard, may be redundant to delete them
+                     hBitmap := Integer(m[0])
+                     debug("Deleting hBitmap " hBitmap)
+                     GDI.DeleteObject(hBitmap)
+                  }
                Case "bitmap" : ; Integer (GDI+ pBitmap)
-                  If (propValue)
+                  ; If the Snip was modified, old versions are saved
+                  If (propValue) {
+                     debug("Disposing pBitmap " propValue)
                      GDIp.DisposeImage(propValue)
-               Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose
+                  }
+               Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose, GC should do it
                Default :
             }
          }
@@ -143,8 +151,8 @@ Class UnDo {
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
-            C := CloneObj.shapeCoord.Clone()
-            P := CloneObj.sPad.Clone()
+            C := CloneObj.shapeCoord ;.Clone()
+            P := CloneObj.sPad ;.Clone()
             CloneObj.Move(C.X1 - P.L, C.Y1 - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
             CloneObj.Refresh()
 
@@ -153,8 +161,8 @@ Class UnDo {
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
-            C := CloneObj.shapeCoord.Clone()
-            P := CloneObj.sPad.Clone()
+            C := CloneObj.shapeCoord ;.Clone()
+            P := CloneObj.sPad ;.Clone()
             CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)
@@ -163,14 +171,13 @@ Class UnDo {
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             ; Blend in saved properties
             For p, v in Info.OwnProps()
-               Try CloneObj.%p% := v
-            C := CloneObj.shapeCoord.Clone()
-            P := CloneObj.sPad.Clone()
-            If (CloneObj.DrawText(C.X1 - P.L, C.Y1 - P.T, CloneObj.FontSize, CloneObj.Text, CloneObj.FontName, CloneObj.Alignment, CloneObj.FontStyle, CloneObj.Color, CloneObj.BGColor)) {
+               Try CloneObj.%p% := v, debug(p)
+            C := CloneObj.shapeCoord ;.Clone()
+            P := CloneObj.sPad ;.Clone()
+            If (CloneObj.DrawText(C.X1 - P.L, C.Y1 - P.T)) {
                ShapeOnTop(CloneObj)
                CloneObj.Gui.Dirty++
             }
-            CloneObj.Refresh()
             ShapeOnTop(CloneObj)
 
          Default :

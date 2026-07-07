@@ -59,8 +59,13 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
          ;----------------------------------------------------------------------
          ; Reusing true pictures, set the background to new hBitmap or File
          ;----------------------------------------------------------------------
-         if (Shape = Shapes.SHAPE_BITMAP OR Shape = Shapes.SHAPE_FILE)
-            pObj.Value := "*W0 *H0 " sPicSource
+         Try {
+            if (Shape = Shapes.SHAPE_BITMAP OR Shape = Shapes.SHAPE_FILE)
+               pObj.Value := "*W0 *H0 " sPicSource
+         } Catch Error As e {
+            elog(e)            
+            Return 0
+         }
          Break
       }
    }
