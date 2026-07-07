@@ -302,6 +302,14 @@ HotIfWinActive
       Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
       Snips.flashBorder(WinExist("A"))
    }
+   ^j:: {
+      Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
+      If (sw := WinExist("A")) {
+         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
+      }
+      qTrayTip("Snip saved to clipboard and " SETTINGS.SavePath_Image)
+      Snips.flashBorder(WinExist("A"))
+   }
    ^D:: {
       If (focusBorder.IsShown) {
          ; Clone the shape if possible
