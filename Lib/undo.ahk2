@@ -6,6 +6,8 @@
 * Undo(): pop from undoStack, apply the revert, push the *reverse* snapshot onto redoStack.
 * Redo(): pop from redoStack, reapply, push the *reverse* snapshot back onto undoStack.
 */
+#include clsGDIp.ahk2
+#include libMisc.ahk2
 Class UnDo {
    static ADD_SHAPE    := 1
    static MOVE_SHAPE   := 2
@@ -110,7 +112,12 @@ Class UnDo {
          Case UnDo.DELETE_SHAPE :
             return obj.InstanceInfo()
          Case UnDo.RESIZE_SHAPE :
-            return { shapeCoord: obj.sCoord.clone() }
+            Switch obj.Source {
+               Case "Text" :
+                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize}
+               Default :
+                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone()}
+            }
          Case UnDo.CHANGE_SNIP :
             pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.PIC.Handle)
             return { bitmap: pBitmap }
@@ -137,16 +144,17 @@ Class UnDo {
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
             C := shapeObj.shapeCoord
             P := shapeObj.sPad
-            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
+            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
+            CloneObj.Refresh()
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
-            CloneObj.Refresh()
             C := shapeObj.shapeCoord
             P := shapeObj.sPad
             CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
+            CloneObj.Refresh()
             ShapeOnTop(CloneObj)
 
          Case "Text" :
@@ -159,6 +167,7 @@ Class UnDo {
                ShapeOnTop(CloneObj)
                CloneObj.Gui.Dirty++
             }
+            CloneObj.Refresh()
             ShapeOnTop(CloneObj)
 
          Default :
@@ -242,11 +251,18 @@ Class UnDo {
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
             targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
             C := shapeObj.shapeCoord
             P := shapeObj.sPad
             shapeObj.Move(C.X - P.L, C.Y - P.T)
+            switch shapeObj.Source {
+               case "Text":
+                  shapeObj.Move(C.X - P.L, C.Y - P.T, shapeObj.fontSize) ; Only needed because below
+               default:
+                  shapeObj.Move(C.X - P.L, C.Y - P.T, C.W + P.L + P.R, C.H + P.T + P.B) ; TODO needed for bitmaps, make Refresh handle this
+            }
             shapeObj.Refresh()
             focusBorder.Sync()
             debug(label " RESIZE action " item.action " for " shapeObj.Shape)

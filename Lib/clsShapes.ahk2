@@ -897,7 +897,7 @@ Class Shapes {
                this.OCRShape(ShapeObj)
             Default:
                if (newShape)
-                  SnipObj.PostAction(UnDo.ADD_SHAPE)
+                  ShapeObj.PostAction(UnDo.ADD_SHAPE)
 
          }
          ; Done with drawing now
