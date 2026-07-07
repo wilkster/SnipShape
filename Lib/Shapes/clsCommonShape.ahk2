@@ -265,7 +265,9 @@ Class commonShape extends Gui.Pic {
     * Refresh the rendered appearance of this shape. Override in subclasses.
     */
    Refresh() {
-      ; Shape specific
+      C := this.sCoord
+      P := this.sPad
+      this.Move(C.X - P.L, C.Y - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
    }
    /**
     * Retrieve the processed bitmap for this shape. Override in subclasses.
@@ -357,6 +359,12 @@ Class commonShape extends Gui.Pic {
     */
    PostAction(what) {
       this.SnipObj.UnDo.PostAction(this, what)
+   }
+   /**
+    * Undo the last undo action off the stack
+    */
+   PopAction() {
+      this.SnipObj.UnDo.PopAction()
    }
 
 
@@ -669,6 +677,12 @@ Class commonShape extends Gui.Pic {
       infoObj.shapeCoord     := this.shapeCoord.clone()
       infoObj.sPad           := this.sPad.clone()
       infoObj.FileName       := this.FileName
+      ; Use a copy of the hbitmap as it may be invalidated later
+      If (this.FileName ~= "HBITMAP") {
+         hbitmap := GDI.CopyImage(this.Handle)
+         debug("Replacing hbitmap " this.Handle " with " hbitmap)
+         infoObj.FileName := "HBITMAP:" hbitmap
+      }
       Return infoObj
    }
 

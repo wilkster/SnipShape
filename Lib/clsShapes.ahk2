@@ -1215,14 +1215,13 @@ Class Shapes {
       SnipObj := Info.Gui
       Switch Info.Source {
          Case "File", "Clip":
-            ; png file
             CloneObj := this.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
             For pr, v in Info.OwnProps() {
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
             }
-            ; IDEA - better detection/handling when importing hBitmaps so we don't have to force File
             CloneObj.Move(csX, csY + cH, cW, cH)
             CloneObj.PostAction(UnDo.ADD_SHAPE)
+
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             vShift   := round(random(10,100)) ; must round to whole number
             CloneObj := SnipObj.AddNewShape(Info.Shape)
@@ -1242,13 +1241,13 @@ Class Shapes {
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
             }
             vShift  := Info.shapeCoord.H
-
-            If (CloneObj.DrawText(csX, csY + vShift, CloneObj.FontSize, CloneObj.Text, CloneObj.FontName, CloneObj.Alignment, CloneObj.FontStyle, CloneObj.Color, CloneObj.BGColor)) {
+            If (CloneObj.DrawText(csX, csY + vShift)) {
                ShapeOnTop(CloneObj)
                ShapeObj.Gui.Dirty++
             }
             ShapeOnTop(CloneObj)
             CloneObj.PostAction(UnDo.ADD_SHAPE)
+            
          Default:
       }
       Return

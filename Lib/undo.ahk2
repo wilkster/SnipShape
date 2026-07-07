@@ -15,6 +15,7 @@ Class UnDo {
    static RESIZE_SHAPE := 4
    static CHANGE_SNIP  := 5
    static SHAPE_COLOR  := 6
+   static TEXT_CHANGE  := 7
    ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
    static MAX_DEPTH    := 100  ; cap stack depth, oldest entries dropped first
 
@@ -45,6 +46,16 @@ Class UnDo {
       return this._PerformAction(this.redoStack, this.undoStack, false)
    }
    /**
+    * Remove the last undo posted due to a cancel action
+    */
+   PopAction() {
+      If (this.undoStack.Length > 0) {
+         obj := this.undoStack.Pop()
+         this._clearItem(obj)
+         debug("Popping one off the undo stack, length=" this.undoStack.Length)
+      }
+   }
+   /**
     * Snapshot the necessary state prior to changing a snip or shape,
     * and record it as a new undoable action. Any existing redo history
     * is invalidated, since this is a fresh branch of edits.
@@ -52,20 +63,18 @@ Class UnDo {
     * @param action
     */
    PostAction(obj, action) {
-      dlog("Posting action " action)
 
       this._clearStack(this.redoStack)
 
       data := this._CaptureData(action, obj)
       item := {obj: obj, action: action, data: data}
       this.undoStack.push(item)
+      dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
 
       ; Cap undo depth - drop oldest entry, disposing any bitmap it holds
       If (this.undoStack.Length > UnDo.MAX_DEPTH) {
-         old := this.undoStack.RemoveAt(1)
-         ; TODO - maybe other bitmaps under filename
-         If (old.data.HasProp("bitmap") && old.data.bitmap)
-            GDIp.DisposeImage(old.data.bitmap)
+         obj := this.undoStack.RemoveAt(1)
+         this._clearItem(obj)
       }
    }
 
@@ -76,31 +85,46 @@ Class UnDo {
     */
    _clearStack(stack) {
       For idx, obj in stack {
-         ; debug("Undo Delete " idx " " Type(obj) " " obj.action)
-         For propName, value in obj.data.OwnProps() {
-            propValue := obj.data.%propName%
-            ; debug("    " type(propValue) " " propName)
-            Switch propName {
-               Case "FileName" : ; Integer (GDI+ pBitmap)
-                  ; debug("    File:" propValue)
-                  If (RegExMatch(propValue, "(?<=HBITMAP:\*)-?\d+", &m)) {
-                     ; Pasted pictures from clipboard, may be redundant to delete them
-                     hBitmap := Integer(m[0])
-                     debug("Deleting hBitmap " hBitmap)
-                     GDI.DeleteObject(hBitmap)
-                  }
-               Case "bitmap" : ; Integer (GDI+ pBitmap)
-                  ; If the Snip was modified, old versions are saved
-                  If (propValue) {
-                     debug("Disposing pBitmap " propValue)
-                     GDIp.DisposeImage(propValue)
-                  }
-               Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose, GC should do it
-               Default :
-            }
-         }
+         this._clearItem(obj)
       }
       stack.Length := 0
+   }
+   /**
+    * 
+    * @param obj Clear an object from the stack
+    */
+   _clearItem(obj) {
+      For propName, value in obj.data.OwnProps() {
+         propValue := obj.data.%propName%
+         ; debug("    " type(propValue) " " propName)
+         Switch propName, false {
+            Case "FileName": ; Integer (GDI+ pBitmap)
+               ; debug("    File:" propValue)
+               ; NOTE - for sure this sourced hBitmap was deleted when the shape was created, the shape has a copy
+               If (RegExMatch(propValue, "HBITMAP:\*?\K-?\d+", &m)) {
+                  ; Pasted pictures from clipboard, may be redundant to delete them
+                  hBitmap := Integer(m[0])
+                  debug("Deleting Filename hBitmap " hBitmap)
+                  GDI.DeleteObject(hBitmap)
+               }            
+            Case "bitmap": ; Integer (GDI+ pBitmap)
+               ; If the Snip was modified, old versions are saved
+               ; Also applies to bitmap shapes where we saved a copy
+               If (propValue) {
+                  debug("Disposing pBitmap " propValue)
+                  GDIp.DisposeImage(propValue)
+               }
+            Case "hbitmap": ; Integer (GDI hBitmap)
+               ; Also applies to bitmap shapes where we saved a copy
+               If (propValue) {
+                  debug("Deleting hBitmap " propValue)
+                  GDI.DeleteObject(propValue)
+               }
+            Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose, GC should do it
+            Default:
+         }
+      }
+
    }
 
    /**
@@ -113,11 +137,14 @@ Class UnDo {
       Switch action {
          Case UnDo.ADD_SHAPE :
             return Object()
+         Case UnDo.TEXT_CHANGE :
+            return { Text: obj._Text, FontName: obj._fontName, Alignment: obj._Alignment, Color: obj.Color, fontStyle: obj._fontStyle, fontSize: obj._fontSize}
          Case UnDo.SHAPE_COLOR :
             return { Color: obj.Color}
          Case UnDo.MOVE_SHAPE :
             return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
          Case UnDo.DELETE_SHAPE :
+            ; TODO - handle bitmaps
             return obj.InstanceInfo()
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
@@ -151,34 +178,28 @@ Class UnDo {
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
-            C := CloneObj.shapeCoord ;.Clone()
-            P := CloneObj.sPad ;.Clone()
-            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
-            CloneObj.Refresh()
+            CloneObj.Refresh() 
+            ShapeOnTop(CloneObj) ; ; always at the bottom since not layered
+            CloneObj.Gui.Dirty++
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
-            C := CloneObj.shapeCoord ;.Clone()
-            P := CloneObj.sPad ;.Clone()
-            CloneObj.Move(C.X1 - P.L, C.Y1 - P.T)
+            ; Now draw the shape on the canvas
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)
+            CloneObj.Gui.Dirty++
 
          Case "Text" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             ; Blend in saved properties
             For p, v in Info.OwnProps()
-               Try CloneObj.%p% := v, debug(p)
-            C := CloneObj.shapeCoord ;.Clone()
-            P := CloneObj.sPad ;.Clone()
-            If (CloneObj.DrawText(C.X1 - P.L, C.Y1 - P.T)) {
-               ShapeOnTop(CloneObj)
-               CloneObj.Gui.Dirty++
-            }
+               Try CloneObj.%p% := v
+            CloneObj.Refresh()
             ShapeOnTop(CloneObj)
+            CloneObj.Gui.Dirty++
 
          Default :
       }
@@ -238,6 +259,18 @@ Class UnDo {
                debug(label " (close) action " item.action " for " shapeObj.Shape)
             }
 
+         Case UnDo.TEXT_CHANGE:
+            shapeObj := item.obj ; todo, the editing may have changed 
+            reverseData := this._CaptureData(item.action, shapeObj)
+            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            shapeObj.Color      := item.data.Color
+            shapeObj._Text      := item.data.Text
+            shapeObj._fontSize  := item.data.fontSize
+            shapeObj._fontName  := item.data.FontName
+            shapeObj._fontStyle := item.data.fontStyle
+            shapeObj._Alignment := item.data.Alignment
+            shapeObj.Refresh()
+
          Case UnDo.SHAPE_COLOR:
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
@@ -249,12 +282,13 @@ Class UnDo {
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
             targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
             C := shapeObj.shapeCoord
             P := shapeObj.sPad
             shapeObj.Move(C.X - P.L, C.Y - P.T)
-            focusBorder.Sync()
+            focusBorder.Sync(shapeObj)
             debug(label " MOVE action " item.action " for " shapeObj.Shape)
 
          Case UnDo.RESIZE_SHAPE:
@@ -264,17 +298,8 @@ Class UnDo {
             ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
-            C := shapeObj.shapeCoord
-            P := shapeObj.sPad
-            shapeObj.Move(C.X - P.L, C.Y - P.T)
-            switch shapeObj.Source {
-               case "Text":
-                  shapeObj.Move(C.X - P.L, C.Y - P.T, shapeObj.fontSize) ; Only needed because below
-               default:
-                  shapeObj.Move(C.X - P.L, C.Y - P.T, C.W + P.L + P.R, C.H + P.T + P.B) ; TODO needed for bitmaps, make Refresh handle this
-            }
             shapeObj.Refresh()
-            focusBorder.Sync()
+            focusBorder.Sync(shapeObj)
             debug(label " RESIZE action " item.action " for " shapeObj.Shape)
 
          Case UnDo.CHANGE_SNIP:
@@ -283,6 +308,7 @@ Class UnDo {
             targetStack.Push({obj: snipObj, action: item.action, data: reverseData})
             pBitmap := item.data.bitmap
             If (pBitmap) {
+               ; TODO - could save the hbitmap directly
                snipObj.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
                GDIp.GetImageDimensions(pBitmap, &W, &H)
                GDIp.DisposeImage(pBitmap)

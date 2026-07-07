@@ -275,6 +275,12 @@ Class Snips {
          this.UnDo.PostAction(this, what)
       }
       /**
+       * Undo the last undo action off the stack
+       */
+      PopAction() {
+         this.UnDo.UnDo.PopAction()
+      }      
+      /**
        * Initiate orderly destruction of the snip: clear shapes, release the save bitmap,
        * remove from the global snip map, and hide the button bar if no snips remain
        */

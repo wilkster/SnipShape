@@ -486,6 +486,7 @@ Class TextShape extends CommonShape {
    EditDispText(*) {
       CoordMode('Mouse', 'Window')
       C := this.shapeCoord
+      this.PostAction(UnDo.TEXT_CHANGE) 
       this.Gui.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
       Obj := TextInputBox(this, "Edit Text (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", this.text)
       this.Gui.Opt("-OwnDialogs -Disabled") ; forces to grab the top focus
@@ -501,7 +502,8 @@ Class TextShape extends CommonShape {
             Case "Right" :
                this.Move(Cn.X1 + C.W - Cn.W, Cn.Y1)
          }
-      }
+      } else
+         this.PopAction()
    }
 
    ;//////////////////////////////////////////////////////////////////////
@@ -578,11 +580,15 @@ Class TextShape extends CommonShape {
     * Called when the shape needs to be redrawn in place, e.g. after a property change.
     */
    Refresh(*) {
-      this.GetPos(&_X, &_Y)
-      ; NOTE - if we are changing size it would be nice to adhere to text justification, as of now we are locked to left coordinates
-      this.DrawText(_X, _Y)
-      this.UpdateCoord()
-      ; focusBorder.Sync() - not sure if necessary here
+      ; this.GetPos(&_X, &_Y)
+      ; ; NOTE - if we are changing size it would be nice to adhere to text justification, as of now we are locked to left coordinates
+      ; this.DrawText(_X, _Y)
+      ; this.UpdateCoord()
+
+      C := this.shapeCoord
+      P := this.sPad
+      this.DrawText(C.X1 - P.L, C.Y1 - P.T)
+      focusBorder.Sync(this) ;Size may have changed
    }
    /**
     * No-op cleanup stub; satisfies the CommonShape interface

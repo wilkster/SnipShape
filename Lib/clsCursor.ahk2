@@ -288,11 +288,12 @@ Class focusBorder {
     * @description Synchronizes the focus rectangle position and size to the current
     *   shape coordinates, re-rendering it in place.
     */
-   Static Sync() {
+   Static Sync(useShape?) {
       If (Settings.focusRectangle) {
+         this.ShapeObj := useShape ?? this.ShapeObj
          C := this.ShapeObj.shapeCoord
-         if (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
-            Warning("Failed to Sync Focus border")
+         If (this.RenderFocusRect(this.wX + C.X, this.wY + C.Y, C.W, C.H))
+            warning("Failed to Sync Focus border")
       }
    }
 
