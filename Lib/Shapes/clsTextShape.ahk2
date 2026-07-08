@@ -428,7 +428,7 @@ Class TextShape extends CommonShape {
             ; background Just so it isn't transparent for click thru
             ; IDEA - should this be an option for B&W vs complementary outline?
             ; outlinePen := GDIp.CreatePen(Caption.OLOpacity << 24 | 0xFFFFFF & BlackOrWhite(this._fontColor), olThickness)
-            outlinePen := GDIp.CreatePen(this.OLOpacity << 24 | 0xFFFFFF & Complementary(this._fontColor), olThickness)
+            outlinePen := GDIp.CreatePen(this.OLOpacity << 24 | 0xFFFFFF & Complementary(this._fontColor, 0.75), olThickness)
             GDIp.SetPenLineJoin(outlinePen, 2) ; Rounded, avoid spikes
             ; Write the outline text first
             Path := GDIp.CreatePath(0)
