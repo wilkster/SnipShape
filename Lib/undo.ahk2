@@ -144,7 +144,6 @@ Class UnDo {
          Case UnDo.MOVE_SHAPE :
             return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
          Case UnDo.DELETE_SHAPE :
-            ; TODO - handle bitmaps
             return obj.InstanceInfo()
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
@@ -174,6 +173,7 @@ Class UnDo {
 
       Switch shapeObj.Source {
          Case "File", "Clip" :
+            ; Bitmap has already been replaced in Info.FileName
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
             ; Blend in saved properties
             For pr, v in Info.OwnProps()

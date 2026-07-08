@@ -407,6 +407,7 @@ Class FreeHandShape extends commonShape {
                this.Startup()
             }
             P   := this.sPad
+; debug(C.X " " P.L " " C.X - P.L)            
             ; The dib is sized to the enlarged surface
             shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
             Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)

@@ -1118,6 +1118,8 @@ Class Shapes {
                      } Else {
                         ; Resize the shape, control coords, not shape
                         ; pictures are done here along with freehand
+                        ; BUG - Freehand - Window is fixed but we want CX-X=P.L and C.Y-P.T fixed when reizing dynamically, dynamic padding shifts it
+                        ; Work around is not allow up/down keys to change thickness
                         ShapeObj.Move(X, Y, W, H)
                      }
                      focusBorder.Sync()
@@ -1420,7 +1422,6 @@ Class Shapes {
                Warning("Internal Selection Only")
                Return 0
          }
-
          ; Extend in the appropriate direction
          Gdi.vSync() ; Sync with vSync
          Switch eType {
@@ -1462,7 +1463,6 @@ Class Shapes {
                   }
                }
          }
-
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, ExtendObj.Gui.hWnd)
