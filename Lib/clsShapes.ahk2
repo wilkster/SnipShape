@@ -983,10 +983,6 @@ Class Shapes {
       ShapeObj.GetPos(&shapeStart.X, &shapeStart.Y, &shapeStart.W, &shapeStart.H)
       ; Box size to see if we are close to a corner/middle
       coord   := ShapeObj.shapeCoord
-      ; Account for padding
-      pLR := ShapeObj.sPad.L + ShapeObj.sPad.R
-      pUD := ShapeObj.sPad.T + ShapeObj.sPad.B
-      ; debug("Coord  =" coord.X1 " " controlStart.X " "  coord.Y1 " " controlStart.Y " " ShapeObj.Shape)
       ; Get start/end points of the shape (may be different than the picture size due to padding)
       ; See if we are near upper right/lower left corner (or line/arrow end-points)
       CI := ShapeObj.CornerInfo(mouseStart.X, mouseStart.Y)
@@ -1100,7 +1096,7 @@ Class Shapes {
                         Y := Min(shapeStart.Y, mouseNew.Y), H := (mouseDiff.Y)
                   }
                   ; If W and H are of shape are positiive then process change
-                  If (W > pLR AND H > pUD) {
+                  If (W > 0 AND H > 0) {
                      ; Space adjusts the offset while resizing
                      If (GetKeyState("Space", "P")) {
                         ; These kick in the next loop

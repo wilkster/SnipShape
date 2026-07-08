@@ -286,7 +286,6 @@ Class UnDo {
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
             C := shapeObj.shapeCoord
-            P := shapeObj.sPad
             shapeObj.Move(C.X, C.Y)
             focusBorder.Sync(shapeObj)
             debug(label " MOVE action " item.action " for " shapeObj.Shape)
