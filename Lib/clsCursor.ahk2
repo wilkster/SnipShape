@@ -382,7 +382,6 @@ Class focusBorder {
          RW := RW * 2 / 3
       RW2 := RW / 2
       ; Cleamp W/H so we alwaays show something
-      ; TODO - Better handling of focus points when constrained
       W := Max(W, 1)
       H := Max(H, 1)
       dW := Round(W + RW * 2)

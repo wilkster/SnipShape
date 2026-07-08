@@ -712,8 +712,6 @@ Class Shapes {
                   If (sisterShapeSnap.Valid) {
                      mouseNew.X := round(sisterShapeSnap.X)
                      mouseNew.Y := round(sisterShapeSnap.Y)
-                     ; BUG - on resize the focus blocks should stay on the resized object
-                     ; focusBorder.ShowFocus(sisterShapeSnap.hWnd, true)
                   } else {
                      ; focusBorder.HideFocus(true)
                      If (W < snapGrid) {
@@ -1148,7 +1146,6 @@ Class Shapes {
             MouseGetPos(&mouseNew.X, &mouseNew.Y)
             dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
             if ((abs(dx) + abs(dy)) > 0) {
-               ; BUG, when line shapes get thicker/thinner lines their padding changes so will shift on the move  
                ShapeObj.Move(mouseNew.X + controlOffset.X, mouseNew.Y + controlOffset.Y)
                focusBorder.Sync()
             } 
@@ -1156,14 +1153,12 @@ Class Shapes {
             ; Handle color changes and redraw shape
             ;----------------------------------------------------------------------
             If (this.ColorQueue.Length) {
-               ; NOTE SetColor requires GDI+ running, which we don't have here
                ShapeObj.PostAction(UnDo.SHAPE_COLOR)
                ShapeObj.Color := this.ColorQueue.Pop()
                ShapeObj.Refresh()
             }
             ;----------------------------------------------------------------------
             ; Arrow key can real time change the width of the pens
-            ; IDEA - Factor could be shape specifc
             ;----------------------------------------------------------------------
             If (GetKeyState("Up","P")) {
                ShapeObj.shapeThickness *= 1.02 ; line/shape borders
@@ -1232,6 +1227,7 @@ Class Shapes {
             CloneObj.PostAction(UnDo.ADD_SHAPE)
             
          Case "Text":
+            ; Pretty much the same but shift by shape height
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             For pr, v in Info.OwnProps() {
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
@@ -1526,7 +1522,7 @@ Class Shapes {
    Static CreatePicFromSource(SnipObj, SelectedFileOrBitmap, sX, sY) {
       If ((FE := FileExist(SelectedFileOrBitmap)) OR SelectedFileOrBitmap ~= "HBITMAP") {
          Shape := FE ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
-         ; BUG - layered windows are always on top of other pictures like this, work around would be to 
+         ; NOTE - layered windows are always on top of other pictures like this, work around would be to 
          ;       save the image and draw into a layered window. Would have to handle resizing manually
          If (ShapeObj := SnipObj.AddNewBitmap(Shape, "+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap)) { ; NOTE +E0x80000 hides the image
             ShapeObj.SaveSize(SelectedFileOrBitmap)

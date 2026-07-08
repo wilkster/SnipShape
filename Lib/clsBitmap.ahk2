@@ -1225,7 +1225,7 @@ Class BitMap {
          FXparams := Buffer(16, 0)
          Switch Effect {
             Case 1:  ; Gaussian Blur @20 blue changes
-               ; BUG - convolution kernal jumps at 20, so keep below 20 and run multiple passes
+               ; NOTE - convolution kernal jumps at 20, so keep below 20 and run multiple passes
                passes := (param1 // 19 + 1)
                param1 := param1 / passes
                NumPut("Float", param1, "Uchar", param2, FXparams)

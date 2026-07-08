@@ -99,8 +99,7 @@ Class UnDo {
          ; debug("    " type(propValue) " " propName)
          Switch propName, false {
             Case "FileName": ; Integer (GDI+ pBitmap)
-               ; debug("    File:" propValue)
-               ; NOTE - for sure this sourced hBitmap was deleted when the shape was created, the shape has a copy
+               ; Clipped bitmaps are saved in file name
                If (RegExMatch(propValue, "HBITMAP:\*?\K-?\d+", &m)) {
                   ; Pasted pictures from clipboard, may be redundant to delete them
                   hBitmap := Integer(m[0])
@@ -138,19 +137,19 @@ Class UnDo {
          Case UnDo.ADD_SHAPE :
             return Object()
          Case UnDo.TEXT_CHANGE :
-            return { Text: obj._Text, FontName: obj._fontName, Alignment: obj._Alignment, Color: obj.Color, fontStyle: obj._fontStyle, fontSize: obj._fontSize}
+            return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Color: obj.Color, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize}
          Case UnDo.SHAPE_COLOR :
             return { Color: obj.Color}
          Case UnDo.MOVE_SHAPE :
-            return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone() }
+            return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor, shapeThickness: obj.shapeThickness }
          Case UnDo.DELETE_SHAPE :
             return obj.InstanceInfo()
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
                Case "Text" :
-                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize, _ogFontSize : obj._ogFontSize}
+                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize, _ogFontSize : obj._ogFontSize}
                Default :
-                  return { shapeCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG}
+                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor, shapeThickness: obj.shapeThickness}
             }
          Case UnDo.CHANGE_SNIP :
             pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.PIC.Handle)
@@ -182,21 +181,12 @@ Class UnDo {
             ShapeOnTop(CloneObj) ; ; always at the bottom since not layered
             CloneObj.Gui.Dirty++
 
-         Case "BlurShape", "BodyShape", "LineShape", "FreeHand" :
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text" :
             CloneObj := SnipObj.AddNewShape(Info.Shape)
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
             ; Now draw the shape on the canvas
-            CloneObj.Refresh()
-            ShapeOnTop(CloneObj)
-            CloneObj.Gui.Dirty++
-
-         Case "Text" :
-            CloneObj := SnipObj.AddNewShape(Info.Shape)
-            ; Blend in saved properties
-            For p, v in Info.OwnProps()
-               Try CloneObj.%p% := v
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)
             CloneObj.Gui.Dirty++
@@ -232,11 +222,11 @@ Class UnDo {
       item := sourceStack.Pop()
       label := isUndo ? "Undo" : "Redo"
 
+      debug(label " action " item.action  ", length=" sourceStack.length)
       Switch item.action {
          Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
             ; recreate when: undoing a DELETE, or redoing an ADD
             recreate := (item.action = UnDo.DELETE_SHAPE) = isUndo
-
             If (recreate) {
                shapeObj := item.obj
                Info     := item.data
@@ -246,7 +236,6 @@ Class UnDo {
                ; the cheap ADD_SHAPE (empty) schema for consistency.
                reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
                targetStack.Push({obj: CloneObj, action: item.action, data: reverseData})
-               debug(label " (recreate) action " item.action " for " shapeObj.Shape)
             } Else {
                shapeObj := item.obj
                ; The NEXT time this item is popped it will be a "recreate" op, which
@@ -256,50 +245,19 @@ Class UnDo {
                reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
                targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
                shapeObj.Close(true)
-               debug(label " (close) action " item.action " for " shapeObj.Shape)
             }
 
-         Case UnDo.TEXT_CHANGE:
-            shapeObj := item.obj ; todo, the editing may have changed 
-            reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
-            shapeObj.Color      := item.data.Color
-            shapeObj._Text      := item.data.Text
-            shapeObj._fontSize  := item.data.fontSize
-            shapeObj._fontName  := item.data.FontName
-            shapeObj._fontStyle := item.data.fontStyle
-            shapeObj._Alignment := item.data.Alignment
-            shapeObj.Refresh()
-
-         Case UnDo.SHAPE_COLOR:
-            shapeObj := item.obj
-            reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
-            shapeObj.Color := item.data.Color
-            shapeObj.Refresh()
-
-         Case UnDo.MOVE_SHAPE:
+         Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE:
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
             targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
             ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
-            C := shapeObj.shapeCoord
-            shapeObj.Move(C.X, C.Y)
-            focusBorder.Sync(shapeObj)
-            debug(label " MOVE action " item.action " for " shapeObj.Shape)
-
-         Case UnDo.RESIZE_SHAPE:
-            shapeObj := item.obj
-            reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
-            ; Blend in saved properties
-            For pr, v in item.data.OwnProps()
-               shapeObj.%pr% := v
+            ; Redraw with new properties
             shapeObj.Refresh()
+            ; Make sure focus border is synced
             focusBorder.Sync(shapeObj)
-            debug(label " RESIZE action " item.action " for " shapeObj.Shape)
 
          Case UnDo.CHANGE_SNIP:
             snipObj := item.obj
@@ -307,7 +265,6 @@ Class UnDo {
             targetStack.Push({obj: snipObj, action: item.action, data: reverseData})
             pBitmap := item.data.bitmap
             If (pBitmap) {
-               ; TODO - could save the hbitmap directly
                snipObj.PIC.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
                GDIp.GetImageDimensions(pBitmap, &W, &H)
                GDIp.DisposeImage(pBitmap)
@@ -316,7 +273,6 @@ Class UnDo {
                WinRedraw(snipObj.hWnd)
                snipObj.RefreshTextures()
             }
-            debug(label " CHANGE_SNIP action " item.action)
 
          Default:
       }

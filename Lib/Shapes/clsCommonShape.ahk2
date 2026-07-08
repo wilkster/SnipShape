@@ -109,7 +109,8 @@ AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1)
    pObj.Shape    := Shape
    pObj.Factor   := Factor
    pObj.Options  := sOptions
-   pObj.SnipObj  := guiObj ; ????
+   pObj.SnipObj  := guiObj
+   ; Call the effective constructor
    pObj.Init(sPicSource)
    Return pObj ; ⇦ Will this always force the base object?
 }
@@ -267,7 +268,6 @@ Class commonShape extends Gui.Pic {
     */
    Refresh() {
       C := this.sCoord
-      P := this.sPad
       this.Move(C.X, C.Y, C.W, C.H)
    }
    /**
@@ -686,9 +686,6 @@ Class commonShape extends Gui.Pic {
    InstanceInfo() {
       ; Needs file name for picture control
       infoObj := Object()
-      ; TODO: Not yet sure position is needed??
-      ; this.GetPos(&csX, &csY, &cW, &cH)
-      ; infoObj.window         := {X: csX, Y:csY, W:cW, H:cH}
       infoObj.GUI            := this.GUI ; ok as a reference
       infoObj.Source         := this.Source
       infoObj.Shape          := this.Shape
@@ -703,7 +700,6 @@ Class commonShape extends Gui.Pic {
       ; Use a copy of the hbitmap as it may be invalidated later
       If (this.FileName ~= "HBITMAP") {
          hbitmap := GDI.CopyImage(this.Handle)
-         debug("Replacing hbitmap " this.Handle " with " hbitmap)
          infoObj.FileName := "HBITMAP:" hbitmap
       }
       Return infoObj

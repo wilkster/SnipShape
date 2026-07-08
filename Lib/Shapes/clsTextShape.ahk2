@@ -227,7 +227,7 @@ Class TextShape extends CommonShape {
       }
       StyleCode := StyleIndex.Get(this._fontStyle, 0)
       hFont     := GDIpText.FontCreate(hFamily, this._fontSize, StyleCode)
-      ; BUG - unicode doesn't display as a font fallback, only works with Segoe emoji
+      ; NOTE - unicode doesn't display as a font fallback, only works with Segoe emoji
       ; GDI DrawText will, but have opacity issues with it currently
       hFormat   := GDIpText.StringFormatCreate(FormatStyle := 0x00004004) ; 0x0000400 0x80000400
       GDIpText.SetStringFormatTrimming(hFormat, 0)
@@ -409,7 +409,6 @@ Class TextShape extends CommonShape {
                   GDIp.DrawRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height)
                   GDIp.DeletePen(outlinePen)
                Case "Rounded Rectangle":
-                  ; BUG - GDI+ the fill can extend beyound the rectangle like the radius was different, so pull in the fill a bit
                   of := radius/8
                   outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
                   GDIp.SetPenAlignment(outlinePen, 0)
@@ -1019,7 +1018,6 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    WinSetTransparent(0, textGui.hWnd)
    ; Enabling overall theming
 
-   ; BUG - with this enabled, 1st time the resizing doesn't work
    tc := ControlThemes(textGui, DarkMode)
    textGui.Show("AutoSize Center")
    ; Resize after geometry is computed

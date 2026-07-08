@@ -1126,7 +1126,6 @@ Class Snips {
          GDIp.DisposeImage(pBitmap) ; 
          ; Recompute textures
          snipObj.RefreshTextures()
-         ; TODO - any other computation needed here?
          ; Autosize may pad image if there are shapes partially off the image
          snipObj.Show("W" BW + W " H" BW + H)
          WinRedraw(hWnd)
