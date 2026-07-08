@@ -956,7 +956,7 @@ Class Shapes {
       Static mouseNew      := {X:0, Y:0} ; location of mouse in real time (window)
       Static mouseDiff     := {X:0, Y:0}
       Static mouseLast     := {X:0, Y:0}
-      Static controlStart  := {X:0, Y:0, W:0, H:0}
+      Static shapeStart  := {X:0, Y:0, W:0, H:0}
       Static controlOffset := {X:0, Y:0}
       this.ColorQueue.Length := 0
       If (GetKeyState("Alt", "P")) {
@@ -980,7 +980,7 @@ Class Shapes {
       MouseGetPos(&mouseStart.X, &mouseStart.Y)
 
       ; outer coordinates used for moving and box size
-      ShapeObj.GetPos(&controlStart.X, &controlStart.Y, &controlStart.W, &controlStart.H)
+      ShapeObj.GetPos(&shapeStart.X, &shapeStart.Y, &shapeStart.W, &shapeStart.H)
       ; Box size to see if we are close to a corner/middle
       coord   := ShapeObj.shapeCoord
       ; Account for padding
@@ -1027,9 +1027,9 @@ Class Shapes {
             ;-----------------------------------------------------
             ; Initialize some variables with starting info
             ;-----------------------------------------------------
-            Aspect := controlStart.H / controlStart.W
+            Aspect := shapeStart.H / shapeStart.W
             MouseGetPos(&mouseStart.X, &mouseStart.Y)
-            W := controlStart.W, H := controlStart.H
+            W := shapeStart.W, H := shapeStart.H
             mouseLast := mouseStart.Clone()
 
             ;-----------------------------------------------------
@@ -1068,36 +1068,36 @@ Class Shapes {
                      ; Corners maintain aspect ratio
                      Case 1: ;UL 
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
-                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
-                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y)
+                        X := shapeStart.X + mouseDiff.X, W := (shapeStart.W - mouseDiff.X)
+                        Y := shapeStart.Y + mouseDiff.Y, H := (shapeStart.H - mouseDiff.Y)
                      Case 2: ;UR
                         q := (Aspect * mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
-                        X := controlStart.X,               W := (controlStart.W + mouseDiff.X)
-                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y)
+                        X := shapeStart.X,               W := (shapeStart.W + mouseDiff.X)
+                        Y := shapeStart.Y + mouseDiff.Y, H := (shapeStart.H - mouseDiff.Y)
                      Case 6: ;LL
                         q := (Aspect * -mouseDiff.X > -mouseDiff.Y) ? (mouseDiff.Y := -Aspect * mouseDiff.X) : (mouseDiff.X := -mouseDiff.Y / Aspect)
-                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
-                        Y := controlStart.Y,               H := (controlStart.H + mouseDiff.Y)
+                        X := shapeStart.X + mouseDiff.X, W := (shapeStart.W - mouseDiff.X)
+                        Y := shapeStart.Y,               H := (shapeStart.H + mouseDiff.Y)
                      Case 4: ;LR
                         q := (Aspect * mouseDiff.X > mouseDiff.Y) ? (mouseDiff.Y := Aspect * mouseDiff.X) : (mouseDiff.X := mouseDiff.Y / Aspect)
-                        X := controlStart.X, W := (controlStart.W + mouseDiff.X)
-                        Y := controlStart.Y, H := (controlStart.H + mouseDiff.Y)
+                        X := shapeStart.X, W := (shapeStart.W + mouseDiff.X)
+                        Y := shapeStart.Y, H := (shapeStart.H + mouseDiff.Y)
                         
                      Case 3: ;Right Middle
-                        X := controlStart.X, W := (controlStart.W + mouseDiff.X)
-                        Y := controlStart.Y, H := controlStart.H
+                        X := shapeStart.X, W := (shapeStart.W + mouseDiff.X)
+                        Y := shapeStart.Y, H := shapeStart.H
                      Case 5: ;Bottom Middle
-                        X := controlStart.X, W := controlStart.W
-                        Y := controlStart.Y, H := (controlStart.H + mouseDiff.Y)
+                        X := shapeStart.X, W := shapeStart.W
+                        Y := shapeStart.Y, H := (shapeStart.H + mouseDiff.Y)
                      Case 7: ;left Middle
-                        X := controlStart.X + mouseDiff.X, W := (controlStart.W - mouseDiff.X)
-                        Y := controlStart.Y, H := controlStart.H
+                        X := shapeStart.X + mouseDiff.X, W := (shapeStart.W - mouseDiff.X)
+                        Y := shapeStart.Y, H := shapeStart.H
                      Case 8: ;top Middle
-                        X := controlStart.X, W := controlStart.W
-                        Y := controlStart.Y + mouseDiff.Y, H := (controlStart.H - mouseDiff.Y) 
+                        X := shapeStart.X, W := shapeStart.W
+                        Y := shapeStart.Y + mouseDiff.Y, H := (shapeStart.H - mouseDiff.Y) 
                      Default: ; not a corner, won't happen
-                        X := Min(controlStart.X, mouseNew.X), W := (mouseDiff.X)
-                        Y := Min(controlStart.Y, mouseNew.Y), H := (mouseDiff.Y)
+                        X := Min(shapeStart.X, mouseNew.X), W := (mouseDiff.X)
+                        Y := Min(shapeStart.Y, mouseNew.Y), H := (mouseDiff.Y)
                   }
                   ; If W and H are of shape are positiive then process change
                   If (W > pLR AND H > pUD) {
@@ -1105,21 +1105,19 @@ Class Shapes {
                      If (GetKeyState("Space", "P")) {
                         ; These kick in the next loop
                         mouseStart.X += dX, mouseStart.Y += dY
-                        controlStart.X += dX, controlStart.Y += dY
+                        shapeStart.X += dX, shapeStart.Y += dY
                         ShapeObj.Move(X, Y)
                      } Else If (ShapeObj.Source = "Text") {
-                        If (Abs(W / controlStart.W - cFact) > 0.001) {
+                        If (Abs(W / shapeStart.W - cFact) > 0.001) {
                            ; W is new width, controlStart.W is og width
-                           cFact := W / controlStart.W
+                           cFact := W / shapeStart.W
                            ; ALso shift the control up/down to maintain the centerline
-                           deltaY := controlStart.H * (1 - cFact) / 2
-                           ShapeObj.Move(Round(X), Round(controlStart.Y + deltaY), Round(fSize * cFact, 2))
+                           deltaY := shapeStart.H * (1 - cFact) / 2
+                           ShapeObj.Move(Round(X), Round(shapeStart.Y + deltaY), Round(fSize * cFact, 2))
                         }
                      } Else {
                         ; Resize the shape, control coords, not shape
                         ; pictures are done here along with freehand
-                        ; BUG - Freehand - Window is fixed but we want CX-X=P.L and C.Y-P.T fixed when reizing dynamically, dynamic padding shifts it
-                        ; Work around is not allow up/down keys to change thickness
                         ShapeObj.Move(X, Y, W, H)
                      }
                      focusBorder.Sync()
@@ -1140,8 +1138,8 @@ Class Shapes {
          ;               Move the control
          ;-----------------------------------------------------
          C := ShapeObj.shapeCoord
-         controlOffset.X := controlStart.X - mouseStart.X
-         controlOffset.Y := controlStart.Y - mouseStart.Y
+         controlOffset.X := shapeStart.X - mouseStart.X
+         controlOffset.Y := shapeStart.Y - mouseStart.Y
 
          MouseGetPos(&mouseNew.X, &mouseNew.Y)
          mouseLast := mouseNew.Clone()
@@ -1154,6 +1152,7 @@ Class Shapes {
             MouseGetPos(&mouseNew.X, &mouseNew.Y)
             dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
             if ((abs(dx) + abs(dy)) > 0) {
+               ; BUG, when line shapes get thicker/thinner lines their padding changes so will shift on the move  
                ShapeObj.Move(mouseNew.X + controlOffset.X, mouseNew.Y + controlOffset.Y)
                focusBorder.Sync()
             } 
@@ -1168,7 +1167,6 @@ Class Shapes {
             }
             ;----------------------------------------------------------------------
             ; Arrow key can real time change the width of the pens
-            ; NOTE - easy to clip when enlarging body shapes
             ; IDEA - Factor could be shape specifc
             ;----------------------------------------------------------------------
             If (GetKeyState("Up","P")) {

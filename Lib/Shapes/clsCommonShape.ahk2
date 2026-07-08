@@ -268,7 +268,7 @@ Class commonShape extends Gui.Pic {
    Refresh() {
       C := this.sCoord
       P := this.sPad
-      this.Move(C.X - P.L, C.Y - P.T, C.W + P.L + P.R, C.H + P.T + P.B)
+      this.Move(C.X, C.Y, C.W, C.H)
    }
    /**
     * Retrieve the processed bitmap for this shape. Override in subclasses.
@@ -286,36 +286,58 @@ Class commonShape extends Gui.Pic {
       Return (W > this.minSize.W OR H > this.minSize.H)
    }
    /**
-    * Move the shape to a new position and/or size, updating internal coordinates to
-    * account for the padding between window edges and the drawn shape area.
+    * Move the shape to a new position and/or size, account for padding
     * @param wX     - Optional new X position of the window
     * @param wY     - Optional new Y position of the window
     * @param wW     - Optional new window width
     * @param wH     - Optional new window height
     * @param okMove - Pass false to only recompute coordinates without calling super.Move (default true)
     */
-   Move(wX?, wY?, wW?, wH?) {
+   Move(sX?, sY?, sW?, sH?) {
       ; First actually move the shape as specified
+      ; c := this.sCoord ; shape coordinates, inside window
+      p := this.sPad ; padding between shape and window edge L/T is positive, B=R/B is negative
+      wX := IsSet(sX) ? Round(sX - p.L) : unset
+      wY := IsSet(sY) ? Round(sY - p.T) : unset
+      wW := IsSet(sW) ? Round(sW + p.L + p.R) : unset
+      wH := IsSet(sH) ? Round(sH + p.T + p.B) : unset
+
       super.Move(wX?, wY?, wW?, wH?)
       ; Then updated the coordinates
-      this.UpdateCoordinates(wX?, wY?, wW?, wH?)
+      this.UpdateCoordinates(sX?, sY?, sW?, sH?)
    }
    /**
-    * Update the coordinates of an object, called when it has been moved or refreshed
+    * Return the shape position based on control position
+    * @param sX Return sX if provided
+    * @param sY Return sX if provided
+    * @param sW Return sW if provided
+    * @param sH Return sW if provided
+    */
+   GetPos(&sX?, &sY?, &sW?, &sH?) {
+      ; This will return the control position, adjust for shape padding
+      super.GetPos(&sX, &sY, &sW, &sH)
+      ; c := this.sCoord ; shape coordinates, inside window
+      p := this.sPad ; padding between shape and window edge L/T is positive, B=R/B is negative
+      sX := IsSet(sX) ? sX + p.L : unset
+      sY := IsSet(sY) ? sY + p.T : unset
+      sW := IsSet(sW) ? sW - p.L - p.R : unset
+      sH := IsSet(sH) ? sH - p.T - p.B : unset
+   }
+   /**
+    * Update the coordinates of an object in pixels, called when it has been moved or refreshed
     * @param wX     - Optional new X position of the window
     * @param wY     - Optional new Y position of the window
     * @param wW     - Optional new window width
     * @param wH     - Optional new window height
     */
-   UpdateCoordinates(wX?, wY?, wW?, wH?) {
+   UpdateCoordinates(sX?, sY?, sW?, sH?) {
       ; Account for the padding (window vs coordiantes)
       c := this.sCoord ; shape coordinates, inside window
-      p := this.sPad ; padding between shape and window edge L/T is positive, B=R/B is negative
       ; always compute as L→R, T→B
-      X1 := IsSet(wX) ? round(wX) + p.L : c.X1
-      Y1 := IsSet(wY) ? round(wY) + p.T : c.Y1
-      W  := IsSet(wW) ? round(wW) - p.L - p.R : c.W
-      H  := IsSet(wH) ? round(wH) - p.T - p.B : c.H
+      X1 := IsSet(sX) ? round(sX) : c.X1
+      Y1 := IsSet(sY) ? round(sY) : c.Y1
+      W  := IsSet(sW) ? round(sW) : c.W
+      H  := IsSet(sH) ? round(sH) : c.H
       X2 := X1 + W , Y2 := Y1 + H 
       ; Arrows have a direction
       SwapIf(c.X1 > c.X2, &X1, &X2)
