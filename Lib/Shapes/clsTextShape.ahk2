@@ -76,6 +76,8 @@ Class TextShape extends CommonShape {
       this.FocusRecOn      := false
       this._BGColor        := 0x000000
       this.shapeCoord      := { X1: 0, Y1: 0, X2: 0, Y2: 0}
+      this.EditHeight      := unset
+      this.EditWidth       := unset
       ; this.bindDClick      := this.EditDispText.Bind(this)
       ; this.OnEvent("DoubleClick", this.bindDClick)
    }
