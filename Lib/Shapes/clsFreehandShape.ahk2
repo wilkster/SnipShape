@@ -401,7 +401,7 @@ Class FreeHandShape extends commonShape {
       If (type(this._Points) = "Buffer") {
          ; Have already set these if we are moving/resizing
          C   := this.shapeCoord
-         If (C.H > 0 AND C.W > 0) {
+         If (C.H > 0 OR C.W > 0) {
             If (NOT this.Started) {
                Started := true
                this.Startup()

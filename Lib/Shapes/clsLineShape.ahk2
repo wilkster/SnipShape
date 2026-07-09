@@ -219,7 +219,7 @@ Class LineShape extends commonShape {
    Refresh() {
       ; internal shape boundaries and padding
       C := this.shapeCoord
-      If (C.W > 0 and C.H > 0) {
+      If (C.W > 0 OR C.H > 0) {
          If (NOT this.Started) {
             started := true
             this.Startup()
