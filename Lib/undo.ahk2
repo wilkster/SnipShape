@@ -1,3 +1,10 @@
+#Requires AutoHotkey v2.0
+/************************************************************************
+ * @description Undo Class, one instance per snip
+ * @author Tom Wilkason
+ * @date 2026/07/05
+ * @version 1.0.0
+ ***********************************************************************/
 /*
 * Undo/Redo class
 * Core idea
@@ -9,13 +16,14 @@
 #include clsGDIp.ahk2
 #include libMisc.ahk2
 Class UnDo {
-   static ADD_SHAPE    := 1
-   static MOVE_SHAPE   := 2
-   static DELETE_SHAPE := 3
-   static RESIZE_SHAPE := 4
-   static CHANGE_SNIP  := 5
-   static SHAPE_COLOR  := 6
-   static TEXT_CHANGE  := 7
+   static ADD_SHAPE     := 1
+   static MOVE_SHAPE    := 2
+   static DELETE_SHAPE  := 3
+   static RESIZE_SHAPE  := 4
+   static CHANGE_SNIP   := 5
+   static SHAPE_COLOR   := 6
+   static TEXT_CHANGE   := 7
+   static BITMAP_CHANGE := 8
    ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
    static MAX_DEPTH    := 100  ; cap stack depth, oldest entries dropped first
 
@@ -73,8 +81,8 @@ Class UnDo {
 
       ; Cap undo depth - drop oldest entry, disposing any bitmap it holds
       If (this.undoStack.Length > UnDo.MAX_DEPTH) {
-         obj := this.undoStack.RemoveAt(1)
-         this._clearItem(obj)
+         item := this.undoStack.RemoveAt(1)
+         this._clearItem(item)
       }
    }
 
@@ -90,12 +98,12 @@ Class UnDo {
       stack.Length := 0
    }
    /**
-    * 
-    * @param obj Clear an object from the stack
+    * Clear an item from the stack
+    * @param item One of the stack items (obj, action, data)
     */
-   _clearItem(obj) {
-      For propName, value in obj.data.OwnProps() {
-         propValue := obj.data.%propName%
+   _clearItem(item) {
+      For propName, value in item.data.OwnProps() {
+         propValue := item.data.%propName%
          ; debug("    " type(propValue) " " propName)
          Switch propName, false {
             Case "FileName": ; Integer (GDI+ pBitmap)
@@ -103,20 +111,20 @@ Class UnDo {
                If (RegExMatch(propValue, "HBITMAP:\*?\K-?\d+", &m)) {
                   ; Pasted pictures from clipboard, may be redundant to delete them
                   hBitmap := Integer(m[0])
-                  debug("Deleting Filename hBitmap " hBitmap)
+                  ; debug("Deleting Filename hBitmap " hBitmap)
                   GDI.DeleteObject(hBitmap)
                }            
             Case "bitmap": ; Integer (GDI+ pBitmap)
                ; If the Snip was modified, old versions are saved
                ; Also applies to bitmap shapes where we saved a copy
                If (propValue) {
-                  debug("Disposing pBitmap " propValue)
+                  ; debug("Disposing pBitmap " propValue)
                   GDIp.DisposeImage(propValue)
                }
             Case "hbitmap": ; Integer (GDI hBitmap)
                ; Also applies to bitmap shapes where we saved a copy
                If (propValue) {
-                  debug("Deleting hBitmap " propValue)
+                  ; debug("Deleting hBitmap " propValue)
                   GDI.DeleteObject(propValue)
                }
             Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose, GC should do it
@@ -127,8 +135,9 @@ Class UnDo {
    }
 
    /**
-    * Build the data payload needed to later reverse the given action,
-    * captured from the object's *current* state.
+      Build the data payload needed to later reverse the given action,
+      captured from the object's *current* state. Return only the data from the
+      shape necessary to undo/redo the action.
     * @param action one of the UnDo.* action constants
     * @param obj the shape or snip object to snapshot
     */
@@ -144,6 +153,10 @@ Class UnDo {
             return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor, shapeThickness: obj.shapeThickness }
          Case UnDo.DELETE_SHAPE :
             return obj.InstanceInfo()
+         case UnDo.BITMAP_CHANGE:
+            pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.Handle)
+            ; debug("Saving pBitmap " pBitmap)
+            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, bitmap: pBitmap }
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
                Case "Text" :
@@ -163,35 +176,33 @@ Class UnDo {
     * Shared shape-recreation logic used by:
     *  - UndoLast() when undoing a DELETE_SHAPE
     *  - RedoLast() when redoing an ADD_SHAPE
+    * Used to recreate a shape from scratch.
     * @param shapeObj reference shape used for positioning info
     * @param Info InstanceInfo() snapshot to rebuild from
     */
    _RecreateShape(shapeObj, Info) {
       SnipObj := Info.Gui
-      CloneObj := unset
 
       Switch shapeObj.Source {
          Case "File", "Clip" :
             ; Bitmap has already been replaced in Info.FileName
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
-            ; Blend in saved properties
-            For pr, v in Info.OwnProps()
-               Try CloneObj.%pr% := v ; Can't set GUI (read only)
-            CloneObj.Refresh() 
-            ShapeOnTop(CloneObj) ; ; always at the bottom since not layered
-            CloneObj.Gui.Dirty++
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text" :
+            ; Other shapes
             CloneObj := SnipObj.AddNewShape(Info.Shape)
-            ; Blend in saved properties
-            For pr, v in Info.OwnProps()
-               Try CloneObj.%pr% := v
-            ; Now draw the shape on the canvas
-            CloneObj.Refresh()
-            ShapeOnTop(CloneObj)
-            CloneObj.Gui.Dirty++
 
          Default :
+      }
+      ; Restore saved properties and build the shape
+      If (IsSet(CloneObj)) {
+         ; Blend in saved properties
+         For pr, v in Info.OwnProps()
+            Try CloneObj.%pr% := v
+         ; Now draw the shape on the canvas
+         CloneObj.Refresh()
+         ShapeOnTop(CloneObj)
+         CloneObj.Gui.Dirty++
       }
       return CloneObj
    }
@@ -226,9 +237,10 @@ Class UnDo {
       Switch item.action {
          Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
             ; recreate when: undoing a DELETE, or redoing an ADD
-            recreate := (item.action = UnDo.DELETE_SHAPE) = isUndo
+            ; recreate if delete shape and undo, OR add shape and redo
+            recreate := (item.action == UnDo.DELETE_SHAPE) = isUndo
+            shapeObj := item.obj
             If (recreate) {
-               shapeObj := item.obj
                Info     := item.data
                CloneObj := this._RecreateShape(shapeObj, Info)
                ; The NEXT time this item is popped it will be a "close" op, which
@@ -237,7 +249,6 @@ Class UnDo {
                reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
                targetStack.Push({obj: CloneObj, action: item.action, data: reverseData})
             } Else {
-               shapeObj := item.obj
                ; The NEXT time this item is popped it will be a "recreate" op, which
                ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
                ; of what item.action says (it stays fixed across the whole chain,
@@ -257,6 +268,24 @@ Class UnDo {
             ; Redraw with new properties
             shapeObj.Refresh()
             ; Make sure focus border is synced
+            focusBorder.Sync(shapeObj)
+
+         case UnDo.BITMAP_CHANGE:
+            shapeObj := item.obj
+            reverseData := this._CaptureData(item.action, shapeObj)
+            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            pBitmap := item.data.bitmap
+            ; Blend in saved properties
+            For pr, v in item.data.OwnProps()
+               shapeObj.%pr% := v
+            ; Replace the bitmap with new copy
+            If (pBitmap) {
+               shapeObj.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+               ; debug("Disposing pBitmap " pBitmap)
+               GDIp.DisposeImage(pBitmap)
+            }
+            ; Redraw with new properties
+            shapeObj.Refresh()
             focusBorder.Sync(shapeObj)
 
          Case UnDo.CHANGE_SNIP:

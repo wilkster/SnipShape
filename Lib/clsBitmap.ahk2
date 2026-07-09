@@ -529,7 +529,7 @@ Class BitMap {
    /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
-    * @param fromRGB RGB you want to replace
+    * @param fromRGB RGB you want to replace,  alpha here is used in replacement pixel
     * @param toRGB RGB replacement value
     * @returns {Integer} number of replaced pixels
     */
