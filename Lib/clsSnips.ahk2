@@ -444,8 +444,6 @@ Class Snips {
          winX := Max(0, winX), winY := Max(0, winY)
          picHBitmap := BitMap.CropHBITMAP(hBitmap, winX, winY, W, H, 1)
          CC := BitMap.GetBackgroundColor(picHBitmap)
-         ; picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
-         ; CC := BitMap.GetBackgroundColor(picPBitmap)
          GDI.DeleteObject(picHBitmap)
          ; GDIp.DisposeImage(picPBitmap)
          Return hex(CC) ; return in hex string like PixelGetColor

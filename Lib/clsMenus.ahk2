@@ -382,7 +382,9 @@ Class ShapeMenus {
             subMenu1.Add("↺ Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
             subMenu1.Add("Flip ⟺", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
             subMenu1.Add("Flip ⇕", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add()
             subMenu1.Add("Transparent Background", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.SetIcon("Transparent Background", SETTINGS.CursorPath . "screenshot.ico" )
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
                ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")

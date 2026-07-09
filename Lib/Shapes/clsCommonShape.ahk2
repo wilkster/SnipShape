@@ -745,7 +745,6 @@ Class BitmapShape extends commonShape {
    }
    /**
     * Restore the control to its original saved dimensions.
-    * TODO - How do we know if the image is rotated by 90 deg? Undo/Redo does not track this
     */
    ResetSize() {
       if (this.orientation == 0 || this.orientation == 180)
@@ -760,14 +759,13 @@ Class BitmapShape extends commonShape {
    TransparentBackground() {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
-      bgColor := 0x00000000 | Bitmap.GetBackgroundColor(pBitmap) ; blend in 0 alpha channel
-      If (changed := BitMap.ReplaceBackgroundColor(pBitmap, bgColor, 0x000000)) {
-         ; ARGB version below isn't strictly necessary
-         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
+      hBitmap := GDI.CopyImage(this.Handle)
+      bgColor := 0x00000000 | Bitmap.GetBackgroundColor(hBitmap) ; blend in 0 alpha channel
+      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, bgColor, 0x000000)) {
+         this.Handle := hBitmap
       }
       this.Move(X, Y, W, H)
+      return changed
    }
 
    /**
@@ -778,17 +776,17 @@ Class BitmapShape extends commonShape {
    ReplaceColor(fromARGB, toRGB) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
-      If (changed := BitMap.ReplaceBackgroundColor(pBitmap, fromARGB, toRGB)) {
-         ; ARGB version below isn't strictly necessary
-         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
+      hBitmap := GDI.CopyImage(this.Handle)
+      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, fromARGB, toRGB)) {
+         this.Handle := hBitmap
       }
       this.Move(X, Y, W, H)
+      return changed
    }
    /**
     * Rotate the bitmap by a multiple of 90 degrees in place,
     * updating the control handle and saving the new size.
+    * Use GDI+ Bitmaps for this
     * @param Angle - Rotation angle; must be a +/- 90-degree increment
     */
    Rotate(Angle) {
@@ -796,7 +794,6 @@ Class BitmapShape extends commonShape {
       this.GetPos(&X, &Y, &W, &H)
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
-         ; ARGB version below isn't strictly necessary
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          this.orientation += Angle
@@ -806,6 +803,7 @@ Class BitmapShape extends commonShape {
    /**
     * Flip the bitmap horizontally or vertically in place,
     * updating the control handle and saving the new size.
+    * Use GDI+ Bitmaps for this
     * @param How - 1 for top/bottom flip, 2 for left/right flip (default 1)
     */
    Flip(How := 1) {
@@ -813,7 +811,6 @@ Class BitmapShape extends commonShape {
       this.GetPos(&X, &Y, &W, &H)
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Flip(pBitmap, How)) {
-         ; ARGB version below isn't strictly necessary
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
       }
