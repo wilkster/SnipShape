@@ -155,8 +155,7 @@ Class UnDo {
             return obj.InstanceInfo()
          case UnDo.BITMAP_CHANGE:
             pBitmap := GDIp.CreateBitmapFromHBITMAP(obj.Handle)
-            ; debug("Saving pBitmap " pBitmap)
-            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, bitmap: pBitmap }
+            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, orientation : obj.orientation, bitmap: pBitmap }
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
                Case "Text" :
@@ -281,7 +280,6 @@ Class UnDo {
             ; Replace the bitmap with new copy
             If (pBitmap) {
                shapeObj.Handle := GDIp.CreateHBITMAPFromBitmap(pBitmap)
-               ; debug("Disposing pBitmap " pBitmap)
                GDIp.DisposeImage(pBitmap)
             }
             ; Redraw with new properties

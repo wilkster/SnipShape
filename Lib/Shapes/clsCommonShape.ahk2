@@ -720,6 +720,7 @@ Class BitmapShape extends commonShape {
    Init(sPicImage := "") {
       Super.Init(sPicImage)
       this.layered := false
+      this.orientation := 0
    }
    ; These are NOOP for this shape
    SetColor(*)        => {}
@@ -744,10 +745,46 @@ Class BitmapShape extends commonShape {
    }
    /**
     * Restore the control to its original saved dimensions.
+    * TODO - How do we know if the image is rotated by 90 deg? Undo/Redo does not track this
     */
    ResetSize() {
-      super.Move(, , this.OG.W, this.OG.H)
+      if (this.orientation == 0 || this.orientation == 180)
+         super.Move(, , this.OG.W, this.OG.H)
+      else
+         super.Move(, , this.OG.H, this.OG.W)
       this.UpdateCoord()
+   }
+   /**
+    * Make the background color of a shape transparent
+    */
+   TransparentBackground() {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      bgColor := 0x00000000 | Bitmap.GetBackgroundColor(pBitmap) ; blend in 0 alpha channel
+      If (changed := BitMap.ReplaceBackgroundColor(pBitmap, bgColor, 0x000000)) {
+         ; ARGB version below isn't strictly necessary
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+      }
+      this.Move(X, Y, W, H)
+   }
+
+   /**
+    * Replace one color with another, typically the background
+    * @param fromARGB - ARGB Color, the alpha channel will be used on replaced color
+    * @param toRGB - The RGB Color to replace
+    */
+   ReplaceColor(fromARGB, toRGB) {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      If (changed := BitMap.ReplaceBackgroundColor(pBitmap, fromARGB, toRGB)) {
+         ; ARGB version below isn't strictly necessary
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+      }
+      this.Move(X, Y, W, H)
    }
    /**
     * Rotate the bitmap by a multiple of 90 degrees in place,
@@ -756,13 +793,15 @@ Class BitmapShape extends commonShape {
     */
    Rotate(Angle) {
       this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
          ; ARGB version below isn't strictly necessary
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
-         this.SaveSize()
+         this.orientation += Angle
       }
+      this.Move(X, Y, H, W) ; reverse H/W
    }
    /**
     * Flip the bitmap horizontally or vertically in place,
@@ -771,13 +810,14 @@ Class BitmapShape extends commonShape {
     */
    Flip(How := 1) {
       this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Flip(pBitmap, How)) {
          ; ARGB version below isn't strictly necessary
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
-         this.SaveSize()
       }
+      this.Move(X, Y, W, H)
    }
    /**
     * Gets or sets the HBITMAP associated with this picture control.

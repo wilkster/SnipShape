@@ -376,12 +376,13 @@ Class ShapeMenus {
       Switch ShapeObj.Source {
          Case "File", "Clip":
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
-            shapeMenu.Add(ShapeObj.ShapeName . " Rotate/Flip", subMenu1)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Rotate/Flip", SETTINGS.CursorPath . "FlipRotate.ico" )
+            shapeMenu.Add(ShapeObj.ShapeName . " Rotate/Flip/Alter", subMenu1)
+            shapeMenu.SetIcon(ShapeObj.ShapeName . " Rotate/Flip/Alter", SETTINGS.CursorPath . "FlipRotate.ico" )
             subMenu1.Add("↻ Rotate +90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
             subMenu1.Add("↺ Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
             subMenu1.Add("Flip ⟺", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
             subMenu1.Add("Flip ⇕", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+            subMenu1.Add("Transparent Background", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
                ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
@@ -512,6 +513,8 @@ Class ShapeMenus {
             shapeObj.Close()
          Case ItemName ~= "Edit": 
             shapeObj.EditDispText()
+         Case ItemName ~= "Transparent":
+            shapeObj.TransparentBackground()
          Case ItemName = "Flip ⟺":
             shapeObj.Flip(2)
          Case ItemName = "Flip ⇕":
