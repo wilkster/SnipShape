@@ -87,6 +87,9 @@ Class SnipMenus {
       ; this.AddEntry("Paste Shape from Clipboard (Ctrl-V)","Paste.ico")
       this.csMenu.Add("Insert Picture Shapes",this.PictMenu)
       this.csMenu.SetIcon("Insert Picture Shapes", SETTINGS.CursorPath . "Shapes.ico")
+      this.csMenu.Add("Insert Picture From File", this.ContextSnipMenu_Handler.bind(this))
+      this.csMenu.SetIcon("Insert Picture From File", SETTINGS.CursorPath . "Shapes.ico")
+
       this.csMenu.Add('') ;16
       this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
       this.csMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
@@ -128,6 +131,8 @@ Class SnipMenus {
          Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(WinExist("A"),2)
          Case ItemName ~= "B&W Snip": Snips.TransformSnip(WinExist("A"),3)
          Case ItemName ~= "Replace Background Color": Snips.ReplaceSnipBGColor(WinExist("A"), this.MenuX, this.MenuY)
+         Case ItemName ~= "Insert Picture From File" : Shapes.AddPictureFromFile(WinExist("A"), "lButton", "P")
+
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(WinExist("A"),15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(WinExist("A"),12)                           
@@ -191,9 +196,9 @@ Class SnipMenus {
          this.csMenu.Insert("17&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
          this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
       }
-      ; Keep positional rename since menu is renamed dynamically
-      this.csMenu.Rename('8&', "Edit: "  SnipObj.BaseName)
-      this.csMenu.Rename('9&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
+      ; NOTE Keep positional rename since menu is renamed dynamically
+      this.csMenu.Rename('7&', "Edit: "  SnipObj.BaseName)
+      this.csMenu.Rename('8&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
       this.PictMenu.Delete()
       this.populatePicMenu(this.PictMenu, hWnd, mX, mY)
