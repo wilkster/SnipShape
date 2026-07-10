@@ -13,20 +13,20 @@
 * Undo(): pop from undoStack, apply the revert, push the *reverse* snapshot onto redoStack.
 * Redo(): pop from redoStack, reapply, push the *reverse* snapshot back onto undoStack.
 */
-#include clsGDIp.ahk2
-#include libMisc.ahk2
-#include clsShapes.ahk2
+#Include clsGDIp.ahk2
+#Include libMisc.ahk2
+#Include clsShapes.ahk2
 Class UnDo {
-   static ADD_SHAPE     := 1
-   static MOVE_SHAPE    := 2
-   static DELETE_SHAPE  := 3
-   static RESIZE_SHAPE  := 4
-   static CHANGE_SNIP   := 5
-   static SHAPE_COLOR   := 6
-   static TEXT_CHANGE   := 7
-   static BITMAP_CHANGE := 8
+   Static ADD_SHAPE     := 1
+   Static MOVE_SHAPE    := 2
+   Static DELETE_SHAPE  := 3
+   Static RESIZE_SHAPE  := 4
+   Static SHAPE_COLOR   := 5
+   Static TEXT_CHANGE   := 6
+   Static BITMAP_CHANGE := 7
+   Static CHANGE_SNIP   := 8
    ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
-   static MAX_DEPTH    := 100  ; cap stack depth, oldest entries dropped first
+   Static MAX_DEPTH := 100  ; cap stack depth, oldest entries dropped first
 
    __New() {
       this.undoStack := Array()
@@ -40,19 +40,19 @@ Class UnDo {
       this._clearStack(this.undoStack)
       this._clearStack(this.redoStack)
    }
-   
+
    /**
     * Undo the last action posted, moving its reverse onto the redo stack.
     */
    UndoLast() {
-      return this._PerformAction(this.undoStack, this.redoStack, true)
+      Return this._PerformAction(this.undoStack, this.redoStack, true)
    }
 
    /**
     * Redo the last undone action, moving its reverse back onto the undo stack.
     */
    RedoLast() {
-      return this._PerformAction(this.redoStack, this.undoStack, false)
+      Return this._PerformAction(this.redoStack, this.undoStack, false)
    }
    /**
     * Remove the last undo posted due to a cancel action
@@ -72,11 +72,10 @@ Class UnDo {
     * @param action
     */
    PostAction(obj, action) {
-
+      ; Reset the redo stack
       this._clearStack(this.redoStack)
-
       data := this._CaptureData(action, obj)
-      item := {obj: obj, action: action, data: data}
+      item := { obj: obj, action: action, data: data }
       this.undoStack.push(item)
       dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
 
@@ -103,67 +102,82 @@ Class UnDo {
     * @param item One of the stack items (obj, action, data)
     */
    _clearItem(item) {
-      For propName, value in item.data.OwnProps() {
-         propValue := item.data.%propName%
-         ; debug("    " type(propValue) " " propName)
+      ; try debug("Clearing " item.obj.ShapeName " for action " item.action)
+      For propName, propValue in item.data.OwnProps() {
+         ; propValue := item.data.%propName%
+         ; debug(" " type(propValue) " " propName)
          Switch propName, false {
             ; remove any bitmaps that may have been saved as part of undostack
+            Case "FileName": ; Just in case
+               If (RegExMatch(propValue, "(?<=HBITMAP:\*)-?\d+", &m)) {
+                  ; Pasted pictures from clipboard, may be redundant to delete them
+                  hBitmap := Integer(m[0])
+                  debug("    Deleting hBitmap " hBitmap " for " propName)
+                  GDI.DeleteObject(hBitmap)
+               }
             Case "bitmap": ; Integer (GDI+ pBitmap)
                If (propValue) {
-                  ; debug("Disposing pBitmap " propValue)
+                  debug("   Disposing pBitmap " propValue)
                   GDIp.DisposeImage(propValue)
                }
             Case "hbitmap": ; Integer (GDI hBitmap)
                If (propValue) {
-                  ; debug("Deleting hBitmap " propValue)
+                  debug("   Deleting hBitmap " propValue)
                   GDI.DeleteObject(propValue)
                }
-            Case "shapeCoord", "sPad", "Points", "OG": ; Object/Buffer refs, nothing to dispose, GC should do it
             Default:
          }
+         item.data.%propName% := unset
       }
-
    }
 
    /**
-      Build the data payload needed to later reverse the given action,
-      captured from the object's *current* state. Return only the data from the
-      shape necessary to undo/redo the action.
+    *       Build the data payload needed to later reverse the given action,
+    *       captured from the object's *current* state. Return only the data from the
+    *       shape necessary to undo/redo the action.
     * @param action one of the UnDo.* action constants
     * @param obj the shape or snip object to snapshot
     */
    _CaptureData(action, obj) {
       Switch action {
-         Case UnDo.ADD_SHAPE :
-            return Object()
-         Case UnDo.TEXT_CHANGE :
-            return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Shape : obj.Shape,
-             _BGColor: obj._BGColor, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize}
-         Case UnDo.SHAPE_COLOR :
-            return { Color: obj.Color}
-         Case UnDo.MOVE_SHAPE :
-            return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor,
-             shapeThickness: obj.shapeThickness }
-         Case UnDo.DELETE_SHAPE :
-            return obj.InstanceInfo()
-         case UnDo.BITMAP_CHANGE:
+         Case UnDo.ADD_SHAPE:
+            Return Object()
+
+         Case UnDo.TEXT_CHANGE:
+            Return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Shape: obj.Shape,
+               _BGColor: obj._BGColor, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize }
+
+         Case UnDo.SHAPE_COLOR:
+            Return { Color: obj.Color }
+
+         Case UnDo.MOVE_SHAPE:
+            Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG, Factor: obj.Factor,
+               shapeThickness: obj.shapeThickness }
+
+         Case UnDo.DELETE_SHAPE:
+            Return obj.InstanceInfo() ; may include cloned bitmaps
+
+         Case UnDo.BITMAP_CHANGE:
             hBitmap := GDI.CopyImage(obj.Handle)
-            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG,
-             orientation : obj.orientation, hBitmap: hBitmap }
-         Case UnDo.RESIZE_SHAPE :
+            Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG,
+               orientation: obj.orientation, hBitmap: hBitmap }
+
+         Case UnDo.RESIZE_SHAPE:
             Switch obj.Source {
-               Case "Text" :
-                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize,
-                   _ogFontSize : obj._ogFontSize}
-               Default :
-                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor,
-                   shapeThickness: obj.shapeThickness}
+               Case "Text":
+                  Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize,
+                     _ogFontSize: obj._ogFontSize }
+               Default:
+                  Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG, Factor: obj.Factor,
+                     shapeThickness: obj.shapeThickness }
             }
-         Case UnDo.CHANGE_SNIP :
+
+         Case UnDo.CHANGE_SNIP:
             hBitmap := GDI.CopyImage(obj.PIC.Handle)
-            return { hBitmap: hBitmap }
-         Default :
-            return Object()
+            Return { hBitmap: hBitmap }
+            
+         Default:
+            Return Object()
       }
    }
 
@@ -179,15 +193,15 @@ Class UnDo {
       SnipObj := Info.Gui
 
       Switch shapeObj.Source {
-         Case "File", "Clip" :
+         Case "File", "Clip":
             ; Bitmap has already been replaced in Info.FileName
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
 
-         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text" :
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             ; Other shapes
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 
-         Default :
+         Default:
       }
       ; Restore saved properties and build the shape
       If (IsSet(CloneObj)) {
@@ -199,14 +213,14 @@ Class UnDo {
          ShapeOnTop(CloneObj)
          CloneObj.Gui.Dirty++
       }
-      return CloneObj
+      Return CloneObj
    }
 
    /**
     * Shared core for both Undo and Redo. Pops one entry from sourceStack,
     * applies the appropriate reversal, and pushes the new reverse snapshot
     * onto targetStack.
-    *
+    * 
     * The only branch-point between undo and redo is ADD_SHAPE/DELETE_SHAPE,
     * where direction decides whether we recreate or close the shape:
     *   - Undoing an ADD    -> close it     (reverse of "add")
@@ -215,7 +229,7 @@ Class UnDo {
     *   - Redoing  a DELETE  -> close it     (forward of "delete")
     * MOVE_SHAPE, RESIZE_SHAPE, and CHANGE_SNIP are self-symmetric: the same
     * "swap stored data with current data" logic runs identically either way.
-    *
+    * 
     * @param sourceStack stack to pop the entry from (undoStack or redoStack)
     * @param targetStack stack to push the reverse entry onto
     * @param isUndo true when called from UndoLast(), false from RedoLast() -
@@ -223,12 +237,12 @@ Class UnDo {
     */
    _PerformAction(sourceStack, targetStack, isUndo) {
       If (sourceStack.Length = 0)
-         return false
+         Return false
 
       item := sourceStack.Pop()
       label := isUndo ? "Undo" : "Redo"
 
-      debug(label " action " item.action  ", length=" sourceStack.length)
+      debug(label " action " item.action ", length=" sourceStack.length)
       Switch item.action {
          Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
             ; recreate when: undoing a DELETE, or redoing an ADD
@@ -236,27 +250,27 @@ Class UnDo {
             recreate := (item.action == UnDo.DELETE_SHAPE) = isUndo
             shapeObj := item.obj
             If (recreate) {
-               Info     := item.data
+               Info := item.data
                CloneObj := this._RecreateShape(shapeObj, Info)
                ; The NEXT time this item is popped it will be a "close" op, which
                ; doesn't read .data at all - so this snapshot is unused, but capture
                ; the cheap ADD_SHAPE (empty) schema for consistency.
                reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
-               targetStack.Push({obj: CloneObj, action: item.action, data: reverseData})
+               targetStack.Push({ obj: CloneObj, action: item.action, data: reverseData })
             } Else {
                ; The NEXT time this item is popped it will be a "recreate" op, which
                ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
                ; of what item.action says (it stays fixed across the whole chain,
                ; while the operation itself alternates recreate/close each round).
                reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
-               targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+               targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
                shapeObj.Close(true)
             }
 
          Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE:
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
             ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
@@ -265,10 +279,10 @@ Class UnDo {
             ; Make sure focus border is synced
             focusBorder.Sync(shapeObj)
 
-         case UnDo.BITMAP_CHANGE:
+         Case UnDo.BITMAP_CHANGE:
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({obj: shapeObj, action: item.action, data: reverseData})
+            targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
             ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
@@ -282,7 +296,7 @@ Class UnDo {
          Case UnDo.CHANGE_SNIP:
             snipObj := item.obj
             reverseData := this._CaptureData(item.action, snipObj)
-            targetStack.Push({obj: snipObj, action: item.action, data: reverseData})
+            targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
             If (hBitmap := item.data.hbitmap) {
                GDI.GetHBitmapDimensions(hBitmap, &W, &H)
                snipObj.PIC.Handle := hBitmap ; PIC owns the handle
@@ -294,7 +308,6 @@ Class UnDo {
 
          Default:
       }
-      return true
+      Return true
    }
-
 }
