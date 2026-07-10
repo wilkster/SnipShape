@@ -631,13 +631,13 @@ Class TextShape extends CommonShape {
     * @returns {FreeHandShape} 
     */
    InstanceInfo() {
-      infoObj                := super.InstanceInfo()
-      infoObj.Text           := this.Text
-      infoObj.FontName       := this.FontName
-      infoObj.FontStyle      := this.FontStyle
-      infoObj.FontSize       := this.FontSize
-      infoObj.Alignment      := this.Alignment
-      infoObj._BGColor       := this._BGColor
+      infoObj                   := super.InstanceInfo()
+      infoObj._Text             := this._Text
+      infoObj._fontName         := this._fontName
+      infoObj._fontStyle        := this._fontStyle
+      infoObj._fontSize         := this._fontSize
+      infoObj._Alignment        := this._Alignment
+      infoObj._BGColor          := this._BGColor
       Return infoObj
    }
 

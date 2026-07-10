@@ -15,6 +15,7 @@
 */
 #include clsGDIp.ahk2
 #include libMisc.ahk2
+#include clsShapes.ahk2
 Class UnDo {
    static ADD_SHAPE     := 1
    static MOVE_SHAPE    := 2
@@ -136,22 +137,27 @@ Class UnDo {
          Case UnDo.ADD_SHAPE :
             return Object()
          Case UnDo.TEXT_CHANGE :
-            return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Color: obj.Color, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize}
+            return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Shape : obj.Shape,
+             _BGColor: obj._BGColor, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize}
          Case UnDo.SHAPE_COLOR :
             return { Color: obj.Color}
          Case UnDo.MOVE_SHAPE :
-            return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor, shapeThickness: obj.shapeThickness }
+            return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor,
+             shapeThickness: obj.shapeThickness }
          Case UnDo.DELETE_SHAPE :
             return obj.InstanceInfo()
          case UnDo.BITMAP_CHANGE:
             hBitmap := GDI.CopyImage(obj.Handle)
-            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, orientation : obj.orientation, hBitmap: hBitmap }
+            return {sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG,
+             orientation : obj.orientation, hBitmap: hBitmap }
          Case UnDo.RESIZE_SHAPE :
             Switch obj.Source {
                Case "Text" :
-                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize, _ogFontSize : obj._ogFontSize}
+                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize,
+                   _ogFontSize : obj._ogFontSize}
                Default :
-                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor, shapeThickness: obj.shapeThickness}
+                  return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG : obj.OG, Factor: obj.Factor,
+                   shapeThickness: obj.shapeThickness}
             }
          Case UnDo.CHANGE_SNIP :
             hBitmap := GDI.CopyImage(obj.PIC.Handle)
