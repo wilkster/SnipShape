@@ -135,6 +135,14 @@ Class ButtonBar {
          ; GDI.DestroyIcon(hIcon) ; not needed
       }
       logGDI("Built Color Buttons")
+      padded := round(ch*3/4)
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Clipboard.ico", "W" padded " H" padded)
+      b.OnEvent("Click", this.ClipSnip.bind(this,0))
+      this.buttonTips[b.hWnd] := "Clipboard Snip (Ctrl-C)"
+
+      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, SETTINGS.CursorPath . "SaveAs.ico", "W" padded " H" padded)
+      b.OnEvent("Click", this.SaveSnip.bind(this,0))
+      this.buttonTips[b.hWnd] := "Save Snip to file (Ctrl-S)"
 
       ; Minimize Snip Button
       b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Minimize.ico", "W" cH " H" cH)
@@ -339,6 +347,24 @@ Class ButtonBar {
          this.Enabled := enabled
       this.bbgui.Hide()
       ToolTip
+   }
+   /**
+    * Save the active snip to a file
+    */
+   Static SaveSnip(*) {
+      If (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.Snip2File(Settings.SavePath_Image, Snips.borderWithSave, hWnd)
+         Snips.flashBorder(hWnd)
+      }
+   }
+    /**
+    * Clipboard the active snip
+    */
+   Static ClipSnip(*) {
+      If (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.Snip2Clipboard(Snips.UpdateClipboard, hWnd)
+         Snips.flashBorder(hWnd)
+      }
    }
    /**
     * Minimize the foremost SnipShapeWindow via Snips.Minimize
