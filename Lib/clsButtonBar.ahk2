@@ -51,7 +51,6 @@ Class ButtonBar {
       this.bbGui.MarginX   := this.Margin
       this.bbGui.BackColor := Shapes.globalShapeColor
       this.bbHeight        := 0
-      ; this.btnBackColor    := "Cd4c5b9"
       mbg := SystemThemeAwareToolTipMenu.IsDarkMode ? 0xFF2B2B2B : 0xFFF8F8F8
 
       ; Force rounded corners on windows 11 since we don't have a caption - we do manually later for windows 10
@@ -60,25 +59,12 @@ Class ButtonBar {
       this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
       ; Close Bar Button
       cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" this.Margin * 3, SETTINGS.CursorPath . "BBClose.ico", "W" cH " H" cH)
-
-      ; logGDI("Buttons Done")
-      ; Return
+      b := this.AddBarButton("Y" this.Margin " X+" this.Margin * 3, Settings.CursorPath . "BBClose.ico", cH, "Close Button Bar (F1)", this.Hide.Bind(this, 0))
       b.GetPos(,,,&cH)
-      b.OnEvent("Click", this.Hide.bind(this,0))
       ; Cursors need to zoom in a bit, remove some margin
       bs := this.ButSize := round(cH - 4 * this.DPIFactor)
-      ; debug("was " bs)
-      ; ; large icons
-      ; bs := this.ButSize := SysGet(0 ? 11 : 49)
-      ; debug("is " bs " " ch)
 
       ; First button tells us what hull size to use, leave a small margin for cursors
-      this.buttonTips[b.hWnd] := "Close Button Bar (F1)"
-      ; Grab the cursors and make a button bar
-      ; Show them in desired order
-      ; Button1, Button2 .... and so on for MouseGetPos name of control
-      ; Could keep a hash by Buttonnn name to the tooltip string
       this.shapeIconsObj := ImageList()
       this.shapeIconsObj.Size := this.ButSize
 
@@ -87,12 +73,12 @@ Class ButtonBar {
       logGDI("Building Shape Buttons")
       for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
          this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
+
       logGDI("Built Shape Buttons")
       ; Build a button or menu entry for each color in settings
+      ; TODO - replace this menu with a smaller GUI to show the color circles only
       this.MenuColors := Menu()
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "colors.ico", "W" bs " H" bs)
-      this.buttonCallbacks[b.hWnd] := this.PostColorMenu.bind(this) ; this.PostColors.bind(this) ; callback is mouse down not a full click
-      this.buttonTips[b.hWnd] := "Set Shape Colors (1-9)"
+      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "colors.ico", bs, "Set Shape Colors (1-9)", , this.PostColorMenu.Bind(this))
       this.colorIconsObj.Size := bs
       o := this.ButSize/2
       ; Loop up to 20 colors that may be in the settings file
@@ -130,33 +116,19 @@ Class ButtonBar {
          ; Save in an image list (this consumes then discards the icon)
          this.colorIconsObj[name] := hIcon
          this.colorCodeMap[name]  := Color
-
-         ; logGDI(" ButtonBar Color " cName)
-         ; GDI.DestroyIcon(hIcon) ; not needed
       }
       logGDI("Built Color Buttons")
-      padded := round(ch*3/4)
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Clipboard.ico", "W" padded " H" padded)
-      b.OnEvent("Click", this.ClipSnip.bind(this,0))
-      this.buttonTips[b.hWnd] := "Clipboard Snip (Ctrl-C)"
-
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, SETTINGS.CursorPath . "SaveAs.ico", "W" padded " H" padded)
-      b.OnEvent("Click", this.SaveSnip.bind(this,0))
-      this.buttonTips[b.hWnd] := "Save Snip to file (Ctrl-S)"
-
-      ; Minimize Snip Button
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Minimize.ico", "W" cH " H" cH)
-
-      b.OnEvent("Click", this.MinimizeSnip.bind(this,0))
-      this.buttonTips[b.hWnd] := "Minimize Active Snip (⌄)"
+      padded := round(cH*.6)
+      b := this.AddBarButton("Y" this.Margin " X+" o * 3, SETTINGS.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.bind(this,0))
+      b := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
+      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
       logGDI("Built Snip Buttons")
 
       ; Close Snip Button
-      b := this.bbGui.AddPicButton("Y" this.Margin " X+" o, SETTINGS.CursorPath . "Close.ico", "W" ch " H" ch)
-      b.OnEvent("Click", this.CloseSnip.bind(this))
+      b := this.AddBarButton("Y" this.Margin " X+" o, Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
       ; Also handle Escape
       this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
-      this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
+      ; this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
       logGDI("Built Close Buttons")
       ; Make the button edges the same as the gui background color
       ; more GDI Resources (one for each button)
@@ -174,6 +146,27 @@ Class ButtonBar {
       logGDI("ButtonBar Complete")
    }
    /**
+    * Helper routine to add a pic button
+    * @param opts control options
+    * @param icon icon to show in the button
+    * @param wh width/height of the button
+    * @param tip tooltip to show for the button
+    * @param onClick optional event to call when button is clicked
+    * @param onPress optional event to call when button is pressed
+    * @returns {unset} 
+    */
+   Static AddBarButton(opts, icon, wh := 16, tip := "", onClick?, onPress?) {
+      b := this.bbGUI.AddPicButton(opts, icon, "W" wh " H" wh)
+      this.buttonTips[b.hWnd] := tip
+      If IsSet(onClick)
+         b.OnEvent("Click", onClick)
+      If IsSet(onPress)
+         this.buttonCallbacks[b.hWnd] := onPress
+
+      Return b
+   }
+
+   /**
     * Build a shape category button on the bar and cache all of its cursor icons into the shared ImageList.
     * Also registers a right-click handler on the button for shape settings.
     * @param {String} Button - Shape category name used as the button icon filename and menu label
@@ -181,18 +174,14 @@ Class ButtonBar {
     * @param {Integer} [pad=3] - Horizontal pixel padding to insert before this button
     */
    Static BuildShapeButtons(Button, SubButtons, pad:=3) {
-      static key      := "lButton"
       fileName := SETTINGS.CursorPath . "Menu\" . Button . ".png"
-      b        := this.bbGui.AddPicButton("Y" this.Margin " X+" . pad, fileName, "W" this.ButSize " H" this.ButSize) ; 4 obj
-      ; Left click handler
-      this.buttonCallbacks[b.hWnd] := this.PostShapeMenu.bind(this, SubButtons) ; callback is mouse down not a full click
-      this.buttonTips[b.hWnd] := Button . " Menu"
 
+      b := this.AddBarButton("Y" this.Margin " X+" . pad, fileName, this.ButSize, Button . " Menu", , this.PostShapeMenu.Bind(this, SubButtons))
       ; RMB menu for settings
-      b.OnEvent("contextMenu", Shapes._cmdRMBHandler.bind(Shapes, Button, key))
+      b.OnEvent("contextMenu", Shapes._cmdRMBHandler.bind(Shapes, Button, "lButton"))
       ; Cache the cursor images into an imagelist for reuse and less GDI resources.
-      For Button in SubButtons {
-         sna      := StrSplit(Button, "-")
+      For sb in SubButtons {
+         sna      := StrSplit(sb, "-")
          baseName := Trim(sna[1])
          key      := Trim(sna[2])
          fileName := SETTINGS.CursorPath . baseName ".cur"
