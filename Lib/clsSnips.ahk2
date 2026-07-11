@@ -191,13 +191,13 @@ Class Snips {
     * Clear all non-screen shapes from a snip and reset its dirty flag
     * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active window
     */
-   Static ClearAllShapes(hWnd := 0) {
+   Static ClearAllShapes(hWnd := 0, skipundo := false) {
       if NOT hWnd
          hWnd := WinExist("A")
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
             If (Ctrl.Source != "Screen" and Ctrl.Visible) {  ; only visible ones, they have been closed already??
-               Ctrl.Close()
+               Ctrl.Close(skipUndo)
             }
          }
          SnipObj.Dirty := 0
@@ -287,7 +287,7 @@ Class Snips {
       Destroy(*) {
          Try {
             title := this.Title
-            Snips.ClearAllShapes(this.hWnd)  ; in case we have built in GC
+            Snips.ClearAllShapes(this.hWnd, true)  ; in case we have built in GC
             Snips.guiSnips.Delete(this.hWnd)
             super.Destroy()
             ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
@@ -447,6 +447,14 @@ Class Snips {
          GDI.DeleteObject(picHBitmap)
          ; GDIp.DisposeImage(picPBitmap)
          Return hex(CC) ; return in hex string like PixelGetColor
+      }
+
+      /**
+       * Return Snip Info for the undo/redo handler
+       * @returns {Object} 
+       */
+      SnipInfo() {
+         Return { hBitmap: GDI.CopyImage(this.PIC.Handle) }
       }
    }
    /**

@@ -705,7 +705,46 @@ Class commonShape extends Gui.Pic {
       }
       Return infoObj
    }
-
+   /**
+    * Color info for undo/redo
+    * @returns {Object} 
+    */
+   ColorInfo() {
+      Return { Color: this.Color }
+   }
+   /**
+    * Position info for undo/redo
+    * @returns {Object} 
+    */
+   MoveInfo() {
+      Return {
+         sCoord        : this.sCoord.clone(),
+         sPad          : this.sPad.clone(),
+         OG            : this.OG,
+         Factor        : this.Factor,
+         shapeThickness: this.shapeThickness
+      }
+   }
+   /**
+    * Resize info for undo/redo
+    * @returns {Object} 
+    */
+   ResizeInfo() {
+      Return {
+         sCoord        : this.sCoord.clone(),
+         sPad          : this.sPad.clone(),
+         OG            : this.OG,
+         Factor        : this.Factor,
+         shapeThickness: this.shapeThickness
+      }
+   }
+   /**
+    * Wrapper for bitmap info, overridden by bitmap class
+    * @returns nothing 
+    */
+   BitmapInfo() {
+      return {}
+   }
 }
 
 /**
@@ -827,4 +866,18 @@ Class BitmapShape extends commonShape {
       ; Resize control to actual bitmap size
       set => this.Value := "*W0 *H0 HBITMAP:" Value
    } 
+   /**
+    * Return bitmap unique info for undo/redo
+    * @returns {Object} 
+    */
+   BitmapInfo() {
+      Return {
+         sCoord     : this.sCoord.clone(),
+         sPad       : this.sPad.clone(),
+         OG         : this.OG,
+         orientation: this.orientation,
+         hBitmap    : GDI.CopyImage(this.Handle)
+      }
+   }
+
 }

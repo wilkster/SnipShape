@@ -640,7 +640,34 @@ Class TextShape extends CommonShape {
       infoObj._BGColor          := this._BGColor
       Return infoObj
    }
+   /**
+    * Resize Info for Text Boxes
+    * @returns {Object} 
+    */
+   ResizeInfo() {
+      Return {
+         sCoord        : this.sCoord.clone(),
+         sPad          : this.sPad.clone(),
+         _fontSize     : this._fontSize,
+         _ogFontSize   : this._ogFontSize 
+      }
+   }
+   /**
+    * Text info needed if text formatting changes
+    * @returns {Object} 
+    */
+   TextInfo() {
+      Return {
+         Shape     : this.Shape,
+         _Text     : this._Text,
+         _fontName : this._fontName,
+         _Alignment: this._Alignment,
+         _BGColor  : this._BGColor,
+         _fontStyle: this._fontStyle,
+         _fontSize : this._fontSize
+      }
 
+   }
 }
 
 /**

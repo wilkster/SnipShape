@@ -102,7 +102,7 @@ Class UnDo {
     * @param item One of the stack items (obj, action, data)
     */
    _clearItem(item) {
-      ; try debug("Clearing " item.obj.ShapeName " for action " item.action)
+      ; try debug("Clearing action " item.action)
       For propName, propValue in item.data.OwnProps() {
          ; propValue := item.data.%propName%
          ; debug(" " type(propValue) " " propName)
@@ -112,17 +112,17 @@ Class UnDo {
                If (RegExMatch(propValue, "(?<=HBITMAP:\*)-?\d+", &m)) {
                   ; Pasted pictures from clipboard, may be redundant to delete them
                   hBitmap := Integer(m[0])
-                  debug("    Deleting hBitmap " hBitmap " for " propName)
+                  ; debug("    Deleting hBitmap " hBitmap " for " propName)
                   GDI.DeleteObject(hBitmap)
                }
             Case "bitmap": ; Integer (GDI+ pBitmap)
                If (propValue) {
-                  debug("   Disposing pBitmap " propValue)
+                  ; debug("   Disposing pBitmap " propValue)
                   GDIp.DisposeImage(propValue)
                }
             Case "hbitmap": ; Integer (GDI hBitmap)
                If (propValue) {
-                  debug("   Deleting hBitmap " propValue)
+                  ; debug("   Deleting hBitmap " propValue)
                   GDI.DeleteObject(propValue)
                }
             Default:
@@ -140,44 +140,15 @@ Class UnDo {
     */
    _CaptureData(action, obj) {
       Switch action {
-         Case UnDo.ADD_SHAPE:
-            Return Object()
-
-         Case UnDo.TEXT_CHANGE:
-            Return { _Text: obj._Text, _fontName: obj._fontName, _Alignment: obj._Alignment, Shape: obj.Shape,
-               _BGColor: obj._BGColor, _fontStyle: obj._fontStyle, _fontSize: obj._fontSize }
-
-         Case UnDo.SHAPE_COLOR:
-            Return { Color: obj.Color }
-
-         Case UnDo.MOVE_SHAPE:
-            Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG, Factor: obj.Factor,
-               shapeThickness: obj.shapeThickness }
-
-         Case UnDo.DELETE_SHAPE:
-            Return obj.InstanceInfo() ; may include cloned bitmaps
-
-         Case UnDo.BITMAP_CHANGE:
-            hBitmap := GDI.CopyImage(obj.Handle)
-            Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG,
-               orientation: obj.orientation, hBitmap: hBitmap }
-
-         Case UnDo.RESIZE_SHAPE:
-            Switch obj.Source {
-               Case "Text":
-                  Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), fontSize: obj.FontSize,
-                     _ogFontSize: obj._ogFontSize }
-               Default:
-                  Return { sCoord: obj.sCoord.clone(), sPad: obj.sPad.clone(), OG: obj.OG, Factor: obj.Factor,
-                     shapeThickness: obj.shapeThickness }
-            }
-
-         Case UnDo.CHANGE_SNIP:
-            hBitmap := GDI.CopyImage(obj.PIC.Handle)
-            Return { hBitmap: hBitmap }
-            
-         Default:
-            Return Object()
+         Case UnDo.ADD_SHAPE    : Return Object()
+         Case UnDo.TEXT_CHANGE  : return obj.TextInfo()
+         Case UnDo.SHAPE_COLOR  : Return obj.ColorInfo()
+         Case UnDo.MOVE_SHAPE   : return obj.MoveInfo()
+         Case UnDo.DELETE_SHAPE : Return obj.InstanceInfo() ; may include cloned bitmaps
+         Case UnDo.BITMAP_CHANGE: Return obj.BitmapInfo()
+         Case UnDo.RESIZE_SHAPE : return obj.ResizeInfo()
+         Case UnDo.CHANGE_SNIP  : return obj.SnipInfo()
+              Default           : Return Object()
       }
    }
 
@@ -242,7 +213,7 @@ Class UnDo {
       item := sourceStack.Pop()
       label := isUndo ? "Undo" : "Redo"
 
-      debug(label " action " item.action ", length=" sourceStack.length)
+      ; debug(label " action " item.action ", length=" sourceStack.length)
       Switch item.action {
          Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
             ; recreate when: undoing a DELETE, or redoing an ADD
@@ -267,37 +238,27 @@ Class UnDo {
                shapeObj.Close(true)
             }
 
-         Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE:
+         Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE, UnDo.BITMAP_CHANGE:
             shapeObj := item.obj
             reverseData := this._CaptureData(item.action, shapeObj)
             targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
             ; Blend in saved properties
             For pr, v in item.data.OwnProps()
                shapeObj.%pr% := v
+            ; If there was a bitmap in the undo/redo data then apply it
+            If (hbitmap := item.data.hBitmap ?? 0) {
+               shapeObj.Handle := hBitmap ; Control owns the handle
+            }
             ; Redraw with new properties
             shapeObj.Refresh()
             ; Make sure focus border is synced
-            focusBorder.Sync(shapeObj)
-
-         Case UnDo.BITMAP_CHANGE:
-            shapeObj := item.obj
-            reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
-            ; Blend in saved properties
-            For pr, v in item.data.OwnProps()
-               shapeObj.%pr% := v
-            ; Replace the bitmap with new copy
-            If (hBitmap := item.data.hbitmap) {
-               shapeObj.Handle := hBitmap ; Control owns the handle
-            }
-            shapeObj.Refresh()
             focusBorder.Sync(shapeObj)
 
          Case UnDo.CHANGE_SNIP:
             snipObj := item.obj
             reverseData := this._CaptureData(item.action, snipObj)
             targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
-            If (hBitmap := item.data.hbitmap) {
+            If (hbitmap := item.data.hBitmap ?? 0) {
                GDI.GetHBitmapDimensions(hBitmap, &W, &H)
                snipObj.PIC.Handle := hBitmap ; PIC owns the handle
                BW := Settings.BorderWidth * 2
