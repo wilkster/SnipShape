@@ -1,0 +1,150 @@
+/************************************************************************
+ * @description Bitmap Class for Shapes
+ * @author Tom Wilkason
+ * @date 2026/03/09
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2.0 
+#include ..\clsGDIp.ahk2
+#include ..\libMisc.ahk2
+#include ..\clsShapes.ahk2
+#include ..\clsMenus.ahk2
+#include ..\clsCursor.ahk2
+#include ..\clsSnips.ahk2
+#include ..\Settings.ahk2
+#include ..\UnDo.ahk2
+#include clsCommonShape.ahk2
+/**
+ * BitmapShape class
+ * Handles picture and clipboard bitmap controls. Layered-window drawing
+ * is not used; the bitmap is displayed directly via the Picture control.
+ */
+Class BitmapShape extends commonShape {
+   /**
+    * Initialize this shape as a non-layered bitmap control.
+    * @param sPicImage - Optional picture source path or HBITMAP reference
+    */
+   Init(sPicImage := "") {
+      Super.Init(sPicImage)
+      this.layered := false
+      this.orientation := 0
+   }
+   ; These are NOOP for this shape
+   SetColor(*)        => {}
+   ChangeThickness(*) => {}
+   Startup(*) =>{}
+   CleanUp(*) =>{}
+
+   /**
+    * Save the current control dimensions as the original (OG) size and update
+    * internal coordinates. Optionally records the associated filename.
+    * @param fname - Optional filename to store for later reference
+    */
+   SaveSize(fname?) {
+      this.GetPos(&X, &Y, &W, &H)
+      ; OG info
+      this.OG.W      := W
+      this.OG.H      := H
+      ; Current Info
+      this.sCoord := { X1: X, Y1: Y, X2: X + W, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+      If (IsSet(fname))
+         this.fname := fname
+   }
+   /**
+    * Restore the control to its original saved dimensions.
+    */
+   ResetSize() {
+      if (this.orientation == 0 || this.orientation == 180)
+         super.Move(, , this.OG.W, this.OG.H)
+      else
+         super.Move(, , this.OG.H, this.OG.W)
+      this.UpdateCoord()
+   }
+   /**
+    * Make the background color of a shape transparent
+    */
+   TransparentBackground() {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      hBitmap := GDI.CopyImage(this.Handle)
+      bgColor := 0x00000000 | Bitmap.GetBackgroundColor(hBitmap) ; blend in 0 alpha channel
+      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, bgColor, 0x000000)) {
+         this.Handle := hBitmap
+      }
+      this.Move(X, Y, W, H)
+      return changed
+   }
+
+   /**
+    * Replace one color with another, typically the background
+    * @param fromARGB - ARGB Color, the alpha channel will be used on replaced color
+    * @param toRGB - The RGB Color to replace
+    */
+   ReplaceColor(fromARGB, toRGB) {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      hBitmap := GDI.CopyImage(this.Handle)
+      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, fromARGB, toRGB)) {
+         this.Handle := hBitmap
+      }
+      this.Move(X, Y, W, H)
+      return changed
+   }
+   /**
+    * Rotate the bitmap by a multiple of 90 degrees in place,
+    * updating the control handle and saving the new size.
+    * Use GDI+ Bitmaps for this
+    * @param Angle - Rotation angle; must be a +/- 90-degree increment
+    */
+   Rotate(Angle) {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         this.orientation += Angle
+      }
+      this.Move(X, Y, H, W) ; reverse H/W
+   }
+   /**
+    * Flip the bitmap horizontally or vertically in place,
+    * updating the control handle and saving the new size.
+    * Use GDI+ Bitmaps for this
+    * @param How - 1 for top/bottom flip, 2 for left/right flip (default 1)
+    */
+   Flip(How := 1) {
+      this.PostAction(UnDo.BITMAP_CHANGE)
+      this.GetPos(&X, &Y, &W, &H)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      If (pBitmap := BitMap.Flip(pBitmap, How)) {
+         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+      }
+      this.Move(X, Y, W, H)
+   }
+   /**
+    * Gets or sets the HBITMAP associated with this picture control.
+    * Getting uses STM_GETIMAGE; setting resizes the control to fit the new bitmap.
+    */
+   Handle {
+      ; SendMessage is very fast ~20uSec
+      get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      ; Resize control to actual bitmap size
+      set => this.Value := "*W0 *H0 HBITMAP:" Value
+   } 
+   /**
+    * Return bitmap unique info for undo/redo
+    * @returns {Object} 
+    */
+   BitmapInfo() {
+      Return {
+         sCoord     : this.sCoord.clone(),
+         sPad       : this.sPad.clone(),
+         OG         : this.OG,
+         orientation: this.orientation,
+         hBitmap    : GDI.CopyImage(this.Handle)
+      }
+   }
+
+}
