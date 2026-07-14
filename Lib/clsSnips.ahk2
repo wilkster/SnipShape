@@ -1674,12 +1674,11 @@ Class Snips {
                ans := MsgBox("Snip has unsaved changes with " shapeCount " Shapes, please confirm close", "Confirm Close", 1 + 32)
                If (ans != "OK")
                   Return
-
             }
+            SnipObj.UnDo := unset
             SnipObj.Destroy()
          }
       }
-      SnipObj.UnDo := unset
    }
 }
 
