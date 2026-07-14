@@ -490,6 +490,7 @@ Class Snips {
                ; Cursor Callback may have already set drawmode from button bar
                ; But this will make sure the border is correct
                ; If minimized from task bar activate gets fired again
+               ButtonBar.SnipObj := SnipObj
                If (WinExist("A")) {
                   Snips.SetDrawMode(Snips.GetGuiObj(hWnd).DrawMode, hWnd)
                   If (wParam = 1)

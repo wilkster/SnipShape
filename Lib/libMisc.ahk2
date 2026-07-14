@@ -674,7 +674,7 @@ RGBval(rgb) {
             If (rgb) {
                ; Note we have to handle FF00FF hex numbers without leading 0x, so just check for integers here
                If IsInteger(rgb) ; Was, IsInteger vs IsXDigit : could be a string format of an integer or hex
-                  return rgb
+                  return Integer(rgb)
                else
                   Return Integer(cMap.Get(StrUpper(rgb), "0x" SubStr(rgb, -6)))
             } else
@@ -1094,13 +1094,33 @@ Class ImageList extends map {
     * @param {Integer} group default 1, defines which icon in a group of icons
     */
    __New(largeIcon:=0) {
-      this.iList := IL_Create(10, 10, largeIcon)
-      If ((res := DllCall("Comctl32\ImageList_GetIconSize", "PTR", this.iList, "Int*", &W := 0, "Int*", &H := 0)) == 0)
-         warning("Failed to get the default dimensions of the ImageList")
-      ; NOTE - default size will be small or large icon system size, call Size to change prior to adding any images
-      W := this.Size
-      this.Width  := W
-      this.Height := W
+
+      static ILC_COLOR32 := 0x0020
+
+      cx := largeIcon ? DllCall("GetSystemMetrics", "Int", 11) ; SM_CXICON
+                     : DllCall("GetSystemMetrics", "Int", 49) ; SM_CXSMICON
+
+      cy := largeIcon ? DllCall("GetSystemMetrics", "Int", 12) ; SM_CYICON
+                     : DllCall("GetSystemMetrics", "Int", 50) ; SM_CYSMICON
+
+      this.iList := DllCall("Comctl32\ImageList_Create"
+         , "Int", cx
+         , "Int", cy
+         , "UInt", ILC_COLOR32
+         , "Int", 10
+         , "Int", 10
+         , "Ptr")
+
+      If (this.iList) {
+         ; this.iList := IL_Create(10, 10, largeIcon)
+         If ((res := DllCall("Comctl32\ImageList_GetIconSize", "PTR", this.iList, "Int*", &W := 0, "Int*", &H := 0)) == 0)
+            warning("Failed to get the default dimensions of the ImageList")
+         ; NOTE - default size will be small or large icon system size, call Size to change prior to adding any images
+         W := this.Size
+         this.Width := W
+         this.Height := W
+      } else
+         Throw(OSError(,"Error Creating Imagelist"))
    }
    /**
     * Size of Images, by default either system large/small 
@@ -1120,6 +1140,32 @@ Class ImageList extends map {
          return res
       }
    }
+   /**
+    * Replace a tag and value in the image list
+    * @param oldTag 
+    * @param newTag 
+    * @param hIcon 
+    * @returns {unset?} 
+    */
+   Replace(oldTag, newTag, hIcon) {
+      Index := super.Get(oldTag, 0) ;1..N
+      If (Index) {
+         newIndex := DllCall("comctl32\ImageList_ReplaceIcon"
+            , "ptr", this.iList    ; HIMAGELIST
+            , "int", Index - 1     ; index to replace, or -1 to append
+            , "ptr", hIcon         ; your HICON
+            , "int")
+         If (newIndex = -1 or newIndex != (Index - 1))
+            warning("Replace failed for " oldTag "->" Index ", LastError: " A_LastError)
+         Else {
+            super.delete(oldTag)
+            super[newTag] := Index
+         }
+      } Else {
+         warning("Did not find tag '" oldTag "' in the imagelist")
+      }
+   }
+
    /**
     * Destroy the underlying ImageList and free its resources
     */
@@ -1148,30 +1194,35 @@ Class ImageList extends map {
          } 
       }  
       set {
-         ; list[tag] := value
-         ; IDEA ImageList_ReplaceIcon or ImageList_Replace can replace one entry
          If (tag) {
-            If (super.has(tag)) {
+            If (Index := super.get(tag,0)) {
                If (Value == "") {
                   warning("Removing " tag " from the imagelist")
                   super.delete(tag)
                   Return
                } Else {
-                  warning(tag " already exists in the image list, the imag will be replaced")   
+                  newIndex := DllCall("comctl32\ImageList_ReplaceIcon"
+                     , "ptr", this.iList    ; HIMAGELIST
+                     , "int", Index - 1     ; index to replace, or -1 to append
+                     , "ptr", value         ; your HICON
+                     , "int")
+                  If (newIndex = -1 or newIndex != (Index - 1))
+                     warning("Replace failed for " tag ", LastError: " A_LastError)
                }
-            }
+               Return
+            } 
 
             If (Value == "")
                Return
                
             If IsInteger(Value) { ; raw icon
-               idx := IL_Add(this.iList, "HICON:" Value, , true)
+               Index := IL_Add(this.iList, "HICON:" Value, , true)
             } Else { ; assume file force to icon
-               idx := IL_Add(this.iList, Value, , true)
+               Index := IL_Add(this.iList, Value, , true)
             }
 
-            If (idx) {
-               super[tag] := idx
+            If (Index) {
+               super[tag] := Index
             } Else {
                warning("Failed to add hicon " Value " with tag " tag " to the image list")
             }

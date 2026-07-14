@@ -18,6 +18,7 @@
 #include clsCursor.ahk2
 #include clsSnips.ahk2
 #include undo.ahk2
+#include ColorPopDown.ahk2
 #include Shapes\clsCommonShape.ahk2
 #include Shapes\clsTextShape.ahk2
 
@@ -282,12 +283,8 @@ Class Shapes {
             this.MenuCheckCurrent("Highlight Opacity", this.MhighlightOpacity, this.highlightOpacity)
             this.shapeBBMenu.Add('')
             ; Set default highlighter color
-            this.shapeBBMenu.Add("Set Highlighter Color", this.hlColorMenu)
-            this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico" )
-            for menName in ButtonBar.colorNameArray {
-               this.hlColorMenu.Add(menName, this.HKColor_Handler.bind(this, ButtonBar.colorCodeMap[menName]))
-               this.hlColorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
-            }
+            this.shapeBBMenu.Add("Set Highlighter Color", this.PickAColor.bind(this))
+            this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico") ; 
         Case "Redact":
             this.MenuCheckCurrent("Whiteout Thickness", this.MhighlightThickness, this.highLightThickness)
             this.MenuCheckCurrent("Whiteout Smoothing Factor", this.MHighlightSmoothFactor, this.HighlightSmoothFactor)
@@ -327,17 +324,18 @@ Class Shapes {
    }
 
    /**
-    * @description Menu callback that updates the active highlighter color and closes the color sub-menu.
-    * @param {Integer} colorCode - RGB color value selected by the user.
-    * @param {String} ItemName - Name of the selected menu item.
-    * @param {Integer} ItemPos - Position of the selected item in the menu.
-    * @param {Menu} MyMenu - The menu object that triggered this callback.
+    * @description Menu callback and color select callback to change highlight color
     */
-   Static HKColor_Handler(colorCode, ItemName, ItemPos, MyMenu) {
-      this.highlightColor := colorCode
-      MyMenu.delete()
+   Static PickAColor(*) {
+      cb :=  Shapes.colorPicked.bind(this)
+      ; The color chooser then calls the cb
+      ColorPopDown.ShowColorPopup(cb, RGBval(this.highlightColor))
    }
-
+   Static colorPicked(cb, colorCode, *) {
+      this.highlightColor := colorCode
+      if (ButtonBar.SnipObj)
+         WinActivate(ButtonBar.SnipObj.hWnd)
+   }
    /**
     * @description Iterates all items in a sub-menu and checks the one matching the
     *   current value, unchecking all others. Then appends the sub-menu to the main
@@ -665,7 +663,7 @@ Class Shapes {
             ;----------------------------------------------------------------------
             Switch {
                Case this.ColorQueue.Length:
-                  ShapeObj.SetColor(this.ColorQueue.Pop())
+                  ShapeObj.colorPicked(this.ColorQueue.Pop())
                Case GetKeyState("Up", "P"):
                   ; Arrow key can real time change the width of the pens
                   ShapeObj.ChangeThickness(+0.03)
@@ -1038,7 +1036,7 @@ Class Shapes {
                Sleep(10)
                
                If (this.ColorQueue.Length) {
-                  ShapeObj.SetColor(this.ColorQueue.Pop())  ; works on active pen
+                  ShapeObj.colorPicked(this.ColorQueue.Pop())  ; works on active pen
                   ShapeObj.Refresh()           ; not needed for all shapes
                }
                ;----------------------------------------------------------------------

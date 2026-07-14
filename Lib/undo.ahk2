@@ -61,7 +61,7 @@ Class UnDo {
       If (this.undoStack.Length > 0) {
          obj := this.undoStack.Pop()
          this._clearItem(obj)
-         debug("Popping one off the undo stack, length=" this.undoStack.Length)
+         ; debug("Popping one off the undo stack, length=" this.undoStack.Length)
       }
    }
    /**
@@ -77,7 +77,7 @@ Class UnDo {
       data := this._CaptureData(action, obj)
       item := { obj: obj, action: action, data: data }
       this.undoStack.push(item)
-      dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
+      ; dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
 
       ; Cap undo depth - drop oldest entry, disposing any bitmap it holds
       If (this.undoStack.Length > UnDo.MAX_DEPTH) {

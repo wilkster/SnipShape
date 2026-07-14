@@ -13,6 +13,7 @@
 #Include ..\Theming.ahk2
 #Include ..\clsShapes.ahk2
 #Include ..\clsCursor.ahk2
+#include ..\ColorPopDown.ahk2
 /**
  * PicPlus class that extends the base picture class
  * @param {number} 
@@ -1232,20 +1233,14 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
          oEdit.SetFont('s' oFontVal.text, oFonts.text)
    }
    /**
-    * Open the system color picker dialog pre-populated with up to 16 custom colors from settings,
+    * Open the  color picker
     * and update the local Color variable with the user's selection
     */
    PickColor(*) {
-      colArray:=Array()
-      ; Read up 16 custom colors from the settings
-      Loop 16 {
-         cName := IniReadValue("User Shape Color", "Color " A_Index, 123)
-         If cName = 123
-            Break
-         colArray.push(RGBval(cName))
-      }
-      Color := ColorSelectDialog(Color ?? 0, textGui.hWnd, colArray, 1)
-      ; IDEA - I could detect and update the INI file with custom colors
+      ColorPopDown.ShowColorPopup(setColor, RGBval(Color), textGui.hWnd)
+   }
+   setColor(obj, Clr,*) {
+      Color := Clr
    }
 }
 ; a:=A_TickCount

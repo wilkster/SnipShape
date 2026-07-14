@@ -1504,6 +1504,28 @@ Class GDIp {
       Return pBitmap
    }
    /**
+    * 
+    * @param pGraphics Graphics handle
+    * @param pBitmap handle to pBitmp to draw into
+    * @param X left
+    * @param Y top
+    * @param W width
+    * @param H height
+    * @returns {Float | Integer | String} 
+    */
+   Static DrawImageRect(pGraphics, pBitmap, X, Y, W, H) {
+   ; X, Y - the coordinates of the destination upper-left corner
+   ; where the pBitmap will be drawn.
+   ; W, H - the width and height of the destination rectangle, where the pBitmap will be drawn.
+   if (res := DllCall("gdiplus\GdipDrawImageRect"
+      , "UPtr", pGraphics
+      , "UPtr", pBitmap
+      , "float", X, "float", Y
+      , "float", W, "float", H))
+      Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+   Return pBitmap
+}
+   /**
     * Create a GDI+ bitmap with the same dimensions as an existing graphics object
     * @param pGraphics Source Graphics object
     * @param Width Bitmap width in pixels

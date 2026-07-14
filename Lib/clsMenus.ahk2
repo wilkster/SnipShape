@@ -13,6 +13,7 @@
 #include clsCursor.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
+#include ColorPopDown.ahk2
 ; #include Shapes\clsCommonShape.ahk2
 /**
  * Static Class for menus
@@ -445,16 +446,9 @@ Class ShapeMenus {
             Switch ShapeObj.Shape {
                Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
                Default:
-                  cn := "Change " . ShapeObj.ShapeName . " Color"
-                  shapeMenu.Add(cn, colorMenu)
-                  shapeMenu.SetIcon(cn, SETTINGS.CursorPath . "colors.ico")
-                  ; Reuse hicons from buttonbar creation
-                  For menName in ButtonBar.colorNameArray {
-                     colorMenu.Add(menName, ShapeMenus.Color_Handler.bind(this, ShapeObj, ButtonBar.colorCodeMap[menName]))
-                     colorMenu.SetIcon(menName, "HICON:" ButtonBar.colorIconsObj[menName], , 0)
-                  }
+                  shapeMenu.Add("Shape Color", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+                  shapeMenu.SetIcon("Shape Color", SETTINGS.CursorPath . "colors.ico") ; 
                   shapeMenu.Add()
-
             }
          Default:
       }
@@ -541,6 +535,10 @@ Class ShapeMenus {
          Case ItemName ~= "Clear":
             Snips.PostClearAllShapes(shapeObj.GUI.hWnd)
             Snips.ClearAllShapes(shapeObj.GUI.hWnd)
+         Case ItemName ~= "Shape Color":
+            cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
+            ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color))
+
          Default:
       }
       MyMenu.delete()
@@ -552,12 +550,13 @@ Class ShapeMenus {
     * @param {String} ItemName - Display text of the selected color item (unused)
     * @param {Integer} ItemPos - Position of the item in the color submenu (unused)
     * @param {Object} MyMenu - The Menu object that triggered the callback
+    * TODO - adapt for popdown
     */
-   Static Color_Handler(shapeObj, colorCode, ItemName, ItemPos, MyMenu) {
-      ShapeObj.PostAction(UnDo.SHAPE_COLOR)
-      ShapeObj.Color := colorCode
-      ShapeObj.Refresh()
-      MyMenu.delete()
+   Static colorPicked(shapeObj, cb, colorCode,  *) {
+      shapeObj.PostAction(UnDo.SHAPE_COLOR)
+      shapeObj.Color := colorCode
+      shapeObj.Refresh()
+      WinActivate(shapeObj.GUI.hWnd)
    }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")
