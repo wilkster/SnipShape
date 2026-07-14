@@ -172,7 +172,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 
 ## Toolbar - F1 to toggle while snip active
 
-![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
+![image](https://github.com/user-attachments/assets/ee359017-e9a0-4d23-bf6b-537e9953096e)
 
 A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
@@ -310,9 +310,8 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba"/>
 
-#### Color menu
-
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/97f64679-f106-48a0-8c6e-cc46c0344220"/>
+#### Color menu, LMB to select color, RMB to customize color
+<img width="200" height="200" alt="image" src="https://github.com/user-attachments/assets/65817b48-6d98-410c-ac2b-8a495eddf9f6" />
 
 ### Drawing/Resizing Shapes
 
