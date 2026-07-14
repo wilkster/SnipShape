@@ -71,7 +71,7 @@ Class ColorPopDown {
       OnMessage(0x0006, ColorPopDown.WM_ACTIVATE.bind(this)) ; WM_ACTIVATE, once
       ; Show the windoww a bit under the mouse
       cm := CoordMode("Mouse", "Screen")
-      MouseGetPos(&sX,&sY)
+      MouseGetPos(&sX, &sY)
       CoordMode("Mouse", cm)
       for idx, ctrl in this.colorPicControls {
          if (defColor == this.colorValArray[idx]) {
@@ -94,7 +94,7 @@ Class ColorPopDown {
       else
          this.colorGui.Opt("-Owner")
 
-      this.colorGui.Show("NA Y" sY " X" sX)
+      this.colorGui.Show("Y" sY " X" sX)
    }   
 
    /**
