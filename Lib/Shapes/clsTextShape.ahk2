@@ -1237,7 +1237,7 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
     * and update the local Color variable with the user's selection
     */
    PickColor(*) {
-      ColorPopDown.ShowColorPopup(setColor, RGBval(Color), textGui.hWnd)
+      ColorPopDown.ShowColorPopup(setColor, RGBval(Color)) ; textGui.hWnd already has an owner
    }
    setColor(obj, Clr,*) {
       Color := Clr
