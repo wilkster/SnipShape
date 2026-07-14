@@ -189,9 +189,7 @@ Class ColorPopDown {
          ; pic := this.colorGui.AddPicture(opt " W" bs " H" bs, "HICON:" hIcon) ; 1 user resource
          this.colorPicControls.push(pic)
          pic.OnEvent("Click", _colorPicked.Bind(Index))
-         pic.OnEvent("ContextMenu", _colorEdit.Bind(color, Index))
-         ; Handle hover message for this control
-         ; pic.OnMessage(0x0020, this.PIC_SETCURSOR.Bind(this))
+         pic.OnEvent("ContextMenu", _colorEdit)
          ; Custom properties for this control
          Pic.Index    := Index
          pic.IconType := this.smallerIcon
@@ -221,8 +219,10 @@ Class ColorPopDown {
        * @param clr Color to change
        * @param ctrl Control to Change it in
        */
-      _colorEdit(editColor, Index, PICControl, *) {
-         NewColor := RGBVal(_PickCustomColor(editColor))
+      _colorEdit(PICControl, *) {
+         editColor := PICControl.Color
+         Index     := PICControl.Index
+         NewColor  := RGBVal(_PickCustomColor(editColor))
          this.colorGui.show()
          oldColor := RGBval(editColor)
          If (NewColor >= 0 AND oldColor != RGBVal(NewColor)) {
