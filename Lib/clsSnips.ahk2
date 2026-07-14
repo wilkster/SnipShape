@@ -161,9 +161,9 @@ Class Snips {
       if (SnipObj := this.IsValid(hWnd)) {
          if (IsSet(Val)) {
             if (SnipObj.DrawMode != val) {
-               SnipObj.DrawMode := Val
                Cursor.SetCursor(Val)
             }
+            SnipObj.DrawMode := Val
          } else
             val := SnipObj.DrawMode
          ; Change backcolor if we are in "edit" mode
@@ -249,6 +249,7 @@ Class Snips {
          this._FileName            := ""
          this.BrushMap             := Map()
          this.BrushCount           := Map()
+         this.priorDrawMode        := 0
          Snips.guiSnips[this.hWnd] := this
          this.UnDo                 := UnDo()
          ; logGDI("+Create Snip:" this.Title)
@@ -396,7 +397,10 @@ Class Snips {
        */
       DrawMode {
          get => this._DrawMode
-         set => this._DrawMode := Value
+         set {
+            this.priorDrawMode := this._DrawMode 
+            this._DrawMode := Value
+         }
       }
       /**
        * Get or set the file path associated with this snip.
@@ -1250,6 +1254,45 @@ Class Snips {
          qTrayTip("Did not find a valid snip to resize", 2)
       }
    }
+
+   /**
+    * Scale the picture in the snip (vs just resizing it)
+    * @param hWnd Active handle to snip to scale
+    * @param {Float} ScaleFactor 
+    */
+   Static ScaleSnip(hWnd, ScaleFactor := 1.0) {
+      if this.IsValid(hWnd) {
+         ; Use the raw picture without any shapes
+         SnipObj := this.GetGuiObj(hWnd)
+         SnipObj.PostAction(UnDo.CHANGE_SNIP)
+         hBitmap := SnipObj.Pic.Handle
+         pBitmap := gdip.CreateBitmapFromHBITMAP(hBitmap)
+         WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
+         ; Scale to a new bitmap
+         if (ScaleFactor != 1.0)
+            pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
+         if (ScaleFactor > 1.0) ; ScaleFactor => radius
+            pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
+         GDIp.GetImageDimensions(pBitmap, &W, &H)
+         ; Need an hBitmap for the picture
+         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         SnipObj.Pic.Handle := hBitmap
+         BW := Settings.BorderWidth
+         snipObj.RefreshTextures()
+         DllCall("LockWindowUpdate", "UInt",SnipObj.Hwnd)         
+
+         ; Setup the new Snip information
+         ; NOTE - the .Area for the snip may not be needed is it isn't used anywhere
+         SnipObj.Area := Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
+         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW " W" Area.W + 2 * BW " H" Area.H + 2 * BW) ; NA -> want active
+         WinRedraw(SnipObj.hWnd)
+         DllCall("LockWindowUpdate", "UInt",0)         
+
+      } else {
+         qTrayTip("Did not find a valid snip to resize", 2)
+      }
+   }   
    /**
     * Load an image file and create a new snip window centered on the active monitor
     * @param {String} sFile - Full path to the image file to load

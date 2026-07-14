@@ -104,7 +104,11 @@ Class ButtonBar {
       Return
       
       PickAColor() {
+         ; Save and restore any recent drawing modes
+         drawMode := this.SnipObj.PriorDrawMode
          ColorPopDown.ShowColorPopup(this.colorPicked.bind(this), RGBval(this.BackColor), this.bbGui.hWnd)
+         if (drawMode)
+            Snips.SetDrawMode(drawMode, this.SnipObj.hwnd)
       }
    }
 
