@@ -311,7 +311,7 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 <img width="200" alt="image" src="https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba"/>
 
 #### Color menu
-<img width="388" height="388" alt="image" src="https://github.com/user-attachments/assets/65817b48-6d98-410c-ac2b-8a495eddf9f6" />
+<img width="200" height="200" alt="image" src="https://github.com/user-attachments/assets/65817b48-6d98-410c-ac2b-8a495eddf9f6" />
 
 ### Drawing/Resizing Shapes
 
