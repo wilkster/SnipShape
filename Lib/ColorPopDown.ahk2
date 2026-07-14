@@ -10,10 +10,9 @@
 #include clsShapes.ahk2 ; default colors are shared
 
 Class ColorPopDown {
-   Static colorNameArray   := Array() ; Index -> name
+   Static colorNameArray   := Array() ; Index -> name (tool tips only)
    Static colorValArray    := Array() ; Index -> Color value in decimal
    Static colorPicControls := Array() ; Index -> Pic Control
-   Static colorCodeMap     := Map() ; name -> Color
    Static smallerIconsObj  := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
    Static circledIconsObj  := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
    Static largerIconsObj   := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
@@ -21,10 +20,11 @@ Class ColorPopDown {
    Static circledIcon      := 2
    Static largerIcon       := 3
    Static lastControl      := 0
+   Static DPIFactor        := activeDPIFactor()
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Scalle circle size with the size of the font/buttons for the button bar
-      bs := round(activeDPIFactor() * (FontSize / 0.36))
+      bs := round(this.DPIFactor * (FontSize / 0.36))
       this.init(bs)
       logGDI("Built Color Buttons")
    }
@@ -36,34 +36,25 @@ Class ColorPopDown {
    Static Init(bs) {
       logGDI("Creating Color GUI")
       this.circleSize := bs
-      this.DPIFactor  := activeDPIFactor()
-      For idx, defColor in Shapes.DefaultColorNames {
-         cName := IniReadValue("User Shape Color", "Color " idx, 123)
-         If cName = 123 ; Create default setting if not already done
-            IniWrite(hex(defColor), SETTINGS.File, "User Shape Color", "Color " idx)
-      }
-      ; logGDI("ButtonBar Colors")
       ; This are the background colors for the light/dark windows menus
       this.smallerIconsObj.Size := this.circledIconsObj.Size := this.largerIconsObj.Size := this.circleSize
       Loop 36 {
-         cName := IniReadValue("User Shape Color", "Color " A_Index, 123)
-         If cName = 123 {
+         ColorName := IniReadValue("User Shape Color", "Color " A_Index, 123)
+         If ColorName = 123 {
             Color := 0x808080
-            cName := hex(Color)
+            ColorName := hex(Color)
             IniWrite(hex(Color), SETTINGS.File, "User Shape Color", "Color " A_Index)
+         } Else {
+            Color := RGBval(ColorName)
          }
-         Else {
-            Color := RGBval(cName)
-         }
-
-         name := "Set " cName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color " A_Index)
+         ; Descriptive Name
+         name := "Set " ColorName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color " A_Index)
          ; Save this information by use in the shape class
          this.colorNameArray.push(name)
          ; Save in an image list (this consumes then discards the icon)
          this.smallerIconsObj[A_Index] := this._BuildAColor(Color,1)
          this.circledIconsObj[A_Index] := this._BuildAColor(Color,2)
          this.largerIconsObj[A_Index]  := this._BuildAColor(Color,3)
-         this.colorCodeMap[name]       := Color
 
          this.colorValArray.push(RGBval(Color))
       }
@@ -97,7 +88,7 @@ Class ColorPopDown {
             }
          }
       }
-      ; Attache a parent if needed
+      ; Attach a parent if needed
       if (WinExist(parent))
          this.colorGui.Opt("+Owner" parent)
       else
@@ -114,7 +105,7 @@ Class ColorPopDown {
     * @returns {Any} 
     */
    Static _BuildAColor(color, type:=1) {
-      smCirSize := this.circleSize * 0.7
+      smCirSize := this.circleSize * 0.8
       Switch type {
          Case this.smallerIcon:
             ; Smaller circle
@@ -176,9 +167,7 @@ Class ColorPopDown {
       ; These are close to standard light mode/dark mode colors
       mbg := SystemThemeAwareToolTipMenu.IsDarkMode ? 0x333333 : 0xF9F9F9
 
-      ; this.colorGui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale +Owner" this.parent)
-      ; TODO - set the owner optionaly when the gui is shown, not created
-      gap := Round(2 * this.DPIFactor)
+      gap := Round(1.8 * this.DPIFactor)
       this.colorGui           := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")
       this.colorGui.BackColor := mbg
       this.colorGui.MarginX   := this.colorGui.MarginY := gap * 4
@@ -186,7 +175,6 @@ Class ColorPopDown {
          opt := (Mod(Index - 1, cols) = 0) ? (Index = 1 ? "" : "XM Y+" gap) : "X+" gap ; wrap the icons by position
          ; Get a copy of icon from imagelist and hand to picture control
          pic := this.colorGui.AddPicture(opt, "HICON:" this.smallerIconsObj[A_Index]) ; 1 user resource
-         ; pic := this.colorGui.AddPicture(opt " W" bs " H" bs, "HICON:" hIcon) ; 1 user resource
          this.colorPicControls.push(pic)
          pic.OnEvent("Click", _colorPicked.Bind(Index))
          pic.OnEvent("ContextMenu", _colorEdit)
@@ -196,12 +184,12 @@ Class ColorPopDown {
          pic.Color    := color
          pic.Tips     := this.colorNameArray[Index]
       }
+      ; Handle mouse over events here to dynamically adjust circle sizes
       this.colorGui.OnMessage(0x0020, this.GUI_SETCURSOR.Bind(this))
-
       win11RoundCorners(this.colorGui.hwnd)
 
       Return
-      ;----------------------------------------------------------------------
+      ;----------------------- C L O S U R E S ------------------------------
       ; Callback for the cursor motion message
       ; Used to show tips for each color when they are hovered over on the mouse
       ;----------------------------------------------------------------------
@@ -235,12 +223,11 @@ Class ColorPopDown {
             this.circledIconsObj[Index] := ColorPopDown._BuildAColor(NewColor,2)
             this.largerIconsObj[Index]  := ColorPopDown._BuildAColor(NewColor,3)
             ; Replace the active icon with a large on since it is active
-            PICControl.Value    := "HICON:" this.largerIconsObj[Index]
-            PICControl.IconType := this.largerIcon
-            PICControl.Color    := NewColor
-            PICControl.Tips     := this.colorNameArray[Index]
-            this.colorCodeMap[newName]      := NewColor
-            this.colorValArray[Index]       := RGBval(NewColor)
+            PICControl.Value           := "HICON:" this.largerIconsObj[Index]
+            PICControl.IconType        := this.largerIcon
+            PICControl.Color           := NewColor
+            PICControl.Tips            := newName
+            this.colorValArray[Index]  := RGBval(NewColor)
          }
       }  
       /**
