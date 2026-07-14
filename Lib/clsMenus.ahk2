@@ -24,6 +24,7 @@ Class SnipMenus {
    Static csMenu := Menu()
    Static PictMenu := Menu()
    Static SnipMenu := Menu()
+   Static ResizeCloneMenu := Menu()
    Static ResizeMenu := Menu()
    Static BitmapMenu := Menu()
    Static OCRMenu := Menu()
@@ -94,11 +95,19 @@ Class SnipMenus {
       this.csMenu.Add('') ;16
       this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
       this.csMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
-      this.csMenu.Add("Clone and Resize Snip",this.ResizeMenu)
+
+      this.csMenu.Add("Resize Snip",this.ResizeMenu)
+      this.csMenu.SetIcon("Resize Snip", SETTINGS.CursorPath . "Resize.ico")
+      ; Resize Submenu
+      For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
+         this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
+      }      
+
+      this.csMenu.Add("Clone and Resize Snip",this.ResizeCloneMenu)
       this.csMenu.SetIcon("Clone and Resize Snip", SETTINGS.CursorPath . "Resize.ico")
       ; Resize Submenu
       For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
-         this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
+         this.ResizeCloneMenu.Add(round(val*100) . "%", this.clonerescale.bind(this,val))
       }
       this.csMenu.Add('')
       this.AddEntry("Close This Snip (Esc)", "Close.ico") ;17
@@ -234,9 +243,19 @@ Class SnipMenus {
     * @param {Integer} ItemPos - Position of the item in the submenu (unused)
     * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
     */
-   Static rescale(Val, ItemName, ItemPos, MyMenu) {
-      Snips.CloneAndScaleSnip(WinActive('A'),Val)
+   Static clonerescale(Val, ItemName, ItemPos, MyMenu) {
+      Snips.CloneAndScaleSnip(WinActive('A'), Val)
    }
+   /**
+    * Clone and rescale the active snip to the selected percentage from the resize submenu
+    * @param {Float} Val - Scale factor (e.g. 0.5 for 50%, 2.0 for 200%)
+    * @param {String} ItemName - Display text of the selected menu item (unused)
+    * @param {Integer} ItemPos - Position of the item in the submenu (unused)
+    * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
+    */
+   Static rescale(Val, ItemName, ItemPos, MyMenu) {
+      Snips.ScaleSnip(WinActive('A'), Val)
+   }   
    /**
     * Populate the Insert Picture Shapes submenu with image files found in the icons folder.
     * Icons are cached in a static ImageList keyed by full path and the menu is rebuilt sorted by filename.
@@ -446,7 +465,8 @@ Class ShapeMenus {
             Switch ShapeObj.Shape {
                Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
                Default:
-                  shapeMenu.Add("Shape Color", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+                  ; shapeMenu.Add("Shape Color", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
+                  shapeMenu.Add("Shape Color", (*)=>{})
                   shapeMenu.SetIcon("Shape Color", SETTINGS.CursorPath . "colors.ico") ; 
                   shapeMenu.Add()
             }
@@ -455,8 +475,16 @@ Class ShapeMenus {
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
       If (PC > 1)
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
+
+      ; Handler for color selector auto pop-up and callback
+      OnMessage(0x011F, ColorPopDown.FlyOutColorSelect.bind(ColorPopDown),2)
+      ColorPopDown.callback :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
+
       shapeMenu.Show()
       ; Blocks here
+      ; Turn off the menu tracker since we don't need it any more
+      OnMessage(0x011F, ColorPopDown.FlyOutColorSelect.bind(ColorPopDown), 0)
+
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()

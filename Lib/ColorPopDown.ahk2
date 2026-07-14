@@ -95,7 +95,19 @@ Class ColorPopDown {
          this.colorGui.Opt("-Owner")
 
       this.colorGui.Show("Y" sY " X" sX)
+      ; Let the user keep mouse down and drag/release over a color
+      Hotkey("~LButton Up", this.HK_LButtonUp.Bind(this), "On")
    }   
+   /**
+    * Callback if the user releases the mouse button over a picture
+    * Will get called after a click event is processed
+    */
+   Static HK_LButtonUp(*) {
+      Hotkey("~LButton Up", "Off")   ; one-shot; don't leave a global hook dangling
+      If (this.lastControl) {
+         this._colorPicked(this.lastControl.Index)
+      }
+   }
 
    /**
     * Build a specific color
@@ -176,7 +188,7 @@ Class ColorPopDown {
          ; Get a copy of icon from imagelist and hand to picture control
          pic := this.colorGui.AddPicture(opt, "HICON:" this.smallerIconsObj[A_Index]) ; 1 user resource
          this.colorPicControls.push(pic)
-         pic.OnEvent("Click", _colorPicked.Bind(Index))
+         pic.OnEvent("Click", this._colorPicked.Bind(this, Index))
          pic.OnEvent("ContextMenu", _colorEdit)
          ; Custom properties for this control
          Pic.Index    := Index
@@ -193,15 +205,7 @@ Class ColorPopDown {
       ; Callback for the cursor motion message
       ; Used to show tips for each color when they are hovered over on the mouse
       ;----------------------------------------------------------------------
-      /**
-       * Handle a color circle click: queue the color, tint the bar, hide the popup
-       * @param {Integer} clr - RGB color value chosen
-       */
-      _colorPicked(Index, *) {
-         color := this.colorValArray[Index]
-         this._hideMe()
-         this.callback(color)
-      }   
+
       /**
        * Replace a color with another and update the InI file
        * @param clr Color to change
@@ -245,6 +249,20 @@ Class ColorPopDown {
          return Color
       }
    }
+   /**
+    * Handle a color circle click: queue the color, tint the bar, hide the popup
+    * @param {Integer} clr - RGB color value chosen
+    */
+   Static _colorPicked(Index, *) {
+      this.lastControl := 0 ; so button-up event doesn't repeat this
+      color := this.colorValArray[Index]
+      this._hideMe()
+      Try {
+         this.callback(color)
+      } Catch as E {
+         elog(E)
+      }
+   }      
    /**
     * WM_ACTIVATE message handler — updates the snip border color and draw mode
     * when a snip window gains or loses focus, and shows or hides the button bar accordingly
@@ -315,5 +333,93 @@ Class ColorPopDown {
       this.colorGui.Hide()
       OnMessage(0x0006, ColorPopDown.WM_ACTIVATE.Bind(this), 0)
    }
-  
+   /**
+    * Message handler for 0x011F, menu item select
+    * When the menu item for Color is selected show a flyout color selector like it was a menu flyout
+    * @param wParam Id and Flags
+            LOWORD = item ID (or item position, if MF_POPUP flag is set)
+            HIWORD = flags (MF_POPUP, MF_MOUSESELECT, MF_HILITE, 0xFFFF+lParam=0 on menu close)
+    * @param lParam handle of the menu currently being tracked
+    * @param msg msg number
+    * @param hwnd snip window handle
+    */
+   Static FlyOutColorSelect(wParam, lParam, msg, hwnd) {
+      flags := (wParam >> 16) & 0xFFFF
+      idOrPos := wParam & 0xFFFF
+      ; Closing / nothing highlighted
+      If (lParam = 0 && flags = 0xFFFF) {
+         this._hideMe()
+         Return
+      }
+      ; A submenu (popup) is highlighted, not our leaf item — hide ours if open
+      If (flags & 0x10) {  ; MF_POPUP
+         this._hideMe()
+         Return
+      }
+      ; Look for Color as a keyword in the menu
+      menuString := GetMenuItemTextById(lParam,idOrPos)
+      If (menuString ~= "Color") {
+         If not IsWindowVisible(this.colorGui.hwnd) {
+            pos := GetMenuItemPositionById(lParam,idOrPos)
+            If (pos > 0) {
+               ; Get the top and right hand location of the menu so we don't overlap
+               rect := GetMenuItemScreenRect(lParam, hwnd, pos)
+               sY := rect.y1
+               sX := rect.x2
+            } Else {
+               ; backup
+               cm := CoordMode("Mouse", "Screen")
+               MouseGetPos(&sX, &sY)
+               CoordMode("Mouse", cm)
+            }
+            ; Position to the right of the item, like a real flyout
+            this.colorGui.Show("NA x" sX " y" sY)
+         }
+      } Else {
+         this._hideMe()
+      }
+      Return
+
+      /**
+       * Return the string associated with a menu entry
+       * @param hMenu Handle to the menu
+       * @param id id value of the menu entry
+       * @returns {String} Name of the menu
+       */
+      GetMenuItemTextById(hMenu, id) {
+         len := DllCall("GetMenuStringW", "ptr", hMenu, "uint", id, "ptr", 0, "int", 0, "uint", 0x0, "int")  ; MF_BYCOMMAND, query length
+         If (len = 0)
+            Return ""
+         buf := Buffer((len + 1) * 2, 0)
+         DllCall("GetMenuStringW", "ptr", hMenu, "uint", id, "ptr", buf, "int", len + 1, "uint", 0x0, "int")
+         Return StrGet(buf, "UTF-16")
+      }      
+      /**
+       * 
+       * @param hMenu Handle to the menu
+       * @param id ID of menu entry
+       * @returns {Number | Integer} Positino of the menu
+       */
+      GetMenuItemPositionById(hMenu, id) {
+         count := DllCall("GetMenuItemCount", "ptr", hMenu, "int")
+         Loop count {
+            pos := A_Index - 1
+            If (DllCall("GetMenuItemID", "ptr", hMenu, "int", pos, "int") = id)
+               Return pos
+         }
+         Return -1
+      }      
+      /**
+       * Return the screen rectangle for the menu item in itemPos
+       * @param hMenu Handle to the menu
+       * @param hOwnerWnd Owner window handle
+       * @param itemPos position of the menu entry
+       * @returns {stRECTI} 
+       */
+      GetMenuItemScreenRect(hMenu, hOwnerWnd, itemPos) {
+         rc := stRECTI()
+         DllCall("GetMenuItemRect", "ptr", hOwnerWnd, "ptr", hMenu, "uint", itemPos, "ptr", rc)
+         Return rc
+      }
+   }
 }
