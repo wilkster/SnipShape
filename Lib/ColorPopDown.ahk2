@@ -353,7 +353,8 @@ Class ColorPopDown {
       }
       ; A submenu (popup) is highlighted, not our leaf item — hide ours if open
       If (flags & 0x10) {  ; MF_POPUP
-         this._hideMe()
+         if IsWindowVisible(this.colorGui.hwnd)
+            this._hideMe()
          Return
       }
       ; Look for Color as a keyword in the menu
@@ -376,7 +377,8 @@ Class ColorPopDown {
             this.colorGui.Show("NA x" sX " y" sY)
          }
       } Else {
-         this._hideMe()
+         if IsWindowVisible(this.colorGui.hwnd)
+            this._hideMe()
       }
       Return
 

@@ -70,7 +70,6 @@ Class SnipMenus {
 
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "screenshot.ico")
-      this.BitmapMenu.Add()
       ; Note, these two are renamed with current file name in Post
       this.AddEntry('Edit:', "Edit.ico")
       this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
@@ -477,14 +476,15 @@ Class ShapeMenus {
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
 
       ; Handler for color selector auto pop-up and callback
-      OnMessage(0x011F, ColorPopDown.FlyOutColorSelect.bind(ColorPopDown),2)
+      cb := ColorPopDown.FlyOutColorSelect.bind(ColorPopDown)
+      OnMessage(0x011F, cb , 1)
+      ; When a color is chose, then use this callback
       ColorPopDown.callback :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
 
       shapeMenu.Show()
       ; Blocks here
       ; Turn off the menu tracker since we don't need it any more
-      OnMessage(0x011F, ColorPopDown.FlyOutColorSelect.bind(ColorPopDown), 0)
-
+      OnMessage(0x011F, cb, 0)
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()
