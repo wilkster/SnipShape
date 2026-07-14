@@ -315,7 +315,7 @@ Class FreeHandShape extends commonShape {
    GetPathInfo(Points, pen) {
       oPath := GDIp.Path()
       added := Points.Size//8
-      if (added > 2)
+      if (added <= 2)
          oPath.AddPathLines(Points, added)
       else
          oPath.AddPathPolygon(Points, added)
