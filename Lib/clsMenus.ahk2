@@ -474,17 +474,13 @@ Class ShapeMenus {
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
       If (PC > 1)
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
-
-      ; Handler for color selector auto pop-up and callback
-      cb := ColorPopDown.FlyOutColorSelect.bind(ColorPopDown)
-      OnMessage(0x011F, cb , 1)
-      ; When a color is chose, then use this callback
-      ColorPopDown.callback :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
-
-      shapeMenu.Show()
+         
+      ; Track menu for color selections with callback when color is chosen
+      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.colorPicked.bind(this, ShapeObj))
       ; Blocks here
+      shapeMenu.Show()
+      ColorPopDown.RegisterFlyOutColorSelect()
       ; Turn off the menu tracker since we don't need it any more
-      OnMessage(0x011F, cb, 0)
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()
@@ -565,7 +561,7 @@ Class ShapeMenus {
             Snips.ClearAllShapes(shapeObj.GUI.hWnd)
          Case ItemName ~= "Shape Color":
             cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
-            ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color))
+            ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)
 
          Default:
       }

@@ -283,7 +283,7 @@ Class Shapes {
             this.MenuCheckCurrent("Highlight Opacity", this.MhighlightOpacity, this.highlightOpacity)
             this.shapeBBMenu.Add('')
             ; Set default highlighter color
-            this.shapeBBMenu.Add("Set Highlighter Color", this.PickAColor.bind(this))
+            this.shapeBBMenu.Add("Set Highlighter Color", (*) => {})
             this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico") ; 
         Case "Redact":
             this.MenuCheckCurrent("Whiteout Thickness", this.MhighlightThickness, this.highLightThickness)
@@ -317,7 +317,11 @@ Class Shapes {
          Case "Tool":
             ; IDEA - OCR capture default (lines/rows/table)
       }
+      ; Track menu for color selections with callback when color is chosen
+      ColorPopDown.RegisterFlyOutColorSelect(Shapes.colorPicked.bind(this))
       this.shapeBBMenu.Show()
+      ColorPopDown.RegisterFlyOutColorSelect()
+
       ; Blocks here
       this.shapeBBMenu.Delete()
       this.hlColorMenu.Delete()
@@ -329,7 +333,7 @@ Class Shapes {
    Static PickAColor(*) {
       cb :=  Shapes.colorPicked.bind(this)
       ; The color chooser then calls the cb
-      ColorPopDown.ShowColorPopup(cb, RGBval(this.highlightColor))
+      ColorPopDown.ShowColorPopup(cb, RGBval(this.highlightColor), ButtonBar.SnipObj.hWnd)
    }
    Static colorPicked(cb, colorCode, *) {
       this.highlightColor := colorCode

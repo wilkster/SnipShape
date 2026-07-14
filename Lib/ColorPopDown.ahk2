@@ -21,12 +21,15 @@ Class ColorPopDown {
    Static largerIcon       := 3
    Static lastControl      := 0
    Static DPIFactor        := activeDPIFactor()
+
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Scalle circle size with the size of the font/buttons for the button bar
       bs := round(this.DPIFactor * (FontSize / 0.36))
       this.init(bs)
       logGDI("Built Color Buttons")
+      this.cbColorPopDown := ColorPopDown.WM_ACTIVATE.bind(this)
+      this.callbackFlyOutColorSelect := ColorPopDown.FlyOutColorSelect.bind(ColorPopDown)
    }
    /**
     * Initialize (one time) the color GUI and build the colors
@@ -68,7 +71,7 @@ Class ColorPopDown {
    Static ShowColorPopup(callback, defColor, parent:=0, *) {
       this.callback := callback
       ; Renable active window tracking
-      OnMessage(0x0006, ColorPopDown.WM_ACTIVATE.bind(this)) ; WM_ACTIVATE, once
+      OnMessage(0x0006, this.cbColorPopDown) ; WM_ACTIVATE, once
       ; Show the windoww a bit under the mouse
       cm := CoordMode("Mouse", "Screen")
       MouseGetPos(&sX, &sY)
@@ -331,7 +334,19 @@ Class ColorPopDown {
     */
    Static _hideMe() {
       this.colorGui.Hide()
-      OnMessage(0x0006, ColorPopDown.WM_ACTIVATE.Bind(this), 0)
+      OnMessage(0x0006, this.cbColorPopDown, 0)
+   }
+   /**
+    * Register/deregister to handle menu based color flyouts
+    * @param callback Callback with flyout color select picks a color
+    */
+   Static RegisterFlyOutColorSelect(callback:="") {
+      If (callback) {
+         this.callback := callback
+         OnMessage(0x011F,this.callbackFlyOutColorSelect,1)
+      } Else {
+         OnMessage(0x011F,this.callbackFlyOutColorSelect,0)
+      }
    }
    /**
     * Message handler for 0x011F, menu item select
