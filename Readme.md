@@ -172,7 +172,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 
 ## Toolbar - F1 to toggle while snip active
 
-![image](https://github.com/user-attachments/assets/9738fdbe-cc70-45f7-9743-932304beec63)
+![image](https://github.com/user-attachments/assets/ee359017-e9a0-4d23-bf6b-537e9953096e)
 
 A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
