@@ -243,23 +243,7 @@ Class ButtonBar {
       this.colorQueue := -1
       return cmd
    }
-   /**
-    * Handle a color button selection by queuing the color, showing a tooltip,
-    * updating the bar's background to match, and clearing the color menu
-    * @param {Integer} btn - RGB color value of the selected color
-    * @param {Object} ctl - Control that was clicked (unused)
-    * @param {Integer} info - Additional event info (unused)
-    */
-   ; Static _colorHandler(btn, ctl, info,*) {
-   ;    ToolTip
-   ;    ToolTip(btn " color pressed")
-   ;    SetTimer(ToolTip, -2000)
-   ;    rgbClr := RGBval(btn)
-   ;    this.colorQueue := btn
-   ;    ; Clean up the button borders so they match the background
-   ;    this.BackColor := rgbClr
-   ;    this.MenuColors.Delete()
-   ; }
+
    /**
     * Position and show the button bar directly above the specified snip window.
     * Clamps the position to remain within the active monitor's work area.
@@ -284,9 +268,6 @@ Class ButtonBar {
             newY    := Max(sY - this.bbHeight, MonInfo.Y)
             sX      := Max(sX, MonInfo.X)
             this.bbgui.Show("NA Y" newY " X" sX)
-
-            ; SetParent(this.bbgui.hWnd,hWnd)
-            ; this.bbgui.Move(sX,newY)
          } Else {
             dlog("No Snip Active when expected")
          }

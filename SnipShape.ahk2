@@ -426,10 +426,6 @@ Exiting(ExitReason, ExitCode) {
 
    ; Shut down messages
    OnMessage(0x201, Snips.WM_LBUTTONDOWN, 0)
-   OnMessage(0x006, Snips.WM_ACTIVATE, 0)
-   OnMessage(0x0231, Snips.WM_SIZEEMOVE,0) ;WM_ENTERSIZEMOVE 
-   OnMessage(0x0232, Snips.WM_SIZEEMOVE,0) ;WM_EXITSIZEMOVE  
-   OnMessage(0x0216, Snips.WM_SIZEEMOVE,0) ; WM_MOVING
 
    Try Snips.CloseAll()
    SaveSettings()

@@ -98,13 +98,8 @@ Class Snips {
       this.TrayMenu.SetIcon("Edit Settings File", SETTINGS.CursorPath . "Settings.ico")
 
       ; Track activation for border colors and draw mode
-      OnMessage(0x006, this.WM_ACTIVATE.Bind(this), 1)
       ; Handle mouse clicks for various purposes
       OnMessage(0x201, this.WM_LBUTTONDOWN.Bind(this),1)
-      ; Size/Move of a Snip
-      OnMessage(0x0231, this.WM_SIZEEMOVE.Bind(this),1) ;WM_ENTERSIZEMOVE 
-      OnMessage(0x0232, this.WM_SIZEEMOVE.Bind(this),1) ;WM_EXITSIZEMOVE  
-      OnMessage(0x0216, this.WM_SIZEEMOVE.Bind(this),1) ; WM_MOVING
       ; Tell Windows 11 24h2 NOT to change window size (we want raw pixels)!
       ; Returning 1 means used original non-DPI scaled window size
       OnMessage(0x02E4, (*) => 1, 1) ; WM_GETDPISCALEDSIZE
@@ -256,6 +251,10 @@ Class Snips {
          ; RMB menu is on the screenshot picture control
          super.OnEvent("Close", this.Destroy.Bind(this))
          super.OnEvent("Escape", Snips.Close.Bind(Snips, this.hWnd))	;	2025-01-28 Now using a binding vs hotkey
+         super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
+         ; super.OnMessage(0x0232, this.WM_SIZEEMOVE_GUI.Bind(this))
+         ; super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
+         super.OnMessage(0x006, this.WM_ACTIVATE_GUI.Bind(this))
       }
       /**
        * Destructor — releases all cached GDI+ texture brushes when the GUI object is garbage-collected
@@ -460,34 +459,41 @@ Class Snips {
       SnipInfo() {
          Return { hBitmap: GDI.CopyImage(this.PIC.Handle) }
       }
-   }
-   /**
-    * Cancel an in-progress screen selection (e.g. on Escape key press)
-    * @param {Object} [objSel] - Optional selection state object (unused; present for callback compatibility)
-    */
-   Static closeSelect(objSel?) {
-      ; make sure we clean up, but Esc will also be deteched in the select loop
-      this.SelectScreenRegion(4, 'lbutton')
-   }
-   /**
-    * WM_ACTIVATE message handler — updates the snip border color and draw mode
-    * when a snip window gains or loses focus, and shows or hides the button bar accordingly
-    * @param {Integer} wParam - Activation code (0=deactivate, 1=activate, 2=click-activate)
-    * @param {Integer} lParam - Handle of the other window involved in the activation change
-    * @param {Integer} msg - Message identifier (0x006)
-    * @param {Integer} hWnd - Handle of the window receiving the message
-    */
-   Static WM_ACTIVATE(wParam, lParam, msg, hWnd) {
-      ; lParam is other window
-      focusBorder.HideFocus(true)
-      If (SnipObj := Snips.IsValid(hWnd)) {
+      WM_SIZEEMOVE_GUI(snipObj, wParam, lParam, msg) {
+         Switch msg {
+            Case 0x231: ; start dragging
+            Case 0x216: ; dragging
+               ; lParam is pointer to a rect structure of new position
+               ; better than WinGetPos while dragging
+               X := NumGet(lParam,0,"Int")
+               Y := NumGet(lParam,4,"Int")
+               ButtonBar.Show(snipObj.hWnd, , X, Y)
+            Case 0x232: ; done dragging
+
+            Default:
+
+         }
+         return 1
+      }      
+      /**
+       * WM_ACTIVATE message handler — updates the snip border color and draw mode
+       * when a snip window gains or loses focus, and shows or hides the button bar accordingly
+       * @param {Integer} wParam - Activation code (0=deactivate, 1=activate, 2=click-activate)
+       * @param {Integer} lParam - Handle of the other window involved in the activation change
+       * @param {Integer} msg - Message identifier (0x006)
+       * @param {Integer} hWnd - Handle of the window receiving the message
+       */
+      WM_ACTIVATE_GUI(SnipObj, wParam, lParam, msg) {
+         ; lParam is other window
+         focusBorder.HideFocus(true)
+         hwnd := SnipObj.hwnd
          Switch (wParam &= 0xFF) {
             Case 0:  ; Deactivate
                Snips.SetDrawMode(0, hWnd)
                SnipObj.BackColor := RGBval("c0x6d7f7f") ; Not Active
                Sleep(50) ; let it Deactivate first so we know where it is
                ; lParam is 0 if non AHK gui was activated
-               if (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
+               If (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
                   ButtonBar.Hide()
             Case 1, 2:  ; Activate
                ; 2 = click, 1 = other reason
@@ -508,34 +514,15 @@ Class Snips {
       }
    }
    /**
-    * WM_ENTERSIZEMOVE / WM_MOVING / WM_EXITSIZEMOVE message handler —
-    * repositions the button bar in real time as a snip window is dragged
-    * @param {Integer} wParam - Additional message data (unused)
-    * @param {Integer} lParam - Pointer to a RECT structure containing the new window position (WM_MOVING)
-    * @param {Integer} msg - Message identifier (0x231, 0x216, or 0x232)
-    * @param {Integer} hWnd - Handle of the window being moved or resized
-    * @returns {Integer} 1 if the message was handled for a valid snip, otherwise no return value
+    * Cancel an in-progress screen selection (e.g. on Escape key press)
+    * @param {Object} [objSel] - Optional selection state object (unused; present for callback compatibility)
     */
-   Static WM_SIZEEMOVE(wParam, lParam, msg, hWnd) {
-      If (SnipObj := this.IsValid(hWnd)) {
-         Switch msg {
-            Case 0x231: ; start dragging
-            Case 0x216: ; dragging
-               ; lParam is pointer to a rect structure of new position
-               ; better than WinGetPos while dragging
-               X := NumGet(lParam,0,"Int")
-               Y := NumGet(lParam,4,"Int")
-               ButtonBar.Show(hWnd, , X, Y)
-            Case 0x232: ; done dragging
-
-            Default:
-
-         }
-         return 1
-      }
+   Static closeSelect(objSel?) {
+      ; make sure we clean up, but Esc will also be deteched in the select loop
+      this.SelectScreenRegion(4, 'lbutton')
    }
    /**
-    * WM_LBUTTONDOWN message handler — dispatches left-button clicks to the appropriate
+    * Global WM_LBUTTONDOWN message handler — dispatches left-button clicks to the appropriate
     * handler: shape drawing on a snip surface, screen region selection initiation,
     * button bar drag, or button bar callback execution
     * @param {Integer} wParam - Message data (unused)

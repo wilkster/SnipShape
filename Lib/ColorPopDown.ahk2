@@ -28,7 +28,6 @@ Class ColorPopDown {
       bs := round(this.DPIFactor * (FontSize / 0.36))
       this.init(bs)
       logGDI("Built Color Buttons")
-      this.cbColorPopDown := ColorPopDown.WM_ACTIVATE.bind(this)
       this.callbackFlyOutColorSelect := ColorPopDown._FlyOutColorSelect.bind(ColorPopDown)
    }
    /**
@@ -66,7 +65,6 @@ Class ColorPopDown {
       logGDI("Created Color GUI")
    }
    Static _PrepColorPopup(defColor) {
-      OnMessage(0x0006, this.cbColorPopDown) ; WM_ACTIVATE, once
       for idx, ctrl in this.colorPicControls {
          if (defColor == this.colorValArray[idx]) {
             ; Current default color
@@ -82,7 +80,21 @@ Class ColorPopDown {
             }
          }
       }
-      Hotkey("~LButton Up", this.HK_LButtonUp.Bind(this), "On")
+      ; If users leaves moust down while dragging over controls,
+      ; allow releasing of the buttton over a control select that color
+      ; Similar to how menus work.
+      Hotkey("~LButton Up", HK_LButtonUp, "On")
+      Return
+      /**
+       * Callback if the user releases the mouse button over a picture
+       * Will get called after a click event is processed
+       */
+      HK_LButtonUp(*) {
+         Hotkey("~LButton Up", "Off", "Off")   ; one-shot; don't leave a global hook dangling
+         If (this.lastControl) {
+            this._colorPicked(this.lastControl.Index)
+         }
+      }
    }
    /**
     * Position the color popup at the mouse, aligned under the color button, and show it
@@ -106,42 +118,32 @@ Class ColorPopDown {
          this.colorGui.Opt("-Owner")
 
       this.colorGui.Show("Y" sY " X" sX)
+      ShapeOnTop(this.colorGui)
       ; Let the user keep mouse down and drag/release over a color
    }   
-      /**
+   /**
     * Register/deregister to handle menu based color flyouts
     * The popup is shown when the menu message is received
+    * Call this with a callback to run when color is selected, the menu.show(), then call again with no parameters
     * @param callback Callback with flyout color select picks a color, otherwise resets the OnMessage
     * Leave parameters blank to degegister the OnMessage handler
     */
-   Static RegisterFlyOutColorSelect(callback?, defColor?, parent:=0) {
+   Static RegisterFlyOutColorSelect(callback?, defColor?) {
       If (isset(callback)) {
          this.callback := callback ; used by _colorPicked
          If (IsSet(defColor)) {
             ; this.defaultColor := defColor
             this._PrepColorPopup(defColor)
          }
-         if (WinExist(parent))
-            this.colorGui.Opt("+Owner" parent)
-         else
-            this.colorGui.Opt("-Owner")
-         OnMessage(0x011F,this.callbackFlyOutColorSelect,1)
+         ; _FlyOutColorSelect
+         OnMessage(0x011F, this.callbackFlyOutColorSelect, 1) ; WM_MENUSELECT
       } Else {
-         OnMessage(0x011F,this.callbackFlyOutColorSelect,0)
+         OnMessage(0x011F, this.callbackFlyOutColorSelect, 0) ; WM_MENUSELECT
          this.callback := 0
       }
    }
 
-   /**
-    * Callback if the user releases the mouse button over a picture
-    * Will get called after a click event is processed
-    */
-   Static HK_LButtonUp(*) {
-      Hotkey("~LButton Up", "Off")   ; one-shot; don't leave a global hook dangling
-      If (this.lastControl) {
-         this._colorPicked(this.lastControl.Index)
-      }
-   }
+
 
    /**
     * Build a specific color
@@ -231,7 +233,9 @@ Class ColorPopDown {
          pic.Tips     := this.colorNameArray[Index]
       }
       ; Handle mouse over events here to dynamically adjust circle sizes
-      this.colorGui.OnMessage(0x0020, this.GUI_SETCURSOR.Bind(this))
+      this.colorGui.OnMessage(0x0020, this.GUI_SETCURSOR.Bind(this)) ;WM_SETCURSOR
+      ; Autohide the gui if it loses focus
+      this.colorGui.OnMessage(0x0006, checkToHide.bind()) ; WM_ACTIVATE
       win11RoundCorners(this.colorGui.hwnd)
 
       Return
@@ -239,7 +243,22 @@ Class ColorPopDown {
       ; Callback for the cursor motion message
       ; Used to show tips for each color when they are hovered over on the mouse
       ;----------------------------------------------------------------------
-
+      /**
+       * Hide the color pop-up when it is deactivated
+       * @param gui 
+       * @param wParam 
+       * @param lParam 
+       * @param msg 
+       */
+      checkToHide(gui, wParam, lParam, msg) {
+         Switch (wParam &= 0xFF) {
+            Case 0 : ; Deactivate
+               this._hideMe()
+            Case 0 : ; Activate
+               ; Any gui prep work to be done?
+            Default:
+         }
+      }
       /**
        * Replace a color with another and update the InI file
        * @param clr Color to change
@@ -250,6 +269,7 @@ Class ColorPopDown {
          Index     := PICControl.Index
          NewColor  := RGBVal(_PickCustomColor(editColor))
          this.colorGui.show()
+         ShapeOnTop(this.colorGui)
          oldColor := RGBval(editColor)
          If (NewColor >= 0 AND oldColor != RGBVal(NewColor)) {
             ; TODO - Create an undo point
@@ -291,32 +311,10 @@ Class ColorPopDown {
       this.lastControl := 0 ; so button-up event doesn't repeat this
       color := this.colorValArray[Index]
       this._hideMe()
-      Try {
+      if (this.callback)
          this.callback(color)
-      } Catch as E {
-         elog(E)
-      }
    }      
-   /**
-    * WM_ACTIVATE message handler — updates the snip border color and draw mode
-    * when a snip window gains or loses focus, and shows or hides the button bar accordingly
-    * @param {Integer} wParam - Activation code (0=deactivate, 1=activate, 2=click-activate)
-    * @param {Integer} lParam - Handle of the other window involved in the activation change
-    * @param {Integer} msg - Message identifier (0x006)
-    * @param {Integer} hWnd - Handle of the window receiving the message
-    */
-   Static WM_ACTIVATE(wParam, lParam, msg, hwnd) {
-      Switch (wParam &= 0xFF) {
-         Case 0: ; Deactivate
-            If (hwnd == this.colorGui.hwnd or lParam == 0) { ; WA_INACTIVE
-               this._hideMe()
-            }
-         Case 1, 2: ; Activate
-            If ((hwnd != this.colorGui.hwnd or lParam == 0) AND IsWindowVisible(this.colorGui.hwnd)) { ; WA_INACTIVE
-               this._hideMe()
-            }
-      }
-   }
+
    /**
     * When the mouse is over the gui handle showing/hiding the controls
     * @param guiControl picture control object 
@@ -365,7 +363,6 @@ Class ColorPopDown {
     */
    Static _hideMe() {
       this.colorGui.Hide()
-      OnMessage(0x0006, this.cbColorPopDown, 0)
    }
    /**
     * Message handler for 0x011F, menu item select
@@ -411,6 +408,7 @@ Class ColorPopDown {
             ; Position to the right of the item, like a real flyout
             ; Colors should have already been initialized, NA is important here
             this.colorGui.Show("NA x" sX " y" sY)
+            ShapeOnTop(this.colorGui)
          }
       } Else {
          if IsWindowVisible(this.colorGui.hwnd)
