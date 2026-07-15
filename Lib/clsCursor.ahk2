@@ -113,7 +113,7 @@ Class Cursor {
             }
          }
          ; Check for pending color change
-         If (color := ButtonBar.GetQueuedColor()) {
+         If ((color := ButtonBar.GetQueuedColor()) >= 0) {
             Snips.SetSnipBorderColor(color, hWnd)
             Shapes.globalShapeColor := RGBval(color)
          }

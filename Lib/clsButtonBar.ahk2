@@ -22,7 +22,7 @@ Class ButtonBar {
    Static Margin     := round(2.5 * this.DPIFactor)
    ; NOTE - we are not adjusting this dynamically for multiple monitors
    Static ButSize    := this.DPIFactor >= 1.5 ? 32 : 16 ; Raw size of cursor, may have to use 16 for low DPI
-   Static colorQueue := 0
+   Static colorQueue := -1
    Static shapeQueue := 0
    Static buttonTips := Map()
    Static buttonCallbacks := Map()
@@ -236,11 +236,11 @@ Class ButtonBar {
    }
    /**
     * Consume and return the pending queued color value, clearing the queue
-    * @returns {Integer} The queued RGB color value, or 0 if the queue is empty
+    * @returns {Integer} The queued RGB color value, or -1 if the queue is empty
     */
    Static GetQueuedColor() {
       cmd := this.colorQueue
-      this.colorQueue := 0
+      this.colorQueue := -1
       return cmd
    }
    /**

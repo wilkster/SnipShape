@@ -21,7 +21,7 @@ Class ColorPopDown {
    Static largerIcon       := 3
    Static lastControl      := 0
    Static DPIFactor        := activeDPIFactor()
-
+   Static defaultColor     := 0
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Scalle circle size with the size of the font/buttons for the button bar
@@ -29,7 +29,7 @@ Class ColorPopDown {
       this.init(bs)
       logGDI("Built Color Buttons")
       this.cbColorPopDown := ColorPopDown.WM_ACTIVATE.bind(this)
-      this.callbackFlyOutColorSelect := ColorPopDown.FlyOutColorSelect.bind(ColorPopDown)
+      this.callbackFlyOutColorSelect := ColorPopDown._FlyOutColorSelect.bind(ColorPopDown)
    }
    /**
     * Initialize (one time) the color GUI and build the colors
@@ -65,17 +65,8 @@ Class ColorPopDown {
       this._BuildColorPopup() ; 32 ms
       logGDI("Created Color GUI")
    }
-   /**
-    * Position the color popup just below the button bar, aligned under the color button, and show it
-    */
-   Static ShowColorPopup(callback, defColor, parent:=0, *) {
-      this.callback := callback
-      ; Renable active window tracking
+   Static _PrepColorPopup(defColor) {
       OnMessage(0x0006, this.cbColorPopDown) ; WM_ACTIVATE, once
-      ; Show the windoww a bit under the mouse
-      cm := CoordMode("Mouse", "Screen")
-      MouseGetPos(&sX, &sY)
-      CoordMode("Mouse", cm)
       for idx, ctrl in this.colorPicControls {
          if (defColor == this.colorValArray[idx]) {
             ; Current default color
@@ -91,6 +82,23 @@ Class ColorPopDown {
             }
          }
       }
+      Hotkey("~LButton Up", this.HK_LButtonUp.Bind(this), "On")
+   }
+   /**
+    * Position the color popup at the mouse, aligned under the color button, and show it
+    * Not used for menus, only for buttons
+    */
+   Static ShowColorPopup(callback?, defColor?, parent:=0, *) {
+      If (IsSet(callback))
+         this.callback := callback ; used by _colorPicked
+      ; Renable active window tracking
+      ; Show the windoww a bit under the mouse
+      If (IsSet(defColor)) {
+         this._PrepColorPopup(defColor)
+      }
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&sX, &sY)
+      CoordMode("Mouse", cm)
       ; Attach a parent if needed
       if (WinExist(parent))
          this.colorGui.Opt("+Owner" parent)
@@ -99,8 +107,31 @@ Class ColorPopDown {
 
       this.colorGui.Show("Y" sY " X" sX)
       ; Let the user keep mouse down and drag/release over a color
-      Hotkey("~LButton Up", this.HK_LButtonUp.Bind(this), "On")
    }   
+      /**
+    * Register/deregister to handle menu based color flyouts
+    * The popup is shown when the menu message is received
+    * @param callback Callback with flyout color select picks a color, otherwise resets the OnMessage
+    * Leave parameters blank to degegister the OnMessage handler
+    */
+   Static RegisterFlyOutColorSelect(callback?, defColor?, parent:=0) {
+      If (isset(callback)) {
+         this.callback := callback ; used by _colorPicked
+         If (IsSet(defColor)) {
+            ; this.defaultColor := defColor
+            this._PrepColorPopup(defColor)
+         }
+         if (WinExist(parent))
+            this.colorGui.Opt("+Owner" parent)
+         else
+            this.colorGui.Opt("-Owner")
+         OnMessage(0x011F,this.callbackFlyOutColorSelect,1)
+      } Else {
+         OnMessage(0x011F,this.callbackFlyOutColorSelect,0)
+         this.callback := 0
+      }
+   }
+
    /**
     * Callback if the user releases the mouse button over a picture
     * Will get called after a click event is processed
@@ -337,18 +368,6 @@ Class ColorPopDown {
       OnMessage(0x0006, this.cbColorPopDown, 0)
    }
    /**
-    * Register/deregister to handle menu based color flyouts
-    * @param callback Callback with flyout color select picks a color
-    */
-   Static RegisterFlyOutColorSelect(callback:="") {
-      If (callback) {
-         this.callback := callback
-         OnMessage(0x011F,this.callbackFlyOutColorSelect,1)
-      } Else {
-         OnMessage(0x011F,this.callbackFlyOutColorSelect,0)
-      }
-   }
-   /**
     * Message handler for 0x011F, menu item select
     * When the menu item for Color is selected show a flyout color selector like it was a menu flyout
     * @param wParam Id and Flags
@@ -358,12 +377,13 @@ Class ColorPopDown {
     * @param msg msg number
     * @param hwnd snip window handle
     */
-   Static FlyOutColorSelect(wParam, lParam, msg, hwnd) {
+   Static _FlyOutColorSelect(wParam, lParam, msg, hwnd) {
       flags := (wParam >> 16) & 0xFFFF
       idOrPos := wParam & 0xFFFF
       ; Closing / nothing highlighted
       If (lParam = 0 && flags = 0xFFFF) {
-         this._hideMe()
+         if IsWindowVisible(this.colorGui.hwnd)
+            this._hideMe()
          Return
       }
       ; A submenu (popup) is highlighted, not our leaf item — hide ours if open
@@ -389,6 +409,7 @@ Class ColorPopDown {
                CoordMode("Mouse", cm)
             }
             ; Position to the right of the item, like a real flyout
+            ; Colors should have already been initialized, NA is important here
             this.colorGui.Show("NA x" sX " y" sY)
          }
       } Else {

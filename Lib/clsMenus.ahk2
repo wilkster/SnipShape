@@ -476,7 +476,7 @@ Class ShapeMenus {
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
          
       ; Track menu for color selections with callback when color is chosen
-      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.colorPicked.bind(this, ShapeObj))
+      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.colorPicked.Bind(this, ShapeObj), RGBval(ShapeObj.Color)) ; , ShapeObj.GUI.hWnd
       ; Blocks here
       shapeMenu.Show()
       ColorPopDown.RegisterFlyOutColorSelect()
@@ -559,7 +559,7 @@ Class ShapeMenus {
          Case ItemName ~= "Clear":
             Snips.PostClearAllShapes(shapeObj.GUI.hWnd)
             Snips.ClearAllShapes(shapeObj.GUI.hWnd)
-         Case ItemName ~= "Shape Color":
+         Case ItemName ~= "Shape Color": ; No longer used
             cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
             ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)
 
