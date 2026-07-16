@@ -260,9 +260,14 @@ Class UnDo {
             reverseData := this._CaptureData(item.action, snipObj)
             targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
             If (hbitmap := item.data.hBitmap ?? 0) {
+
+               ; LockWindow(snipObj.hWnd)
+               ; snipObj.Show("X" Area.X " Y" Area.Y " W" Area.W " H" Area.H)
                snipObj.PIC.Handle := hBitmap ; PIC owns the handle
-               snipObj.Show("X" Area.X " Y" Area.Y " W" Area.W " H" Area.H)
-               WinRedraw(snipObj.hWnd)
+               snipObj.Move(Area.X, Area.Y, Area.W, Area.H)
+               WinRedraw(snipObj.hwnd)
+               ; GDI.vSync()
+               ; LockWindow()
                ButtonBar.Show(snipObj.hWnd)
                snipObj.RefreshTextures()
             }

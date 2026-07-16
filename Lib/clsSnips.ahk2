@@ -59,7 +59,7 @@ Class Snips {
       ; WS_EX_TRANSPARENT := +E0x20 - Prevents any mouse/key events from interactive with the window
       ; WS_EX_COMPOSITED  := +E0x02000000 - Prevents splatter when resizing & drawing (this is critical), prevents using GDI+
       ; WS_NOTIFY         := +0x0100 - so events get captured
-      this.guiSSR   := Gui("-0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
+      this.guiSSR   := Gui("+0x20000 -0x80000 +E0x80000 +AlwaysOnTop -caption -Border +ToolWindow -DPIScale","xxSelctxx")
       ; Custom Tray Menu
       this.TrayMenu := Menu()
       this.TrayMenu.Add("Snip Selection (Win-S)", this.startSnip.bind(this))  ; Creates a new menu item.
@@ -1120,14 +1120,16 @@ Class Snips {
          GDI.GetHBitmapDimensions(ihBitmap, &W, &H)
          BW := Settings.BorderWidth*2
          ; Replace the picture
+         LockWindow(snipObj.hwnd)
          snipObj.Pic.Handle := ihBitmap ; destroys og hBitmap
          ; Cleanup
          GDIp.DisposeImage(pBitmap) ; 
          ; Recompute textures
          snipObj.RefreshTextures()
          ; Autosize may pad image if there are shapes partially off the image
-         snipObj.Show("W" BW + W " H" BW + H)
+         snipObj.Move(,,BW + W, BW + H)
          WinRedraw(hWnd)
+         LockWindow()
       } Else {
          qTrayTip("Failed to get the Snip handle!",2)
       }

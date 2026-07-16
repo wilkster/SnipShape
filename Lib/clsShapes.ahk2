@@ -1296,14 +1296,17 @@ Class Shapes {
          If (iR.w < 25 AND iR.h < 25)
             Return
          ; This destroys the existing snip bitmap and creates a new one
-         Gdi.vSync()
          hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
          ; Hide the flash when we replace the bitmap
-         myGUI.Move(-20000,-20000, iR.w + BW * 2, iR.h + BW * 2) 
+         ;myGUI.Move(-20000,-20000, iR.w + BW * 2, iR.h + BW * 2) 
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         LockWindow(myGUI.hWnd)
          myPic.Handle := hBitmap  ; This will free hBitmap
          ; Shift and resize GUI to contain the new crop coordinates, allow for border shift
          myGUI.Move(gX1 + iR.l - BW, gY1 + iR.t - BW, iR.w + BW * 2, iR.h + BW * 2)
+         WinRedraw(myGUI.hwnd)
+         LockWindow()
+
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible and Ctrl.Source != "Screen" {
@@ -1414,7 +1417,6 @@ Class Shapes {
                Return 0
          }
          ; Extend in the appropriate direction
-         Gdi.vSync() ; Sync with vSync
          Switch eType {
             Case "Extend": ; enlarge outside
                hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b, 1)
@@ -1426,18 +1428,20 @@ Class Shapes {
          ; Get new dimensions
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         myGUI.Move(, , W + BW * 2, H + BW * 2)
+         LockWindow(myGUI.hWnd)
          myPic.Handle := hBitmap  ; This will free old hBitmap
          ; Resize GUI to contain the new crop coordinates
          Switch eType {
-            Case "Expand": ; enlarge inside
+            Case "Expand": ; enlarge inside, don't move window
                myGUI.Move(,, W + BW * 2, H + BW * 2)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                   For Ctrl in myGUI {
                      If Ctrl.Visible and Ctrl.Source != "Screen" {
                         Ctrl.GetPos(&X, &Y, &W, &H)
-                        if (l > 0 AND X > l OR (t > 0 and y > t))
+                        If (l > 0 AND X > l OR (t > 0 and Y > t)) {
+                           Ctrl.PostAction(UnDo.MOVE_SHAPE)
                            Ctrl.Move(X + (r - l), Y + (b - t))
+                        }
                         Ctrl.Refresh()
                      }
                   }
@@ -1447,6 +1451,7 @@ Class Shapes {
                If (l > 0 OR t > 0) {
                   For Ctrl in myGUI {
                      If Ctrl.Visible and Ctrl.Source != "Screen" {
+                        Ctrl.PostAction(UnDo.MOVE_SHAPE)
                         Ctrl.GetPos(&X, &Y, &W, &H)
                         Ctrl.Move(X + l, Y + t)
                         Ctrl.Refresh()
@@ -1454,6 +1459,7 @@ Class Shapes {
                   }
                }
          }
+         LockWindow()
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, ExtendObj.Gui.hWnd)

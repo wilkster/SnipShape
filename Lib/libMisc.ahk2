@@ -104,6 +104,26 @@ SetWindowPos(hWnd, wx, wy, ww, wh, flag) {
    )
 
 }
+/**
+ * Helps a bit when swapping out the picture with one of a different size
+ * @param {Integer} hwnd window handle
+ * @returns {unset?} 
+ */
+LockWindow(hwnd := 0) {
+   Static lastHwnd
+   Static WM_SETREDRAW := 0x000B
+   If (hwnd) {
+      SendMessage(WM_SETREDRAW, 0, 0, , hwnd)
+      lastHwnd := hwnd
+   } Else {
+      SendMessage(WM_SETREDRAW, 1, 0, , lastHwnd) 
+      DllCall("RedrawWindow"
+         , "Ptr", lastHwnd
+         , "Ptr", 0
+         , "Ptr", 0
+         , "UInt", 0x0001 | 0x0004 | 0x0080) ; RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
+   }
+}
 ;----------------------------------------------------------------------
 ; Return a window above the current, 0 if already on top
 ;----------------------------------------------------------------------
@@ -154,6 +174,14 @@ SetWindowTop(hWnd, flag:=0x0013) {
          , "Int", 0
          , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
       )
+}
+MoveWindow(hwnd, X, Y, W, H) {
+   DllCall("SetWindowPos"
+      , "Ptr", hWnd
+      , "Ptr", 0
+      , "Int", X, "Int", Y
+      , "Int", W, "Int", H
+      , "UInt", 0x0004) ; SWP_NOZORDER
 }
 ;----------------------------------------------------------------------
 ; set it bottom most
