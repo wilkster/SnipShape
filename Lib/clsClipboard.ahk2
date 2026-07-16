@@ -73,7 +73,7 @@ Class Clipboard {
     */
    Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
 
-      hBitmap:= GDIp.NormalizeHBitmap(hBitmap)
+      ; hBitmap:= GDIp.NormalizeHBitmap(hBitmap)
 
       pid  := DllCall("GetCurrentProcessId", "uint")
       hwnd := WinExist("ahk_pid " . pid)
