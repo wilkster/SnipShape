@@ -256,14 +256,14 @@ Class UnDo {
 
          Case UnDo.CHANGE_SNIP:
             snipObj := item.obj
+            Area := item.data.Area
             reverseData := this._CaptureData(item.action, snipObj)
             targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
             If (hbitmap := item.data.hBitmap ?? 0) {
-               GDI.GetHBitmapDimensions(hBitmap, &W, &H)
                snipObj.PIC.Handle := hBitmap ; PIC owns the handle
-               BW := Settings.BorderWidth * 2
-               snipObj.Show("W" BW + W " H" BW + H)
+               snipObj.Show("X" Area.X " Y" Area.Y " W" Area.W " H" Area.H)
                WinRedraw(snipObj.hWnd)
+               ButtonBar.Show(snipObj.hWnd)
                snipObj.RefreshTextures()
             }
 

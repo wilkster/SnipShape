@@ -457,7 +457,8 @@ Class Snips {
        * @returns {Object} 
        */
       SnipInfo() {
-         Return { hBitmap: GDI.CopyImage(this.PIC.Handle) }
+         this.GetPos(&X, &Y, &W, &H)
+         Return { hBitmap: GDI.CopyImage(this.PIC.Handle), Area: { X: X, Y: Y, W: W, H: H } }
       }
       WM_SIZEEMOVE_GUI(snipObj, wParam, lParam, msg) {
          Switch msg {
