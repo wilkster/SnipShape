@@ -1376,9 +1376,8 @@ Class Shapes {
 
          BW := Settings.BorderWidth
          sC :=ExtendObj.shapeCoord ; includes picture border offset
-         ExtendObj.GetPos(&cX1, &cY1, &cW, &cH) 
          myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
-         cX2 := cX1 + cW, cY2 := cY1 + cH
+         sC.X2 := sc.X1 + sc.W, sc.Y2 := sc.Y1 + sc.H
          pX2 := pX1 + pW, pY2 := pY1 + pH
          l := r := t := b := 0
          eType := ""
@@ -1386,19 +1385,19 @@ Class Shapes {
          Switch {
             Case (pX1 > sC.X):
                ; left
-               l := Abs(pX1 - cX1)
+               l := Abs(pX1 - sC.X1)
                eType := "Extend"
             Case (pY1 > sC.Y):
                ; top
-               t := Abs(pY1 - cY1)
+               t := Abs(pY1 - sC.Y1)
                eType := "Extend"
             Case (pX2 < sC.X2):
                ; right
-               r := Abs(pX2 - cX2)
+               r := Abs(pX2 - sC.X2)
                eType := "Extend"
             Case (pY2 < sC.Y2):
                ; bottom
-               b := Abs(pY2 - cY2)
+               b := Abs(pY2 - sC.Y2)
                eType := "Extend"
             Case (sc.W = pW AND sc.H != pH):
                ; Horz
@@ -1406,7 +1405,7 @@ Class Shapes {
                b := t + sC.H
                eType := "Expand"
             Case (sc.H = pH AND sc.W != pW):
-               ; Vertq
+               ; Vert
                l := ExtendObj.shapeStart.X
                r := l + sc.W
                eType := "Expand"
@@ -1418,9 +1417,9 @@ Class Shapes {
          Gdi.vSync() ; Sync with vSync
          Switch eType {
             Case "Extend": ; enlarge outside
-               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b,1)
+               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b, 1)
             Case "Expand": ; enlarge inside
-               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b,1)
+               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b, 1)
             Default:
                Return
          }
@@ -1428,7 +1427,7 @@ Class Shapes {
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
          myGUI.Move(, , W + BW * 2, H + BW * 2)
-         myPic.Handle := hBitmap  ; This will free hBitmap
+         myPic.Handle := hBitmap  ; This will free old hBitmap
          ; Resize GUI to contain the new crop coordinates
          Switch eType {
             Case "Expand": ; enlarge inside
