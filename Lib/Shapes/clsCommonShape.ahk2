@@ -46,25 +46,6 @@ AddNewBitmap(guiObj, Shape, sPicSource := "", sX, sY) {
  * @returns          - The new or recycled shape control object with its prototype set
  */
 _AddNewShapeOrBitmap(guiObj, Shape, GuiOptions := "", sPicSource := "", Factor := 1, sX := 0, sY := 0) {
-   ;----------------------------------------------------------------------
-   ; Reuse any hidden shapes that match this one
-   ; Non-layered windows have pictures attached to them, normal shapes are layered.
-   ;----------------------------------------------------------------------
-   For ctrl in guiObj {
-      ; When repooling, clear out the old shape data and properties
-      If ( NOT ctrl.Visible) {
-         shapeObj := ctrl
-         shapeObj.ClearProperties(shapeObj)
-         shapeObj.RemoveProperties(shapeObj)
-         shapeObj.Enabled := true
-         ; debug("Reusing Shape Object " Shape " " ctrl.HasProp("Shape") )
-         Break
-      }
-   }
-   ; Pictures are just for drawing on (static controls)
-   If ( NOT IsSet(shapeObj)) {
-      shapeObj := guiObj.AddPicture(GuiOptions, "") ; OK, this is GUI vs PicPlus
-   }
    ; Map all of the shapes into the approriate source and class prototype
    static ShapeClassMap := Map(
       Shapes.SHAPE_HILITER,       {source: "FreeHand", cls: FreeHandShape.Prototype},
@@ -107,7 +88,26 @@ _AddNewShapeOrBitmap(guiObj, Shape, GuiOptions := "", sPicSource := "", Factor :
       Shapes.SHAPE_LEFTARROWTEXT, {source: "Text",      cls: TextShape.Prototype},
       Shapes.SHAPE_RIGHTARROWTEXT,{source: "Text",      cls: TextShape.Prototype},
    )   
-   ; Set the base class for this specific shape
+   ;----------------------------------------------------------------------
+   ; Reuse any hidden shapes that match this one
+   ; Non-layered windows have pictures attached to them, normal shapes are layered.
+   ;----------------------------------------------------------------------
+   For ctrl in guiObj {
+      ; When repooling, clear out the old shape data and properties
+      If ( NOT ctrl.Visible) {
+         shapeObj := ctrl
+         shapeObj.ClearProperties(shapeObj)
+         shapeObj.RemoveProperties(shapeObj)
+         shapeObj.Enabled := true
+         ; debug("Reusing Shape Object " Shape " " ctrl.HasProp("Shape") )
+         Break
+      }
+   }
+   ; Pictures are just for drawing on (static controls)
+   If ( NOT IsSet(shapeObj)) {
+      shapeObj := guiObj.AddPicture(GuiOptions, "") ; OK, this is GUI vs PicPlus
+   }
+   ; Extract class info based on desired shape   
    If (ShapeClassMap.has(Shape)) {
       shapeObj.Source := ShapeClassMap[Shape].source
       shapeObj.base   := ShapeClassMap[Shape].cls
