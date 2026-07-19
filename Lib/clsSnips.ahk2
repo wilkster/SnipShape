@@ -198,7 +198,7 @@ Class Snips {
          hWnd := WinExist("A")
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
-            If (Ctrl.Source != "Screen" and Ctrl.Visible) {  ; only visible ones, they have been closed already??
+            If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
                Ctrl.Close(skipUndo)
             }
          }
@@ -216,7 +216,7 @@ Class Snips {
          hWnd := WinExist("A")
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
-            If (Ctrl.Source != "Screen" and Ctrl.Visible) {  ; only visible ones, they have been closed already??
+            If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
                Ctrl.PostAction(UnDo.DELETE_SHAPE)
             }
          }
@@ -1340,7 +1340,7 @@ Class Snips {
             ; Prompt to close if Snip has unsaved changes
             shapeCount := 0
             For ShapeObj in SnipObj {
-               If (ShapeObj.Visible and ShapeObj.Source != "Screen")
+               If (ShapeObj.Visible)
                   shapeCount++
             }
             if SnipObj.Dirty AND shapeCount > 0 AND Snips.confirmClose {

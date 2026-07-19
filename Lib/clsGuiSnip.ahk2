@@ -195,7 +195,7 @@ Class GuiSnip extends Gui {
     */
    RefreshTextures() {
       For Ctrl in this {
-         If Ctrl.Visible and Ctrl.Source != "Screen" {
+         If (Ctrl.Visible) {
             Ctrl.Refresh()
          }
       }

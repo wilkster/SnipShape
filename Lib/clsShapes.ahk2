@@ -1302,7 +1302,7 @@ Class Shapes {
 
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
-            If Ctrl.Visible and Ctrl.Source != "Screen" {
+            If Ctrl.Visible {
                Ctrl.GetPos(&X, &Y, &W, &H)
                Ctrl.Move(X - C.X1, Y - C.Y1)
                Ctrl.Refresh()
@@ -1335,7 +1335,7 @@ Class Shapes {
          myGui.ReplaceSnip(hBitmap)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
-            If Ctrl.Visible and Ctrl.Source != "Screen" {
+            If Ctrl.Visible {
                Ctrl.GetPos(&X, &Y, &W, &H)
                If (pW = iR.W) ; Horz section
                   Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
@@ -1419,13 +1419,13 @@ Class Shapes {
                myGui.ReplaceSnip(hBitmap)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                   For Ctrl in myGUI {
-                     If Ctrl.Visible and Ctrl.Source != "Screen" {
+                     If Ctrl.Visible {
                         Ctrl.GetPos(&X, &Y, &W, &H)
                         If (l > 0 AND X > l OR (t > 0 and Y > t)) {
                            Ctrl.PostAction(UnDo.MOVE_SHAPE)
                            Ctrl.Move(X + (r - l), Y + (b - t))
                         }
-                        Ctrl.Refresh()
+                        ; Ctrl.Refresh()
                      }
                   }
             Case "Extend": ; enlarge outside
@@ -1433,11 +1433,11 @@ Class Shapes {
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                If (l > 0 OR t > 0) {
                   For Ctrl in myGUI {
-                     If Ctrl.Visible and Ctrl.Source != "Screen" {
+                     If Ctrl.Visible {
                         Ctrl.PostAction(UnDo.MOVE_SHAPE)
                         Ctrl.GetPos(&X, &Y, &W, &H)
                         Ctrl.Move(X + l, Y + t)
-                        Ctrl.Refresh()
+                        ; Ctrl.Refresh()
                      }
                   }
                }
@@ -1456,9 +1456,7 @@ Class Shapes {
    Static SisterShapes(ShapeObj) {
       SisShapes := Array()
       For Ctrl in ShapeObj.Gui {
-         ; If Ctrl.Visible AND Ctrl.Hwnd != ShapeObj.Hwnd AND Ctrl.Source == ShapeObj.Source {
-         ; If Ctrl.Visible AND Ctrl.Source != "Screen" AND Ctrl.Hwnd != ShapeObj.Hwnd {
-         If Ctrl.Visible AND Ctrl.Source ~= "Shape" AND Ctrl.Hwnd != ShapeObj.Hwnd {
+         If Ctrl.Visible AND Ctrl.Source ~= "Shape" {
             SisShapes.Push(Ctrl)
          }
       }
