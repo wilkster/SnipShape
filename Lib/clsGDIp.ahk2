@@ -459,6 +459,27 @@ int DrawText(
     */
    Static GetWindowDC(hWnd) => DllCall("User32\GetWindowDC", "Ptr",hWnd)
 
+   /**
+    * Create a GDI solid color brush to fill areas with
+    * @param Color BGR Color set set brush
+    * @returns {Float | Integer | String} 
+    */
+   Static CreateSolidBrush(Color) => DllCall("Gdi32\CreateSolidBrush", "UInt", Color, "Ptr")
+   /**
+    * Fill a DIB with a color, used to set borders for Snips
+    * @param hdcMem DIB Handle
+    * @param RGB Color to fill with
+    * @param x/y/w/h Coordinates within DIB to fill
+    */
+   Static FillRect(hdcMem, RGB, x, y, w, h) {
+      BGR := ((RGB & 0xFF) << 16) | (RGB & 0xFF00) | ((RGB >> 16) & 0xFF)
+      hBrush := GDI.CreateSolidBrush(BGR)
+      rc := stRECTI()
+      rc.Init(x, y, w, h)
+      DllCall("User32\FillRect", "Ptr", hdcMem, "Ptr", rc, "Ptr", hBrush)
+      GDI.DeleteObject(hBrush)
+
+   }
    /*
    typedef struct _BLENDFUNCTION {
    BYTE BlendOp; := AC_SRC_OVER := 0
@@ -1569,6 +1590,49 @@ Class GDIp {
          GDIp.DisposeImage(TpBitmap)
       }
       Return hBitmap
+   }
+   /**
+    * Wrap an existing HBITMAP's pixel buffer as a GDI+ Bitmap without copying it.
+    * GdipCreateBitmapFromHBITMAP discards alpha (treats the source as opaque),
+    * so for a 32bpp DIB with real per-pixel alpha we read the DIB's own
+    * Scan0/stride and hand it to GDI+ directly instead.
+    *
+    * IMPORTANT: this aliases hBitmap's memory — it does not copy it. Don't
+    * delete or write to hBitmap while the returned pBitmap is still in use.
+    * ASSUMES the source is already premultiplied (matches what feeds ULW
+    * elsewhere in this pipeline) — if that's ever untrue for a caller, flip
+    * the format constant below or you'll get double-premultiplication.
+    * Similar to GDIP.CreateARGBBitmapFromHBITMAP but doesn't replace pixel data
+    * @param hBitmap - Source HBITMAP; must be a 32bpp DIB section
+    * @returns {Integer} GDI+ Bitmap pointer (caller GdipDisposeImage's it), or 0 on failure
+    */
+   static WrapARGBBitmapFromHBITMAP(hBitmap) {
+      ; static bmSize := A_PtrSize = 8 ? 32 : 24  ; sizeof(BITMAP) — pointer padding differs 32/64-bit
+
+      Static dib:= tagBITMAP()
+      if !DllCall("GetObject", "Ptr", hBitmap, "int", dib.Size, "Ptr", dib)
+         return 0
+      W        := dib.bmWidth
+      H        := dib.bmHeight
+      stride   := dib.bmWidthBytes
+      bpp      := dib.bmBitsPixel
+      pBits    := dib.bmBits
+      biHeight := dib.bmHeight
+
+      if (bpp != 32 || !pBits || !W || !H)
+         return 0
+
+      if (biHeight < 0)
+         Scan0 := pBits, Stride := stride
+      else
+         Scan0 := pBits + (H - 1) * stride, Stride := -stride  ; bottom-up: flip walk direction
+
+      if DllCall("gdiplus\GdipCreateBitmapFromScan0"
+         , "int", W, "int", H, "int", Stride, "int", 0xE200B  ; PixelFormat32bppPArgb
+         , "Ptr", Scan0, "Ptr*", &pBitmap := 0)
+         return 0
+
+      return pBitmap
    }
 
    /**

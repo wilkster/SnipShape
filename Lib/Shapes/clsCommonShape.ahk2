@@ -1,11 +1,10 @@
 /************************************************************************
- * @description Common Class for all Shapes
+ * @description Common Class for all Shapes, using prototypes to direct the specific shape class
  * @author Tom Wilkason
  * @date 2026/03/09
  * @version 1.0.0
  ***********************************************************************/
-
-#Requires AutoHotkey v2.0 
+#Requires AutoHotkey v2.1- 
 #include ..\clsGDIp.ahk2
 #include ..\libMisc.ahk2
 #include ..\clsShapes.ahk2
@@ -21,9 +20,6 @@
 #include clsObscureShape.ahk2
 #include clsToolShape.ahk2
 #include clsBitmapShape.ahk2
-
-; Add new command to Gui object for adding shapes
-Gui.Prototype.AddNewShape := AddNewShape
 /**
  * Add a new layered GDI+ shape control to a Gui with standard transparency options.
  * Delegates to AddNewShapeOrBitmap with layered-window options pre-applied.
@@ -32,10 +28,14 @@ Gui.Prototype.AddNewShape := AddNewShape
  * @param Factor  - Optional DPI/scale factor (default 1)
  * @returns       - The new or recycled shape control object
  */
+Gui.Prototype.AddNewShape := AddNewShape
 AddNewShape(guiObj, Shape, Factor:=1) {
-   Return AddNewShapeOrBitmap(guiObj, Shape, "+E0x80000 +BackgroundTrans",,Factor)
+   Return _AddNewShapeOrBitmap(guiObj, Shape, "+E0x80000 +BackgroundTrans",,Factor)
 }
-Gui.Prototype.AddNewBitmap := AddNewShapeOrBitmap
+Gui.Prototype.AddNewBitmap := AddNewBitmap
+AddNewBitmap(guiObj, Shape, sPicSource := "", sX, sY) {
+   Return _AddNewShapeOrBitmap(guiObj, Shape, "+E0x80000 +BackgroundTrans", sPicSource, 1, sX, sY)
+}
 /**
  * Add a new shape and establish a base class to handle it
  * @param guiObj     - The Gui instance to add the shape to
@@ -45,75 +45,83 @@ Gui.Prototype.AddNewBitmap := AddNewShapeOrBitmap
  * @param Factor     - Optional DPI/scale factor (default 1)
  * @returns          - The new or recycled shape control object with its prototype set
  */
-AddNewShapeOrBitmap(guiObj, Shape, sOptions := "", sPicSource := "",  Factor:=1) {
+_AddNewShapeOrBitmap(guiObj, Shape, GuiOptions := "", sPicSource := "", Factor := 1, sX := 0, sY := 0) {
    ;----------------------------------------------------------------------
    ; Reuse any hidden shapes that match this one
    ; Non-layered windows have pictures attached to them, normal shapes are layered.
    ;----------------------------------------------------------------------
-   isLayered := sPicSource ? false : true
    For ctrl in guiObj {
-      ; Have to match layered vs non-layered (i.e. options)
-      If ( NOT ctrl.Visible AND ctrl.layered = isLayered) {
-         pObj := ctrl
-         pObj.Enabled := true
-         ; debug(A_Index " Reusing Shape " pObj.Shape ", Source=" pObj.Source ", Pic Source=" sPicSource)
-         ;----------------------------------------------------------------------
-         ; Reusing true pictures, set the background to new hBitmap or File
-         ;----------------------------------------------------------------------
-         Try {
-            if (Shape = Shapes.SHAPE_BITMAP OR Shape = Shapes.SHAPE_FILE)
-               pObj.Value := "*W0 *H0 " sPicSource
-         } Catch Error As e {
-            elog(e)            
-            Return 0
-         }
+      ; When repooling, clear out the old shape data and properties
+      If ( NOT ctrl.Visible) {
+         shapeObj := ctrl
+         shapeObj.ClearProperties(shapeObj)
+         shapeObj.RemoveProperties(shapeObj)
+         shapeObj.Enabled := true
+         debug("Reusing Shape Object " Shape " " ctrl.HasProp("Shape") )
          Break
       }
    }
-   If ( NOT IsSet(pObj)) {
-      ; NOTE - Bitmaps are loaded/passed in here to AddPicture if sPicSource is not blank
-      pObj := guiObj.AddPicture(sOptions, sPicSource) ; OK, this is GUI vs PicPlus
+   ; Pictures are just for drawing on (static controls)
+   If ( NOT IsSet(shapeObj)) {
+      shapeObj := guiObj.AddPicture(GuiOptions, "") ; OK, this is GUI vs PicPlus
    }
-   ; Depending on the shape, alter its base to point to the inherited shape
-   Switch Shape {
-      Case Shapes.SHAPE_HILITER, Shapes.SHAPE_PEN, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_ARCARROW, Shapes.SHAPE_WIDEPEN, Shapes.SHAPE_SMUDGE:
-         pObj.Source := "FreeHand"
-         pObj.base  := FreeHandShape.Prototype
-      Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_LINE, Shapes.SHAPE_TAPARROW, Shapes.SHAPE_BRACKET, Shapes.SHAPE_CONNECT:
-         pObj.Source := "LineShape"
-         pObj.base  := LineShape.Prototype
-      Case Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_REDAC, Shapes.SHAPE_HILITE:
-         pObj.Source := "BlurShape"
-         pObj.base  := ObscureShape.Prototype
-      Case Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT, Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_HILITE:
-         pObj.Source := "BodyShape"
-         pObj.base  := BodyShape.Prototype
-      Case Shapes.SHAPE_OCR, Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
-         ; NOTE - The objects are setup based on Gui.PIC so not sure a way around this short of creating a brand
-         ; new class NOT based on Gui.PIC that includes all the GDI calls. Not worth it since controls are recycled.
-         pObj.Source := "ToolShape"
-         pObj.base  := ToolShape.Prototype
-      Case Shapes.SHAPE_FILE:
-         pObj.Source := "File"
-         pObj.base  := BitmapShape.Prototype 
-      Case Shapes.SHAPE_BITMAP:
-         pObj.Source := "Clip"
-         pObj.base  := BitmapShape.Prototype 
-      Case Shapes.SHAPE_TEXT, Shapes.SHAPE_FILLTEXT,Shapes.SHAPE_OLTEXT, Shapes.SHAPE_TAG, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
-         pObj.Source := "Text"
-         pObj.base  := TextShape.Prototype
-      Default: ; Other shape
-         pObj.Source := "Other"
-         pObj.base  := BitmapShape.Prototype
-         MsgBox("Unknown Shape Requested:" Shape)
+   ; Map all of the shapes into the approriate source and class prototype
+   static ShapeClassMap := Map(
+      Shapes.SHAPE_HILITER,       {source: "FreeHand", cls: FreeHandShape.Prototype},
+      Shapes.SHAPE_PEN,           {source: "FreeHand", cls: FreeHandShape.Prototype},
+      Shapes.SHAPE_WHITEOUT,      {source: "FreeHand", cls: FreeHandShape.Prototype},
+      Shapes.SHAPE_ARCARROW,      {source: "FreeHand", cls: FreeHandShape.Prototype},
+      Shapes.SHAPE_WIDEPEN,       {source: "FreeHand", cls: FreeHandShape.Prototype},
+      Shapes.SHAPE_SMUDGE,        {source: "FreeHand", cls: FreeHandShape.Prototype},
+
+      Shapes.SHAPE_ARROW,         {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_OARROW,        {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_ODARROW,       {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_LINE,          {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_TAPARROW,      {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_BRACKET,       {source: "LineShape", cls: LineShape.Prototype},
+      Shapes.SHAPE_CONNECT,       {source: "LineShape", cls: LineShape.Prototype},
+
+      Shapes.SHAPE_BLUR,          {source: "BlurShape", cls: ObscureShape.Prototype},
+      Shapes.SHAPE_GAUS_BLUR,     {source: "BlurShape", cls: ObscureShape.Prototype},
+      Shapes.SHAPE_PIXELATE,      {source: "BlurShape", cls: ObscureShape.Prototype},
+      Shapes.SHAPE_REDAC,         {source: "BlurShape", cls: ObscureShape.Prototype},
+      Shapes.SHAPE_HILITE,        {source: "BlurShape", cls: ObscureShape.Prototype},
+
+      Shapes.SHAPE_RECT,          {source: "BodyShape", cls: BodyShape.Prototype},
+      Shapes.SHAPE_RORECT,        {source: "BodyShape", cls: BodyShape.Prototype},
+      Shapes.SHAPE_ELLIPSE,       {source: "BodyShape", cls: BodyShape.Prototype},
+
+      Shapes.SHAPE_OCR,           {source: "ToolShape", cls: ToolShape.Prototype},
+      Shapes.SHAPE_CROP,          {source: "ToolShape", cls: ToolShape.Prototype},
+      Shapes.SHAPE_SLICE,         {source: "ToolShape", cls: ToolShape.Prototype},
+      Shapes.SHAPE_EXTEND,        {source: "ToolShape", cls: ToolShape.Prototype},
+
+      Shapes.SHAPE_FILE,          {source: "File",      cls: BitmapShape.Prototype},
+      Shapes.SHAPE_BITMAP,        {source: "Clip",      cls: BitmapShape.Prototype},
+
+      Shapes.SHAPE_TEXT,          {source: "Text",      cls: TextShape.Prototype},
+      Shapes.SHAPE_FILLTEXT,      {source: "Text",      cls: TextShape.Prototype},
+      Shapes.SHAPE_OLTEXT,        {source: "Text",      cls: TextShape.Prototype},
+      Shapes.SHAPE_TAG,           {source: "Text",      cls: TextShape.Prototype},
+      Shapes.SHAPE_LEFTARROWTEXT, {source: "Text",      cls: TextShape.Prototype},
+      Shapes.SHAPE_RIGHTARROWTEXT,{source: "Text",      cls: TextShape.Prototype},
+   )   
+   ; Set the base class for this specific shape
+   If (ShapeClassMap.has(Shape)) {
+      shapeObj.Source := ShapeClassMap[Shape].source
+      shapeObj.base   := ShapeClassMap[Shape].cls
+   } Else {
+      warning("Failed to find Shape info for " Shape)
+      Return 0
    }
-   pObj.Shape    := Shape
-   pObj.Factor   := Factor
-   pObj.Options  := sOptions
-   pObj.SnipObj  := guiObj
+   shapeObj.Shape    := Shape
+   shapeObj.Factor   := Factor
+   shapeObj.Options  := GuiOptions
+   shapeObj.SnipObj  := guiObj
    ; Call the effective constructor
-   pObj.Init(sPicSource)
-   Return pObj ; ⇦ Will this always force the base object?
+   shapeObj.Init(sPicSource, sX, sY)
+   Return shapeObj ; ⇦ Will this always force the base object?
 }
 /**
  * Base class derived from Picture control for use in creating shapes
@@ -131,7 +139,7 @@ Class commonShape extends Gui.Pic {
     * Called in place of __New since controls are recycled rather than reconstructed.
     * @param sPicImage - Optional picture source associated with this shape
     */
-   Init(sPicImage:="") {
+   Init(sPicImage := "" ,*) {
       this.fName          := sPicImage
       this.layered        := true
       ; Defaults will be overridden
@@ -160,8 +168,6 @@ Class commonShape extends Gui.Pic {
       this.DPIFactor := activeDPIFactor()
       this.ShapeName := this.Shape > 0 ? Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1]) : "Picture"
       this.SnipObj   := this.GUI
-      ; this.SnipObj   := this.GUI
-
    }
    /**
     * Returns the DPI value for this control's window.
@@ -195,16 +201,6 @@ Class commonShape extends Gui.Pic {
       this.bGrab := this.myBrushes.Add(0x01000000)
       this.blankBrush := this.myBrushes.Add(0x00000000)
       this.Started := true
-   }
-   /**
-    * Wrap up pens and brushes after drawing, release GDIp objects used.
-    */
-   CleanUp() {
-      If (this.myPens.Length > 0)
-         this.myPens.Reset()
-      If (this.myBrushes.Length > 0)
-         this.myBrushes.Reset()
-      this.Started := false
    }
    /**
     * Push this shape to the bottom of the Z-order, just above the background picture.
@@ -270,12 +266,6 @@ Class commonShape extends Gui.Pic {
    Refresh() {
       C := this.sCoord
       this.Move(C.X, C.Y, C.W, C.H)
-   }
-   /**
-    * Retrieve the processed bitmap for this shape. Override in subclasses.
-    */
-   GrabProcessedBitmap() {
-      ; Shape specific
    }
    /**
     * Check whether the given dimensions meet the minimum drawable size threshold.
@@ -356,6 +346,17 @@ Class commonShape extends Gui.Pic {
       }
    }
    /**
+    * Wrap up pens and brushes after drawing, release GDIp objects used.
+    */
+   CleanUp() {
+      If (this.myPens.Length > 0)
+         this.myPens.Reset()
+      If (this.myBrushes.Length > 0)
+         this.myBrushes.Reset()
+      this.Started := false
+   }
+
+   /**
     * Hide and disable this shape, release its bitmap, unregister events,
     * and blank the layered window surface when closing a Snip.
     */
@@ -366,16 +367,57 @@ Class commonShape extends Gui.Pic {
       this.Visible := false
       this.Enabled := false
       this.OnEvent("ContextMenu",this.bindMenu, false)
+      this.bindMenu := unset
       this.OnEvent("Click", this.bindClick, false)
+      this.bindClick := unset
+      this.CleanUp()
       ; If layered window we want to blank it also
-      If (this.Options ~= "E0x80000") {
-         this.getPos(&iX, &iY, &iW, &iH)
-         If (iW > 0 AND iH > 0) {
-            Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
-            Surf.UpdateLayer(iX, iY)
-            Surf := ""
+      this.getPos(&iX, &iY, &iW, &iH)
+      If (iW > 0 AND iH > 0) {
+         Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+         Surf.UpdateLayer(iX, iY)
+         Surf := ""
+      }
+   }
+   /**
+    * Clear out all of the properties cleanly, do this on recycle
+    * @param obj this typically
+    * @returns {unset?} 
+    */
+   ClearProperties(obj) {
+      For propName in ObjOwnProps(this) {
+         ; debug("Unsetting " propName " is " type(obj.%propName%))
+         Switch type(obj.%propName%) {
+            Case "BoundFunc" :
+               Switch propName {
+                  Case "bindClick":
+                     obj.OnEvent("Click", obj.%propName%,0)
+                     obj.%propName% := ""
+                  Case "bindMenu":
+                     obj.OnEvent("ContextMenu", obj.%propName%,0)
+                     obj.%propName% := ""
+                  Default:
+               }
+            Case "GDIp.Brushes" :
+               obj.myBrushes.Reset()
+            Case "GDIp.Pens" :
+               obj.myPens.Reset()
+            Default :
+               obj.%propName% := ""
          }
       }
+   }
+   /**
+    * Remove any properties for this shape, do this on recycle
+    * @param pObj Object to clear, typically this
+    * @returns {unset?} 
+    */
+   RemoveProperties(pObj) {
+      propNames := []
+      For propName in ObjOwnProps(pObj)
+         propNames.Push(propName)
+      For propName in propNames
+         pObj.DeleteProp(propName)
    }
    /**
     * Post an undo action to the Snip UnDo/ReDo class
@@ -472,7 +514,7 @@ Class commonShape extends Gui.Pic {
     */
    IsOverSnip() {
       C := this.sCoord
-      this.Gui.PIC.GetPos(,,&pW,&pH) 
+      this.Gui.getPicPos(,,&pW,&pH) 
       ; extract area wherepredominant  shape intersects with the snip and use it
       Return iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, 0, 0, pW, pH)
    }
@@ -590,11 +632,11 @@ Class commonShape extends Gui.Pic {
     */
    BitmapUnderShape(format := "hBitmap") {
       ; Get the snips base snip handle
-      hBitmap := this.GUI.PIC.Handle
+      hBitmap := this.GUI.handle
       If (hBitmap) {
          C := this.sCoord
          If (C.W > 0 AND C.H > 0) {
-            this.Gui.PIC.GetPos(&pX1, &pY1, &pW, &pH) ; pX1/pY1 are at border offset, pW and pH are correct
+            this.Gui.getPicPos(&pX1, &pY1, &pW, &pH) ; pX1/pY1 are at border offset, pW and pH are correct
             ; C values may be wholly or partially off the picture
             ; Get a cropped copy of the image under the shape (compensated by border offset)
             If (iRect := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, pX1, pY1, pW, pH)) {
@@ -642,7 +684,7 @@ Class commonShape extends Gui.Pic {
     * @returns       - GDI+ texture brush, or 0 on failure
     */
    getHighlightedSnipBrush(color, opacity := 0xFF) {
-      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
+      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.handle)) {
          CC     := BitMap.GetBackgroundColor(pBitInput)
          tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC)
          GDIp.TranslateTextureBrush(tBrush, Settings.BorderWidth, Settings.BorderWidth)

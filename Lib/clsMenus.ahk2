@@ -88,8 +88,8 @@ Class SnipMenus {
       ; this.AddEntry("Paste Shape from Clipboard (Ctrl-V)","Paste.ico")
       this.csMenu.Add("Insert Picture Shapes",this.PictMenu)
       this.csMenu.SetIcon("Insert Picture Shapes", SETTINGS.CursorPath . "Shapes.ico")
-      this.csMenu.Add("Insert Picture From File", this.ContextSnipMenu_Handler.bind(this))
-      this.csMenu.SetIcon("Insert Picture From File", SETTINGS.CursorPath . "Shapes.ico")
+      this.csMenu.Add("Insert Picture From File (Ctrl-P)", this.ContextSnipMenu_Handler.bind(this))
+      this.csMenu.SetIcon("Insert Picture From File (Ctrl-P)", SETTINGS.CursorPath . "Shapes.ico")
 
       this.csMenu.Add('') ;16
       this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
@@ -180,17 +180,15 @@ Class SnipMenus {
     * @param {Integer} menuX - Window-relative X coordinate where the menu was invoked
     * @param {Integer} menuY - Window-relative Y coordinate where the menu was invoked
     */
-   Static Post(GuiCtrlObj, Item, IsRightClick, menuX, menuY) {
-      SnipObj := GuiCtrlObj.GUI
-      hWnd := SnipObj.hWnd
-      ; Reset draw mode (done on deactivate)
-      ; Snips.SetDrawMode(0)
+   Static Post(SnipObj, GuiCtrlObj, IsRightClick, menuX, menuY, *) {
+      if (GuiCtrlObj) ; Item will be the child object, we don't want one
+         Return
       ; Get cursor location to place pictures if needed
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
       this.menuX := mX
       this.menuY := mY
-      WinGetPos(&X, &Y, &W, &H, hWnd)
+      WinGetPos(&X, &Y, &W, &H, SnipObj.hWnd)
       ; Sync the button bar state
       this.SyncBB()
       Try this.csMenu.Delete("Paste Clipboard Text")
@@ -209,7 +207,7 @@ Class SnipMenus {
       this.csMenu.Rename('8&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
       this.PictMenu.Delete()
-      this.populatePicMenu(this.PictMenu, hWnd, mX, mY)
+      this.populatePicMenu(this.PictMenu, SnipObj.hWnd, mX, mY)
       ; logGDI("Populated Snip/Pic Cache:" Settings_SavePath_Icons)
       ; Show the menu
       this.csMenu.Show()

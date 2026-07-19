@@ -79,51 +79,8 @@ EnumChildWindows(hWnd, mcb, params := 0) => DllCall("User32.dll\EnumChildWindows
  * @returns {Integer} Non-zero if the window is visible
  */
 IsWindowVisible(hwndTry) => DllCall("User32.dll\IsWindowVisible", "Ptr", hwndTry)
-/**
- * Set the position and size of a window
- * @param hWnd Handle to the window
- * @param wx X coordinate
- * @param wy Y coordinate
- * @param ww Width
- * @param wh Height
- * @param flag SWP_ flags controlling which attributes are changed
- * @returns {Integer} Non-zero if successful
- */
-SetWindowPos(hWnd, wx, wy, ww, wh, flag) {
-   Static SetWindowPos := GetModHandle("SetWindowPos", "User32.dll")
 
-   ; error on return type yere
-   Return DllCall(SetWindowPos
-      , "Ptr", hWnd
-      , "Ptr", 0	; hWndInsertAfter, using HWND_TOP
-      , "Int", wx
-      , "Int", wy
-      , "Int", ww
-      , "Int", wh
-      , "UInt", flag
-   )
 
-}
-/**
- * Helps a bit when swapping out the picture with one of a different size
- * @param {Integer} hwnd window handle
- * @returns {unset?} 
- */
-LockWindow(hwnd := 0) {
-   Static lastHwnd
-   Static WM_SETREDRAW := 0x000B
-   If (hwnd) {
-      SendMessage(WM_SETREDRAW, 0, 0, , hwnd)
-      lastHwnd := hwnd
-   } Else {
-      SendMessage(WM_SETREDRAW, 1, 0, , lastHwnd) 
-      DllCall("RedrawWindow"
-         , "Ptr", lastHwnd
-         , "Ptr", 0
-         , "Ptr", 0
-         , "UInt", 0x0001 | 0x0004 | 0x0080) ; RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN
-   }
-}
 ;----------------------------------------------------------------------
 ; Return a window above the current, 0 if already on top
 ;----------------------------------------------------------------------
@@ -710,8 +667,7 @@ RGBval(rgb) {
          Default:
       }
    } catch as e {
-      elog(e)
-      MsgBox("Error Finding Color '" rgb "' , defaulting to Red")
+      elog(e, "Error Finding Color '" rgb "' , defaulting to Red")
       rgb := 0xFF0000
    }
    Return rgb

@@ -126,7 +126,7 @@ Class UnDo {
                }
             Default:
          }
-         item.data.%propName% := "" ; using unset breaks the loop
+         item.data.%propName% := "" ; using unset breaks the for loop
       }
    }
 
@@ -246,7 +246,7 @@ Class UnDo {
                shapeObj.%pr% := v
             ; If there was a bitmap in the undo/redo data then apply it
             If (hbitmap := item.data.hBitmap ?? 0) {
-               shapeObj.Handle := hBitmap ; Control owns the handle
+               shapeObj.Handle := hBitmap
             }
             ; Redraw with new properties
             shapeObj.Refresh()
@@ -259,9 +259,7 @@ Class UnDo {
             reverseData := this._CaptureData(item.action, snipObj)
             targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
             If (hbitmap := item.data.hBitmap ?? 0) {
-               snipObj.PIC.Handle := hBitmap ; PIC owns the handle, will forece an invalidate rect when done
-               snipObj.Move(Area.X, Area.Y, Area.W, Area.H)
-               WinRedraw(snipObj.hwnd)
+               snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
                ButtonBar.Show(snipObj.hWnd)
                snipObj.RefreshTextures()
             }

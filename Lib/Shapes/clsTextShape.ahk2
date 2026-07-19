@@ -79,8 +79,6 @@ Class TextShape extends CommonShape {
       this.shapeCoord      := { X1: 0, Y1: 0, X2: 0, Y2: 0}
       this.EditHeight      := unset
       this.EditWidth       := unset
-      ; this.bindDClick      := this.EditDispText.Bind(this)
-      ; this.OnEvent("DoubleClick", this.bindDClick)
    }
    /**
     * Configure text and font properties prior to drawing.

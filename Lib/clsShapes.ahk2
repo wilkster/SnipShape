@@ -486,7 +486,7 @@ Class Shapes {
 
          hBitmap := Clipboard.HBITMAPFromClipboard(&W:=0, &H:=0)
          If (hBitmap) {
-            If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, "HBITMAP:*" hBitmap, lX, lY)) {
+            If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, hBitmap, lX, lY)) {
                qTrayTip("Failed to paste Bitmap found from Clipboard", 2)
             } Else {
                ShapeObj.PostAction(UnDo.ADD_SHAPE)
@@ -911,12 +911,12 @@ Class Shapes {
          ; can fall through here with a visible shape if we only click on the
          ; surface to exit draw mode. Control will be recycled. Normally not
          ; used since shape shouldn't be visible yet anyway.
+         ; This can happen if we just click on the surface to exit draw mode
          ;----------------------------------------------------------------------
          If IsSet(ShapeObj) {
             ShapeObj.Close(true)
          }
          Snips.SetDrawMode(0)
-         ShapeObj.Cleanup()
       }
       ;----------------------------------------------------------------------
       ; All done, tidy up
@@ -1190,8 +1190,6 @@ Class Shapes {
       }
       ShapeObj.Gui.Dirty++
       Return
-
-      distance(x, y) => Sqrt(x ** 2 + y ** 2)
    }
 
    /**
@@ -1281,37 +1279,32 @@ Class Shapes {
     */
    Static Crop(CropObj, Clipboard := false) {
       myGUI := CropObj.Gui
-      myPic := myGUI.Pic
-      If (hBitmap := myPic.handle) {
+      If (hBitmap := myGUI.handle) {
          BW := Settings.BorderWidth
          ; Get various dimensions
-         myGUI.GetPos(&gX1, &gY1, &gW, &gH) ; includes the Border 
+         myGUI.GetPos(&gX1, &gY1) ; includes the Border 
          ; Crop tool
-         CropObj.GetPos(&cX1, &cY1, &cW, &cH) 
+         C := CropObj.shapeCoord
          ; Get the raw picture dimensions
-         myPic.GetPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
+         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
          ; Intersection to handle off picture crop tool
-         iR := IntersectRect(cX1, cY1, cX1 + cW, cY1 + cH, pX1, pY1, pX1 + pW, pY1 + pH)
+         iR := IntersectRect(
+            C.X1, C.Y1, C.X2, C.Y2, 
+            pX1, pY1, pX1 + pW, pY1 + pH
+         )
 
-         If (iR.w < 25 AND iR.h < 25)
+         If (IR AND iR.w < 25 AND iR.h < 25)
             Return
          ; This destroys the existing snip bitmap and creates a new one
-         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
-         ; Hide the flash when we replace the bitmap
-         ;myGUI.Move(-20000,-20000, iR.w + BW * 2, iR.h + BW * 2) 
+         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h, 1)
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
-         LockWindow(myGUI.hWnd)
-         myPic.Handle := hBitmap  ; This will free hBitmap
-         ; Shift and resize GUI to contain the new crop coordinates, allow for border shift
-         myGUI.Move(gX1 + iR.l - BW, gY1 + iR.t - BW, iR.w + BW * 2, iR.h + BW * 2)
-         WinRedraw(myGUI.hwnd)
-         LockWindow()
+         myGui.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
 
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible and Ctrl.Source != "Screen" {
                Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.Move(X - cX1, Y - cY1)
+               Ctrl.Move(X - C.X1, Y - C.Y1)
                Ctrl.Refresh()
             }
          }
@@ -1329,23 +1322,17 @@ Class Shapes {
     */
    Static Slice(SliceObj, Clipboard := false) {
       myGUI := SliceObj.Gui
-      myPic := myGUI.Pic
-      If (hBitmap := myPic.handle) {
+      If (hBitmap := myGUI.handle) {
          BW := Settings.BorderWidth
-         sC :=SliceObj.shapeCoord ; includes picture border offset
-         myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
-         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, sc.X, sc.Y, sc.X2, sc.Y2)
+         C := SliceObj.shapeCoord ; includes picture border offset
+         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
+         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
          ; Offset by borderwidth (0 based)
          Gdi.vSync()
          hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
          ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         myGUI.Move(, , W + BW * 2, H + BW * 2)
-         myPic.Handle := hBitmap  ; This will free hBitmap
-         ; Resize GUI to contain the new crop coordinates
-         ; Autosize may leave one border wider for some strange reason (would need redraw)
-         ; myGUI.Show("W" W + BW * 2 " H" H + BW * 2)
-         myGUI.Move(, , W + BW * 2, H + BW * 2)
+         myGui.ReplaceSnip(hBitmap)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible and Ctrl.Source != "Screen" {
@@ -1371,15 +1358,13 @@ Class Shapes {
     */
    Static Extend(ExtendObj, bgColor, Clipboard := false) {
       myGUI := ExtendObj.Gui
-      myPic := myGUI.Pic
-      If (hBitmap := myPic.handle) {
+      If (hBitmap := myGUI.handle) {
          ; NOTE - Rather then background of extend shape, get closer to start of drag
          ; bgColor := ExtendObj.ShapeBackgroundColor()
          bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
 
-         BW := Settings.BorderWidth
          sC :=ExtendObj.shapeCoord ; includes picture border offset
-         myPic.GetPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
+         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
          sC.X2 := sc.X1 + sc.W, sc.Y2 := sc.Y1 + sc.H
          pX2 := pX1 + pW, pY2 := pY1 + pH
          l := r := t := b := 0
@@ -1428,12 +1413,10 @@ Class Shapes {
          ; Get new dimensions
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         LockWindow(myGUI.hWnd)
-         myPic.Handle := hBitmap  ; This will free old hBitmap
          ; Resize GUI to contain the new crop coordinates
          Switch eType {
             Case "Expand": ; enlarge inside, don't move window
-               myGUI.Move(,, W + BW * 2, H + BW * 2)
+               myGui.ReplaceSnip(hBitmap)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                   For Ctrl in myGUI {
                      If Ctrl.Visible and Ctrl.Source != "Screen" {
@@ -1446,7 +1429,7 @@ Class Shapes {
                      }
                   }
             Case "Extend": ; enlarge outside
-               myGUI.Move(gX1 - l, gY1 - t, W + BW * 2, H + BW * 2)
+               myGui.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                If (l > 0 OR t > 0) {
                   For Ctrl in myGUI {
@@ -1459,7 +1442,6 @@ Class Shapes {
                   }
                }
          }
-         LockWindow()
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, ExtendObj.Gui.hWnd)
@@ -1490,13 +1472,13 @@ Class Shapes {
     */
    Static AddPictureFromFile(hWnd, key, letter) {
       SnipObj := Snips.GetGuiObj(hWnd)
-      CoordMode('Mouse', 'Window')
-      MouseGetPos(&sX, &sY)
+      SnipObj.GetPos(,,&W,&H)
       KeyWait(letter,"t3") ; wait for key to not be pressed
       SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
       SelectedFile := FileSelect(, SETTINGS.SavePath_Icons, "Select Picture to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
       if (FileExist(SelectedFile)) {
-         if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, sX, sY)) {
+         ; Place 1/3 in
+         if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, W//3, H//3)) {
             SplitPath(SelectedFile,,&SETTINGS.SavePath_Icons)  ; Save new location for snips
             ShapeObj.Gui.Dirty++
             ShapeObj.PostAction(UnDo.ADD_SHAPE)
@@ -1527,11 +1509,11 @@ Class Shapes {
     * @returns {Object|Integer} The new shape control object, or 0 if the source was not found.
     */
    Static CreatePicFromSource(SnipObj, SelectedFileOrBitmap, sX, sY) {
-      If ((FE := FileExist(SelectedFileOrBitmap)) OR SelectedFileOrBitmap ~= "HBITMAP") {
+      If ((FE := FileExist(SelectedFileOrBitmap)) OR IsNumber(SelectedFileOrBitmap)) {
          Shape := FE ? Shapes.SHAPE_FILE : Shapes.SHAPE_BITMAP
          ; NOTE - layered windows are always on top of other pictures like this, work around would be to 
          ;       save the image and draw into a layered window. Would have to handle resizing manually
-         If (ShapeObj := SnipObj.AddNewBitmap(Shape, "+BackgroundTrans X" sX " Y" sY, SelectedFileOrBitmap)) { ; NOTE +E0x80000 hides the image
+         If (ShapeObj := SnipObj.AddNewBitmap(Shape, SelectedFileOrBitmap, sX, sY)) { ; NOTE +E0x80000 hides the image
             ShapeObj.SaveSize(SelectedFileOrBitmap)
             ShapeOnTop(ShapeObj)
             ShapeObj.Gui.Dirty++
@@ -1655,7 +1637,7 @@ Class Shapes {
       BGColor := SnipObj.BackgroundPICColorFromXY(wX, wY, 32)
       TextObj := SnipObj.AddNewShape(Shapes.SHAPE_FILLTEXT)
       If (TextObj.DrawText(wX, wY, TextShape.FillFontSize, Trim(Text, " `n"), TextShape.FillFontName, , , Shapes.globalShapeColor, BGColor)) {
-         qTrayTip("Inserting text: " Text)
+         qTrayTip("Inserting text: " SubStr(Text,1,20) "...")
          ShapeOnTop(TextObj)
          SnipObj.Dirty++
          Return TextObj

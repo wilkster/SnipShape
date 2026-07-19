@@ -24,16 +24,30 @@ Class BitmapShape extends commonShape {
     * Initialize this shape as a non-layered bitmap control.
     * @param sPicImage - Optional picture source path or HBITMAP reference
     */
-   Init(sPicImage := "") {
+   Init(sPicImage := "", sX := 0, sY := 0) {
+      ; Create a copy of the hBitmap regardless of source
+      If (FileExist(sPicImage)) {
+         this.myHandle := LoadPicture(sPicImage)
+      } Else {
+         this.myHandle :=GDI.CopyImage(sPicImage)
+      }
+      ; Replace transparent pixels with alpha channel of 1 so we can grab them.
+      BitMap.ReplaceBitmapColor(this.myHandle, 0, 0x01000000, true)
+      ; Init for common shape
       Super.Init(sPicImage)
-      this.layered := false
+      this.DisplayBitmap(this.myHandle, sX, sY)
       this.orientation := 0
    }
    ; These are NOOP for this shape
    SetColor(*)        => {}
    ChangeThickness(*) => {}
    Startup(*) =>{}
-   CleanUp(*) =>{}
+   Cleanup(*) =>{}
+   Close(skipUndo:=false) {
+   super.Close(skipUndo)
+      if (this.myHandle)
+         GDI.DeleteObject(this.myHandle)
+   }
 
    /**
     * Save the current control dimensions as the original (OG) size and update
@@ -54,10 +68,8 @@ Class BitmapShape extends commonShape {
     * Restore the control to its original saved dimensions.
     */
    ResetSize() {
-      if (this.orientation == 0 || this.orientation == 180)
-         super.Move(, , this.OG.W, this.OG.H)
-      else
-         super.Move(, , this.OG.H, this.OG.W)
+      ; this.myHandle is always the default size
+      this.DisplayBitmap(this.myHandle)
       this.UpdateCoord()
    }
    /**
@@ -68,7 +80,7 @@ Class BitmapShape extends commonShape {
       this.GetPos(&X, &Y, &W, &H)
       hBitmap := GDI.CopyImage(this.Handle)
       bgColor := 0x00000000 | Bitmap.GetBackgroundColor(hBitmap) ; blend in 0 alpha channel
-      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, bgColor, 0x000000)) {
+      If (changed := BitMap.ReplaceBitmapColor(hBitmap, bgColor, 0x000000)) {
          this.Handle := hBitmap
       }
       this.Move(X, Y, W, H)
@@ -84,7 +96,7 @@ Class BitmapShape extends commonShape {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
       hBitmap := GDI.CopyImage(this.Handle)
-      If (changed := BitMap.ReplaceBackgroundColor(hBitmap, fromARGB, toRGB)) {
+      If (changed := BitMap.ReplaceBitmapColor(hBitmap, fromARGB, toRGB)) {
          this.Handle := hBitmap
       }
       this.Move(X, Y, W, H)
@@ -128,11 +140,16 @@ Class BitmapShape extends commonShape {
     * Getting uses STM_GETIMAGE; setting resizes the control to fit the new bitmap.
     */
    Handle {
-      ; SendMessage is very fast ~20uSec
-      get => SendMessage(0x173, 0, 0, this.hwnd) ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      get => this.myHandle ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
       ; Resize control to actual bitmap size
-      set => this.Value := "*W0 *H0 HBITMAP:" Value
-   } 
+      set {
+         oldhBitmap := this.myHandle
+         this.DisplayBitmap(value)
+         this.myHandle := value
+         BitMap.ReplaceBitmapColor(this.myHandle, 0x01000000, 0)
+         GDI.DeleteObject(oldhBitmap)
+      }
+   }  
    /**
     * Return bitmap unique info for undo/redo
     * @returns {Object} 
@@ -147,4 +164,54 @@ Class BitmapShape extends commonShape {
       }
    }
 
+   /**
+    * Capture a screen area as an hBitmap and paint it into a layered window.
+    * Optionally captures from the active window instead of the screen region.
+    * @param {Object} Bitmap Handle Object with X, Y, W, H properties defining the region
+    * @param {Integer} X/Y, optional location to place the gui
+    */
+   DisplayBitmap(hBitmap, x?, y?) {
+      GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+      hdcMem := GDI.CreateCompatibleDC(0)
+      obm    := GDI.SelectObject(hdcMem, hBitmap)
+
+      useX := x ?? this.shapeCoord.X1
+      useY := y ?? this.shapeCoord.Y1
+      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, useX, useY, W, H)
+
+      GDI.SelectObject(hdcMem, obm)  ; deselect only — hBitmap is caller-owned, don't DeleteObject it
+      GDI.DeleteDC(hdcMem)
+   }
+
+   /**
+    * Move and/or resize this bitmap shape. Since this is a layered window,
+    * resizing does NOT auto-stretch the content like a normal SS_BITMAP
+    * control -- the backing hBitmap has to be rescaled and repainted via
+    * UpdateLayeredWindow ourselves. Pure repositioning (W/H unchanged) skips
+    * the rescale and just repaints at the new X/Y.
+    * @param X/Y - New position; omit to keep current
+    * @param W/H - New size; omit to keep current
+    * @param Quality - GDI+ InterpolationMode for the rescale. Default 3
+    *   (Bilinear) is cheap enough for live drag; pass 7 (HighQualityBicubic)
+    *   for a final/committed resize on mouse-up.
+    */
+   Move(X?, Y?, W?, H?, Quality := 7) {
+      this.GetPos(&curX, &curY, &curW, &curH)
+      useX := X ?? curX
+      useY := Y ?? curY
+      useW := W ?? curW
+      useH := H ?? curH
+
+      if (useW != curW) || (useH != curH) {
+         ; keep the OG bitmap, just display the resized one
+         if (hResized := BitMap.ResizeHBITMAP(this.myHandle, useW, useH, Quality)) {
+            this.DisplayBitmap(hResized, useX, useY)
+            GDI.DeleteObject(hResized)
+         } else
+            super.Move(useX, useY, useW, useH)
+      } else {
+         super.Move(useX, useY, useW, useH)
+      }
+      this.UpdateCoord()
+   }   
 }

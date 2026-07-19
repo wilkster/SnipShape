@@ -54,11 +54,11 @@ Class ObscureShape extends commonShape {
       }
       Switch this.Shape {
          Case Shapes.SHAPE_PIXELATE: ; Time 9ms
-            Snip.PIC.GetPos(,,&W,&H)
+            Snip.getPicPos(,,&W,&H)
             brushKey := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush " brushKey)
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.handle)) {
                pBitOutput      := BitMap.PixelateBitmap(pBitInput, brushKey)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -71,7 +71,7 @@ Class ObscureShape extends commonShape {
             brushKey := Constrain(1, 100, Round(this.Factor))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.handle)) {
                pBitOutput      := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
@@ -84,7 +84,7 @@ Class ObscureShape extends commonShape {
             brushKey := Constrain(0, 255, Round(this.Factor * this.DPIScale))
             If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.PIC.Handle)) {
+            } Else If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.handle)) {
                ; Call this up to three times to converge to a gaussian blur, fairly fast
                pBitOutput := BitMap.BoxBlurMultiPass(pBitInput, brushKey, 3, 1)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)

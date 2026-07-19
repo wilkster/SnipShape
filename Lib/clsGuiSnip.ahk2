@@ -1,0 +1,446 @@
+/************************************************************************
+ * @description Class to create a screen clip
+ * @file clsGuiSnip.ahk2
+ * @author Tom Wilkason
+ * @date 2026/07/18
+ * @version 1.0.0
+ ***********************************************************************/
+#Requires AutoHotkey v2
+#include Settings.ahk2
+#include libMisc.ahk2
+#include clsGuiSnip.ahk2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2 
+#include clsShapes.ahk2
+/**
+ * Extended GUI class that stores snip-specific metadata, brush caches, and bitmap state
+ */
+Class GuiSnip extends Gui {
+   /**
+    * Create a new snip GUI window and register it in the global snip map
+    * @param {Object} [objArea] - Area object with X, Y, W, H describing the captured region
+    */
+   __New(objArea := "") {
+      ; +E0x80000 Layered WS_EX_LAYERED
+      ; +0x1010000 WS_CLIPCHILDREN + WS_VISIBLE , 
+      Static Opt := '+E0x80000 -0x1010000 -AlwaysOnTop -Caption -ToolWindow +OwnDialogs -DPIScale'
+      super.__New(Opt, "", this)
+
+      if Snips.topMost
+         this.Opt("+AlwaysOnTop")
+      this.Time                 := Snips.timeTag ; time at creation
+      this._Area                := objArea
+      this._DrawMode            := 0
+      this.Counter              := 0
+      this.Dirty                := 0
+      this.Title                := "SnipShapeWindow - " this.Time . ' (' this._Area.W 'x' this._Area.H ')'
+      this._FileName            := ""
+      this.BrushMap             := Map()
+      this.BrushCount           := Map()
+      this.priorDrawMode        := 0
+      this.myHandle             := 0
+      this.BW                   := Settings.BorderWidth
+      Snips.guiSnips[this.hWnd] := this
+      this.UnDo                 := UnDo()
+      super.MarginX := super.MarginY := this.BW
+      ; logGDI("+Create Snip:" this.Title)
+      ; RMB menu is on the screenshot picture control
+      super.OnEvent("Close", this.Destroy.Bind(this))
+      super.OnEvent("Escape", Snips.Close.Bind(Snips, this.hWnd))
+      super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
+      super.OnMessage(0x006, this.WM_ACTIVATE_GUI.Bind(this))
+   }
+   /**
+    * Destructor — releases all cached GDI+ texture brushes when the GUI object is garbage-collected
+    */
+   __Delete(*) {
+      For key, brush in this.BrushMap {
+         GDIp.DeleteBrush(brush)
+         debug("Deleted brush " key)
+      }
+      this.BrushMap := Map()
+      this.BrushCount := Map()
+   }
+   /**
+    * Post an undo action to the Snip UnDo/ReDo class
+    * @param what Action
+    */
+   PostAction(what) {
+      this.UnDo.PostAction(this, what)
+   }
+   /**
+    * Undo the last undo action off the stack
+    */
+   PopAction() {
+      this.UnDo.PopAction()
+   }      
+   /**
+    * Initiate orderly destruction of the snip: clear shapes, release the save bitmap,
+    * remove from the global snip map, and hide the button bar if no snips remain
+    * Called by Snips.Close()
+    */
+   Destroy(*) {
+      Try {
+         title := this.Title
+         Snips.ClearAllShapes(this.hWnd, true)  ; in case we have built in GC
+         hwnd := this.hWnd
+         super.Destroy()
+         GDI.DeleteObject(this.myHandle)
+         Snips.guiSnips.Delete(hwnd) ; remove from known snips
+         ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
+      } Catch as E {
+         elog(E,"During Object Destroy")
+      } Finally {
+         focusBorder.HideFocus()
+         if (Snips.VisibleSnips() = 0)
+            ButtonBar.Hide()
+         ; Force windows to reclaim (used for checkking for memory leaks)
+         DllCall("psapi\EmptyWorkingSet", "ptr", -1)
+      }
+      Return 1
+   }
+
+   /**
+    * Put a snip and border for the background of the GUI
+    * @param hBitmap Handle to bitmap to use as the snip background
+    * @param x/y Optional location to place the snip on the screen
+    * @returns {Any} 
+    */
+   AddSnipPic(hBitmap, x?, y?) {
+      this.OnEvent("ContextMenu", SnipMenus.Post.bind(SnipMenus))
+      this._replaceSnip(hBitmap, x?, y?)
+      this.MyHandle := hBitmap
+      Return hBitmap
+   }
+   /**
+    * Return the postion of the snip
+    * @param x,y,w,h GUI Coordinates
+    */
+   getPicPos(&x?, &y?, &w?, &h?) {
+      GDI.GetHBitmapDimensions(this.Handle, &hW, &hH)
+      bw := Settings.BorderWidth
+      x := bw
+      y := bw
+      w := hW
+      h := hH
+   }
+   /**
+    * Return the location of the snip picture on the screen
+    * @param x,y,w,h screen Coordinates
+    */
+   getPicLocation(&x?, &y?, &w?, &h?) {
+      bw := Settings.BorderWidth
+      GDI.GetHBitmapDimensions(this.Handle, &hW, &hH)
+      this.GetPos(&gx, &gy)
+      x := gx + bw
+      y := gy + bw
+      w := hW
+      h := hH
+   }
+   /**
+    * Return the dimensions of the Snip bitmap.
+    * @type {Object} W/H
+    */
+   Dimensions {
+      get {
+         GDI.GetHBitmapDimensions(this.Handle, &W, &H)
+         return {W:W, H:H}
+      }
+   }
+
+   /**
+    * Replace the snip bitmap with a new modified version, 
+    * also optionally place it on the screen
+    * @param hBitmap Snip Bitmap to replace
+    * @param x optional X screen position
+    * @param y option Y screen position
+    */
+   ReplaceSnip(hBitmap, x?, y?) {
+      If (hBitmap != this.MyHandle) {
+         this._replaceSnip(hBitmap, x?, y?)
+         GDI.DeleteObject(this.MyHandle)
+         this.MyHandle := hBitmap
+      }
+   }
+  /**
+   * Update the border color of the snip to the back color of the GUI
+   */
+   BackColor {
+      get => super.BackColor ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      ; Resize control to actual bitmap size
+      set {
+         super.Backcolor := value
+         if (this.myHandle)
+            this._replaceSnip(this.myHandle)
+      }
+   }
+   /**
+    * Get or set the underlying HBITMAP handle for the GUI.
+    * It will resize the window to match the new bitmap dimensions.
+    * @type {Integer}
+    */
+   Handle {
+      get => this.myHandle
+      set {
+         this._replaceSnip(value)
+         oldhBitmap := this.myHandle
+         this.myHandle := value
+         GDI.DeleteObject(oldhBitmap)
+      }
+   }  
+
+   /**
+    * Iterate all visible non-screen shapes and call their Refresh method
+    * to redraw texture brushes after a bitmap change
+    */
+   RefreshTextures() {
+      For Ctrl in this {
+         If Ctrl.Visible and Ctrl.Source != "Screen" {
+            Ctrl.Refresh()
+         }
+      }
+   }
+   /**
+    * Take a hBitmap and paint it into a layered window.
+    * @param {Object} Bitmap Handle Object with X, Y, W, H properties defining the region
+    * @param {Integer} X/Y, optional location to place the gui
+    */
+   _replaceSnip(hBitmap, x?, y?) {
+      GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+      BW := Settings.BorderWidth
+      newW := W + BW * 2
+      newH := H + BW * 2
+      ; keep this.hWnd's current top-left; only the size grows (per spec)
+      this.GetPos(&winX, &winY)
+      useX := x ?? winX
+      useY := y ?? winY
+
+      hdcScreen  := GDI.GetDC(0)
+      hdcMem     := GDI.CreateCompatibleDC(hdcScreen)
+      hDIB       := GDI.CreateDIBSection(newW, newH, hdcMem)
+      obm        := GDI.SelectObject(hdcMem, hDIB)
+      ; paint the border by filling the whole surface first
+      GDI.FillRect(hdcMem, RGBval(this.BackColor), 0, 0, newW, newH)
+
+      ; blit the caller's bitmap into the middle, inset by bw on each side
+      hdcSrc := GDI.CreateCompatibleDC(hdcScreen)
+      obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
+      GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
+      GDI.SelectObject(hdcSrc, obmSrc)
+      GDI.DeleteDC(hdcSrc)
+      ; Update the GUI with the snip and border
+      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, useX, useY, newW, newH)
+
+      ; clean up
+      GDI.SelectObject(hdcMem, obm)
+      GDI.DeleteObject(hDIB)
+      GDI.DeleteDC(hdcMem)
+      GDI.ReleaseDC(hdcScreen) ; <= getter error here
+      Return
+   }
+
+   /**
+    * Adjust the reference count for a cached brush by a given amount
+    * @param {Integer} brush - GDI+ brush handle
+    * @param {Integer} [Amount=0] - Delta to apply to the reference count
+    * @returns {Integer} The new reference count
+    */
+   _BrushRefCount(brush, Amount:=0) {
+      if (this.BrushCount.Has(brush))
+         this.BrushCount[brush] += Amount
+      else
+         this.BrushCount[brush] := Amount
+      ; debug("Brush Reference Count Now =" this.BrushCount[brush] ", amount=" Amount)
+      Return this.BrushCount[brush]
+   }
+   /**
+    * Build the map key used to look up a cached texture brush
+    * @param {String} shape - Shape type identifier
+    * @param {String|Float} parameter - Shape-specific brush parameter
+    * @returns {String} Composite cache key string
+    */
+   _BrushKey(shape, parameter) =>  "brush-" . shape . "-" . (IsFloat(parameter) ? round(parameter,3) : parameter)
+   /**
+    * Add a new texture brush to the cache; warns if a brush already exists for the key
+    * @param {Integer} brush - GDI+ brush handle to cache
+    * @param {String} shape - Shape type identifier
+    * @param {String|Float} parameter - Shape-specific brush parameter used to build the cache key
+    */
+   AddBrush(brush, shape, parameter) {
+      key := this._BrushKey(shape, parameter)
+      if (this.BrushMap.Has(key))
+         Warning("Did not expect to find an existing brush for " key)
+      this.BrushMap[key] := brush
+      this._BrushRefCount(brush, 1)
+      ; debug("Adding new Brush:'" key "' " hex(brush))
+   }
+   /**
+    * Retrieve a cached brush and increment its reference count
+    * @param {String} shape - Shape type identifier
+    * @param {String|Float} parameter - Shape-specific brush parameter
+    * @returns {Integer} The cached GDI+ brush handle, or 0 if not found
+    */
+   GetBrush(shape, parameter) {
+      key := this._BrushKey(shape, parameter)
+      If (brush := this.BrushMap.Get(key, 0)) {
+         this._BrushRefCount(brush, 1)
+      }
+      Return brush
+   }
+   /**
+    * Decrement the reference count for a brush and delete it when the count reaches zero
+    * @param {Integer} handle - GDI+ brush handle to release
+    * @returns {Integer} Remaining reference count, or 0 if the brush was not found
+    */
+   ReleaseBrush(handle) {
+      For key, brush in this.BrushMap {
+         If (brush = handle) {
+            ; If there remain no more references to the brush delete it
+            if ((res := this._BrushRefCount(brush,-1)) = 0) {
+               GDIp.DeleteBrush(brush)
+               this.BrushMap.Delete(key)
+               this.BrushCount.Delete(brush)
+               ; debug("Deleted a brush " key " " hex(brush) ", " this.BrushMap.Count " remaining unique brushes")
+            }
+            Return res
+         }
+      }
+      Return 0
+   }
+   /**
+    * Get or set the area object describing the captured screen region
+    * @type {Object}
+    */
+   Area {
+      get => this._Area
+      set => this._Area := Value
+   }
+   /**
+    * Get or set the current draw mode for this snip
+    * @type {Integer}
+    */
+   DrawMode {
+      get => this._DrawMode
+      set {
+         this.priorDrawMode := this._DrawMode 
+         this._DrawMode := Value
+      }
+   }
+   /**
+    * Get or set the file path associated with this snip.
+    * Setting this property also updates the window title to the base filename.
+    * @type {String}
+    */
+   FileName {
+      set {
+         SplitPath(value,,,,&baseName)
+         this.Title := "SnipShapeWindow - " baseName
+         this._FileName := value
+      }
+      get => this._FileName
+   }
+   /**
+    * Get the display base name for the snip.
+    * Returns the filename stem if a file is associated, otherwise a timestamp and dimensions string.
+    * @type {String}
+    */
+   BaseName {
+      get {
+         if (this.FileName) {
+            SplitPath(this._FileName,,,,&baseName)
+            return basename
+         } Else {
+            return this.Time . ' (' this._Area.W 'x' this._Area.H ')'
+         }
+      }
+   }
+   /**
+    * Return the most common color at some pixel location.
+    * Good for finding the true background color.
+    * Handles GDI+ startup/shutdown here.
+    * @param {Integer} winX - Window-relative X coordinate of the center point
+    * @param {Integer} winY - Window-relative Y coordinate of the center point
+    * @param {Integer} [extent=0] - Radius around the center point to extend the search matrix
+    * @returns {String} Most common color in hex string format
+    */
+   BackgroundPICColorFromXY(winX, winY, extent := 10) {
+      hBitmap := this.Handle
+      ; Center of the region
+      winX -= extent, winY -= extent
+      W := 2 * extent + 1, H := 2 * extent + 1
+      ; Keep box on the window
+      winX := Max(0, winX), winY := Max(0, winY)
+      picHBitmap := BitMap.CropHBITMAP(hBitmap, winX, winY, W, H, 1)
+      CC := BitMap.GetBackgroundColor(picHBitmap)
+      GDI.DeleteObject(picHBitmap)
+      ; GDIp.DisposeImage(picPBitmap)
+      Return hex(CC) ; return in hex string like PixelGetColor
+   }
+
+   /**
+    * Return Snip Info for the undo/redo handler
+    * @returns {Object} 
+    */
+   SnipInfo() {
+      this.GetPos(&X, &Y, &W, &H)
+      Return { hBitmap: GDI.CopyImage(this.Handle), Area: { X: X, Y: Y, W: W, H: H } }
+   }
+   /**
+    * Callback when the user drags the snip, move the button bar along with it
+    * @returns 1
+    */
+   WM_SIZEEMOVE_GUI(snipObj, wParam, lParam, msg) {
+      Switch msg {
+         Case 0x231: ; start dragging
+         Case 0x216: ; dragging
+            ; lParam is pointer to a rect structure of new position
+            ; better than WinGetPos while dragging
+            X := NumGet(lParam,0,"Int")
+            Y := NumGet(lParam,4,"Int")
+            ButtonBar.Show(snipObj.hWnd, , X, Y)
+         Case 0x232: ; done dragging
+
+         Default:
+
+      }
+      return 1
+   }      
+   /**
+    * WM_ACTIVATE message handler — updates the snip border color and draw mode
+    * when a snip window gains or loses focus, and shows or hides the button bar accordingly
+    * @param {Integer} wParam - Activation code (0=deactivate, 1=activate, 2=click-activate)
+    * @param {Integer} lParam - Handle of the other window involved in the activation change
+    * @param {Integer} msg - Message identifier (0x006)
+    * @param {Integer} hWnd - Handle of the window receiving the message
+    */
+   WM_ACTIVATE_GUI(SnipObj, wParam, lParam, msg) {
+      ; lParam is other window
+      focusBorder.HideFocus(true)
+      hwnd := SnipObj.hwnd
+      Switch (wParam &= 0xFF) {
+         Case 0:  ; Deactivate
+            If (Snips.SetDrawMode(0, hwnd)) {
+               SnipObj.BackColor := RGBval("c0x6d7f7f") ; Not Active
+               ; lParam is 0 if non AHK gui was activated
+            }
+            Sleep(50) ; let it Deactivate first so we know where it is
+            If (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
+               ButtonBar.Hide()
+         Case 1, 2:  ; Activate
+            ; 2 = click, 1 = other reason
+            ; Cursor Callback may have already set drawmode from button bar
+            ; But this will make sure the border is correct
+            ; If minimized from task bar activate gets fired again
+            ButtonBar.SnipObj := SnipObj
+            If (WinExist("A")) {
+               Snips.SetDrawMode(Snips.GetGuiObj(hWnd).DrawMode, hWnd)
+               If (wParam = 1)
+                  Sleep(50) ; let it restore first so we know where it is
+               ButtonBar.Show(hWnd)
+            } Else {
+               debug("Expected snip")
+            }
+         Default:
+      }
+   }
+}

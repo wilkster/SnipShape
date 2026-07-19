@@ -529,23 +529,25 @@ Class BitMap {
    /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
-    * @param fromRGB RGB you want to replace,  alpha here is used in replacement pixel
-    * @param toRGB RGB replacement value
+    * @param fromARGB RGB you want to replace,  alpha here is used in replacement pixel
+    * @param toARGB RGB replacement value
+    * @param matchAlpha 1 = full match on fromARGB and replace with toARGB
+    *                   0= match RGB on fromARGB and flow over same alpha to target, 
     * @returns {Integer} number of replaced pixels
+    * See ReplaceColor.cpp mcode source
     */
-   Static ReplaceBackgroundColor(uBitmap, fromRGB, toRGB) {
-
+   Static ReplaceBitmapColor(uBitmap, fromARGB, toARGB, matchAlpha:=0) {
       Static mCodeFunc := 0
       If (mCodeFunc = 0) {
          ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRVV1ZTi0QkaIXSD47EAAAARInHRYXAD464AAAARIt0JHBEi2wkcInFD7b0QYnHwe0QQYnwSInLSWPxQYnTQcHvGEAP
-            tu1ED7bQQcHuEEUxyUUx5EHB7QiQSInYMdLrFWYPH4QAAAAAAIPCAUiDwARBOdN+RA+2CEQ50XXsD7ZIAUQ5wXXjD7ZIAjnpddsP
-            tkwkcIPCAUSIaAFBg8QBRIhwAkiDwASISPxEiHj/QTnTf8MPH4AAAAAAQYPBAUgB80Q5z3+UW0SJ4F5fXUFcQV1BXkFfw0Ux5Fte
-            RIngX11BXEFdQV5BX8OQ
-            )"
+               QVdJictBVkFVQVRVV1ZTSIPsGIuMJIAAAACLhCSIAAAAhdIPjuQAAABEicZFhcAPjtgAAAAPtt2Jz0GJxUGJx8HvGEGJ2A+23MHo
+               GIlcJAyLnCSQAAAAQYn+ic/B7xBBwe0QicVBidKF20lj2UEPRO5FMclFMeRmDx+EAAAAAABEiUwkCEyJ2DHS6xAPH0AAg8IBSIPA
+               BEE50n5MOAh18EQ4QAF16kA4eAJ15ESLjCSQAAAARYXJdAZEOHADddFED7ZMJAyDwgFEiDhBg8QBRIhoAkiDwAREiEj9QIho/0E5
+               0n+4Dx9AAESLTCQISQHbQYPBAUQ5zn+HSIPEGESJ4FteX11BXEFdQV5BX8NFMeTr55CQkJCQkJCQkJCQkJCQ
+            )"            
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
             MsgBox("32 bit GetBackgroundColor Not Implemented")
@@ -555,20 +557,19 @@ Class BitMap {
       ; get dimensions and reference to first pixel in memory (iScan)
       If (mCodeFunc) {
          replaced := 0
-         fromRGB := Number(fromRGB)
-         toRGB := Number(toRGB)
+         fromARGB := Number(fromARGB)
+         toARGB := Number(toARGB)
          Switch BitMap.getImageType(uBitmap) {
             Case "pBitmap":
                GDIp.GetImageDimensions(uBitmap, &w, &h)
                GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3, 0x26200A) ; 3 is read/write only
-               replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint", fromRGB, "Uint", toRGB)
+               replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint", fromARGB, "Uint", toARGB, "Uint", matchAlpha)
                GDIp.UnlockBits(uBitmap, &iData)
             Case "hBitmap":
                res := BitMap.GetDIBSectionInfo(uBitmap)
                ; Doesn't matter of top/down or bottom up just looking for a background color
                ; Issue with  pixels not having any alpha so we would need to handle in mcode
-               debug("Pixel 0 = " hex(NumGet(res.ptr, 0, "UInt")))
-               replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint", fromRGB, "Uint", toRGB)
+               replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint", fromARGB, "Uint", toARGB, "Uint", matchAlpha)
             Default:
          }
 
@@ -862,7 +863,6 @@ Class BitMap {
 
       Return pBitmapScale
    }
-
    ;----------------------------------------------------------------------
    ; by Marius Șucan GDIp Library
    ; uses compiled C code below
@@ -1427,21 +1427,21 @@ Class BitMap {
 
          opcode := NumGet(ptr + patchOffset - 1, "UChar")
          if (opcode == 0xE8 || opcode == 0xE9) {
-               if (p == 8) {
-                  NumPut("UShort", 0x25FF, "UInt", 0x00000000, "Ptr", pFunc, pEntry)
-                  NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
-                  iatOffset += 16
-               } else {
-                  NumPut("Int", pFunc - (ptr + patchOffset + disp), ptr + patchOffset)
-               }
+            if (p == 8) {
+               NumPut("UShort", 0x25FF, "UInt", 0x00000000, "Ptr", pFunc, pEntry)
+               NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
+               iatOffset += 16
+            } else {
+               NumPut("Int", pFunc - (ptr + patchOffset + disp), ptr + patchOffset)
+            }
          } else {
-               NumPut("Ptr", pFunc, pEntry)
-               if (p == 8) {
-                  NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
-               } else {
-                  NumPut("UInt", pEntry, ptr + patchOffset)
-               }
-               iatOffset += p
+            NumPut("Ptr", pFunc, pEntry)
+            if (p == 8) {
+               NumPut("Int", pEntry - (ptr + patchOffset + disp), ptr + patchOffset)
+            } else {
+               NumPut("UInt", pEntry, ptr + patchOffset)
+            }
+            iatOffset += p
          }
       }
       return ptr
@@ -1478,6 +1478,79 @@ Class BitMap {
             Return "unknown"
       }
    }
+   /**
+    * Return a new GDI+ Bitmap scaled to WxH. Caller owns the returned
+    * pBitmap (and the original) and must GDIp.DisposeImage both when done --
+    * this does not free the source, matching BitMap.Rotate/Flip.
+    * @param pBitmap - Source GDI+ Bitmap pointer
+    * @param W/H - Target pixel dimensions
+    * @param Quality - GDI+ InterpolationMode constant (default 3 = Bilinear;
+    *   7 = HighQualityBicubic for a final/committed resize)
+    * @returns {Integer} New pBitmap, or 0 on failure
+    */
+   static ResizePBitmap(pBitmap, W, H, Quality := 3) {
+      if (W <= 0 || H <= 0)
+         return 0
+      DllCall("gdiplus\GdipCreateBitmapFromScan0"
+         , "int", W, "int", H, "int", 0, "int", 0x26200A, "ptr", 0, "ptr*", &pResult := 0)
+      if !pResult
+         return 0
+
+      DllCall("gdiplus\GdipGetImageGraphicsContext", "ptr", pResult, "ptr*", &hGraphics := 0)
+      if !hGraphics {
+         DllCall("gdiplus\GdipDisposeImage", "ptr", pResult)
+         return 0
+      }
+
+      DllCall("gdiplus\GdipSetInterpolationMode", "ptr", hGraphics, "int", Quality)
+      status := DllCall("gdiplus\GdipDrawImageRectI"
+         , "ptr", hGraphics, "ptr", pBitmap, "int", 0, "int", 0, "int", W, "int", H)
+      DllCall("gdiplus\GdipDeleteGraphics", "ptr", hGraphics)
+
+      if (status != 0) {  ; GDI+ Status.Ok == 0
+         DllCall("gdiplus\GdipDisposeImage", "ptr", pResult)
+         return 0
+      }
+      Return pResult
+   }
+   /**
+    * Return a new HBITMAP containing hBitmap's content rescaled to WxH.
+    * Caller owns the returned handle (GDI.DeleteObject it when done).
+    * @param hBitmap - Source HBITMAP, left untouched
+    * @param W/H - Target pixel dimensions
+    * @param Quality - GDI+ InterpolationMode constant
+    * @returns {Integer} New HBITMAP, or 0 on failure
+    */
+   static ResizeHBITMAP(hBitmap, W, H, Quality := 7) {
+      if (W <= 0 || H <= 0)
+         return 0
+      if !(srcPBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap))
+         return 0
+      destPBitmap := GDIp.CreateBitmap(W, H, 0xE200B) ; PixelFormat3PixelFormat32bppPArgb Premultiplied
+      if (!destPBitmap){
+         GDIp.DisposeImage(srcPBitmap)
+         return 0
+      }
+      hGraphics := GDIp.GraphicsFromImage(destPBitmap)
+      GDIp.SetCompositingMode(hGraphics,1) ; Overwrite/SourceCopy, skip blending.
+      GDIp.SetInterpolationMode(hGraphics, Quality)
+      GDIp.SetPixelOffsetMode(hGraphics,2) ; High Quallity.
+      ; Rescale the image here
+      DllCall("gdiplus\GdipDrawImageRectI"
+         , "ptr", hGraphics
+         , "ptr", srcPBitmap
+         , "int", 0
+         , "int", 0
+         , "int", W
+         , "int", H)
+      GDIp.DeleteGraphics(hGraphics)
+
+      hResult := GDIp.CreateARGBHBITMAPFromBitmap(destPBitmap)
+      GDIp.DisposeImage(destPBitmap)
+      GDIp.DisposeImage(srcPBitmap)
+      Return hResult
+   }     
+
 }
 
 logGDI(BFN(Error("", -1).File) " loaded...")
