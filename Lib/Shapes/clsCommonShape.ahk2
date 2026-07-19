@@ -57,7 +57,7 @@ _AddNewShapeOrBitmap(guiObj, Shape, GuiOptions := "", sPicSource := "", Factor :
          shapeObj.ClearProperties(shapeObj)
          shapeObj.RemoveProperties(shapeObj)
          shapeObj.Enabled := true
-         debug("Reusing Shape Object " Shape " " ctrl.HasProp("Shape") )
+         ; debug("Reusing Shape Object " Shape " " ctrl.HasProp("Shape") )
          Break
       }
    }
@@ -423,8 +423,8 @@ Class commonShape extends Gui.Pic {
     * Post an undo action to the Snip UnDo/ReDo class
     * @param what Action
     */
-   PostAction(what) {
-      this.SnipObj.UnDo.PostAction(this, what)
+   PostAction(what, tag:="") {
+      this.SnipObj.UnDo.PostAction(this, what, tag)
    }
    /**
     * Undo the last undo action off the stack

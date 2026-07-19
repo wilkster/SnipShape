@@ -199,7 +199,7 @@ Class Snips {
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
             If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-               Ctrl.Close(skipUndo)
+               Ctrl.Close(skipundo)
             }
          }
          SnipObj.Dirty := 0
@@ -209,15 +209,17 @@ Class Snips {
    }
    /**
     * Posta a DELETE_SHAPE event if user is clearing all the shapes
+    * Call separate due to posting vs not posting
     * @param {Integer} hWnd 
     */
    Static PostClearAllShapes(hWnd := 0) {
+      tag := A_TickCount . "ClearAll"
       if NOT hWnd
          hWnd := WinExist("A")
       If (SnipObj := Snips.IsValid(hWnd)) {
          For Ctrl in SnipObj {
             If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-               Ctrl.PostAction(UnDo.DELETE_SHAPE)
+               Ctrl.PostAction(UnDo.DELETE_SHAPE, tag)
             }
          }
       } else {

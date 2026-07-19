@@ -48,6 +48,7 @@ Class GuiSnip extends Gui {
       super.OnEvent("Close", this.Destroy.Bind(this))
       super.OnEvent("Escape", Snips.Close.Bind(Snips, this.hWnd))
       super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
+      super.OnMessage(0x0231, this.WM_SIZEEMOVE_GUI.Bind(this))
       super.OnMessage(0x006, this.WM_ACTIVATE_GUI.Bind(this))
    }
    /**
@@ -65,8 +66,8 @@ Class GuiSnip extends Gui {
     * Post an undo action to the Snip UnDo/ReDo class
     * @param what Action
     */
-   PostAction(what) {
-      this.UnDo.PostAction(this, what)
+   PostAction(what, tag:="") {
+      this.UnDo.PostAction(this, what, tag)
    }
    /**
     * Undo the last undo action off the stack
@@ -385,6 +386,14 @@ Class GuiSnip extends Gui {
       this.GetPos(&X, &Y, &W, &H)
       Return { hBitmap: GDI.CopyImage(this.Handle), Area: { X: X, Y: Y, W: W, H: H } }
    }
+      /**
+    * Position info for undo/redo
+    * @returns {Object} 
+    */
+   MoveInfo() {
+      this.GetPos(&X, &Y, &W, &H)
+      Return { Area: { X: X, Y: Y, W: W, H: H } }
+   }
    /**
     * Callback when the user drags the snip, move the button bar along with it
     * @returns 1
@@ -392,6 +401,7 @@ Class GuiSnip extends Gui {
    WM_SIZEEMOVE_GUI(snipObj, wParam, lParam, msg) {
       Switch msg {
          Case 0x231: ; start dragging
+         snipObj.PostAction(UnDo.MOVE_SNIP)
          Case 0x216: ; dragging
             ; lParam is pointer to a rect structure of new position
             ; better than WinGetPos while dragging

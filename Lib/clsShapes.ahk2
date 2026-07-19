@@ -436,7 +436,6 @@ Class Shapes {
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
             PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
          Case Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
-            SnipObj.PostAction(UnDo.CHANGE_SNIP)
             changed := Shapes.Draw(SnipObj,DrawMode)
             Snips.SetDrawMode(0)
          Case Shapes.SHAPE_TAG:
@@ -1280,6 +1279,8 @@ Class Shapes {
    Static Crop(CropObj, Clipboard := false) {
       myGUI := CropObj.Gui
       If (hBitmap := myGUI.handle) {
+         tag := A_TickCount . "Crop"
+         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
          BW := Settings.BorderWidth
          ; Get various dimensions
          myGUI.GetPos(&gX1, &gY1) ; includes the Border 
@@ -1323,6 +1324,8 @@ Class Shapes {
    Static Slice(SliceObj, Clipboard := false) {
       myGUI := SliceObj.Gui
       If (hBitmap := myGUI.handle) {
+         tag := A_TickCount . "Slice"
+         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
          BW := Settings.BorderWidth
          C := SliceObj.shapeCoord ; includes picture border offset
          myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
@@ -1358,7 +1361,10 @@ Class Shapes {
     */
    Static Extend(ExtendObj, bgColor, Clipboard := false) {
       myGUI := ExtendObj.Gui
+
       If (hBitmap := myGUI.handle) {
+         tag := A_TickCount . "Extend"
+         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
          ; NOTE - Rather then background of extend shape, get closer to start of drag
          ; bgColor := ExtendObj.ShapeBackgroundColor()
          bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
@@ -1422,7 +1428,7 @@ Class Shapes {
                      If Ctrl.Visible {
                         Ctrl.GetPos(&X, &Y, &W, &H)
                         If (l > 0 AND X > l OR (t > 0 and Y > t)) {
-                           Ctrl.PostAction(UnDo.MOVE_SHAPE)
+                           Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
                            Ctrl.Move(X + (r - l), Y + (b - t))
                         }
                         ; Ctrl.Refresh()
@@ -1434,7 +1440,7 @@ Class Shapes {
                If (l > 0 OR t > 0) {
                   For Ctrl in myGUI {
                      If Ctrl.Visible {
-                        Ctrl.PostAction(UnDo.MOVE_SHAPE)
+                        Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
                         Ctrl.GetPos(&X, &Y, &W, &H)
                         Ctrl.Move(X + l, Y + t)
                         ; Ctrl.Refresh()
@@ -1621,6 +1627,7 @@ Class Shapes {
     */
    Static InsertText(SnipObj, wX, wY, Text) {
       ; Keep the text on the GUI
+
       SnipObj.GetPos(&gX, &gY, &gW, &gH)
       CoordMode('Mouse', 'Screen')
       MouseGetPos(&mX, &mY)
@@ -1634,6 +1641,7 @@ Class Shapes {
       Text := StrReplace(Text,"`r`n","`n")
       BGColor := SnipObj.BackgroundPICColorFromXY(wX, wY, 32)
       TextObj := SnipObj.AddNewShape(Shapes.SHAPE_FILLTEXT)
+      TextObj.PostAction(UnDo.ADD_SHAPE)
       If (TextObj.DrawText(wX, wY, TextShape.FillFontSize, Trim(Text, " `n"), TextShape.FillFontName, , , Shapes.globalShapeColor, BGColor)) {
          qTrayTip("Inserting text: " SubStr(Text,1,20) "...")
          ShapeOnTop(TextObj)

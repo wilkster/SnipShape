@@ -17,14 +17,15 @@
 #Include libMisc.ahk2
 #Include clsShapes.ahk2
 Class UnDo {
-   Static ADD_SHAPE     := 1
-   Static MOVE_SHAPE    := 2
-   Static DELETE_SHAPE  := 3
-   Static RESIZE_SHAPE  := 4
-   Static SHAPE_COLOR   := 5
-   Static TEXT_CHANGE   := 6
-   Static BITMAP_CHANGE := 7
-   Static CHANGE_SNIP   := 8
+   Static ADD_SHAPE     :=  1
+   Static MOVE_SHAPE    :=  2
+   Static DELETE_SHAPE  :=  3
+   Static RESIZE_SHAPE  :=  4
+   Static SHAPE_COLOR   :=  5
+   Static TEXT_CHANGE   :=  6
+   Static BITMAP_CHANGE :=  7
+   Static CHANGE_SNIP   :=  8
+   Static MOVE_SNIP     :=  9
    ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
    Static MAX_DEPTH := 100  ; cap stack depth, oldest entries dropped first
 
@@ -71,11 +72,12 @@ Class UnDo {
     * @param obj Shape or Snip Object
     * @param action
     */
-   PostAction(obj, action) {
+   PostAction(obj, action, Tag:="") {
       ; Reset the redo stack
+      ; debug("Posting " action " with tag " Tag)
       this._clearStack(this.redoStack)
       data := this._CaptureData(action, obj)
-      item := { obj: obj, action: action, data: data }
+      item := { obj: obj, action: action, data: data , tag: Tag}
       this.undoStack.push(item)
       ; dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
 
@@ -147,6 +149,7 @@ Class UnDo {
          Case UnDo.BITMAP_CHANGE: Return obj.BitmapInfo()
          Case UnDo.RESIZE_SHAPE : return obj.ResizeInfo()
          Case UnDo.CHANGE_SNIP  : return obj.SnipInfo()
+         Case UnDo.MOVE_SNIP    : return obj.MoveInfo()
               Default           : Return Object()
       }
    }
@@ -208,64 +211,84 @@ Class UnDo {
    _PerformAction(sourceStack, targetStack, isUndo) {
       If (sourceStack.Length = 0)
          Return false
-
+      ; TODO - Use tags to do this in a loop for items with the same tag
       item := sourceStack.Pop()
       label := isUndo ? "Undo" : "Redo"
+      tag := item.tag
 
-      ; debug(label " action " item.action ", length=" sourceStack.length)
-      Switch item.action {
-         Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
-            ; recreate when: undoing a DELETE, or redoing an ADD
-            ; recreate if delete shape and undo, OR add shape and redo
-            recreate := (item.action == UnDo.DELETE_SHAPE) = isUndo
-            shapeObj := item.obj
-            If (recreate) {
-               Info := item.data
-               CloneObj := this._RecreateShape(shapeObj, Info)
-               ; The NEXT time this item is popped it will be a "close" op, which
-               ; doesn't read .data at all - so this snapshot is unused, but capture
-               ; the cheap ADD_SHAPE (empty) schema for consistency.
-               reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
-               targetStack.Push({ obj: CloneObj, action: item.action, data: reverseData })
-            } Else {
-               ; The NEXT time this item is popped it will be a "recreate" op, which
-               ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
-               ; of what item.action says (it stays fixed across the whole chain,
-               ; while the operation itself alternates recreate/close each round).
-               reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
-               targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
-               shapeObj.Close(true)
-            }
+      Loop {
+         ; debug(A_TickCount " Undoing " item.action " with tag " Tag)
+         ; debug(label " action " item.action ", length=" sourceStack.length)
+         Switch item.action {
+            Case UnDo.ADD_SHAPE, UnDo.DELETE_SHAPE:
+               ; recreate when: undoing a DELETE, or redoing an ADD
+               ; recreate if delete shape and undo, OR add shape and redo
+               recreate := (item.action == UnDo.DELETE_SHAPE) = isUndo
+               shapeObj := item.obj
+               If (recreate) {
+                  Info := item.data
+                  CloneObj := this._RecreateShape(shapeObj, Info)
+                  ; The NEXT time this item is popped it will be a "close" op, which
+                  ; doesn't read .data at all - so this snapshot is unused, but capture
+                  ; the cheap ADD_SHAPE (empty) schema for consistency.
+                  reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
+                  targetStack.Push({ obj: CloneObj, action: item.action, Tag: item.tag, data: reverseData })
+               } Else {
+                  ; The NEXT time this item is popped it will be a "recreate" op, which
+                  ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
+                  ; of what item.action says (it stays fixed across the whole chain,
+                  ; while the operation itself alternates recreate/close each round).
+                  reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
+                  targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
+                  shapeObj.Close(true)
+               }
 
-         Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE, UnDo.BITMAP_CHANGE:
-            shapeObj := item.obj
-            reverseData := this._CaptureData(item.action, shapeObj)
-            targetStack.Push({ obj: shapeObj, action: item.action, data: reverseData })
-            ; Blend in saved properties
-            For pr, v in item.data.OwnProps()
-               shapeObj.%pr% := v
-            ; If there was a bitmap in the undo/redo data then apply it
-            If (hbitmap := item.data.hBitmap ?? 0) {
-               shapeObj.Handle := hBitmap
-            }
-            ; Redraw with new properties
-            shapeObj.Refresh()
-            ; Make sure focus border is synced
-            focusBorder.Sync(shapeObj)
-
-         Case UnDo.CHANGE_SNIP:
-            snipObj := item.obj
-            Area := item.data.Area
-            reverseData := this._CaptureData(item.action, snipObj)
-            targetStack.Push({ obj: snipObj, action: item.action, data: reverseData })
-            If (hbitmap := item.data.hBitmap ?? 0) {
-               snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
+            Case UnDo.MOVE_SNIP:
+               snipObj := item.obj
+               Area := item.data.Area
+               reverseData := this._CaptureData(item.action, snipObj)
+               targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
+               snipObj.Move(Area.X, Area.Y)
                ButtonBar.Show(snipObj.hWnd)
-               snipObj.RefreshTextures()
-            }
+               
+            Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE, UnDo.BITMAP_CHANGE:
+               shapeObj := item.obj
+               reverseData := this._CaptureData(item.action, shapeObj)
+               targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
+               ; Blend in saved properties
+               For pr, v in item.data.OwnProps()
+                  shapeObj.%pr% := v
+               ; If there was a bitmap in the undo/redo data then apply it
+               If (hbitmap := item.data.hBitmap ?? 0) {
+                  shapeObj.Handle := hbitmap
+               }
+               ; Redraw with new properties
+               shapeObj.Refresh()
+               ; Make sure focus border is synced
+               focusBorder.Sync(shapeObj)
 
-         Default:
-      }
+            Case UnDo.CHANGE_SNIP:
+               snipObj := item.obj
+               Area := item.data.Area
+               reverseData := this._CaptureData(item.action, snipObj)
+               targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
+               If (hbitmap := item.data.hBitmap ?? 0) {
+                  snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
+                  ButtonBar.Show(snipObj.hWnd)
+                  snipObj.RefreshTextures()
+               }
+
+            Default:
+         }
+         ; Determine if we have more to do with the same tag
+         If (tag == "" OR sourceStack.Length == 0)
+            Return true
+         item := sourceStack.Pop()
+         If (item.tag != tag) {
+            sourceStack.push(item)
+            Return true
+         }
+      } ; end loop
       Return true
    }
 }
