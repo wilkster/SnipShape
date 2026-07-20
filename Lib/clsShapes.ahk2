@@ -1305,6 +1305,7 @@ Class Shapes {
          For Ctrl in myGUI {
             If Ctrl.Visible {
                Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
                Ctrl.Move(X - C.X1, Y - C.Y1)
                Ctrl.Refresh()
             }
@@ -1340,6 +1341,7 @@ Class Shapes {
          For Ctrl in myGUI {
             If Ctrl.Visible {
                Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
                If (pW = iR.W) ; Horz section
                   Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
                Else if (pH = iR.H) ; Vert section
