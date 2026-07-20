@@ -216,12 +216,18 @@ Class GuiSnip extends Gui {
       useX := x ?? winX
       useY := y ?? winY
 
-      hdcScreen  := GDI.GetDC(0)
-      hdcMem     := GDI.CreateCompatibleDC(hdcScreen)
-      hDIB       := GDI.CreateDIBSection(newW, newH, hdcMem)
-      obm        := GDI.SelectObject(hdcMem, hDIB)
-      ; paint the border by filling the whole surface first
-      GDI.FillRect(hdcMem, RGBval(this.BackColor), 0, 0, newW, newH)
+      hdcScreen := GDI.GetDC(0)
+      hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
+      hDIB      := GDI.CreateDIBSection(newW, newH, hdcMem)
+      obm       := GDI.SelectObject(hdcMem, hDIB)
+
+      ; Paint the border
+      If (BW > 0) {
+         iG := GDIp.GraphicsFromHDC(hdcMem)
+         pen := GDIp.CreatePen(0xFF000000 | RGBval(this.BackColor), BW)
+         GDIp.SetPenAlignment(pen, 1)
+         GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
+      }
 
       ; blit the caller's bitmap into the middle, inset by bw on each side
       hdcSrc := GDI.CreateCompatibleDC(hdcScreen)
@@ -233,10 +239,12 @@ Class GuiSnip extends Gui {
       GDI.UpdateLayeredWindow(this.hWnd, hdcMem, useX, useY, newW, newH)
 
       ; clean up
+      GDIp.DeletePen(pen)
+      GDIp.DeleteGraphics(iG)
       GDI.SelectObject(hdcMem, obm)
       GDI.DeleteObject(hDIB)
       GDI.DeleteDC(hdcMem)
-      GDI.ReleaseDC(hdcScreen) ; <= getter error here
+      GDI.ReleaseDC(hdcScreen)
       Return
    }
 
