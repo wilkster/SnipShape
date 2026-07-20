@@ -96,7 +96,8 @@ Class GuiSnip extends Gui {
          if (Snips.VisibleSnips() = 0)
             ButtonBar.Hide()
          ; Force windows to reclaim (used for checkking for memory leaks)
-         DllCall("psapi\EmptyWorkingSet", "ptr", -1)
+         if (Snips.guiSnips.Count == 0)
+            DllCall("psapi\EmptyWorkingSet", "ptr", -1)
       }
       Return 1
    }
