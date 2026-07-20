@@ -666,7 +666,7 @@ Class Shapes {
             ;----------------------------------------------------------------------
             Switch {
                Case this.ColorQueue.Length:
-                  ShapeObj.colorPicked(this.ColorQueue.Pop())
+                  ShapeObj.SetColor(this.ColorQueue.Pop())
                Case GetKeyState("Up", "P"):
                   ; Arrow key can real time change the width of the pens
                   ShapeObj.ChangeThickness(+0.03)
