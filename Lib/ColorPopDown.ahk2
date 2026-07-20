@@ -236,7 +236,7 @@ Class ColorPopDown {
       this.colorGui.OnMessage(0x0020, this.GUI_SETCURSOR.Bind(this)) ;WM_SETCURSOR
       ; Autohide the gui if it loses focus
       this.colorGui.OnMessage(0x0006, checkToHide.bind()) ; WM_ACTIVATE
-      win11RoundCorners(this.colorGui.hwnd)
+      win11RoundCorners(this.colorGui.hwnd, 2)
 
       Return
       ;----------------------- C L O S U R E S ------------------------------

@@ -50,7 +50,7 @@ Class ButtonBar {
       this.bbHeight        := 0
       this.SnipObj         := 0
       ; Force rounded corners on windows 11 since we don't have a caption - we do manually later for windows 10
-      win11RoundCorners(this.bbGui.hwnd)
+      win11RoundCorners(this.bbGUI.hwnd, 3)
       ; Setting the font size sets the button size as well, later we re-read the button size for this DPI
       this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
       ; Close Bar Button

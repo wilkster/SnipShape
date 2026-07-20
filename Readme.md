@@ -47,7 +47,7 @@ markup the snip.
       - [Redact/Obfuscate shapes](#redactobfuscate-shapes)
       - [Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.](#text-shapes-texttagfilloutlinearrow-text-text-entered-via-a-dialog-box)
       - [Tool menu](#tool-menu)
-      - [Color menu](#color-menu)
+      - [Color menu, LMB to select color, RMB to customize color](#color-menu-lmb-to-select-color-rmb-to-customize-color)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
@@ -460,4 +460,3 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 ## Limitations/Future
 
 - Shapes on saved snips are merged with snip when saved, and no longer editable. (future idea)
-- Undo/Redo for shapes has not been implemented

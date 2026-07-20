@@ -36,11 +36,12 @@ Mica11Backdrop(hWnd) {
  * 
  * Should not be used if borders are enabled since they will be cutoff in the corners.
  * @param hWnd - Handle to window to operate on
+ * @param type - 0 - system decide, 1 - square, 2 - larger radius, 3 - small radius
  */
-win11RoundCorners(hWnd) {
+win11RoundCorners(hWnd, type:=3) {
    static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
    if (WinVer > 10)
-      DllCall("Dwmapi\DwmSetWindowAttribute", "Ptr", hWnd, "UInt", 33, "Ptr*", 3, "UInt", 4)
+      DllCall("Dwmapi\DwmSetWindowAttribute", "Ptr", hWnd, "UInt", 33, "UInt*", type, "UInt", 4)
 }
 /**
  * Round the corners of Windows 10 windows by setting a windows region
