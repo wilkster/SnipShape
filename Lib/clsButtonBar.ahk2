@@ -55,6 +55,7 @@ Class ButtonBar {
       this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
       ; Close Bar Button
       cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
+      ; TODO - have a space but would like a grabber
       b := this.AddBarButton("Y" this.Margin " X+" this.Margin * 3, Settings.CursorPath . "BBClose.ico", cH, "Close Button Bar (F1)", this.Hide.Bind(this, 0))
       b.GetPos(,,,&cH)
       ; Cursors need to zoom in a bit, remove some margin
@@ -72,16 +73,18 @@ Class ButtonBar {
 
       logGDI("Built Shape Buttons")
       ; Build a button or menu entry for each color in settings
-      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "colors.ico", round(bs*.75), "Set Shape Colors (1-9)", , PickAColor)
+      b := this.AddBarButton("Y" this.Margin " X+" o , Settings.CursorPath . "colors.ico", round(bs*.75), "Set Shape Colors (1-9)", , PickAColor)
       
-      padded := round(cH*.6)
+      padded := round(cH*.7)
       b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
       b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
-      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
-      logGDI("Built Snip Buttons")
 
-      ; Close Snip Button
-      b := this.AddBarButton("Y" this.Margin " X+" o, Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
+      this.btnUndo := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Undo.ico", cH, "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
+      this.btnRedo := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "Redo.ico", cH, "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
+
+      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
+      b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
+      logGDI("Built Snip Buttons")
       ; Also handle Escape
       this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
       ; this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
@@ -282,6 +285,16 @@ Class ButtonBar {
          this.Enabled := enabled
       this.bbgui.Hide()
       ToolTip
+   }
+   Static Undo(*) {
+      If (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.UndoAction(hWnd)
+      }
+   }
+   Static Redo(*) {
+      If (hWnd := WinExist("SnipShapeWindow")) {
+         Snips.RedoAction(hWnd)
+      }
    }
    /**
     * Save the active snip to a file
