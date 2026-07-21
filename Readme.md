@@ -278,7 +278,7 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | C   | Cropping rectangle to make the current snip smaller by cropping it to selection |
 | O   | OCR the selected area                                                           |
 | K   | Slice out the selected area of Snip                                             |
-| Q   | Extend the snip using the background color under the selection                  |
+| Q   | Extend the snip using the background color under the cursor                     |
 
 ### Toolbar Menus to create shapes
 
