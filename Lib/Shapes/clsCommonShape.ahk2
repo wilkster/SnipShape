@@ -168,6 +168,9 @@ Class commonShape extends Gui.Pic {
       this.DPIFactor := activeDPIFactor()
       this.ShapeName := this.Shape > 0 ? Trim(StrSplit(Shapes.ShapeName[this.Shape],"-")[1]) : "Picture"
       this.SnipObj   := this.GUI
+      this.myBrushes := GDIp.Brushes()
+      this.myPens    := GDIp.Pens()
+      this.DPIFactor := activeDPIFactor()
    }
    /**
     * Returns the DPI value for this control's window.
@@ -185,22 +188,20 @@ Class commonShape extends Gui.Pic {
    /**
     * Prepare to draw (common to all shapes).
     * Creates brush and pen collections, sets up primary drawing pen and grab helpers.
+    * Note: Only called when drawing, not on duplicate or redo create
     */
    Startup() {
-      this.myBrushes            := GDIp.Brushes()
-      this.myPens               := GDIp.Pens()
-      this.DPIFactor            := activeDPIFactor()
+      Static GrabPad      := 15 * activeDPIFactor()
       this.myPens.baseThickness := this.shapeThickness
       this.pPrime               := this.myPens.Add(this.shapeOpacity << 24 | this.Color, this.shapeThickness)
       ; Empty pen to help with grabbing empty shapes
-      Static GrabPad := 15 * activeDPIFactor()
       ; Keep out of pens collection since we don't want it to scale
       this.pGrab := this.myPens.Add(0x01000000, GrabPad)
       GDIp.SetPenAlignment(this.pGrab, 0)
       ; Brush to fill in behind free hand
-      this.bGrab := this.myBrushes.Add(0x01000000)
+      this.bGrab      := this.myBrushes.Add(0x01000000)
       this.blankBrush := this.myBrushes.Add(0x00000000)
-      this.Started := true
+      this.Started    := true
    }
    /**
     * Push this shape to the bottom of the Z-order, just above the background picture.
