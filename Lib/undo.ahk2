@@ -46,14 +46,20 @@ Class UnDo {
     * Undo the last action posted, moving its reverse onto the redo stack.
     */
    UndoLast() {
-      Return this._PerformAction(this.undoStack, this.redoStack, true)
+      if (this.undoStack.Length >0)
+         this._PerformAction(this.undoStack, this.redoStack, true)
+      else
+         qTrayTip("Nothing to Undo",, "Undo Action", 1000)
    }
 
    /**
     * Redo the last undone action, moving its reverse back onto the undo stack.
     */
    RedoLast() {
-      Return this._PerformAction(this.redoStack, this.undoStack, false)
+      if (this.redoStack.length >0)
+         this._PerformAction(this.redoStack, this.undoStack, false)
+      else
+         qTrayTip("Nothing to Redo",, "Redo Action", 1000)
    }
    /**
     * Remove the last undo posted due to a cancel action
