@@ -582,12 +582,8 @@ Class BitMap {
       /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
-    * @param fromARGB RGB you want to replace,  alpha here is used in replacement pixel
-    * @param toARGB RGB replacement value
-    * @param matchAlpha 1 = full match on fromARGB and replace with toARGB
-    *                   0= match RGB on fromARGB and flow over same alpha to target, 
+    * @param NewAlpha Alpha replacement value (e.g 0xFF)
     * @returns {Integer} number of replaced pixels
-    * See ReplaceColor.cpp mcode source
     */
    Static SetAlphaChannel(uBitmap, NewAlpha) {
       Static mCodeFunc := 0
