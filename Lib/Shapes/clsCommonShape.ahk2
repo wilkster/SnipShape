@@ -78,8 +78,8 @@ _AddNewShapeOrBitmap(guiObj, Shape, GuiOptions := "", sPicSource := "", Factor :
       Shapes.SHAPE_SLICE,         {source: "ToolShape", cls: ToolShape.Prototype},
       Shapes.SHAPE_EXTEND,        {source: "ToolShape", cls: ToolShape.Prototype},
 
-      Shapes.SHAPE_FILE,          {source: "File",      cls: BitmapShape.Prototype},
-      Shapes.SHAPE_BITMAP,        {source: "Clip",      cls: BitmapShape.Prototype},
+      Shapes.SHAPE_FILE,          {source: "File",      cls: BMShape.Prototype},
+      Shapes.SHAPE_BITMAP,        {source: "Clip",      cls: BMShape.Prototype},
 
       Shapes.SHAPE_TEXT,          {source: "Text",      cls: TextShape.Prototype},
       Shapes.SHAPE_FILLTEXT,      {source: "Text",      cls: TextShape.Prototype},
