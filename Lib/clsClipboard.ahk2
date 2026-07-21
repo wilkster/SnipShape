@@ -42,6 +42,11 @@ Class Clipboard {
          Return (0)
 
       If (hBitmap := this.GetClipboardData(CF_BITMAP)) {
+         ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
+         buf := tagBITMAP()
+         GDI.GetObject(hBitmap, buf.Size, buf)
+         W := buf.bmWidth
+         H := buf.bmHeight
          ; Convert DDB to DIB if necessary
          hBitmap := this.ConvertDDBToDIB(hBitmap, true)
          ; Get rid of any transparency
