@@ -454,6 +454,8 @@ Class Snips {
             Gdip.SetPenDashStyle(pBorder,1)
          else
             Gdip.SetPenDashStyle(pBorder,0)
+         ; Anitmate the border a bit to show it active
+         GDIp.SetPenDashArray(pBorder, [BW * 2,  BW])
          ; Set composting mode so we overwrite the dimming in the middle, not merge with it
          Gdip.SetCompositingMode(selSurf.G, 1)
          ; don't make the punched whole transparent or the cursor will go to default when sizing smaller

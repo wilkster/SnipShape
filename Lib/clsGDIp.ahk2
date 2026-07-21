@@ -3781,9 +3781,8 @@ Class GDIp {
     * @param Dashes Comma-separated string alternating dash and space lengths e.g. "3,6,8,4"
     * @returns {Integer} GDI+ status code
     */
-   Static SetPenDashArray(pPen, Dashes) {
+   Static SetPenDashArray(pPen, Points) {
 
-      Points := StrSplit(Dashes, ",")
       PointsCount := Points.Length
       PointsF := Buffer(8 * PointsCount, 0)
       Loop PointsCount

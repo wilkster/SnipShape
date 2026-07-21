@@ -373,7 +373,6 @@ Class focusBorder {
     * @returns {Integer} 0 on success, 1 if a GDI+ graphics object could not be created.
     */
    Static RenderFocusRect(X, Y, W, H) {
-      Static PointsF := stPointF()
       Static Rect    := stRECTI()
       ; Can get interupted above
       Critical("On")
@@ -408,9 +407,8 @@ Class focusBorder {
          ; Solid White overlay
          GDIp.SetPenColor(dashPen, 0xFFFFFFFF)
          ; Even spaced dash line on top of solid line so it shows on any background
-         PointsF.Init(RW2 / 2, RW2 / 2)
-         ; NumPut("Float", RW2 / 2, "Float", RW2 / 2, PointsF.Ptr)
-         DllCall("gdiplus\GdipSetPenDashArray", "Ptr", dashPen, "Ptr", PointsF, "int", 2)
+         GDIp.SetPenDashArray(dashPen,[RW2 / 2, RW2 / 2])
+         ; DllCall("gdiplus\GdipSetPenDashArray", "Ptr", dashPen, "Ptr", PointsF, "int", 2)
          GDIp.DrawRectangle(G, dashPen, RW, RW, W, H)
          ; Put appropriate resize points
          compBrush := GDIp.BrushCreateSolid(0xC4000000 | cColor)
