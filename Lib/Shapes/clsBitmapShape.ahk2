@@ -1,5 +1,5 @@
 /************************************************************************
- * @description Bitmap Class for Shapes
+ * @description BMShape Class for Bitmap Shapes
  * @author Tom Wilkason
  * @date 2026/03/09
  * @version 1.0.0
@@ -19,7 +19,7 @@
  * Handles picture and clipboard bitmap controls. Layered-window drawing
  * is not used; the bitmap is displayed directly via the Picture control.
  */
-Class BitmapShape extends commonShape {
+Class BMShape extends commonShape {
    /**
     * Initialize this shape as a non-layered bitmap control.
     * @param sPicImage - Optional picture source path or HBITMAP reference
