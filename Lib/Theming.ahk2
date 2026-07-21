@@ -17,6 +17,7 @@ https://www.autohotkey.com/boards/viewtopic.php?t=115952
 /**
  * Implement theming for the contols on this GUI, call when GUI controls are all created and destroy when GUI is destroyed
  * TODO - Add status bar support
+ * Currently used by the text editor form to support dark mode
  * @param guiObj GUI Object
  * @param {Integer} DarkMode true/false for dark mode 
  */
@@ -37,16 +38,24 @@ Class ControlThemes {
    }
    /**
     * Release the subclassed window procedure callback and the text background GDI brush
+    * Normal destructor won't work due to circulary reference to WindowProcNew
     */
-   __Delete() {
-      if (this.WindowProcNew)
-         CallbackFree(this.WindowProcNew)      
-      if (this.TextBackgroundBrush)
-         DllCall("Gdi32\DeleteObject", "Ptr", this.TextBackgroundBrush)
+   Dispose() {
+      if (this.WindowProcNew) {
+         ; Restore the original wndproc BEFORE freeing the callback,
+         ; otherwise a message arriving after CallbackFree calls into freed memory
+         setWindowCallback(this.guiObj.Hwnd, this.WindowProcOld)
+         CallbackFree(this.WindowProcNew)
+         this.WindowProcNew := ""   ; break the cycle
+      }
+      if (this.TextBackgroundBrush) {
+         gdi.DeleteObject(this.TextBackgroundBrush)
+         this.TextBackgroundBrush := ""
+      }
    }
-
+   __Delete() => this.Dispose()
    /**
-    * Setup the GUI to allow darkmode
+    * Setup the GUI to allow darkmode, called once
     */
    SetWindowAttribute() {
       this.DarkColors          := Map("Background", "0x202020", "Controls", "0x404040", "Font", "0xE0E0E0")
@@ -77,11 +86,10 @@ Class ControlThemes {
    }
 
    /**
-    * Called internally to setup the themes for each control
+    * Called internally to setup the themes for each control, called once
     */
    SetWindowTheme() {
       Static GWL_STYLE          := -16
-      Static GWL_WNDPROC        := -4
       Static ES_MULTILINE       := 0x0004
       Static LVM_GETTEXTCOLOR   := 0x1023
       Static LVM_SETTEXTCOLOR   := 0x1024
@@ -90,8 +98,6 @@ Class ControlThemes {
       Static LVM_GETBKCOLOR     := 0x1000
       Static LVM_SETBKCOLOR     := 0x1001
       Static LVM_GETHEADER      := 0x101F
-      Static GetWindowLong      := A_PtrSize = 8 ? "GetWindowLongPtr" : "GetWindowLong"
-      Static SetWindowLong      := A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"
              CB_Init            := false
              LV_Init            := false
 
@@ -101,24 +107,22 @@ Class ControlThemes {
 
       For hWnd, GuiCtrlObj in this.guiObj {
          Switch GuiCtrlObj.Type {
-            Case "UpDown":
-               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
-            Case "Button", "CheckBox", "ListBox", "UpDown", "PicButton":
-               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+            Case "Button", "CheckBox", "ListBox", "UpDown", "PicButton", "UpDown":
+               SetControlTheme(GuiCtrlObj.hWnd, Mode_Explorer)
             Case "ComboBox", "DDL":
-               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_CFD, "Ptr", 0)
+               SetControlTheme(GuiCtrlObj.hWnd, Mode_CFD)
             Case "Edit":
-               If (DllCall("user32\" GetWindowLong, "Ptr", GuiCtrlObj.hWnd, "Int", GWL_STYLE) & ES_MULTILINE) {
-                  DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+               If (GetWindowLong(GuiCtrlObj.hWnd, GWL_STYLE) & ES_MULTILINE) {
+                  SetControlTheme(GuiCtrlObj.hWnd, Mode_Explorer)
                } Else {
-                  DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_CFD, "Ptr", 0)
+                  SetControlTheme(GuiCtrlObj.hWnd, Mode_CFD)
                }
             Case "ListView":
                If !(LV_Init) {
-                  Static LV_TEXTCOLOR := SendMessage(LVM_GETTEXTCOLOR, 0, 0, GuiCtrlObj.hWnd)
+                  Static LV_TEXTCOLOR   := SendMessage(LVM_GETTEXTCOLOR, 0, 0, GuiCtrlObj.hWnd)
                   Static LV_TEXTBKCOLOR := SendMessage(LVM_GETTEXTBKCOLOR, 0, 0, GuiCtrlObj.hWnd)
-                  Static LV_BKCOLOR := SendMessage(LVM_GETBKCOLOR, 0, 0, GuiCtrlObj.hWnd)
-                  LV_Init := true
+                  Static LV_BKCOLOR     := SendMessage(LVM_GETBKCOLOR, 0, 0, GuiCtrlObj.hWnd)
+                         LV_Init        := true
                }
                GuiCtrlObj.Opt("-Redraw")
                Switch this.DarkMode {
@@ -135,24 +139,24 @@ Class ControlThemes {
                      SendMessage(LVM_SETBKCOLOR, 0, LV_BKCOLOR, GuiCtrlObj.hWnd)
                   }
                }
-               DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_Explorer, "Ptr", 0)
+               SetControlTheme(GuiCtrlObj.hWnd, Mode_Explorer)
 
                ; To color the selection - scrollbar turns back to normal
                ;DllCall("uxtheme\SetWindowTheme", "Ptr", GuiCtrlObj.hWnd, "Str", Mode_ItemsView, "Ptr", 0)
 
                ; Header Text needs some NM_CUSTOMDRAW coloring
                LV_Header := SendMessage(LVM_GETHEADER, 0, 0, GuiCtrlObj.hWnd)
-               DllCall("uxtheme\SetWindowTheme", "Ptr", LV_Header, "Str", Mode_ItemsView, "Ptr", 0)
+               SetControlTheme(LV_Header, Mode_ItemsView)
                GuiCtrlObj.Opt("+Redraw")
             Default:
                debug("Unsuppored Theme for " GuiCtrlObj.Type)
          }
       }
       ; Setup the event handler that will be called for the GUI and each of it's controls
-      If ( NOT CB_Init) {
+      If ( NOT this.WindowProcNew) {
          ; NOTE - I think I can do this indivdually for each control that is supported, pass in the control handle
          this.WindowProcNew := CallbackCreate(this.WindowProc.bind(this),,4)  ; Avoid fast-mode for subclassing., parameter count it crucial
-         this.WindowProcOld := DllCall("user32\" SetWindowLong, "Ptr", this.guiObj.Hwnd, "Int", GWL_WNDPROC, "Ptr", this.WindowProcNew, "Ptr")
+         this.WindowProcOld := setWindowCallback(this.guiObj.Hwnd, this.WindowProcNew)
       }
    }
    /**
@@ -197,7 +201,9 @@ Class ControlThemes {
          }
       }
       Critical("Off") ; important, needs to be paired
-      Return DllCall("user32\CallWindowProc", "Ptr", this.WindowProcOld, "Ptr", hwnd, "UInt", uMsg, "Ptr", wParam, "Ptr", lParam)
+      ; Forward the message data to the original control handler so the OS can process it
+      if (this.WindowProcOld)
+         Return DllCall("user32\CallWindowProc", "Ptr", this.WindowProcOld, "Ptr", hwnd, "UInt", uMsg, "Ptr", wParam, "Ptr", lParam)
    }
 }
 
@@ -319,7 +325,7 @@ Class PicButton extends Gui.Button {
     * @param {Integer} hwnd - Window handle of the button to theme
     */
    Static Theme(hwnd) {
-      DllCall("uxtheme\SetWindowTheme", "ptr", hWnd, "str", this.DarkMode ? "DarkMode_Explorer" : "Explorer", "ptr", 0)
+      SetControlTheme(hwnd, (this.DarkMode ? "DarkMode_Explorer" : "Explorer")) 
    }
    /**
     * Create a new picture button and add it to the calling GUI.
@@ -340,6 +346,7 @@ Class PicButton extends Gui.Button {
          ctl.SetImg(sPicFile, sPicFileOpt) ; 4 gdi objects (2DC and 2 Bitmaps)
       ; Also set the light/dark theme
       PicButton.Theme(ctl.Hwnd)
+      ctl.hImg := 0
 
       Return ctl
    }
@@ -367,23 +374,29 @@ Class PicButton extends Gui.Button {
       Static IMAGE_BITMAP   := 0,    IMAGE_ICON := 1,    IMAGE_CURSOR := 2
       ; Static IS_WIN10       := (VerCompare(A_OSVersion, "10.0.22200") < 0)
       ; Minimize won't work with GDI+ option, but others
-      hImg := LoadPicture(sFile, sOptions, &_type := 0) ; w/o _type will convert to bitmap
-      ; debug(++PicButton.count " " sFile " (" _type ")")
-      ; 2025-03-06 Force to Icon  (no difference though but would simplify the code)
-      ; hImg := LoadPicture(sFile, "Icon1 " . sOptions, &_type := 0) ; w/o _type will convert to bitmap
+      this.hImg := LoadPicture(sFile, sOptions, &Imagetype := 0) ; w/o _type will convert to bitmap
+      this.Imagetype := Imagetype
       ; type := 0 → bitmap, 1 → Icon, 2→ cursor
-      If (hImg) {
+      If (this.hImg) {
          ; Align the control style to the image type
-         ControlSetStyle((ControlGetStyle(this.hwnd) | (_type ? BS_ICON : BS_BITMAP)), this.hwnd) ; cursor treated like icon
+         ControlSetStyle((ControlGetStyle(this.hwnd) | (this.Imagetype ? BS_ICON : BS_BITMAP)), this.hwnd) ; cursor treated like icon
          ; Force cursors to icons, since buttons don't support IMAGE_CURSOR
-         hOldImg := SendMessage(BM_SETIMAGE, _type ? IMAGE_ICON : IMAGE_BITMAP, hImg, this.hwnd) ; 4 gdi opbjects
+         hOldImg := SendMessage(BM_SETIMAGE, this.Imagetype ? IMAGE_ICON : IMAGE_BITMAP, this.hImg, this.hwnd) ; 4 gdi opbjects
          ; If resettign image, destroy the old one if it exists first
          GDI.DeleteImage(hOldImg, IMAGE_BITMAP)
-         GDI.DeleteImage(hImg, _type)
+         ; GDI.DeleteImage(hImg, _type) ; Not supposed to delete, but seems to work fine if I do
       } Else {
          warning("Failed to load button image:" sFile)
       }
       Return
+   }
+   /**
+    * Remove the image, but can't really destroy the control due to AHK limitation
+    */
+   ClearImage() {
+      If this.hImg {
+         GDI.DeleteImage(this.hImg, this.Imagetype)
+      }
    }
    ; where SetBackColor was inserted
    /**
@@ -392,21 +405,3 @@ Class PicButton extends Gui.Button {
     */
    Type => "PicButton"
 }
-;--------------------------------------------------------
-; Change the buttons as well so they blend at edges
-; DDL, Edit, UpDown
-;--------------------------------------------------------
-; SyncButtonColor(guiObj) {
-;    value := guiObj.backcolor
-;    For ctrl in guiObj {
-;       If (ctrl.Type ~= "Button") {
-;          rgb := RGBHex(value)
-;          ctrl.Opt("+BackGround" rgb)
-;       }
-;    }
-;    RGBHex(val) {
-;       if NOT IsInteger(val)
-;          val := RGBval(val)
-;       Return Format("{:X}", val)
-;    }
-; }

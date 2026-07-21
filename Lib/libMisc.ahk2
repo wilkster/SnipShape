@@ -237,8 +237,10 @@ ShapeOnTop(shapeObj) {
       return res
    }
 }
-; SetWindowLong(hWnd,opCode, Value) => DllCall("SetWindowLong", "int", hwnd, "int", opCode, "int", Value)
-; GetWindowLong(hWnd,opCode) => DllCall("GetWindowLong", "Ptr", hWnd, "Uint", opCode, "Uint")
+; GWL_WNDPROC = -4
+setWindowCallback(hwnd, callback) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "Ptr", hwnd, "Int", -4, "Ptr", callback, "Ptr")
+GetWindowLong(hwnd, Style)        => DllCall("user32\" (A_PtrSize = 8 ? "GetWindowLongPtr" : "GetWindowLong"), "Ptr", hwnd, "Int", Style, "Int")
+SetWindowLong(hWnd,opCode, Value) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "int", hwnd, "int", opCode, "int", Value)
 /**
  * Retrieve the address of an exported function from a loaded DLL module
  * @param strModule Name of the exported function

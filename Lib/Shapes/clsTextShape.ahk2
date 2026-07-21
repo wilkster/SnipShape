@@ -1069,7 +1069,6 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    HotIfWinactive("ahk_id " textGui.hWnd)
    Hotkey("^Enter", InputBox_Close.Bind(Data, true))
    HotIfWinactive
-
    ControlFocus(oEdit)
    WinWaitClose(textGui.hWnd)
    Try WinActivate(Owner)
@@ -1150,6 +1149,7 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
     */
    InputBox_Close(Data, Ok, *) {
       If (Ok) {
+         tc.Dispose()
          SetEditFormat(true)  ; indicate we want softbreaks translated to `r`n
          Data.Value     := Trim(Data.oEdit.Value) ; Value returns just a LF (`n) for manual breaks
          SetEditFormat(false)
@@ -1170,7 +1170,6 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
          Data.Result := "Cancel"
       }
       Data.g.Destroy()
-      tc := ""
    }
    /**
     * Update the edit control's text alignment when the alignment dropdown changes
