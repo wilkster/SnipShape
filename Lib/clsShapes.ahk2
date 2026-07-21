@@ -593,7 +593,7 @@ Class Shapes {
          ResizeMode := False
          ; Snap start point to any nearby sister focus points
          SisShapes := this.SisterShapes(ShapeObj)
-         sisterShapeSnap := findNearestFocusPoint(shapeStart.X, shapeStart.Y)
+         sisterShapeSnap := findNearestFocusPoint(ShapeObj,shapeStart.X, shapeStart.Y)
          If (sisterShapeSnap.Valid) {
             shapeStart.X := sisterShapeSnap.X
             shapeStart.Y := sisterShapeSnap.Y
@@ -708,7 +708,7 @@ Class Shapes {
                   ; First check if within rectangle of other line shape focus points to snap to them
                   ; Otherwise Soft Snap to 0/90/180/270 degrees
                   ;----------------------------------------------------------------------
-                  sisterShapeSnap := findNearestFocusPoint(mouseNew.X, mouseNew.Y)
+                  sisterShapeSnap := findNearestFocusPoint(ShapeObj,mouseNew.X, mouseNew.Y)
                   ; Of we dodm't snape to another line then snap to horz/vert/45 deg lines
                   If (sisterShapeSnap.Valid) {
                      mouseNew.X := round(sisterShapeSnap.X)
@@ -931,10 +931,10 @@ Class Shapes {
        * Return a snap point for sister objects (closure)
        * @returns  Object of coordinates of the snap point 
        */
-      findNearestFocusPoint(X, Y) {
+      findNearestFocusPoint(ShapeObj,X, Y) {
          For Ctrl in SisShapes {
             CI := Ctrl.CornerInfo(X, Y)
-            If (CI.C) {
+            If (CI.C and ShapeObj.hWnd != Ctrl.hWnd) {
                return {Valid : True, X : CI.X + Ctrl.shapeCoord.X, Y: CI.Y + Ctrl.shapeCoord.Y, Hwnd: Ctrl.Hwnd}
             }
          }
