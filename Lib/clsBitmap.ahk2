@@ -579,6 +579,55 @@ Class BitMap {
          Return uBitmap
       }
    }
+      /**
+    * Replace one color with another in a bitmap (in place)
+    * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
+    * @param fromARGB RGB you want to replace,  alpha here is used in replacement pixel
+    * @param toARGB RGB replacement value
+    * @param matchAlpha 1 = full match on fromARGB and replace with toARGB
+    *                   0= match RGB on fromARGB and flow over same alpha to target, 
+    * @returns {Integer} number of replaced pixels
+    * See ReplaceColor.cpp mcode source
+    */
+   Static SetAlphaChannel(uBitmap, NewAlpha) {
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+         ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            hdJ+VFNEicNFhcB+Q0GJ0g+2VCQwTWPBRTHbRTHJZpAxwGYPH0QAADhUgQN0CIhUgQNBg8EBSIPAAUE5wn/pQYPDAUwBwUQ523/V
+            RInIW8NFMclbRInIw0UxyUSJyMOQ
+            )"           
+            mCodeFunc := Bitmap.GetMcodePtr(x64)
+         } Else {
+            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            return
+         }
+      }
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         replaced := 0
+         NewAlpha := Number(NewAlpha)
+         Switch BitMap.getImageType(uBitmap) {
+            Case "pBitmap":
+               GDIp.GetImageDimensions(uBitmap, &w, &h)
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3, 0x26200A) ; 3 is read/write only
+               replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint", NewAlpha)
+               GDIp.UnlockBits(uBitmap, &iData)
+            Case "hBitmap":
+               res := BitMap.GetDIBSectionInfo(uBitmap)
+               ; Doesn't matter of top/down or bottom up just looking for a background color
+               ; Issue with  pixels not having any alpha so we would need to handle in mcode
+               replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint", NewAlpha)
+            Default:
+         }
+         Return replaced
+      } Else {
+         elog("Failed to compile MCode")
+         Return uBitmap
+      }
+   }
 
    /**GetBackgroundColor
     * Return the most common rgb value from a pBitmap, typically the background.
