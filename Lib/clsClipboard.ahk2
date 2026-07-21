@@ -34,20 +34,23 @@ Class Clipboard {
     * @returns {Integer} Handle to the bitmap, or 0 if unavailable or clipboard cannot be opened
     */
    Static HBITMAPFromClipboard(&W, &H) {
-      If (!this.IsClipboardFormatAvailable(CF_BITMAP := 2))
+      Static CF_BITMAP := 2
+      If (!this.IsClipboardFormatAvailable(CF_BITMAP))
          Return (0)
 
       If (!this.OpenClipboard(A_ScriptHwnd))
          Return (0)
 
-      If (hBitmap := this.GetClipboardData(CF_BITMAP := 2)) {
-         ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
-         buf := tagBITMAP()
-         GDI.GetObject(hBitmap, buf.Size, buf)
-         W := buf.bmWidth
-         H := buf.bmHeight
-      }
+      If (hBitmap := this.GetClipboardData(CF_BITMAP)) {
+         ; Convert DDB to DIB if necessary
+         hBitmap := this.ConvertDDBToDIB(hBitmap, true)
+         ; Get rid of any transparency
+         BitMap.SetAlphaChannel(hBitmap, 0xFF)
+      } else
+         hBitmap := 0
+
       this.CloseClipboard()
+      ; We like DIBs
       Return hBitmap
    }
 
@@ -72,8 +75,6 @@ Class Clipboard {
     * @returns {Integer} 0 on success, or negative error code on failure
     */
    Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
-
-      ; hBitmap:= GDIp.NormalizeHBitmap(hBitmap)
 
       pid  := DllCall("GetCurrentProcessId", "uint")
       hwnd := WinExist("ahk_pid " . pid)
@@ -158,6 +159,59 @@ Class Clipboard {
       this.CloseClipboard()
       Gdi.DeleteObject(hBitmap)
       Return 0
+   }
+   /**
+    * Ensures a bitmap handle is a DIB section, converting from a DDB if necessary.
+    * If hBitmap is already a DIB section, it is returned unchanged.
+    * If hBitmap is a DDB, a new 32bpp top-down DIB section is created with the
+    * same pixel data, and (by default) the original DDB is deleted.
+    * @param {Integer} hBitmap Handle to a bitmap (DDB or DIB section)
+    * @param {Integer} DiscardOriginal If true, deletes the source DDB after conversion
+    * @returns {Integer} Handle to a DIB section, or 0 on failure
+    */
+   Static ConvertDDBToDIB(hBitmap, DiscardOriginal := true) {
+      static SIZE_BITMAP := (A_PtrSize = 8) ? 32 : 24
+
+      ds     := tagDIBSECTION()
+      result := GDI.GetObject(hBitmap, ds.Size, ds.Ptr)
+      If (!result)
+         Return 0
+
+      ; Already a DIB section - nothing to do
+      If (result > SIZE_BITMAP)
+         Return hBitmap
+      debug("Convert DDB hBitmap to DIB")
+      ; DDB path - pull dimensions from the BITMAP portion already populated above
+      W := ds.dsBm.bmWidth
+      H := ds.dsBm.bmHeight
+
+      bi               := tagBITMAPINFOHEADER()
+      bi.biWidth       := W
+      bi.biHeight      := -H
+      bi.biPlanes      := 1
+      bi.biBitCount    := 32
+      bi.biCompression := 0
+
+      hdc :=GDI.GetDC(0)
+
+      ppvBits := 0
+      hDib := GDI.CreateDIBSection(bi.biWidth, bi.biHeight, hdc, bi.biBitCount, &ppvBits)
+
+      If (!hDIB) {
+         DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
+         Return 0
+      }
+      If !GDI.GetDIBits(hdc, hBitmap, 0, H, ppvBits, bi, 2) {
+         GDI.DeleteObject(hDIB)
+         GDI.ReleaseDC(hdc)
+         Return 0
+      }
+      GDI.ReleaseDC(hdc)
+
+      If (DiscardOriginal)
+         GDI.DeleteObject(hBitmap)
+
+      Return hDIB
    }
    ;----------------------------------------------------------------------------
    ; Idea from: https://www.autohotkey.com/boards/viewtopic.php?f=83&t=114568
