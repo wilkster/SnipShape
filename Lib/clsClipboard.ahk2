@@ -239,12 +239,14 @@ Class Clipboard {
     * Checks whether the clipboard currently contains any text content.
     * @returns {Integer} 1 (true) if a recognised text format is available, 0 (false) otherwise
     */
-   Static hasText() {
-      For fmt in Array(1, 7, 13, 16, 49358)
-         if (ClipIsAvailable(fmt))
-            Return true
-      Return false
-   }
+   Static hasText() =>StrLen(A_Clipboard)
+   ; 🐞 Below will return true if there is a null string
+   ; Static hasText() {
+   ;    For fmt in Array(1, 7, 13, 16, 49358)
+   ;       if (ClipIsAvailable(fmt))
+   ;          Return true
+   ;    Return false
+   ; }
 
    /**
     * Checks whether the clipboard currently contains any image content.
