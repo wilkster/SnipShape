@@ -126,18 +126,18 @@ Class Snips {
     * Tray menu callback to start a standard orange-bordered snip selection
     */
    Static StartSnip(*)     =>
-      Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
+      Snips.SelectScreenRegion(1, 'LButton', Settings.SnipBorderColor, Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
    /**
     * Tray menu callback to start a clipboard-targeted red-bordered snip selection
     */
    Static StartClipboard(*)     =>
-      Snips.SelectScreenRegion(1, 'LButton', "Red", Snips.UpdateClipboard, 0, Snips.captureStatic, Snips.dimScreen)
+      Snips.SelectScreenRegion(1, 'LButton', Settings.ClipBorderColor, Snips.UpdateClipboard, 0, Snips.captureStatic, Snips.dimScreen)
    /**
     * Tray menu callback to start an OCR screen region selection
     * @param {Integer} OCRMode - The OCR extraction mode to use (11-15)
     */
    Static StartOCR(OCRMode, *) {
-      Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", false, OCRMode)
+      Snips.SelectScreenRegion(1, 'LButton', Settings.OCRBorderColor, false, OCRMode)
    }
 
    /**
@@ -398,7 +398,7 @@ Class Snips {
          ; NOTE - for now use active monitor since it is slower by Nx for N monitors
          ; MonInfo := allMonArea()
          MonInfo := activeMonArea(0)
-         BW      := Settings.BorderWidth 
+         BW := Settings.BorderWidth * 1.2
          ; for slower computers grab the mouse start before any delays
          If (mode = 3) {
             GetCursorPos(&sX, &sY)
@@ -423,8 +423,6 @@ Class Snips {
          GDIp.SetInterpolationMode(selSurf.G,1)
          ; To dim or not dim, that is the question
          fill := dimScreen ? 0x60000000 : 0x01000000 ; need some opacity for the mouse to change
-         if NOT dimScreen
-            BW *=2
          selSurf.GraphicsClear(fill) ; 10ms
          ; NOTE - if we use NA then escape won't bind for canceling, if we do we won't change focus
          ; Regardless, when we click to select we will change the focus to the selection GUI
@@ -446,16 +444,12 @@ Class Snips {
          pCross      := myPens.Add(0x80808080, 2)
          GDIp.SetPenAlignment(pCross, 0)                ; draw border inside of edge
          GDIp.SetPenDashStyle(pCross, 1)
-
+         ; ALternating border
          pBorder := myPens.Add(0xFF000000 | RGBval(bColor), BW)
+         pSolid  := myPens.Add(0xFF000000 | BlackOrWhite(RGBval(bColor)) ,BW)
          GDIp.SetPenAlignment(pBorder, 1)                ; draw border inside of edge
-         ; Different border for clips vs OCR
-         if (this.SnipMode > 10)
-            Gdip.SetPenDashStyle(pBorder,1)
-         else
-            Gdip.SetPenDashStyle(pBorder,0)
-         ; Anitmate the border a bit to show it active
-         GDIp.SetPenDashArray(pBorder, [BW * 2,  BW])
+         GDIp.SetPenAlignment(pSolid, 1)                ; draw border inside of edge
+         GDIp.SetPenDashArray(pBorder, [BW, BW])
          ; Set composting mode so we overwrite the dimming in the middle, not merge with it
          Gdip.SetCompositingMode(selSurf.G, 1)
          ; don't make the punched whole transparent or the cursor will go to default when sizing smaller
@@ -527,6 +521,7 @@ Class Snips {
                ; punch a hole in the surface to show the selection
                GDIp.FillRectangle(selSurf.G, bClearish, Xv, Yv, W, H)
                ; draw the bounding box, offset by window borders
+               GDIp.DrawRectangle(selSurf.G, pSolid, Xv, Yv, W, H)
                GDIp.DrawRectangle(selSurf.G, pBorder, Xv, Yv, W, H)
                ; Save last coordinates for next clear
                pXv := Xv, pYv := Yv, pW := W, pH := H

@@ -17,6 +17,9 @@ Class Settings {
    Static Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
    Static rawBorderWidth     := IniReadValue("User Snips", "Border Width",2)
    Static focusRectangle     := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
+   Static SnipBorderColor    := IniReadValue("User Snips", "Snip Border Color", "0xf89b06")
+   Static ClipBorderColor    := IniReadValue("User Snips", "Clip Border Color", "0xf00a0a")
+   Static OCRBorderColor     := IniReadValue("User Snips", "OCR Border Color", "0xaecff4")
 
    Static __New() {
       If !FileExist(Settings.Path)
@@ -94,6 +97,9 @@ SaveSettings() {
    IniWriteIfBlank(SETTINGS.Scale_Freehand, "User Shapes", "ScaleFreehand")
    IniWriteIfBlank(SETTINGS.DIBPad, "User Shapes", "Padding")
    IniWriteIfBlank(Snips.vertSync, "User Snips", "Vertical Sync on Select")
+   IniWriteIfBlank(SETTINGS.SnipBorderColor, "User Snips", "Snip Border Color")
+   IniWriteIfBlank(SETTINGS.ClipBorderColor, "User Snips", "Clip Border Color")
+   IniWriteIfBlank(SETTINGS.OCRBorderColor, "User Snips", "OCR Border Color")
    
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Border With Copy")
