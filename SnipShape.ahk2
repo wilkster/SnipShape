@@ -217,7 +217,7 @@ isRepeat(to) => (A_ThisHotkey = A_PriorHotkey) AND (A_TimeSincePriorHotkey < to)
  */
 hotkeySnipArea(*) {
    If ( NOT isRepeat(300)) {
-      Snips.SelectScreenRegion(1, 'LButton', "Orange", Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
+      Snips.SelectScreenRegion(1, 'LButton', Settings.SnipBorderColor, Snips.UpdateClipboard, 1, Snips.captureStatic, Snips.dimScreen)
    }
 }
 Hotkey(IniReadValue("HotKey", "SnipArea2Step1", "<#S"), hotkeySnipArea.Bind())
@@ -236,9 +236,9 @@ hotkeyClipArea(*) {
    }
 }
 Hotkey(IniReadValue("HotKey", "ClipArea2Step", "<#Z"), hotkeyClipArea.Bind())
-Hotkey(IniReadValue("HotKey", "SnipArea1Step1", "^#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Orange", Snips.UpdateClipboard, 1))
-Hotkey(IniReadValue("HotKey", "ClipArea1Step1", "!#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', "Red", True, 0))
-Hotkey(IniReadValue("HotKey", "OCRArea2Step1", "<#O"), (*) => Snips.SelectScreenRegion(1, 'LButton', "0x0077ff", False, 13))
+Hotkey(IniReadValue("HotKey", "SnipArea1Step1", "^#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', Settings.SnipBorderColor, Snips.UpdateClipboard, 1))
+Hotkey(IniReadValue("HotKey", "ClipArea1Step1", "!#Lbutton"), (*) => Snips.SelectScreenRegion(3, 'LButton', Settings.ClipBorderColor, True, 0))
+Hotkey(IniReadValue("HotKey", "OCRArea2Step1", "<#O"), (*) => Snips.SelectScreenRegion(1, 'LButton', Settings.OCRBorderColor, False, 13))
 
 
 ;======================================================================
