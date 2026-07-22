@@ -192,7 +192,7 @@ Class Clipboard {
 
       bi               := tagBITMAPINFOHEADER()
       bi.biWidth       := W
-      bi.biHeight      := -H
+      bi.biHeight      := H ; was -1, but all hBitmaps are bottoms up
       bi.biPlanes      := 1
       bi.biBitCount    := 32
       bi.biCompression := 0
