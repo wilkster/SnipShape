@@ -1327,16 +1327,22 @@ Class Shapes {
       If (hBitmap := myGUI.handle) {
          tag := A_TickCount . "Slice"
          myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
-         BW := Settings.BorderWidth
-         C := SliceObj.shapeCoord ; includes picture border offset
-         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
+         BW  := Settings.BorderWidth
+         C   := SliceObj.shapeCoord ; includes picture border offset, snip relative
+         myGUI.GetPos(&gX, &gY)     ; screen relative
+         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; Snip picture only, snip relative
          iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
          ; Offset by borderwidth (0 based)
-         Gdi.vSync()
          hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
-         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
          GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         myGui.ReplaceSnip(hBitmap)
+         deltaW := pW - W, deltaH := pH - H
+         ; If we cut off the left or top, recenter to keep rest in same place
+         if (c.x1 < pX1)
+            gX += deltaW
+         else if (c.y1 < pY1)
+            gY += deltaH
+
+         myGUI.ReplaceSnip(hBitmap, gX, gY)
          ; Shift all of the controls so they stay in same place
          For Ctrl in myGUI {
             If Ctrl.Visible {
