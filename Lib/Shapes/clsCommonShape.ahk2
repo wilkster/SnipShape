@@ -742,9 +742,9 @@ Class commonShape extends Gui.Pic {
       infoObj.sPad           := this.sPad.clone()
       infoObj.FileName       := this.FileName
       ; Use a copy of the hbitmap as it may be invalidated later
-      If (this.FileName ~= "HBITMAP") {
+      If (this.FileName ~= "HBITMAP" OR IsInteger(this.FileName)) {
          hBitmap := GDI.CopyImage(this.Handle)
-         infoObj.FileName := "HBITMAP:" hBitmap
+         infoObj.FileName := hBitmap
          infoObj.hBitmap  := hBitmap ; so we can free it in undo unstack
       }
       Return infoObj

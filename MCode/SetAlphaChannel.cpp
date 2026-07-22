@@ -34,5 +34,12 @@ x64 := "
 hdJ+VFNEicNFhcB+Q0GJ0g+2VCQwTWPBRTHbRTHJZpAxwGYPH0QAADhUgQN0CIhUgQNBg8EBSIPAAUE5wn/pQYPDAUwBwUQ523/V
 RInIW8NFMclbRInIw0UxyUSJyMOQ
 )"
+If using a buffer and no check
+void SetAlphaChannel(unsigned int * start, unsigned int * end, unsigned char alpha) {
+    while (start < end) {
+        *((unsigned char *) start + 3) = alpha;
+        start++;
+    }
+}
 
 */
