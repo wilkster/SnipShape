@@ -185,7 +185,7 @@ Class Clipboard {
       ; Already a DIB section - nothing to do
       If (result > SIZE_BITMAP)
          Return hBitmap
-      debug("Convert DDB hBitmap to DIB")
+      ; debug("Convert DDB hBitmap to DIB")
       ; DDB path - pull dimensions from the BITMAP portion already populated above
       W := ds.dsBm.bmWidth
       H := ds.dsBm.bmHeight
