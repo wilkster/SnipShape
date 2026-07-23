@@ -1579,18 +1579,18 @@ Class GDIp {
     * @param hBitmap hBitmap to flip
     * @returns {Any} 
     */
-   Static NormalizeHBitmap(hBitmap) {
-      Static bm := tagBITMAP()
-      info := Bitmap.GetDIBSectionInfo(hBitmap)
-      If (0) {
-         ; Positive stride is negative height (top to bottom), need to flip it
-         TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
-         GDI.DeleteObject(hBitmap)
-         hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
-         GDIp.DisposeImage(TpBitmap)
-      }
-      Return hBitmap
-   }
+   ; Static NormalizeHBitmap(hBitmap) {
+   ;    Static bm := tagBITMAP()
+   ;    info := Bitmap.GetDIBSectionInfo(hBitmap)
+   ;    If (0) {
+   ;       ; Positive stride is negative height (top to bottom), need to flip it
+   ;       TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
+   ;       GDI.DeleteObject(hBitmap)
+   ;       hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
+   ;       GDIp.DisposeImage(TpBitmap)
+   ;    }
+   ;    Return hBitmap
+   ; }
    /**
     * Wrap an existing HBITMAP's pixel buffer as a GDI+ Bitmap without copying it.
     * GdipCreateBitmapFromHBITMAP discards alpha (treats the source as opaque),
@@ -1604,10 +1604,10 @@ Class GDIp {
     * the format constant below or you'll get double-premultiplication.
     * Similar to GDIP.CreateARGBBitmapFromHBITMAP but doesn't replace pixel data
     * @param hBitmap - Source HBITMAP; must be a 32bpp DIB section
+    * @param bottomup - If this is a bottom up hBitmap, set this true
     * @returns {Integer} GDI+ Bitmap pointer (caller GdipDisposeImage's it), or 0 on failure
     */
-   static WrapARGBBitmapFromHBITMAP(hBitmap) {
-      ; static bmSize := A_PtrSize = 8 ? 32 : 24  ; sizeof(BITMAP) — pointer padding differs 32/64-bit
+   static WrapARGBBitmapFromHBITMAP(hBitmap, bottomup:=false) {
 
       Static dib:= tagBITMAP()
       if !DllCall("GetObject", "Ptr", hBitmap, "int", dib.Size, "Ptr", dib)
@@ -1617,20 +1617,17 @@ Class GDIp {
       stride   := dib.bmWidthBytes
       bpp      := dib.bmBitsPixel
       pBits    := dib.bmBits
-      biHeight := dib.bmHeight
 
       if (bpp != 32 || !pBits || !W || !H)
          return 0
-
-      if (biHeight < 0)
-         Scan0 := pBits, Stride := stride
-      else
+      if (bottomup)
          Scan0 := pBits + (H - 1) * stride, Stride := -stride  ; bottom-up: flip walk direction
-
-      if DllCall("gdiplus\GdipCreateBitmapFromScan0"
+      else
+         Scan0 := pBits, Stride := stride
+      if (res := DllCall("gdiplus\GdipCreateBitmapFromScan0"
          , "int", W, "int", H, "int", Stride, "int", 0xE200B  ; PixelFormat32bppPArgb
-         , "Ptr", Scan0, "Ptr*", &pBitmap := 0)
-         return 0
+         , "Ptr", Scan0, "Ptr*", &pBitmap := 0))
+      Throw Error("GDI+ Error " GDIp.TranslateErrorCode(res))
 
       return pBitmap
    }

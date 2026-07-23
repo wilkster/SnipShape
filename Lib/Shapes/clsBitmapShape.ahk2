@@ -111,7 +111,7 @@ Class BMShape extends commonShape {
    Rotate(Angle) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
@@ -128,7 +128,7 @@ Class BMShape extends commonShape {
    Flip(How := 1) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(this.Handle)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
       If (pBitmap := BitMap.Flip(pBitmap, How)) {
          this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
