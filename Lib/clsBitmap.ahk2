@@ -1074,7 +1074,7 @@ Class BitMap {
    ; Fixed to force XYWrap mode to prevent the drawing of a phantom border
    ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
    ; https://stackoverflow.com/questions/1890605/ghost-borders-ringing-when-resizing-in-gdi    */
-   Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 1) {
+   Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 0) {
       Static TileFlipXY := 3
       ; 0x26200A is default format
       BlurAmount := Round(BlurAmount)
@@ -1480,14 +1480,13 @@ Class BitMap {
    ; Returns {ptr, stride, w, h} for an hBitmap created via CreateDIBSection.
    ; Throws if hBitmap is not a DIB section (bmBits will be 0).
    ; This can be used to handle the bits directly in an hBitmap like we do for a pBitmap in mcode examples
+   ; BUG - is not returning +/- to indicate bottom up or top down DIB
    Static GetDIBSectionInfo(hBitmap) {
-      static ds  := tagDIBSECTION()
-
-      If (GDI.GetObject(hBitmap, ds.Size, ds.Ptr) == 0)
-         throw Error("GetObject failed")
-
-      if (ds.dsBm.bmBits == 0)
-         throw Error("hBitmap is not a DIB section - no direct pixel access")
+      ds  := tagDIBSECTION()
+      If ((size := GDI.GetObject(hBitmap, ds.Size, ds.Ptr)) == 0)
+         warning("hBitmap Returned 0 size, error=" A_LastError)
+      if (size != ds.Size)
+         warning("Struc Size Mismatch, size=" size ", ds.Size=" ds.Size)
       return {ptr: ds.dsBm.bmBits, stride: ds.dsBm.bmWidthBytes, w: ds.dsBm.bmWidth, h: ds.dsBm.bmHeight, dh : ds.dsBmih.biHeight}
    }
 
@@ -1553,12 +1552,17 @@ Class BitMap {
     * @returns {Integer} New HBITMAP, or 0 on failure
     */
    static ResizeHBITMAP(hBitmap, W, H, Quality := 7) {
-      if (W <= 0 || H <= 0)
-         return 0
-      if !(srcPBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap))
-         return 0
-      destPBitmap := GDIp.CreateBitmap(W, H, 0xE200B) ; PixelFormat3PixelFormat32bppPArgb Premultiplied
+      If (W <= 0 || H <= 0) {
+         warning("Invalid H or W " W " " H)
+         Return 0
+      }
+      If !(srcPBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)) {
+         warning("WrapARGBBitmapFromHBITMAP Failed to wrap hBitmap")
+         Return 0
+      }
+      destPBitmap := GDIp.CreateBitmap(W, H, 0xE200B) ; PixelFormat3PixelFormat32bppArgb Premultiplied
       if (!destPBitmap){
+         warning("CreateBitmap Failed to create bitmap")
          GDIp.DisposeImage(srcPBitmap)
          return 0
       }
