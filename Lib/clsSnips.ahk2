@@ -781,9 +781,6 @@ Class Snips {
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             } Else {
                monArea := activeMonArea()
-               ; debug("CB=" W " " H)
-               ; GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-               ; debug("BM=" W " " H)
                X := monArea.W > W ? monArea.X + (monArea.W - W) / 2 : monArea.X
                Y := monArea.H > H ? monArea.Y + (monArea.H - H) / 2 : monArea.Y
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
@@ -813,7 +810,7 @@ Class Snips {
    Static RotateFlipSnip(hWnd, Angle := 0, FlipHow := 0) {
       If (snipObj := this.IsValid(hWnd)) {
          SnipObj.PostAction(UnDo.CHANGE_SNIP)
-         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle, true) ; CreateBitmapFromHBITMAP
+         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle) ; WrapARGBBitmapFromHBITMAP
          ; Transform in place
          if (Angle)
             pBitmap := Bitmap.Rotate(pBitmap, Angle)
@@ -821,7 +818,6 @@ Class Snips {
             pBitmap := Bitmap.Flip(pBitmap, FlipHow)
 
          ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
-         GDI.GetHBitmapDimensions(ihBitmap, &W, &H)
          ; Replace the picture
          snipObj.ReplaceSnip(ihBitmap)
          ; Cleanup
@@ -871,7 +867,7 @@ Class Snips {
    Static TransformSnip(hWnd, numEffect := 1) {
       If (snipObj := this.IsValid(hWnd)) {
          SnipObj.PostAction( UnDo.CHANGE_SNIP)
-         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle, true)
+         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle)
          ; Transform in place
          Bitmap.TransformBitmap(pBitmap, numEffect)
          ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
@@ -916,7 +912,7 @@ Class Snips {
          if (IncludeShapes)
             pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, Settings.BorderWidth)
          else
-            pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap, true)
+            pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
          WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
          ; Scale to a new bitmap
          if (ScaleFactor != 1.0)
@@ -954,7 +950,7 @@ Class Snips {
          SnipObj := this.GetGuiObj(hWnd)
          SnipObj.PostAction(UnDo.CHANGE_SNIP)
          hBitmap := snipObj.Handle
-         pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap, true)
+         pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
          WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
          ; Scale to a new bitmap
          if (ScaleFactor != 1.0)
