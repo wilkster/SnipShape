@@ -817,7 +817,7 @@ Class Snips {
          if (FlipHow)
             pBitmap := Bitmap.Flip(pBitmap, FlipHow)
 
-         ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          ; Replace the picture
          snipObj.ReplaceSnip(ihBitmap)
          ; Cleanup
@@ -870,7 +870,7 @@ Class Snips {
          pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle)
          ; Transform in place
          Bitmap.TransformBitmap(pBitmap, numEffect)
-         ihBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          ; Replace the picture
          snipObj.Handle := ihBitmap ; destroys og hBitmap
          ; Cleanup
@@ -921,7 +921,7 @@ Class Snips {
             pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
          GDIp.GetImageDimensions(pBitmap, &W, &H)
          ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          BW := Settings.BorderWidth
          ; Setup the new Snip information
@@ -959,7 +959,7 @@ Class Snips {
             pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
          GDIp.GetImageDimensions(pBitmap, &W, &H)
          ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          SnipObj.ReplaceSnip(hBitmap)
          snipObj.RefreshTextures()
@@ -977,7 +977,7 @@ Class Snips {
          MonInfo := activeMonArea(1)
          GDIp.GetImageDimensions(pBitmap, &W, &H)
          ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateHBITMAPFromBitmap(pBitmap)
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
          BW := Settings.BorderWidth
          ; Center image
