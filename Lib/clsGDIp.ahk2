@@ -1682,7 +1682,7 @@ Class GDIp {
       bmd             := stBitmapData()
       bmd.Width       := width
       bmd.height      := height
-      bmd.Stride      := 4 * width
+      bmd.Stride      := ((Width * 32 + 31) >> 5) << 2
       bmd.PixelFormat := 0x26200A
       bmd.Scan0       := pBits
       DllCall("gdiplus\GdipBitmapLockBits"
@@ -1737,7 +1737,7 @@ Class GDIp {
       obm := GDi.SelectObject(hdc, hbm)
 
       ; Transfer data from source pBitmap to an hBitmap manually.
-      stride := 4 * Width
+      stride := ((Width * 32 + 31) >> 5) << 2
       if (bottomup) {
          ; bottom-up DIB: point Scan0 to top row and walk backwards
          pBits += (Height - 1) * stride
@@ -1754,7 +1754,7 @@ Class GDIp {
       DllCall("gdiplus\GdipBitmapLockBits"
             ,    "Ptr", pBitmap
             ,    "Ptr", Rect.ptr
-            ,    "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly
+            ,    "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly, "Use my supplied buffer instead of allocating one."
             ,    "int", bmd.PixelFormat   ; Format32bppArgb
             ,    "Ptr", bmd.ptr)     ; Contains the pointer (pBits) to the hbm.
       DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", pBitmap, "Ptr", bmd.ptr)
