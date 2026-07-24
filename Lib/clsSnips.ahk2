@@ -945,24 +945,33 @@ Class Snips {
     * @param {Float} ScaleFactor 
     */
    Static ScaleSnip(hWnd, ScaleFactor := 1.0) {
-      if this.IsValid(hWnd) {
+      if (ScaleFactor != 1.0 AND this.IsValid(hWnd)) {
          ; Use the raw picture without any shapes
          SnipObj := this.GetGuiObj(hWnd)
+         ScaleFactor *= snipObj.ScaleFactor
          SnipObj.PostAction(UnDo.CHANGE_SNIP)
-         hBitmap := snipObj.Handle
-         pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
+         ; Always scale the base image so we don't lose quality after multiple passes
+         hBitmap := SnipObj.OGHandle
+         ; Scale factor is applies against current scale
+         pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
          WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
-         ; Scale to a new bitmap
-         if (ScaleFactor != 1.0)
-            pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
-         if (ScaleFactor > 1.0) ; ScaleFactor => radius
-            pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
+         ; Scale to a new bitmap, most of the time is here
+         pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
+         CoordMode("ToolTip", "Screen")
+         CoordMode("Mouse", "Screen")
+         MouseGetPos(&mX, &mY)
+         ToolTip("     Zoom at " Round(ScaleFactor * 100) "%", mX, mY)
+         SetTimer(ToolTip, -2000)
          GDIp.GetImageDimensions(pBitmap, &W, &H)
          ; Need an hBitmap for the picture
          hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
-         SnipObj.ReplaceSnip(hBitmap)
-         snipObj.RefreshTextures()
+         ; Recenter bitmap
+         X := (X + wW / 2) - W / 2
+         Y := (Y + wH / 2) - H / 2
+         SnipObj.ReplaceSnip(hBitmap, X, Y)
+         SnipObj.RefreshTextures()
+         ButtonBar.Show()
       } else {
          qTrayTip("Did not find a valid snip to resize", 2)
       }

@@ -1887,6 +1887,7 @@ Class GDIp {
    PixelOffsetModeHalf, the pixel covers the area between 0 and 1 in both the x
    and y directions; that is, the pixel center is at (0.5, 0.5).
 
+   PixelOffsetModeInvalid     -1  Equivalent to PixelOffsetModeInvalid. (default)
    PixelOffsetModeDefault     0  Equivalent to PixelOffsetModeNone. (default)
    PixelOffsetModeHighSpeed   1  Equivalent to PixelOffsetModeNone.
    PixelOffsetModeHighQuality 2  Equivalent to PixelOffsetModeHalf.
@@ -2172,6 +2173,8 @@ Class GDIp {
       }
       Return res
    }
+   Static GetImagePixelFormat(pBitmap, &pFormat) => DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", pBitmap, "int*", &pFormat := 0)
+
    ; GetImageDimension
    /**
     * Return the dimensions of a GDI+ image as floating-point values

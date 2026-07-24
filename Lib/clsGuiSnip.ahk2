@@ -42,6 +42,7 @@ Class GuiSnip extends Gui {
       this.BW                   := Settings.BorderWidth
       Snips.guiSnips[this.hWnd] := this
       this.UnDo                 := UnDo()
+      this._OGHandle             := 0
       super.MarginX := super.MarginY := this.BW
       ; logGDI("+Create Snip:" this.Title)
       ; RMB menu is on the screenshot picture control
@@ -87,6 +88,9 @@ Class GuiSnip extends Gui {
          hwnd := this.hWnd
          super.Destroy()
          GDI.DeleteObject(this.myHandle)
+         if (this._OGHandle)
+            GDI.DeleteObject(this._OGHandle)
+            
          Snips.guiSnips.Delete(hwnd) ; remove from known snips
          ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
       } Catch as E {
@@ -101,7 +105,19 @@ Class GuiSnip extends Gui {
       }
       Return 1
    }
-
+   /*
+   * Return the current scale factor for this snip
+   */
+   ScaleFactor {
+      get {
+         If (this._OGHandle) {
+            GDI.GetHBitmapDimensions(this._OGHandle, &ogW, &ogH)
+            GDI.GetHBitmapDimensions(this.myHandle, &aW, &aH)
+            Return aW / ogW
+         } else
+            return 1.0
+      }
+   }
    /**
     * Put a snip and border for the background of the GUI
     * @param hBitmap Handle to bitmap to use as the snip background
@@ -190,7 +206,25 @@ Class GuiSnip extends Gui {
          GDI.DeleteObject(oldhBitmap)
       }
    }  
-
+   /**
+    * Get or set the underlying HBITMAP handle for the GUI.
+    * It will resize the window to match the new bitmap dimensions.
+    * @type {Integer}
+    */
+   OGHandle {
+      get {
+         If (not this._OGHandle) {
+            this._OGHandle := GDI.CopyImage(this.myHandle)
+         }
+         return this._OGHandle
+      }
+      set {
+         this._replaceSnip(value)
+         oldhBitmap := this.myHandle
+         this.myHandle := value
+         GDI.DeleteObject(oldhBitmap)
+      }
+   }  
    /**
     * Iterate all visible non-screen shapes and call their Refresh method
     * to redraw texture brushes after a bitmap change

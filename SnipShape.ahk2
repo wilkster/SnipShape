@@ -354,10 +354,13 @@ HotIfWinActive
    !NumpadAdd:: Snips.CloneAndScaleSnip(WinExist("A"), 1.5)
 
    =::
-   NumpadAdd:: Snips.ScaleSnip(WinExist("A"), 1.25)
+   NumpadAdd:: Snips.ScaleSnip(WinExist("A"), 1.20)
 
    -::
-   NumpadSub:: Snips.ScaleSnip(WinExist("A"), 1/1.25)
+   NumpadSub:: Snips.ScaleSnip(WinExist("A"), 1/1.2)
+   
+   ^WheelUp::Snips.ScaleSnip(WinExist("A"), 1.20)
+   ^WheelDown::Snips.ScaleSnip(WinExist("A"), 1/1.20)
 
    F1:: {
       ; Toggle Buttonbar

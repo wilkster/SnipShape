@@ -853,17 +853,20 @@ Class BitMap {
          Throw Error("Invalid scale.")
 
       ; Get Bitmap width, height, and format.
-      DllCall("gdiplus\GdipGetImageWidth", "ptr", TpBitmap, "uint*", &width := 0)
-      DllCall("gdiplus\GdipGetImageHeight", "ptr", TpBitmap, "uint*", &height := 0)
-      DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", TpBitmap, "int*", &pformat := 0)
+      GDIp.GetImageDimensions(TpBitmap, &width, &height)
+      GDIp.GetImagePixelFormat(TpBitmap, &pformat)
 
       If IsObject(scale) {
-         safe_w := (scale[1] ~= "^\d+$") ? scale[1] : Round(width / height * scale[2])
-         safe_h := (scale[2] ~= "^\d+$") ? scale[2] : Round(height / width * scale[1])
+         safe_w := (scale[1] > 0) ? scale[1] : Ceil(width / height * scale[2])
+         safe_h := (scale[2] > 0) ? scale[2] : Ceil(height / width * scale[1])
       } Else {
          safe_w := Ceil(width * scale)
          safe_h := Ceil(height * scale)
       }
+
+      ; Avoid drawing if scale is 0.
+      If (safe_w = 0 OR safe_h = 0)
+         Return TpBitmap
 
       ; Avoid drawing if no changes detected.
       If (safe_w = width AND safe_h = height)
@@ -880,17 +883,18 @@ Class BitMap {
       ; Create a new bitmap and get the graphics context.
       DllCall("gdiplus\GdipCreateBitmapFromScan0"
          , "int", safe_w, "int", safe_h, "int", 0, "int", pformat, "ptr", 0, "ptr*", &pBitmapScale := 0)
-      DllCall("gdiplus\GdipGetImageGraphicsContext", "ptr", pBitmapScale, "ptr*", &pGraphics := 0)
+      pGraphics := GDIp.GraphicsFromImage(pBitmapScale)
 
       ; Set settings in graphics context.
       ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
-      DllCall("gdiplus\GdipSetPixelOffsetMode", "Ptr", pGraphics, "int", 2) ; Half pixel offset.
-      DllCall("gdiplus\GdipSetCompositingMode", "Ptr", pGraphics, "int", 1) ; Overwrite/SourceCopy.
-      DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", pGraphics, "int", 7) ; HighQualityBicubic
+      GDIp.SetPixelOffsetMode(pGraphics,2) ; High Quallity.
+      GDIp.SetCompositingMode(pGraphics,1) ; Overwrite/SourceCopy, skip blending.
+      GDIp.SetInterpolationMode(pGraphics, 7)
 
       ; Draw Image.
-      DllCall("gdiplus\GdipCreateImageAttributes", "ptr*", &ImageAttr := 0)
-      DllCall("gdiplus\GdipSetImageAttributesWrapMode", "ptr", ImageAttr, "int", 3, "uint", 0, "int", 0) ; WrapModeTileFlipXY
+      ImageAttr := GDIp.CreateImageAttributes()
+      GDIp.SetImageAttributesWrapMode(ImageAttr, 3) ; WrapModeTileFlipXY
+
       DllCall("gdiplus\GdipDrawImageRectRectI"
          , "ptr", pGraphics
          , "ptr", TpBitmap
@@ -900,11 +904,11 @@ Class BitMap {
          , "ptr", ImageAttr
          , "ptr", 0
          , "ptr", 0)
-      DllCall("gdiplus\GdipDisposeImageAttributes", "ptr", ImageAttr)
+      GDIp.DisposeImageAttributes(ImageAttr)
 
       ; Clean up the graphics context.
-      DllCall("gdiplus\GdipDeleteGraphics", "ptr", pGraphics)
-      DllCall("gdiplus\GdipDisposeImage", "ptr", TpBitmap)
+      GDIp.DeleteGraphics(pGraphics)
+      GDIp.DisposeImage(TpBitmap)
 
       Return pBitmapScale
    }
@@ -1560,32 +1564,42 @@ Class BitMap {
          warning("WrapARGBBitmapFromHBITMAP Failed to wrap hBitmap")
          Return 0
       }
-      destPBitmap := GDIp.CreateBitmap(W, H, 0xE200B) ; PixelFormat3PixelFormat32bppArgb Premultiplied
+      destPBitmap := GDIp.CreateBitmap(W, H, 0x26200A) ; PixelFormat3PixelFormat32bppArgb, was PARB Premultiplied
       if (!destPBitmap){
          warning("CreateBitmap Failed to create bitmap")
          GDIp.DisposeImage(srcPBitmap)
          return 0
       }
-      hGraphics := GDIp.GraphicsFromImage(destPBitmap)
-      GDIp.SetCompositingMode(hGraphics,1) ; Overwrite/SourceCopy, skip blending.
-      GDIp.SetInterpolationMode(hGraphics, Quality)
-      GDIp.SetPixelOffsetMode(hGraphics,2) ; High Quallity.
-      ; Rescale the image here
-      DllCall("gdiplus\GdipDrawImageRectI"
-         , "ptr", hGraphics
-         , "ptr", srcPBitmap
-         , "int", 0
-         , "int", 0
-         , "int", W
-         , "int", H)
-      GDIp.DeleteGraphics(hGraphics)
+      pGraphics := GDIp.GraphicsFromImage(destPBitmap)
+      GDI.GetHBitmapDimensions(hBitmap, &srcW, &srcH)
+      GDIp.SetCompositingMode(pGraphics,1) ; Overwrite/SourceCopy, skip blending.
+      GDIp.SetInterpolationMode(pGraphics, Quality)
+      GDIp.SetPixelOffsetMode(pGraphics,2) ; High Quallity.
+      ImageAttr := GDIp.CreateImageAttributes()
+      GDIp.SetImageAttributesWrapMode(ImageAttr, 3) ; WrapModeTileFlipXY
 
-      hResult := GDIp.CreateARGBHBITMAPFromBitmap(destPBitmap)
+      ; Rescale the image here
+      res := DllCall("gdiplus\GdipDrawImageRectRectI"
+         , "ptr", pGraphics
+         , "ptr", srcPBitmap
+         , "int", 0, "int", 0, "int", W, "int", H          ; dest rect
+         , "int", 0, "int", 0, "int", srcW, "int", srcH     ; source rect — need GdipGetImageWidth/Height on srcPBitmap first
+         , "int", 2                                          ; UnitPixel
+         , "ptr", ImageAttr
+         , "ptr", 0, "ptr", 0)
+      GDIp.DisposeImageAttributes(ImageAttr)
+      GDIp.DeleteGraphics(pGraphics)
+      If (res) {
+         warning("Failed to scale image " GDIp.TranslateErrorCode(res))
+         hResult := 0
+      } Else {
+         hResult := GDIp.CreateARGBHBITMAPFromBitmap(destPBitmap)
+      }
       GDIp.DisposeImage(destPBitmap)
       GDIp.DisposeImage(srcPBitmap)
+
       Return hResult
    }     
-
 }
 
 logGDI(BFN(Error("", -1).File) " loaded...")
