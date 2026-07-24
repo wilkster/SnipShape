@@ -79,8 +79,8 @@ Class ButtonBar {
       b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
       b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
 
-      this.btnUndo := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Undo.ico", cH, "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
-      this.btnRedo := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "Redo.ico", cH, "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
+      this.btnUndo := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Undo.ico", round(cH*.8), "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
+      this.btnRedo := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "Redo.ico", round(cH*.8), "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
 
       b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
       b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
