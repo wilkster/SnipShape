@@ -725,7 +725,7 @@ Class Snips {
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
       try {
-         pBitmap := Gdip.CreateBitmapFromHBITMAP(hBitmap)
+         pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap)
          If IsSet(SnipObj) {
             baseName := SnipObj.BaseName
          } else {
@@ -816,7 +816,6 @@ Class Snips {
             pBitmap := Bitmap.Rotate(pBitmap, Angle)
          if (FlipHow)
             pBitmap := Bitmap.Flip(pBitmap, FlipHow)
-
          ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          ; Replace the picture
          snipObj.ReplaceSnip(ihBitmap)

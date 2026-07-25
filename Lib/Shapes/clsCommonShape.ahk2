@@ -650,7 +650,7 @@ Class commonShape extends Gui.Pic {
                      Case "hBitmap" :
                         Return picHBitmap
                      Case "pBitmap" :
-                        picPBitmap := GDIp.CreateBitmapFromHBITMAP(picHBitmap)
+                        picPBitmap := GDIp.CreateARGBBitmapFromHBITMAP(picHBitmap)
                         ; Done with picHBitmap
                         GDI.DeleteObject(picHBitmap)
                         Return picPBitmap
@@ -685,7 +685,7 @@ Class commonShape extends Gui.Pic {
     * @returns       - GDI+ texture brush, or 0 on failure
     */
    getHighlightedSnipBrush(color, opacity := 0xFF) {
-      If (pBitInput := GDIp.CreateBitmapFromHBITMAP(this.GUI.handle)) {
+      If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
          CC     := BitMap.GetBackgroundColor(pBitInput)
          tBrush := this.HighlightBrush(pBitInput, Color, opacity, CC)
          GDIp.TranslateTextureBrush(tBrush, Settings.BorderWidth, Settings.BorderWidth)
