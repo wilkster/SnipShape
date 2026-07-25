@@ -948,6 +948,7 @@ Class Snips {
          ; Use the raw picture without any shapes
          SnipObj := this.GetGuiObj(hWnd)
          ScaleFactor *= snipObj.ScaleFactor
+         ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
          SnipObj.PostAction(UnDo.CHANGE_SNIP)
          ; Always scale the base image so we don't lose quality after multiple passes
          hBitmap := SnipObj.OGHandle
@@ -956,9 +957,8 @@ Class Snips {
          WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
          ; Scale to a new bitmap, most of the time is here
          pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
+         GetCursorPos(&mX, &mY)
          CoordMode("ToolTip", "Screen")
-         CoordMode("Mouse", "Screen")
-         MouseGetPos(&mX, &mY)
          ToolTip("     Zoom at " Round(ScaleFactor * 100) "%", mX, mY)
          SetTimer(ToolTip, -2000)
          GDIp.GetImageDimensions(pBitmap, &W, &H)
@@ -968,7 +968,7 @@ Class Snips {
          ; Recenter bitmap
          X := (X + wW / 2) - W / 2
          Y := (Y + wH / 2) - H / 2
-         SnipObj.ReplaceSnip(hBitmap, X, Y)
+         SnipObj.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
          SnipObj.RefreshTextures()
          ButtonBar.Show()
       } else {
