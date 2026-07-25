@@ -286,7 +286,7 @@ Class BitMap {
     */
    Static pBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
       hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
-      pBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
       GDI.DeleteObject(hBitmap)
       If (BW) {
          cBitmap := this.CropPBitmapBorder(pBitmap, BW) ; gdi+
@@ -562,7 +562,7 @@ Class BitMap {
          Switch BitMap.getImageType(uBitmap) {
             Case "pBitmap":
                GDIp.GetImageDimensions(uBitmap, &w, &h)
-               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3, 0x26200A) ; 3 is read/write only
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3) ; 3 is read/write only
                replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint", fromARGB, "Uint", toARGB, "Uint", matchAlpha)
                GDIp.UnlockBits(uBitmap, &iData)
             Case "hBitmap":
@@ -608,7 +608,7 @@ Class BitMap {
          Switch BitMap.getImageType(uBitmap) {
             Case "pBitmap":
                GDIp.GetImageDimensions(uBitmap, &w, &h)
-               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3, 0x26200A) ; 3 is read/write only
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3) ; 3 is read/write only
                replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint", NewAlpha)
                GDIp.UnlockBits(uBitmap, &iData)
             Case "hBitmap":
@@ -666,7 +666,7 @@ Class BitMap {
          Switch BitMap.getImageType(uBitmap) {
             Case "pBitmap":
                GDIp.GetImageDimensions(uBitmap, &w, &h)
-               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1, 0x26200A) ; 1 is read only
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1) ; 1 is read only
                ; FindBackgroundColor(const uint8_t *pixels, int width, int height, int stride) {
                r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride)
                GDIp.UnlockBits(uBitmap, &iData)
@@ -1048,8 +1048,8 @@ Class BitMap {
       If (mCodeFunc) {
          GDIp.GetImageDimensions(TpBitmapIn, &w, &h)
          pBitmapOut := GDIp.CreateBitmap(w, h)
-         GDIp.LockBits(TpBitmapIn, 0, 0, w, h, &stridei, &iScani, &iDatai, 3, 0x26200A) ; 3 is read/write for in-place editing
-         GDIp.LockBits(pBitmapOut, 0, 0, w, h, &strideo, &iScano, &iDatao, 3, 0x26200A) ; 3 is read/write for in-place editing
+         GDIp.LockBits(TpBitmapIn, 0, 0, w, h, &stridei, &iScani, &iDatai, 3) ; 3 is read/write for in-place editing
+         GDIp.LockBits(pBitmapOut, 0, 0, w, h, &strideo, &iScano, &iDatao, 3) ; 3 is read/write for in-place editing
          radius := Max(1, kernel // 2 - 1)
          ; BoxBlurMultiPass(int passes, const uint8_t *src, uint8_t *dst, int stride, int w, int h, int radius, int horz_only)
          r := DllCall(mCodeFunc, "Uint", passses, "UPtr", iScani, "UPtr", iScano, "uInt", stridei, "uint", w, "uint", h, "uInt", radius, "Uint", horzOnly)
@@ -1078,18 +1078,16 @@ Class BitMap {
    ; Fixed to force XYWrap mode to prevent the drawing of a phantom border
    ; https://photosauce.net/blog/post/image-scaling-with-gdi-part-3-drawimage-and-the-settings-that-affect-it
    ; https://stackoverflow.com/questions/1890605/ghost-borders-ringing-when-resizing-in-gdi    */
-   Static BlurBitmap(TpInputBitmap, BlurAmount, usePARGB := 0) {
+   Static BlurBitmap(TpInputBitmap, BlurAmount) {
       Static TileFlipXY := 3
-      ; 0x26200A is default format
       BlurAmount := Round(BlurAmount)
-      PixelFormat := (usePARGB = 1) ? "0xE200B" : "0x26200A"
-
       If (BlurAmount > 100) || (BlurAmount < 1) {
          warning("Blur Value outside of range 1-100" BlurAmount)
          Return TpInputBitmap
       }
       ; Poor mans Blur
       ; Two Step reduce/enlarge back to blur it
+      GDIp.GetImagePixelFormat(TpInputBitmap, &PixelFormat := 0)
       GDIp.GetImageDimensions(TpInputBitmap, &sWidth := 0, &sHeight := 0)
       If (sWidth = 0 OR sHeight = 0) {
          warning("Failed to get bitmap dimensions" sWidth " " sHeight)
@@ -1111,7 +1109,7 @@ Class BitMap {
 
       ;Intermediate smaller bitmap
       pTinyBitmap := GDIp.CreateBitmap(dWidth, dHeight, PixelFormat)
-      gTiny := GDIp.GraphicsFromImage(pTinyBitmap)
+      gTiny       := GDIp.GraphicsFromImage(pTinyBitmap)
       ; Added these per web site recommendations
       GDIp.SetPixelOffsetMode(gTiny, 2)    ; Half pixel offset.
       GDIp.SetCompositingMode(gTiny, 1)   ; Overwrite/SourceCopy.
@@ -1525,8 +1523,9 @@ Class BitMap {
    static ResizePBitmap(pBitmap, W, H, Quality := 3) {
       if (W <= 0 || H <= 0)
          return 0
+      GDIp.GetImagePixelFormat(pBitmap, &format:=0)
       DllCall("gdiplus\GdipCreateBitmapFromScan0"
-         , "int", W, "int", H, "int", 0, "int", 0x26200A, "ptr", 0, "ptr*", &pResult := 0)
+         , "int", W, "int", H, "int", 0, "int", format, "ptr", 0, "ptr*", &pResult := 0)
       if !pResult
          return 0
 
