@@ -1564,7 +1564,7 @@ Class GDIp {
       Return pBitmap
    }
    ; CreateBitmapFromHBITMAP (GDI Bitmap to GDI+ Bitmmap)
-   ; NOTE - loses alpha channel from hBitmap in transition
+   ; NOTE - loses alpha channel from hBitmap in transition, returns a PixelFormat32bppRGB bitmap
    ; Creates a PixelFormat32bppRGB format (no-alpha), want PixelFormat32bppARGB
    ; CreateARGBBitmapFromHBITMAP creates an ARGB format if necessary
    ; For screen related bitmaps it doesn't matter
@@ -1580,23 +1580,6 @@ Class GDIp {
       Return pBitmap
    }
    /**
-    * Make sure an hBitmap is bottom up for use in functions that needed it that way
-    * @param hBitmap hBitmap to flip
-    * @returns {Any} 
-    */
-   ; Static NormalizeHBitmap(hBitmap) {
-   ;    Static bm := tagBITMAP()
-   ;    info := Bitmap.GetDIBSectionInfo(hBitmap)
-   ;    If (0) {
-   ;       ; Positive stride is negative height (top to bottom), need to flip it
-   ;       TpBitmap := GDIp.CreateBitmapFromHBITMAP(hBitmap)
-   ;       GDI.DeleteObject(hBitmap)
-   ;       hBitmap := GDIp.CreateHBITMAPFromBitmap(TpBitmap, 0)
-   ;       GDIp.DisposeImage(TpBitmap)
-   ;    }
-   ;    Return hBitmap
-   ; }
-   /**
     * Wrap an existing HBITMAP's pixel buffer as a GDI+ Bitmap without copying it.
     * GdipCreateBitmapFromHBITMAP discards alpha (treats the source as opaque),
     * so for a 32bpp DIB with real per-pixel alpha we read the DIB's own
@@ -1610,9 +1593,10 @@ Class GDIp {
     * Similar to GDIP.CreateARGBBitmapFromHBITMAP but doesn't replace pixel data
     * @param hBitmap - Source HBITMAP; must be a 32bpp DIB section
     * @param bottomup - If this is a bottom up hBitmap, set this true
+    * @param PixelFormat - 0x26200A for ARGB formatted hBitmap, 0x000E200B for premultiplied pARGB format
     * @returns {Integer} GDI+ Bitmap pointer (caller GdipDisposeImage's it), or 0 on failure
     */
-   Static WrapARGBBitmapFromHBITMAP(hBitmap, bottomup := true) {
+   Static WrapARGBBitmapFromHBITMAP(hBitmap, bottomup := true, PixelFormat := 0x26200A) {
 
       Static dib:= tagBITMAP()
       if !DllCall("GetObject", "Ptr", hBitmap, "int", dib.Size, "Ptr", dib)
@@ -1629,7 +1613,7 @@ Class GDIp {
       if (bottomup)
          pBits := pBits + (H - 1) * Stride, Stride := -Stride  ; bottom-up: flip walk direction
 
-      PixelFormat := 0x26200A   ; PixelFormat32bppARGB
+         ; PixelFormat32bppARGB
 
       if (res := DllCall("gdiplus\GdipCreateBitmapFromScan0"
          , "int", W, "int", H, "int", Stride, "int", PixelFormat  ; PixelFormat32bppARGB=0x26200A for 32 bit
@@ -1642,9 +1626,10 @@ Class GDIp {
     * Create a full 32-bit ARGB GDI+ bitmap from a GDI hBitmap, preserving the alpha channel.
     * Falls back to CreateBitmapFromHBITMAP if the source is not 32bpp.
     * @param hImage Source GDI hBitmap (must be 32bpp for alpha to be preserved)
+    * @param pixelFormat Desired pixel format, defaults to full 32 bit ARGB
     * @returns {Ptr} Handle to the GDI+ bitmap with ARGB pixel data
     */
-   Static CreateARGBBitmapFromHBITMAP(hImage) {
+   Static CreateARGBBitmapFromHBITMAP(hImage, pixelFormat := 0x26200A) {
       ; function by iseahound found on:
       ; https://www.autohotkey.com/boards/viewtopic.php?f=6&t=63345
       ; part of https://github.com/iseahound/Graphics/blob/master/lib/Graphics.ahk
@@ -1675,7 +1660,7 @@ Class GDIp {
       ob2 := GDI.SelectObject(cdc, hbm)
 
       ; Create a new Bitmap (different from an hBitmap) which holds ARGB pixel values.
-      pBitmap := GDIp.CreateBitmap(width, height)
+      pBitmap := GDIp.CreateBitmap(width, height, pixelFormat)
 
       ; Create a Scan0 buffer pointing to pBits. The buffer has pixel format pARGB.
       GDIp.CreateRect(&Rect, 0, 0, width, height)
@@ -1683,19 +1668,21 @@ Class GDIp {
       bmd.Width       := width
       bmd.height      := height
       bmd.Stride      := ((Width * 32 + 31) >> 5) << 2
-      bmd.PixelFormat := 0x26200A
+      bmd.PixelFormat := pixelFormat
       bmd.Scan0       := pBits
-      DllCall("gdiplus\GdipBitmapLockBits"
+      res := DllCall("gdiplus\GdipBitmapLockBits"
          , "Ptr", pBitmap
          , "Ptr", Rect.ptr
          , "uint", 6            ; ImageLockMode.UserInputBuffer | ImageLockMode.WriteOnly
          , "int", bmd.PixelFormat      ; Format32bppPArgb
          , "Ptr", bmd.ptr)
+      if (res)
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
 
       ; Ensure that our hBitmap (hImage) is top-down by copying it to a top-down bitmap.
       GDI.BitBlt(cdc, 0, 0, width, height, hdc, 0, 0)
 
-      ; Convert the pARGB pixels copied into the device independent bitmap (hbm) to ARGB.
+      ; Convert the pixels copied into the device independent bitmap (hbm) to ARGB.
       DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", pBitmap, "Ptr", bmd.ptr)
 
       ; Cleanup the buffer and device contexts.
@@ -1717,11 +1704,13 @@ Class GDIp {
       Return pGraphics
    }
    /**
-    * Create a hBitMap with alpha channel from a pBitmap
+    * Create a hBitMap with alpha channel from a pBitmap, prevents a copy of pBitmap pixels
     * @param pBitmap source pBitmap
+    * @param bottomup - Set to true if this is a GDI bottom up (+Height) bitmap
+    * @param PixelFormat - 0x26200A for ARGB formatted hBitmap, 0x000E200B for premultiplied pARGB format
     * @returns {Float | Integer | String} 
     */
-   Static CreateARGBHBITMAPFromBitmap(pBitmap, bottomup := true) {
+   Static CreateARGBHBITMAPFromBitmap(pBitmap, bottomup := true, pixelFormat := 0x26200A) {
       ; function by iseahound ; source: https://github.com/mmikeww/AHKv2-Gdip
       ; modified to rely on already present functions [within the library]
 
@@ -1748,15 +1737,18 @@ Class GDIp {
       bmd.Width       := width
       bmd.Height      := height
       bmd.Stride      := stride
-      bmd.PixelFormat := 0x26200A
+      bmd.PixelFormat := pixelFormat
       bmd.Scan0       := pBits
 
-      DllCall("gdiplus\GdipBitmapLockBits"
+      res := DllCall("gdiplus\GdipBitmapLockBits"
             ,    "Ptr", pBitmap
             ,    "Ptr", Rect.ptr
             ,    "uint", 5            ; ImageLockMode.UserInputBuffer | ImageLockMode.ReadOnly, "Use my supplied buffer instead of allocating one."
-            ,    "int", bmd.PixelFormat   ; Format32bppArgb
+            ,    "int", bmd.PixelFormat   
             ,    "Ptr", bmd.ptr)     ; Contains the pointer (pBits) to the hbm.
+      if (res)
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+
       DllCall("gdiplus\GdipBitmapUnlockBits", "Ptr", pBitmap, "Ptr", bmd.ptr)
 
       ; Cleanup the hBitmap and device contexts.
@@ -3968,6 +3960,8 @@ Class GDIp {
 
    /**
     * Lock a rectangular area of a bitmap for direct pixel access
+    * NOTE : For use in MCODE functions, those rely on full 32bit bitmaps (ARGB or PARGB), if we use a 
+    * PixelFormat32bppRGB format like we could get from a CreateBitmap this could fail
     * @param pBitmap Handle to the GDI+ bitmap
     * @param x Left of the lock rectangle
     * @param y Top of the lock rectangle
@@ -3977,14 +3971,30 @@ Class GDIp {
     * @param {VarRef} Scan0 Returns pointer to the first pixel of locked data
     * @param {VarRef} bmd Returns the BitmapData structure
     * @param LockMode Access flags: 1=read, 2=write, 3=read+write (default)
-    * @param PixelFormat Pixel format for the locked data (default: 0x26200a = ARGB32)
+    * @param PixelFormat Pixel format for the locked data (default: 0x26200a = ARGB32), 
+    *                    if pixel format is different than the  pBitmap format a new buffer is created to work in
     * @returns {Integer} GDI+ status code
     */
-   Static LockBits(pBitmap, x, y, w, h, &Stride, &Scan0, &bmd, LockMode := 3, PixelFormat := 0x26200a) {
+   Static LockBits(pBitmap, x, y, w, h, &Stride, &Scan0, &bmd, LockMode := 3, PixelFormat?) {
       this.CreateRect(&_Rect, x, y, w, h)
-      bmd := stBitmapData()
-      if (res := DllCall("Gdiplus\GdipBitmapLockBits", "Ptr", pBitmap, "Ptr", _Rect.Ptr, "UInt", LockMode, "Int", PixelFormat, "Ptr", bmd))
-         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      if !IsSet(PixelFormat)
+         GDIp.GetImagePixelFormat(pBitmap, &PixelFormat := 0)
+      ; want to allow and match ARGB or pARGB to prevent copies, but we need one of them
+      If (NOT (PixelFormat == 0x26200A OR PixelFormat = 0x0E200B)) {
+         warning("LockBits - We don't have a full 32 bit format specified:" hex(PixelFormat))
+         PixelFormat := 0x26200A
+      }
+
+      bmd             := stBitmapData()
+      bmd.Width       := w
+      bmd.Height      := h
+      bmd.PixelFormat := PixelFormat
+
+      If (res := DllCall("Gdiplus\GdipBitmapLockBits", "Ptr", pBitmap, "Ptr", _Rect.Ptr, "UInt", LockMode, "Int", PixelFormat, "Ptr", bmd)) {
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+         Stride := 0
+         Scan0  := 0
+      }
       Stride := bmd.Stride
       Scan0  := bmd.Scan0
       Return res
