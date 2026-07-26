@@ -907,7 +907,8 @@ Class Snips {
    Static CloneAndScaleSnip(hWnd, ScaleFactor := 1.0, IncludeShapes := 0) {
       if this.IsValid(hWnd) {
          ; Use the raw picture without any shapes
-         hBitmap := this.GetGuiObj(hWnd).Handle
+         srcSnip := this.GetGuiObj(hWnd)
+         hBitmap := srcSnip.Handle
          if (IncludeShapes)
             pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, Settings.BorderWidth)
          else
@@ -928,9 +929,36 @@ Class Snips {
          SnipObj         := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          ; SnipObj.MarginX := BW, SnipObj.MarginY := BW
          SnipObj.AddSnipPic(hBitmap)
+         ;-------------------------------------
+         ; Recreate any shapes on the new Snip
+         ;-------------------------------------
+         tag := A_TickCount . "AddShapes"
+         For ShapeObj in srcSnip {
+            ; When repooling, clear out the old shape data and properties
+            If (ShapeObj.Visible) {
+               Info := ShapeObj.InstanceInfo()
+               Switch Info.Source {
+                  Case "File", "Clip":
+                     CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+                  Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+                     CloneObj := SnipObj.AddNewShape(Info.Shape)
+                  Default:
+               }
+               If (IsSet(CloneObj)) {
+                  CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
+                  ; Blend in saved properties
+                  For pr, v in Info.OwnProps()
+                     Try CloneObj.%pr% := v
+                  ; Now draw the shape on the canvas
+                  CloneObj.Refresh()
+                  ShapeOnTop(CloneObj)
+                  CloneObj.Gui.Dirty++
+               }               
+            }
+         }
          ; Minimize existing snip
          if (ScaleFactor != 1.0)
-            this.GetGuiObj(hWnd).Minimize()
+            srcSnip.Minimize()
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
          SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
       } else {
@@ -941,13 +969,16 @@ Class Snips {
    /**
     * Scale the picture in the snip (vs just resizing it)
     * @param hWnd Active handle to snip to scale
-    * @param {Float} ScaleFactor 
+    * @param {Float} ScaleFactor , + for relative scale, - for aboslute scape
     */
    Static ScaleSnip(hWnd, ScaleFactor := 1.0) {
       if (ScaleFactor != 1.0 AND this.IsValid(hWnd)) {
          ; Use the raw picture without any shapes
          SnipObj := this.GetGuiObj(hWnd)
-         ScaleFactor *= snipObj.ScaleFactor
+         if (ScaleFactor > 0)
+            ScaleFactor *= snipObj.ScaleFactor
+         else
+            ScaleFactor *= -1
          ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
          SnipObj.PostAction(UnDo.CHANGE_SNIP)
          ; Always scale the base image so we don't lose quality after multiple passes
