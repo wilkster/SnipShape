@@ -36,6 +36,8 @@ Class SnipMenus {
       this.AddEntry('Copy Snip to Clipboard (Ctrl-C)', "Clipboard.ico")
       this.AddEntry('Cut Snip to Clipboard (Ctrl-X)', "SnipShape.ico")
       this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
+      this.AddEntry('Edit:', "Edit.ico")
+      this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
       this.csMenu.Add()
       this.csMenu.Add("OCR Text",this.OCRMenu)
       this.csMenu.SetIcon("OCR Text", SETTINGS.CursorPath . "OCR.cur")
@@ -49,9 +51,8 @@ Class SnipMenus {
       this.OCRMenu.Add('OCR Text Table to Clipboard (Ctrl-T)', this.ContextSnipMenu_Handler.bind(this))
       this.OCRMenu.SetIcon('OCR Text Table to Clipboard (Ctrl-T)', SETTINGS.CursorPath . "Ocr.cur")
 
-      this.csMenu.Add("Bitmap Effects",this.BitmapMenu)
-      this.csMenu.SetIcon("Bitmap Effects", SETTINGS.CursorPath . "screenshot.ico")
-
+      this.csMenu.Add("Snip Effects",this.BitmapMenu)
+      this.csMenu.SetIcon("Snip Effects", SETTINGS.CursorPath . "screenshot.ico")
 
       this.BitmapMenu.Add("↻ Rotate +90", this.ContextSnipMenu_Handler.bind(this)) ;  
       this.BitmapMenu.Add("↺ Rotate -90", this.ContextSnipMenu_Handler.bind(this))
@@ -71,15 +72,18 @@ Class SnipMenus {
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "colors.ico")
       ; Note, these two are renamed with current file name in Post
-      this.AddEntry('Edit:', "Edit.ico")
-      this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
-      this.csMenu.Add()
+      this.csMenu.Add("Resize Snip",this.ResizeMenu)
+      this.csMenu.SetIcon("Resize Snip", SETTINGS.CursorPath . "Resize.ico")
+      ; Resize Submenu
+      For Val in [0.23, 0.28, 0.33, 0.4, 0.5, 0.6, 0.70, 0.80, 1.0, 1.20, 1.4, 1.7, 2.0, 2.4, 2.9, 3.5, 4.2] {
+         this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
+      }       this.csMenu.Add()
+      ; this.csMenu.Add() ;14
       this.AddEntry("Minimize This Snip", "Minimize.ico")
       this.AddEntry("Minimize All Snips (Ctrl-Down)", "Minimize.ico")
       this.AddEntry("Restore Other Snips (Ctrl-Up)", "Restore.ico")
       this.csMenu.Add() ;12
       this.AddEntry("Clear all Shapes (Shift-Del)", "Clear.ico")
-      this.csMenu.Add() ;14
       ; Don't rename this ust here
       this.AddEntry("Button Bar (F1)", "BBClose.ico") ;15
       ; Submenus
@@ -95,19 +99,8 @@ Class SnipMenus {
       this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
       this.csMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
 
-      this.csMenu.Add("Resize Snip",this.ResizeMenu)
-      this.csMenu.SetIcon("Resize Snip", SETTINGS.CursorPath . "Resize.ico")
-      ; Resize Submenu
-      For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
-         this.ResizeMenu.Add(round(val*100) . "%", this.rescale.bind(this,val))
-      }      
+     
 
-      this.csMenu.Add("Clone and Resize Snip",this.ResizeCloneMenu)
-      this.csMenu.SetIcon("Clone and Resize Snip", SETTINGS.CursorPath . "Resize.ico")
-      ; Resize Submenu
-      For Val in [0.1, 0.25, 0.33, 0.5, 0.66, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0] {
-         this.ResizeCloneMenu.Add(round(val*100) . "%", this.clonerescale.bind(this,val))
-      }
       this.csMenu.Add('')
       this.AddEntry("Close This Snip (Esc)", "Close.ico") ;17
       this.AddEntry("&Close All Snips", "Close.ico") ;18
@@ -198,16 +191,16 @@ Class SnipMenus {
       Try this.csMenu.Delete("Paste Clipboard Image")
       ; Add Menu entries and icons only if we have that format available
       If Clipboard.hasText() {
-         this.csMenu.Insert("17&", "Paste Clipboard Text",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.Insert("18&", "Paste Clipboard Text",this.ContextSnipMenu_Handler.bind(this))
          this.csMenu.SetIcon("Paste Clipboard Text", SETTINGS.CursorPath . "Paste.ico")
       }
       If Clipboard.hasImage() {
-         this.csMenu.Insert("17&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.Insert("18&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
          this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
       }
       ; NOTE Keep positional rename since menu is renamed dynamically
-      this.csMenu.Rename('7&', "Edit: "  SnipObj.BaseName)
-      this.csMenu.Rename('8&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
+      this.csMenu.Rename('4&', "Edit: "  SnipObj.BaseName)
+      this.csMenu.Rename('5&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
       this.PictMenu.Delete()
       this.populatePicMenu(this.PictMenu, SnipObj.hWnd, mX, mY)
@@ -253,7 +246,7 @@ Class SnipMenus {
     * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
     */
    Static rescale(Val, ItemName, ItemPos, MyMenu) {
-      Snips.ScaleSnip(WinActive('A'), Val)
+      Snips.ScaleSnip(WinActive('A'), -Val)
    }   
    /**
     * Populate the Insert Picture Shapes submenu with image files found in the icons folder.
