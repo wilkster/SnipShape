@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int height, int stride)
+uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int height, int stride, uint32_t *ret_count)
 {
    if (width <= 0 || height <= 0)
       return 0xFF000000;
@@ -39,9 +39,11 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
          // ignore if alpha channel is 0
          if (a == 0)
             continue;
+
          uint32_t rgb = (r << 16) | (g << 8) | b;
          uint32_t h = (rgb * 2654435761u) >> (32 - TABLE_BITS);
          uint32_t probe_dist = 0;
+         uint32_t carry_count = 1; // occurrences of `rgb` waiting to be recorded
          for (;;)
          {
             uint32_t idx = (h & TABLE_MASK) * 2;
@@ -49,12 +51,12 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
             if (count == 0)
             {
                table[idx + 0] = rgb;
-               table[idx + 1] = 1;
+               table[idx + 1] = carry_count;
                break;
             }
             if (table[idx + 0] == rgb)
             {
-               table[idx + 1] = count + 1;
+               table[idx + 1] = count + carry_count;
                break;
             }
             uint32_t existing_home = (table[idx + 0] * 2654435761u) >> (32 - TABLE_BITS);
@@ -64,9 +66,9 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
                uint32_t tmp_rgb = table[idx + 0];
                uint32_t tmp_count = table[idx + 1];
                table[idx + 0] = rgb;
-               table[idx + 1] = 1;
+               table[idx + 1] = carry_count;
                rgb = tmp_rgb;
-               count = tmp_count;
+               carry_count = tmp_count;
                probe_dist = existing_dist;
             }
             h++;
@@ -84,7 +86,7 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
                   }
                }
                table[min_idx * 2 + 0] = rgb;
-               table[min_idx * 2 + 1] = 1;
+               table[min_idx * 2 + 1] = carry_count;
                break;
             }
          }
@@ -105,5 +107,6 @@ uint32_t __stdcall GetBackgroundColor(const uint8_t *pixels, int width, int heig
    }
 
    free(table);
+   *ret_count = best_count;
    return best_color;
 }
