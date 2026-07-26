@@ -79,9 +79,13 @@ Class BMShape extends commonShape {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
       hBitmap := GDI.CopyImage(this.Handle)
-      bgColor := 0x00000000 | Bitmap.GetBackgroundColor(hBitmap) ; blend in 0 alpha channel
-      If (changed := BitMap.ReplaceBitmapColor(hBitmap, bgColor, 0x000000)) {
+      changed := 0
+      ; BUG, if we blend in 0x000000 vs 0x000001 we don't see new background on subsequent pass
+      bgColor := 0x00000000 | BitMap.GetBackgroundColor(hBitmap, &matchCount := 0) ; blend in 0 alpha channel (no-op but shown for clarity)
+      If ((matchCount > 0) AND (changed := BitMap.ReplaceBitmapColor(hBitmap, bgColor, 0x00000001, false))) {
          this.Handle := hBitmap
+      } Else {
+         GDI.DeleteObject(hBitmap)
       }
       this.Move(X, Y, W, H)
       return changed
@@ -98,6 +102,8 @@ Class BMShape extends commonShape {
       hBitmap := GDI.CopyImage(this.Handle)
       If (changed := BitMap.ReplaceBitmapColor(hBitmap, fromARGB, toRGB)) {
          this.Handle := hBitmap
+      } Else {
+         GDI.DeleteObject(hBitmap)
       }
       this.Move(X, Y, W, H)
       return changed
