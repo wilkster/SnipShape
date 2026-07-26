@@ -631,7 +631,7 @@ Class BitMap {
     * @returns {Integer} RGB color value as R<<16 | G<<8 | B without alpha channel
     * NOTE, could be adpted to use an hBitmap as well
     */
-   Static GetBackgroundColor(uBitmap) {
+   Static GetBackgroundColor(uBitmap, &ret_count?) {
 
       Static mCodeFunc := 0
       If (mCodeFunc = 0) {
@@ -639,21 +639,18 @@ Class BitMap {
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRVV1ZTSIPsSEiJjCSQAAAAiZQkmAAAAESJhCSgAAAAhdIPjoICAABFhcAPjnkCAACBvCSY
-            AAAAAAIAAEWJzX8+gbwkoAAAAAACAAB/MYO8JJgAAABAD49WAgAAg7wkoAAAAEAPj0gCAACLlCSgAAAA
-            i4QkmAAAAL0BAAAA6xmLhCSYAAAAi5QkoAAAAL0EAAAAwfgCwfoCD6/Cuw4AAAC6AQAAAInZweACidfT
-            5znHD4MYAgAAg8EBg/kUdeyJy77//w8AvwAAEAC5AAAgALoEAAAA6AAAAABJicRIhcAPhMUBAABED6/t
-            jQStAAAAALkgAAAAx0QkLAAAAABImCnZSIlEJCBJY8VIiUQkOIn4SIlEJDAPH0AATIusJJAAAABFMfbr
-            GQ8fAEEB7kwDbCQgRDm0JJgAAAAPjgIBAABBgH0DAHTjRQ+2VQJBD7ZFAUHB4hDB4AhBCcJBD7ZFAEEJ
-            wjHARWnCsXk3nkHT6OtDZg8fhAAAAAAARIsLRTnRdGBBadGxeTee0+pBiddEicJEKfoh8jnQdg9EiROJ
-            0EWJykHHAwEAAACDwAFBg8ABOfhzPkWJwUEh8UUByUGNUQFLjRyMTY0clEGLE4XSdapEiRNBxwMBAAAA
-            6Uv///8PHwCDwgFBiRPpPf///w8fRAAATItcJDAxwEG4/////0UxyQ8fhAAAAAAAQYtUxAREOcJzBkGJ
-            0EGJwUiDwAFJOcN150ONBAlFiRSEjUABQccEhAEAAADp7/7//w8fgAAAAABIi0QkOAFsJCxIAYQkkAAA
-            AItEJCw5hCSgAAAAD4+2/v//jVf/TIngMclFMe1NjUTUCGYPH0QAAItQBDnKdgVEiyiJ0UiDwAhJOcB1
-            60yJ4egAAAAASIPESESJ6FteX11BXEFdQV5BX8NBvQAAAP/r5IuEJJgAAACLlCSgAAAAvQIAAADR+NH6
-            6cr9//+4AgAAAInLicbT5kiJ8Y13/+nr/f//kJCQkJA=|msvcrt:calloc:220:4|msvcrt:free:665
-            :4
-            )"
+            QVdBVkFVQVRVV1ZTSIPsWEiJjCSgAAAAiZQkqAAAAESJhCSwAAAAhdIPjpQCAABFhcAPjosCAACBvCSoAAAAAAIAAESJzn9Bgbwk
+            sAAAAAACAAB/NIO8JKgAAABAD49oAgAAg7wksAAAAEAPj1oCAADHRCQ4AQAAAIuEJLAAAACLlCSoAAAA6xyLlCSoAAAAi4QksAAA
+            AMdEJDgEAAAAwfoCwfgCD6/Cuw4AAAC6AQAAAInZweACQYnWQdPmQTnGD4MkAgAAg8EBg/kUdemJy7///w8AQb4AABAAuQAAIAC6
+            BAAAAOgAAAAASYnESIXAD4TNAQAAi0wkOMdEJDwAAAAAD6/xjQSNAAAAALkgAAAASJgp2UiJRCQwSGPGSIlEJEhEifBIiUQkQGYP
+            H0QAAMdEJCwAAAAATIusJKAAAADrJGYPH0QAAIt0JDhMA2wkMAF0JCyLRCQsOYQkqAAAAA+O6gAAAEGAfQMAdNtFD7ZVAkEPtkUB
+            vQEAAADB4AhBweIQQQnCQQ+2RQBBCcIxwEVpwrF5N55B0+jrPQ8fQABEiw5FOdF0WEFp0bF5N57T6kGJ10SJwkQp+iH6OdB2DUSJ
+            FonQRYnKiStEid2DwAFBg8ABRDnwczdEicIh+gHSRI1KAUmNNJRLjRyMRIsbRYXbdaxEiRaJK+lK////ZpBBAetEiRvpPf///w8f
+            RAAATItcJEAxwEG4/////0UxyUGLVMQERDnCcwZBidBBicFIg8ABSTnDdedDjQQJRYkUhI1AAUGJLITp+/7//w8fAEiLRCRIAXQk
+            PEgBhCSgAAAAi0QkPDmEJLAAAAAPj77+//9BjVb/TIngMdtFMe1JjUzUCA8fRAAAi1AEOdp2BUSLKInTSIPACEg5wXXrTInh6AAA
+            AABIi4QkwAAAAIkYSIPEWESJ6FteX11BXEFdQV5BX8NBvQAAAP/r5IuUJKgAAACLhCSwAAAAx0QkOAIAAADR+tH46bv9//+4AgAA
+            AInLicfT50iJ+UGNfv/p3/3//5CQkJCQkJCQkJCQkJCQkA==|msvcrt:calloc:230:4|msvcrt:free:673:4
+            )"          
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
             MsgBox("32 bit GetBackgroundColor Not Implemented")
@@ -673,10 +670,11 @@ Class BitMap {
             Case "hBitmap":
                res := BitMap.GetDIBSectionInfo(uBitmap)
                ; Doesn't matter of top/down or bottom up just looking for a background color
-               r := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride)
+               r := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint*", &return_count:=0)
             Default:
          }
-
+         if (IsSet(ret_count))
+            ret_count := return_count
          Return r
       } Else {
          elog("Failed to compile MCode")
@@ -1523,9 +1521,9 @@ Class BitMap {
    static ResizePBitmap(pBitmap, W, H, Quality := 3) {
       if (W <= 0 || H <= 0)
          return 0
-      GDIp.GetImagePixelFormat(pBitmap, &format:=0)
+      GDIp.GetImagePixelFormat(pBitmap, &pixFormat:=0)
       DllCall("gdiplus\GdipCreateBitmapFromScan0"
-         , "int", W, "int", H, "int", 0, "int", format, "ptr", 0, "ptr*", &pResult := 0)
+         , "int", W, "int", H, "int", 0, "int", pixFormat, "ptr", 0, "ptr*", &pResult := 0)
       if !pResult
          return 0
 
