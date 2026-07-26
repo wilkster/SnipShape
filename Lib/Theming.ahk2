@@ -221,7 +221,7 @@ Class SystemThemeAwareToolTipMenu {
     * Read-only property — returns true if the system is currently running in dark mode
     * @type {Integer}
     */
-   Static IsDarkMode => !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+   Static IsDarkMode => GetWindowsTheme()
    ; Note : See myColorPicker for version with padding and borders
    /**
     * Initialize dark-mode tooltip and menu theming at parse time.
@@ -245,16 +245,7 @@ Class SystemThemeAwareToolTipMenu {
       this.OriWndProc := DllCall(A_PtrSize = 8 ? "SetClassLongPtr" : "SetClassLongW", "Ptr", this.HTT, "Int", -24, "Ptr", this.SubWndProc, "Ptr")
       ; This will make the menus dark mode as well
       ; https://learn.microsoft.com/en-us/answers/questions/579561/dark-light-mode-of-system-tray-icon-in-wpf
-      uxtheme                := DllCall("GetModuleHandle", "str", "uxtheme", "ptr")
-      ; AllowDarkModeForWindow := GetProcAddress(uxtheme, 133)   ; doesn't seem to be needed
-      this.UseDarkMode       := DllCall(GetProcAddress(uxtheme, 132),"Int") ; vs using registry
-      SetPreferredAppMode    := GetProcAddress(uxtheme, 135)	; ordinal = 135 in 1903+ AllowDarkModeForApp->SetPreferredAppMode
-      FlushMenuThemes        := GetProcAddress(uxtheme, 136)	; ordinal = 136
-      ; This is for menus
-      ;0=Default  1=AllowDark  2=ForceDark  3=ForceLight  4=Max
-      DllCall(SetPreferredAppMode, "int", 1)	; Allow Dark
-      DllCall(FlushMenuThemes)
-
+      SetWindowsTheme(1)
       Return
 
       /**
@@ -312,7 +303,7 @@ Class SystemThemeAwareToolTipMenu {
 Class PicButton extends Gui.Button {
    ;@lint-disable class-non-dynamic-member-check
    ; Add new method for GUI to add this, then add to the GUI
-   Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+   Static DarkMode := GetWindowsTheme()
    Static count := 0
    /**
     * Register AddPicButton on the Gui prototype at parse time

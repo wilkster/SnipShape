@@ -213,7 +213,7 @@ Class ColorPopDown {
    Static _BuildColorPopup() {
       static cols := 6
       ; These are close to standard light mode/dark mode colors
-      mbg := SystemThemeAwareToolTipMenu.IsDarkMode ? 0x333333 : 0xF9F9F9
+      mbg := GetWindowsTheme() ? 0x2C2C2C : 0xF9F9F9 
 
       gap := Round(1.8 * this.DPIFactor)
       this.colorGui           := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")

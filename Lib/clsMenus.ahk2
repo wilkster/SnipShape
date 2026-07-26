@@ -320,10 +320,9 @@ Class SnipMenus {
     */
    Static WM_INITMENUPOPUP(wParam, lParam, uMsg, hWnd) {
       ; 376309965, 0, 279, 5245486
-      Static DarkMode := !RegRead("HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", 1)
+      Static DarkMode := GetWindowsTheme()
       if (DarkMode)
-         DllCall("uxtheme\SetWindowTheme", "ptr", wParam, "str", "DarkMode_Explorer", "ptr", 0)
-      ; debug(wParam ", " lParam ", " uMsg ", " hWnd)
+         SetControlTheme(wParam, "DarkMode_Explorer")
    }
    
    /**
