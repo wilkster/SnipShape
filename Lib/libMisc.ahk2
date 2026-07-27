@@ -144,16 +144,15 @@ GetRootOwner(thisID) => DllCall("User32.dll\GetAncestor", "Ptr", thisID, "UInt",
  * @returns {Integer} Non-zero if successful
  */
 SetWindowTop(hWnd, flag:=0x0013) {
-   if (GetTopWindow(hWnd))
-      Return DllCall("User32\SetWindowPos"
-         , "Ptr", hWnd
-         , "Ptr", 0
-         , "Int", 0
-         , "Int", 0
-         , "Int", 0
-         , "Int", 0
-         , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
-      )
+   Return DllCall("User32\SetWindowPos"
+      , "Ptr", hWnd
+      , "Ptr", -1 ; HWND_TOPMOST
+      , "Int", 0
+      , "Int", 0
+      , "Int", 0
+      , "Int", 0
+      , "UInt", flag ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+   )
 }
 MoveWindow(hwnd, X, Y, W, H) {
    DllCall("SetWindowPos"
@@ -258,6 +257,27 @@ ShapeOnTop(shapeObj) {
       )
       return res
    }
+}
+;----------------------------------------------------------------------
+; Compute the X/Y locations of a GUI to keep it fully on active monitor
+;----------------------------------------------------------------------
+KeepOnMonitor(mX, mY, W, H, &X, &Y, flag := 0x10000) {
+   Static anchorPt    := Buffer(8, 0)            ; POINT  2 x uint, cursor typically
+   Static windowSize  := Buffer(8, 0)            ; Populate with window dimensions
+   Static excludeRect := Buffer(16, 0)           ; Leave NULL
+   Static outRect     := Buffer(16, 0)           ; Result
+   NumPut("Int",  W , "Int",  H, windowSize)
+   NumPut("int", mX , "int", mY, anchorPt)
+   DllCall("CalculatePopupWindowPosition"
+      , "ptr", anchorPt       ;POINT  2 x uint X/Y
+      , "ptr", windowSize     ;SIZE   2 x uint W/H
+      , "uint", flag          ;TPM_WORKAREA
+      , "ptr", excludeRect
+      , "ptr", outRect
+   )
+   ; Return the appropriate X/Y location of the window
+   X := NumGet(outRect, 0, 'Int')
+   Y := NumGet(outRect, 4, 'Int')
 }
 ; GWL_WNDPROC = -4
 setWindowCallback(hwnd, callback) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "Ptr", hwnd, "Int", -4, "Ptr", callback, "Ptr")

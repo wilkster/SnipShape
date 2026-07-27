@@ -117,8 +117,10 @@ Class ColorPopDown {
       else
          this.colorGui.Opt("-Owner")
 
-      this.colorGui.Show("Y" sY " X" sX)
-      ShapeOnTop(this.colorGui)
+      this.colorGui.GetPos(,,&wW,&wH)
+      KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
+      this.colorGui.Show("Y" Y " X" X)
+      SetWindowTop(this.colorGui.hwnd)
       ; Let the user keep mouse down and drag/release over a color
    }   
    /**
@@ -269,7 +271,7 @@ Class ColorPopDown {
          Index     := PICControl.Index
          NewColor  := RGBVal(_PickCustomColor(editColor))
          this.colorGui.show()
-         ShapeOnTop(this.colorGui)
+         SetWindowTop(this.colorGui.hwnd)
          oldColor := RGBval(editColor)
          If (NewColor >= 0 AND oldColor != RGBVal(NewColor)) {
             ; TODO - Create an undo point
@@ -407,8 +409,10 @@ Class ColorPopDown {
             }
             ; Position to the right of the item, like a real flyout
             ; Colors should have already been initialized, NA is important here
-            this.colorGui.Show("NA x" sX " y" sY)
-            ShapeOnTop(this.colorGui)
+            this.colorGui.GetPos(,,&wW,&wH)
+            KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
+            this.colorGui.Show("NA x" X " y" Y)
+            SetWindowTop(this.colorGui.hwnd)
          }
       } Else {
          if IsWindowVisible(this.colorGui.hwnd)
