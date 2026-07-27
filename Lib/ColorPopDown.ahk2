@@ -364,6 +364,7 @@ Class ColorPopDown {
     * Hide the color selector as well as turn off activate callback
     */
    Static _hideMe() {
+      this.colorGui.Opt("-Owner")
       this.colorGui.Hide()
    }
    /**
@@ -411,6 +412,7 @@ Class ColorPopDown {
             ; Colors should have already been initialized, NA is important here
             this.colorGui.GetPos(,,&wW,&wH)
             KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
+            this.colorGui.Opt("+Owner" hwnd)
             this.colorGui.Show("NA x" X " y" Y)
             SetWindowTop(this.colorGui.hwnd)
          }
