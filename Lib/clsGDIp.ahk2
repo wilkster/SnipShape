@@ -4195,6 +4195,74 @@ Struct tagBITMAPINFOHEADER {
    biClrImportant : UInt32 ; 4
 }
 /**
+ * BITMAPV4HEADER structure
+ */
+Struct tagBITMAPV4HEADER {
+   ; BITMAPINFOHEADER (40 bytes)
+   biSize          : UInt32 := this.Size ; 4
+   biWidth         : Int32               ; 4
+   biHeight        : Int32               ; 4
+   biPlanes        : Int16               ; 2
+   biBitCount      : Int16               ; 2
+   biCompression   : UInt32              ; 4
+   biSizeImage     : UInt32              ; 4
+   biXPelsPerMeter : Int32               ; 4
+   biYPelsPerMeter : Int32               ; 4
+   biClrUsed       : UInt32              ; 4
+   biClrImportant  : UInt32              ; 4
+
+   ; Additional V4 fields (68 bytes)
+   bV4RedMask       : UInt32              ; 4
+   bV4GreenMask     : UInt32              ; 4
+   bV4BlueMask      : UInt32              ; 4
+   bV4AlphaMask     : UInt32              ; 4
+   bV4CSType        : UInt32              ; 4
+
+   ; CIEXYZTRIPLE (9 LONGs = 36 bytes)
+   bV4Endpoints     : UInt8[36]
+
+   bV4GammaRed      : UInt32              ; 4
+   bV4GammaGreen    : UInt32              ; 4
+   bV4GammaBlue     : UInt32              ; 4
+}
+/**
+ * BITMAPV5HEADER structure
+ */
+Struct tagBITMAPV5HEADER {
+   ; BITMAPINFOHEADER (40 bytes)
+   biSize          : UInt32 := this.Size ; 4
+   biWidth         : Int32               ; 4
+   biHeight        : Int32               ; 4
+   biPlanes        : Int16               ; 2
+   biBitCount      : Int16               ; 2
+   biCompression   : UInt32              ; 4
+   biSizeImage     : UInt32              ; 4
+   biXPelsPerMeter : Int32               ; 4
+   biYPelsPerMeter : Int32               ; 4
+   biClrUsed       : UInt32              ; 4
+   biClrImportant  : UInt32              ; 4
+
+   ; V4 additions (68 bytes)
+   bV5RedMask       : UInt32              ; 4
+   bV5GreenMask     : UInt32              ; 4
+   bV5BlueMask      : UInt32              ; 4
+   bV5AlphaMask     : UInt32              ; 4
+   bV5CSType        : UInt32              ; 4
+
+   ; CIEXYZTRIPLE (9 LONGs = 36 bytes)
+   bV5Endpoints     : UInt8[36]
+
+   bV5GammaRed      : UInt32              ; 4
+   bV5GammaGreen    : UInt32              ; 4
+   bV5GammaBlue     : UInt32              ; 4
+
+   ; V5 additions (16 bytes)
+   bV5Intent        : UInt32              ; 4
+   bV5ProfileData   : UInt32              ; 4
+   bV5ProfileSize   : UInt32              ; 4
+   bV5Reserved      : UInt32              ; 4
+}
+/**
  * Simple RGB channel structure holding three 32-bit unsigned values (R, G, B)
  */
 Struct stRGB {

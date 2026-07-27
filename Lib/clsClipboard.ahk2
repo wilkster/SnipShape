@@ -15,46 +15,58 @@
 
 Class Clipboard {
    ; Helper Functions
-   Static RegisterClipboardFormat(fmt)    => DllCall("RegisterClipboardFormat", "Str", fmt, "UInt")
-   Static IsClipboardFormatAvailable(fmt) => DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', fmt, "Int")
-   Static GetClipboardData(fmt)           => DllCall('User32.dll\GetClipboardData', 'UInt', fmt, 'Ptr')
-   Static SetClipboardData(fmt, data)     => DllCall('User32.dll\SetClipboardData', 'UInt', fmt, 'Ptr', data, 'Ptr')
-   Static OpenClipboard(hWnd := 0)        => DllCall('User32.dll\OpenClipboard', 'Ptr', hWnd, "Int")
-   Static CloseClipboard()                => DllCall('User32.dll\CloseClipboard', 'Ptr')
-   Static EmptyClipboard()                => DllCall('User32.dll\EmptyClipboard', 'Ptr')
-   Static GlobalLock(addr)                => DllCall('Kernel32.dll\GlobalLock', 'Ptr',addr, 'Ptr')
-   Static GlobalUnlock(addr)              => DllCall('Kernel32.dll\GlobalUnlock', 'Ptr',addr, 'Ptr')
-   Static GlobalAlloc(fmt, bytes)         => DllCall('Kernel32.dll\GlobalAlloc', 'uint',fmt, 'Ptr', bytes, 'Ptr')
-   Static GlobalFree(addr)                => DllCall('Kernel32.dll\GlobalFree', 'Ptr',addr, 'Ptr')
-   Static GlobalSize(hGlobal)             => DllCall("Kernel32.dll\GlobalSize", "Ptr", hGlobal, "Ptr")
-   Static CopyMemory(dest, src, length)   => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
+   Static RegisterClipboardFormat(fmt)        => DllCall("RegisterClipboardFormat", "Str", fmt, "UInt")
+   Static IsClipboardFormatAvailable(fmt)     => DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', fmt, "Int")
+   Static GetClipboardData(fmt)               => DllCall('User32.dll\GetClipboardData', 'UInt', fmt, 'Ptr')
+   Static SetClipboardData(fmt, data)         => DllCall('User32.dll\SetClipboardData', 'UInt', fmt, 'Ptr', data, 'Ptr')
+   Static OpenClipboard(hWnd := 0)            => DllCall('User32.dll\OpenClipboard', 'Ptr', hWnd, "Int")
+   Static CloseClipboard()                    => DllCall('User32.dll\CloseClipboard', 'Ptr')
+   Static EmptyClipboard()                    => DllCall('User32.dll\EmptyClipboard', 'Ptr')
+   Static GlobalLock(addr)                    => DllCall('Kernel32.dll\GlobalLock', 'Ptr',addr, 'Ptr')
+   Static GlobalUnlock(addr)                  => DllCall('Kernel32.dll\GlobalUnlock', 'Ptr',addr, 'Ptr')
+   Static GlobalAlloc(fmt, bytes)             => DllCall('Kernel32.dll\GlobalAlloc', 'uint',fmt, 'Ptr', bytes, 'Ptr')
+   Static GlobalFree(addr)                    => DllCall('Kernel32.dll\GlobalFree', 'Ptr',addr, 'Ptr')
+   Static GlobalSize(hGlobal)                 => DllCall("Kernel32.dll\GlobalSize", "Ptr", hGlobal, "Ptr")
+   Static CopyMemory(dest, src, length)       => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
+   Static RtlMoveMemory(pDest, pSource, Size) => DllCall("RtlMoveMemory", "Ptr", pDest, "Ptr", pSource, "UPtr", Size)
+    
    /**
     * Retrieves an HBITMAP handle from the clipboard and returns its dimensions.
     * @param {Integer} W - Output parameter receiving the bitmap width in pixels
     * @param {Integer} H - Output parameter receiving the bitmap height in pixels
-    * @returns {Integer} Handle to the bitmap, or 0 if unavailable or clipboard cannot be opened
+    * @returns {Integer} Handle to the DIB Section hBitmap, or 0 if unavailable or clipboard cannot be opened
     */
    Static HBITMAPFromClipboard(&W, &H) {
       Static CF_BITMAP := 2
-      If (!this.IsClipboardFormatAvailable(CF_BITMAP))
-         Return (0)
-
+      Static CF_DIB    := 8
+      Static CF_DIBV5  := 17
+             hBitmap   := 0
+      W := H := 0
       If (!this.OpenClipboard(A_ScriptHwnd))
          Return (0)
-
-      If (hBitmap := this.GetClipboardData(CF_BITMAP)) {
-         ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
-         buf := tagBITMAP()
-         GDI.GetObject(hBitmap, buf.Size, buf)
-         W := buf.bmWidth
-         H := buf.bmHeight
-         ; Convert DDB to DIB if necessary
-         hBitmap := this.ConvertDDBToDIB(hBitmap, true)
-         ; Get rid of any transparency
-         BitMap.SetAlphaChannel(hBitmap, 0xFF)
-      } else
-         hBitmap := 0
-
+      ;------------------------------------------
+      ; DIBV5 is preferred, then DIB, then BITMAP
+      ;------------------------------------------
+      If (this.IsClipboardFormatAvailable(CF_DIBV5)) {
+         hGlobal := this.GetClipboardData(CF_DIBV5)
+         hBitmap := this.ConvertClipboardDIBToDIBSection(hGlobal, &W, &H)
+         debug("CF_DIBV5 Cliboard of W=" W ", H=" H)
+      } Else If (this.IsClipboardFormatAvailable(CF_DIB)) {
+         hGlobal := this.GetClipboardData(CF_DIB)
+         hBitmap := this.ConvertClipboardDIBToDIBSection(hGlobal, &W, &H)
+         debug("CF_DIB Cliboard of W=" W ", H=" H)
+      } Else If (this.IsClipboardFormatAvailable(CF_BITMAP)) {
+         If (hBitmap := this.GetClipboardData(CF_BITMAP)) {
+            ; https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmap
+            ; Convert DDB to DIB if necessary
+            If (hBitmap := this.ConvertDDBToDIB(hBitmap, true, &W, &H)) {
+               ; Get rid of any transparency
+               BitMap.SetAlphaChannel(hBitmap, 0xFF)
+            }
+            debug("CF_BITMAP Cliboard of W=" W ", H=" H)
+         } Else
+            hBitmap := 0
+      }
       this.CloseClipboard()
       ; We like DIBs
       Return hBitmap
@@ -228,7 +240,7 @@ Class Clipboard {
       hCopy := this.GlobalAlloc(0x42, size)
       pSrc  := this.GlobalLock(hGlobal)
       pDst  := this.GlobalLock(hCopy)
-      DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", pDst, "Ptr", pSrc, "Ptr", size)
+      this.RtlMoveMemory(pDst, pSrc, size)
       this.GlobalUnlock(hGlobal)
       this.GlobalUnlock(hCopy)
 
@@ -245,25 +257,22 @@ Class Clipboard {
     * @param {Integer} DiscardOriginal If true, deletes the source DDB after conversion
     * @returns {Integer} Handle to a DIB section, or 0 on failure
     */
-   Static ConvertDDBToDIB(hBitmap, DiscardOriginal := true) {
+   Static ConvertDDBToDIB(hBitmap, DiscardOriginal := true, &W, &H) {
       static SIZE_BITMAP := (A_PtrSize = 8) ? 32 : 24
-
       ds     := tagDIBSECTION()
       result := GDI.GetObject(hBitmap, ds.Size, ds.Ptr)
       If (!result)
          Return 0
-
+      W := ds.dsBm.bmWidth
+      H := ds.dsBm.bmHeight
       ; Already a DIB section - nothing to do
       If (result > SIZE_BITMAP)
          Return hBitmap
-      ; debug("Convert DDB hBitmap to DIB")
       ; DDB path - pull dimensions from the BITMAP portion already populated above
-      W := ds.dsBm.bmWidth
-      H := ds.dsBm.bmHeight
 
       bi               := tagBITMAPINFOHEADER()
       bi.biWidth       := W
-      bi.biHeight      := H ; was -1, but all hBitmaps are bottoms up
+      bi.biHeight      := H ;  our hBitmaps are bottoms up
       bi.biPlanes      := 1
       bi.biBitCount    := 32
       bi.biCompression := 0
@@ -289,6 +298,117 @@ Class Clipboard {
 
       Return hDIB
    }
+   /**
+    * Convert a clipboard DIB handle to a hBitmap DIB hBitmap
+    * @param hGlobal Global handle to a DIB_V5 image
+    * @returns hBitmap handle or 0 for error 
+    */
+   Static ConvertClipboardDIBToDIBSection(hGlobal, &W, &H) {
+      Static BI_RGB := 0
+      Static BI_BITFIELDS := 3
+
+      If (!hGlobal)
+         Return 0
+      pHeader := this.GlobalLock(hGlobal)
+      If (!pHeader)
+         Return 0
+
+      HeaderSize := NumGet(pHeader, 0, "UInt")
+
+      ;------------------------------------
+      ; Copy clipboard header into a structure
+      ;------------------------------------
+      Switch HeaderSize {
+
+         Case tagBITMAPINFOHEADER().Size:
+            bmi := tagBITMAPINFOHEADER()
+            this.RtlMoveMemory(bmi.Ptr, pHeader, bmi.Size)
+
+         Case tagBITMAPV4HEADER().Size:
+            bmi := tagBITMAPV4HEADER()
+            this.RtlMoveMemory(bmi.Ptr, pHeader, bmi.Size)
+
+         Case tagBITMAPV5HEADER().size:
+            bmi := tagBITMAPV5HEADER()
+            this.RtlMoveMemory(bmi.Ptr, pHeader, bmi.Size)
+
+         default:
+            this.GlobalUnlock(hGlobal)
+            Return 0
+      }
+
+      ;------------------------------------
+      ; Validate
+      ;------------------------------------
+
+      If (bmi.biPlanes != 1) {
+         this.GlobalUnlock(hGlobal)
+         Return 0
+      }
+
+      If (bmi.biCompression != BI_RGB
+         && bmi.biCompression != BI_BITFIELDS) {
+         this.GlobalUnlock(hGlobal)
+         Return 0
+      }
+
+      Width       := bmi.biWidth
+      Height      := Abs(bmi.biHeight)
+      BitCount    := bmi.biBitCount
+      Compression := bmi.biCompression
+      SizeImage   := bmi.biSizeImage
+
+      ;------------------------------------
+      ; Locate the pixel bits
+      ;------------------------------------
+
+      pBits := pHeader + HeaderSize
+
+      ; BI_BITFIELDS stores three DWORD masks immediately after the header.
+      ; (For V4/V5 the masks are already inside the header.)
+      If (Compression = BI_BITFIELDS && HeaderSize = 40)
+         pBits += 12
+
+      ; Skip palette entries
+      If (BitCount <= 8) {
+         Colors := bmi.biClrUsed
+         If (!Colors)
+            Colors := 1 << BitCount
+         pBits += Colors * 4
+      }
+
+      ;------------------------------------
+      ; Determine image size
+      ;------------------------------------
+
+      If (!SizeImage) {
+         Stride := ((Width * BitCount + 31) // 32) * 4
+         SizeImage := Stride * Height
+      }
+
+      ;------------------------------------
+      ; Create destination DIBSection
+      ;------------------------------------
+
+      hdc  := GDI.GetDC(0)
+      hDIB := GDI.CreateDIBSection(Width, bmi.biHeight, hdc, BitCount, &ppvBits := 0)
+
+      If (!hDIB) {
+         this.GlobalUnlock(hGlobal)
+         GDI.ReleaseDC(hdc)
+         Return 0
+      }
+      W := Width
+      H := Abs(bmi.biHeight)
+      ;------------------------------------
+      ; Copy pixels exactly
+      ;------------------------------------
+      this.RtlMoveMemory(ppvBits, pBits, SizeImage)
+      this.GlobalUnlock(hGlobal)
+      GDI.ReleaseDC(hdc)
+
+      Return hDIB
+   }   
    ;----------------------------------------------------------------------------
    ; Idea from: https://www.autohotkey.com/boards/viewtopic.php?f=83&t=114568
    ;----------------------------------------------------------------------------

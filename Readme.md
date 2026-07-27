@@ -149,11 +149,10 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-C                   | Copy the snip and shapes to the clipboard (minimizing snip)                                                              |
 | Ctrl-X                   | Cut the snip and shapes to the clipboard (closing snip)                                                                  |
 | Ctrl-S                   | Save the snip and shapes to a file in the Screenshot folder                                                              |
-| Ctrl-j                   | Save the snip to both the clipboard and Screenshot folder                                                                |
+| Ctrl-J                   | Save the snip to both the clipboard and Screenshot folder                                                                |
 | Ctrl-V                   | Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available) |
 | Ctrl-P                   | Open a dialog box to add a picture from a file as a new shape                                                            |
-| Ctrl-D                   | Clone the current snip if on snip background, if focus is on a shape, it will duplicate the shape                        |
-| Del                      | will remove all the shapes on a Snip                                                                                     |
+| Ctrl-D                   | Clone the current snip and shapes if on snip background, if focus is on a shape, it will duplicate the shape             |
 | Shift-Del                | will remove all the shapes on a Snip                                                                                     |
 | Ctrl-O                   | OCR the text to lines of text                                                                                            |
 | Ctrl-T                   | OCR the text to html table                                                                                               |
@@ -164,10 +163,8 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-Y                   | Redo the last undo action on the snip                                                                                    |
 | Ctrl-Down                | Minimize all Snips                                                                                                       |
 | **Snip HotKey**          | **Scaling Action**                                                                                                       |
-| =                        | Duplicate and 2x the size of the current snip (without shapes)                                                           |
-| Alt=                     | Duplicate and 2.5x the size of the current snip (without shapes)                                                         |
-| Ctrl-=                   | Duplicate and 3x the size of the current snip (without shapes)                                                           |
-| -                        | Duplicate and 1/2x the size of the current snip (without shapes)                                                         |
+| = / -                    | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
+| Ctrl-Scroll Wheel        | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
 
 ## Toolbar - F1 to toggle while snip active
