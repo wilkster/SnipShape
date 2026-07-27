@@ -656,7 +656,9 @@ Class Snips {
             } Else {
                msg := "Clipped Area to Clipboard: " W " x " H " pixels"
             }
-            Clipboard.SetHBitmapToClipboard(hBitmap)
+            if (Clipboard.SetHBitmapToClipboard(hBitmap) <0 )
+               MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
+
             qTrayTip(msg, 4, "Click Here to Edit", 6000)
          }
       }
@@ -686,7 +688,8 @@ Class Snips {
             hBitMap := BitMap.hBitmapFromScreen({ X: X, Y: Y, W: W, H: H })
          }
          SnipObj.Dirty := 0
-         Clipboard.SetHBitmapToClipboard(hBitMap)
+         if (Clipboard.SetHBitmapToClipboard(hBitMap) < 0)
+            MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
       } else {
          warning("Did not find a valid snip to copy from")
       }

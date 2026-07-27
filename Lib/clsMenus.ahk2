@@ -553,7 +553,9 @@ Class ShapeMenus {
          Case ItemName ~= "to Clipboard":
             focusBorder.HideFocus(false)
             hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
-            Clipboard.SetHBITMAPToClipboard(hBitmap)
+            if (Clipboard.SetHBITMAPToClipboard(hBitmap) < 0)
+               MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
+
          Case ItemName ~= "Clear":
             Snips.PostClearAllShapes(shapeObj.GUI.hWnd)
             Snips.ClearAllShapes(shapeObj.GUI.hWnd, true) ; no Undo, done above

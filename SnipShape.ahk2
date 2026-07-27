@@ -118,7 +118,8 @@ ClipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
       hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
-      Clipboard.SetHBITMAPToClipboard(hBitmap)
+      if (Clipboard.SetHBITMAPToClipboard(hBitmap) < 0)
+         MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
 
       qTrayTip("Captured Active Window to clipboard",4,,5000)
    } else {

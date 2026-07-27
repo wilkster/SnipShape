@@ -15,6 +15,7 @@
 
 Class Clipboard {
    ; Helper Functions
+   Static RegisterClipboardFormat(fmt)    => DllCall("RegisterClipboardFormat", "Str", fmt, "UInt")
    Static IsClipboardFormatAvailable(fmt) => DllCall('User32.dll\IsClipboardFormatAvailable', 'UInt', fmt, "Int")
    Static GetClipboardData(fmt)           => DllCall('User32.dll\GetClipboardData', 'UInt', fmt, 'Ptr')
    Static SetClipboardData(fmt, data)     => DllCall('User32.dll\SetClipboardData', 'UInt', fmt, 'Ptr', data, 'Ptr')
@@ -25,8 +26,8 @@ Class Clipboard {
    Static GlobalUnlock(addr)              => DllCall('Kernel32.dll\GlobalUnlock', 'Ptr',addr, 'Ptr')
    Static GlobalAlloc(fmt, bytes)         => DllCall('Kernel32.dll\GlobalAlloc', 'uint',fmt, 'Ptr', bytes, 'Ptr')
    Static GlobalFree(addr)                => DllCall('Kernel32.dll\GlobalFree', 'Ptr',addr, 'Ptr')
+   Static GlobalSize(hGlobal)             => DllCall("Kernel32.dll\GlobalSize", "Ptr", hGlobal, "Ptr")
    Static CopyMemory(dest, src, length)   => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
-
    /**
     * Retrieves an HBITMAP handle from the clipboard and returns its dimensions.
     * @param {Integer} W - Output parameter receiving the bitmap width in pixels
@@ -81,27 +82,44 @@ Class Clipboard {
     */
    Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
 
+      ;--------------------------------------------------------------------
+      ; Open Clipboard and empty it
+      ;--------------------------------------------------------------------
       pid  := DllCall("GetCurrentProcessId", "uint")
       hwnd := WinExist("ahk_pid " . pid)
-      if not this.OpenClipboard(hwnd)
+      If not this.OpenClipboard(hwnd) {
+         GDI.DeleteObject(hBitmap)
+         warning("Clipboard: Failed to open clipboard")
          Return -1
-
+      }
       If not this.EmptyClipboard() {
+         warning("Clipboard: Failed to empty clipboard")
          GDI.DeleteObject(hBitmap)
          this.CloseClipboard()
          Return -2
       }
+      ;--------------------------------------------------------------------
+      ; DDB Format for failsafe
+      ;--------------------------------------------------------------------
+      hBmpCopy := GDI.CopyImage(hBitmap)
+      If not this.SetClipboardData(CF_BITMAP := 2, hBmpCopy) {
+         warning("Clipboard: Failed to set CF_BITMAP format")
+         DllCall("CloseClipboard")
+         Gdi.DeleteObject(hBitmap)
+         Return -10
+      }
+
+      ;--------------------------------------------------------------------
+      ; DIB Format for alpha support and more modern app support
       ; Structure to hold the bitmap data
+      ;--------------------------------------------------------------------
       ds  := tagDIBSECTION()
       GDI.GetObject(hBitmap, ds.size, ds.ptr)
 
       ; Allocate a moveable global block large enough for: BITMAPINFOHEADER (40 bytes) + raw pixel data
-      dibSize := ((ds.dsBm.bmWidth * ds.dsBm.bmBitsPixel + 31) // 32) * 4 * ds.dsBm.bmHeight
-      if (dibSize != ds.dsBmih.biSizeImage)
-         elog("DIB Size Mismatch: " dibSize " vs " ds.dsBmih.biSizeImage)
-
       dwBytes := ds.dsBmih.size + ds.dsBmih.biSizeImage
       If not (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
+         warning("Clipboard: Failed to allocate memory")
          DllCall("CloseClipboard")
          Gdi.DeleteObject(hBitmap)
          Return -3
@@ -116,11 +134,24 @@ Class Clipboard {
 
       ; Place the DIB on the clipboard — on success clipboard owns hdib, do NOT free it
       If not this.SetClipboardData(CF_DIB := 8, hDIB) {
+         warning("Clipboard: Failed to set CF_DIB Format")
          this.GlobalFree(hDIB) ; only free if failed
          this.CloseClipboard()
          Gdi.DeleteObject(hBitmap)
          Return -4
       }
+
+      ;--------------------------------------------------------------------
+      ; Registered PNG -- what new Outlook/WebView2 paste targets look for
+      ;--------------------------------------------------------------------
+      cfPng := this.RegisterClipboardFormat("PNG")
+      hPng  := this.ToPNG(hBitmap)
+      If not this.SetClipboardData(cfPng, hPng) {
+         warning("Clipboard: Failed to set PNG Format")
+         this.CloseClipboard()
+         Gdi.DeleteObject(hBitmap)
+         Return -9
+      }      
       ; ------------------------------------------------------------------
       ; Optionally post CF_TEXT
       ; CF_TEXT expects a null-terminated ANSI string in a GMEM_MOVEABLE
@@ -129,6 +160,7 @@ Class Clipboard {
       If (pszText) {
          textBytes := StrPut(pszText, "CP0")              ; byte count including null terminator
          If not (htext := this.GlobalAlloc(GMEM_MOVEABLE := 2, textBytes)) {
+            warning("Clipboard: Failed set CF_DIB Format")
             this.CloseClipboard()
             Gdi.DeleteObject(hBitmap)
             Return -5
@@ -136,16 +168,22 @@ Class Clipboard {
          ptext := this.GlobalLock(htext)
          StrPut(pszText, ptext, textBytes, "CP0")          ; CP0 = system ANSI code page
          this.GlobalUnlock(htext)
+         ; ------------------------------------------------------------------
          ; Place the text on the clipboard — on success clipboard owns htext, do NOT free it
+         ; ------------------------------------------------------------------
          If not this.SetClipboardData(CF_TEXT := 1, htext) {
+            warning("Clipboard: Failed to set CP0 CF_TEXT Format")
             this.GlobalFree(htext)
             this.CloseClipboard()
             Gdi.DeleteObject(hBitmap)
             Return -6
          }
+         ; ------------------------------------------------------------------
          ; Unicode text as well
+         ; ------------------------------------------------------------------
          textBytes := StrPut(pszText, "UTF-16")          ; byte count including null terminator
          If not (htext := this.GlobalAlloc(GMEM_MOVEABLE := 2, textBytes)) {
+            warning("Clipboard: Failed to allocate memory for text")
             this.CloseClipboard()
             Gdi.DeleteObject(hBitmap)
             Return -7
@@ -155,6 +193,7 @@ Class Clipboard {
          this.GlobalUnlock(htext)
          ; Place the text on the clipboard — on success clipboard owns htext, do NOT free it
          If not this.SetClipboardData(CF_TEXT := 13, htext) {
+            warning("Clipboard: Failed to set UTF-16 CF_TEXT Format")
             this.GlobalFree(htext)
             this.CloseClipboard()
             Gdi.DeleteObject(hBitmap)
@@ -164,6 +203,38 @@ Class Clipboard {
       this.CloseClipboard()
       Gdi.DeleteObject(hBitmap)
       Return 0
+   }
+   /**
+    * Convert an hBitmap to PNG format for the clipboard
+    * @param hBitmap Input hbitmap to convert
+    * @returns {Float | Integer | String} 
+    */
+   Static ToPNG(hBitmap) {
+      ; CreateARGBBitmapFromHBITMAP already handles the 32bpp-alpha-preserving
+      ; path vs falling back to CreateBitmapFromHBITMAP -- no manual alpha
+      ; handling needed here.
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
+
+      DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "Int", true, "Ptr*", &pStream := 0)
+
+      ; PNG encoder CLSID: {557CF406-1A04-11D3-9A73-0000F81EF32E}
+      clsid := Buffer(16)
+      DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsid)
+      DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)
+      DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hGlobal := 0)
+
+      ; Duplicate the memory -- releasing pStream frees hGlobal (fDeleteOnRelease=true above)
+      size  := this.GlobalSize(hGlobal)
+      hCopy := this.GlobalAlloc(0x42, size)
+      pSrc  := this.GlobalLock(hGlobal)
+      pDst  := this.GlobalLock(hCopy)
+      DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", pDst, "Ptr", pSrc, "Ptr", size)
+      this.GlobalUnlock(hGlobal)
+      this.GlobalUnlock(hCopy)
+
+      ObjRelease(pStream)
+      GDIp.DisposeImage(pBitmap)
+      Return hCopy
    }
    /**
     * Ensures a bitmap handle is a DIB section, converting from a DDB if necessary.
