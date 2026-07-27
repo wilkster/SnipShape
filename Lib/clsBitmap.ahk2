@@ -665,7 +665,7 @@ Class BitMap {
                GDIp.GetImageDimensions(uBitmap, &w, &h)
                GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 1) ; 1 is read only
                ; FindBackgroundColor(const uint8_t *pixels, int width, int height, int stride) {
-               r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride)
+               r := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "uint*", &return_count:=0)
                GDIp.UnlockBits(uBitmap, &iData)
             Case "hBitmap":
                res := BitMap.GetDIBSectionInfo(uBitmap)
