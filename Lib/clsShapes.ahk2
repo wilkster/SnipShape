@@ -1310,6 +1310,7 @@ Class Shapes {
                Ctrl.Refresh()
             }
          }
+         myGUI.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, CropObj.Gui.hWnd)
@@ -1352,9 +1353,10 @@ Class Shapes {
                   Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
                Else if (pH = iR.H) ; Vert section
                   Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
-               Ctrl.Refresh()
+               ; Ctrl.Refresh()
             }
          }
+         myGUI.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, SliceObj.Gui.hWnd)
@@ -1456,6 +1458,7 @@ Class Shapes {
                   }
                }
          }
+         myGUI.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
             Snips.Snip2Clipboard(Snips.UpdateClipboard, ExtendObj.Gui.hWnd)
