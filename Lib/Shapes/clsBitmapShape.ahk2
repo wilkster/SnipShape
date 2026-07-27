@@ -181,9 +181,9 @@ Class BMShape extends commonShape {
       hdcMem := GDI.CreateCompatibleDC(0)
       obm    := GDI.SelectObject(hdcMem, hBitmap)
 
-      useX := x ?? this.shapeCoord.X1
-      useY := y ?? this.shapeCoord.Y1
-      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, useX, useY, W, H)
+      x ??= this.shapeCoord.X1
+      y ??= this.shapeCoord.Y1
+      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, W, H)
 
       GDI.SelectObject(hdcMem, obm)  ; deselect only — hBitmap is caller-owned, don't DeleteObject it
       GDI.DeleteDC(hdcMem)
@@ -203,20 +203,19 @@ Class BMShape extends commonShape {
     */
    Move(X?, Y?, W?, H?, Quality := 7) {
       this.GetPos(&curX, &curY, &curW, &curH)
-      useX := X ?? curX
-      useY := Y ?? curY
-      useW := W ?? curW
-      useH := H ?? curH
-
-      if (useW != curW) || (useH != curH) {
+      X ??= curX
+      Y ??= curY
+      W ??= curW
+      H ??= curH
+      if (W != curW) || (H != curH) {
          ; keep the OG bitmap, just display the resized one
-         if (hResized := BitMap.ResizeHBITMAP(this.myHandle, useW, useH, Quality)) {
-            this.DisplayBitmap(hResized, useX, useY)
+         if (hResized := BitMap.ResizeHBITMAP(this.myHandle, W, H, Quality)) {
+            this.DisplayBitmap(hResized, X, Y)
             GDI.DeleteObject(hResized)
          } else
-            super.Move(useX, useY, useW, useH)
+            super.Move(X, Y, W, H)
       } else {
-         super.Move(useX, useY, useW, useH)
+         super.Move(X, Y, W, H)
       }
       this.UpdateCoord()
    }   

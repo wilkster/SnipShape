@@ -248,8 +248,8 @@ Class GuiSnip extends Gui {
       newH := H + BW * 2
       ; keep this.hWnd's current top-left; only the size grows (per spec)
       this.GetPos(&winX, &winY)
-      useX := x ?? winX
-      useY := y ?? winY
+      x ??= winX
+      y ??= winY
 
       hdcScreen := GDI.GetDC(0)
       hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
@@ -271,7 +271,7 @@ Class GuiSnip extends Gui {
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
       ; Update the GUI with the snip and border
-      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, useX, useY, newW, newH)
+      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, newW, newH)
 
       ; clean up
       GDIp.DeletePen(pen)
