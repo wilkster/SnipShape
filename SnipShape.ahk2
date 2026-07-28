@@ -1,4 +1,4 @@
-#Requires AutoHotkey v2.1-alpha.23
+#Requires AutoHotkey v2.1-alpha.28
 /************************************************************************
  * @description Windows Snipper and Annotation tool in Autohotkey 2.1
  * @file SnipShape.ahk2
@@ -57,7 +57,6 @@ GDIp.SystemStartup()
 ;-----------------------------------------------
 SETTINGS.SnipShapeIcon := SETTINGS.CursorPath "\SnipShape.ico"
 A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area Only "
-; TraySetIcon(SETTINGS.SnipShapeIcon) ; Scissors
 ; =====================================================================
 ;                          I N C L U D E S
 ; =====================================================================
@@ -118,8 +117,8 @@ ClipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
       hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
-      if (Clipboard.SetHBITMAPToClipboard(hBitmap) < 0)
-         MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
+      if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+         MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
       qTrayTip("Captured Active Window to clipboard",4,,5000)
    } else {
@@ -276,40 +275,54 @@ HotIfWinActive
    Space:: Snips.SetDrawMode(0)
 
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
-   ; ~Esc:: Snips.Close()	;	<-- @@ Close Active Snip, let Esc pass through for key checks (use onEvent instead?)
     Del:: focusBorder.RemoveShapeIfFocused()	;	<-- @@ Close Active Shape
    ; Hide/clean all shapes
    +Del:: {
-      Snips.ClearAllShapes()
-      Snips.flashBorder(WinExist("A"))
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.PostClearAllShapes()
+         SnipObj.ClearAllShapes(true)
+         SnipObj.flashBorder()
+      }
    }
    ^P:: Shapes.AddPictureFromFile(WinExist("A"), "lButton", "P")
    ^c:: {
       ; Copy active snip and shapes to the clipboard
       ; NOTE - We will copy focus border if it is active
-      if (sw := WinExist("A")) {
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
-         Snips.Minimize(sw)
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Minimize()
       }
    }
    ^x:: {
       ; Cut active snip and shapes to the clipboard
-      if (sw := WinExist("A")) {
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
-         Snips.Close(sw, 0)
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         Snips.Close(SnipObj, 0)
       }
    }
    ^s:: {
-      Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
-      Snips.flashBorder(WinExist("A"))
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
+         SnipObj.flashBorder()
+      }
    }
    ^j:: {
-      Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
-      If (sw := WinExist("A")) {
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         qTrayTip("Snip saved to clipboard and " SETTINGS.SavePath_Image)
+         SnipObj.flashBorder(WinExist("A"))
       }
-      qTrayTip("Snip saved to clipboard and " SETTINGS.SavePath_Image)
-      Snips.flashBorder(WinExist("A"))
    }
    ^D:: {
       If (focusBorder.IsShown) {
@@ -317,7 +330,8 @@ HotIfWinActive
          Shapes.Duplicate("lbutton", focusBorder.ShapeObj)
       } Else {
          ; Clone the snip (without the shapes)
-         Snips.CloneAndScaleSnip(WinExist("A"), 1.0)
+         if (SnipObj := Snips.GetGuiObj())
+            SnipObj.CloneAndScaleSnip(1.0)
       }
    }
    ; Paste new shape (text or a bitmap)
@@ -325,34 +339,65 @@ HotIfWinActive
       Shapes.PasteNewShape()
    }
    ; Simple transformations
-   ^i::Snips.TransformSnip(WinExist("A"),1) ; invert
-   ^g::Snips.TransformSnip(WinExist("A"),2) ; grayscale
-   ^b::Snips.TransformSnip(WinExist("A"),3) ; black and white high contrast
+   ^i::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+         SnipObj.TransformSnip(1) ; invert
+   }
+   ^g::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+         SnipObj.TransformSnip(2) ; grayscale
+   }
+   ^b::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+        SnipObj.TransformSnip(3) ; black and white high contrast
+   }
    ; Undo / Redo hotkeys
    ^z::Snips.UnDoAction(WinExist("A"))
    ^y::Snips.ReDoAction(WinExist("A"))
-   ; ~Down:: {
-   ;    ; Only if not actively drawing
-   ;    If NOT GetKeyState("lbutton", "P")
-   ;       Snips.Minimize(WinExist("A"))
-   ; }
-   ^Down:: {
-      Snips.MinimizeAll()
-   }
-   ^Up:: {
-      Snips.RestoreAll()
-   }
+
+   ; Minimize/Restore
+   ^Down::Snips.MinimizeAll()
+   ^Up::Snips.RestoreAll()
+
+   ; OCR
    ^O:: Snips.OCRSnipToClipboard(WinExist("A"), 15)
    ^T:: Snips.OCRSnipToClipboard(WinExist("A"), 14)
 
    =::
-   NumpadAdd:: Snips.ScaleSnip(WinExist("A"), 1.20)
+   NumpadAdd::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+         SnipObj.ScaleSnip(1.20)
+   }
 
    -::
-   NumpadSub:: Snips.ScaleSnip(WinExist("A"), 1/1.2)
+   NumpadSub::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+        SnipObj.ScaleSnip(1 / 1.2)
+   }
    
-   ^WheelUp::Snips.ScaleSnip(WinExist("A"), 1.20)
-   ^WheelDown::Snips.ScaleSnip(WinExist("A"), 1/1.20)
+   ^WheelUp::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+         SnipObj.ScaleSnip(1.20)
+   }
+   ^WheelDown::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj)
+         SnipObj.ScaleSnip(1 / 1.20)
+   }
+   ; !WheelUp / !WheelDown for transparency
 
    F1:: {
       ; Toggle Buttonbar
@@ -370,6 +415,7 @@ HotIfWinActive
    getKeyColor(num, default) => IniReadValue("User Shape Color", "Color " . num, default)
 #HotIf
 
+; Snip Windows and mouse button not down and focused on a Shape, move the shape around or adjust shape
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.ShapeObj)
    $Up::ShiftShape(0, -5)
    $Down::ShiftShape(0, +5)
@@ -407,7 +453,9 @@ HotIfWinActive
    }
 #HotIf
 
+; Now allow  hotkeys once initialized
 Suspend(0)
+DllCall("psapi\EmptyWorkingSet", "ptr", -1)
 
 /**
  * Exit handler called by OnExit when the script is terminating for any reason.

@@ -399,7 +399,7 @@ Class Shapes {
     *   draw mode is active and Ctrl is not held) or delegates to MoveSize for
     *   moving/resizing the clicked shape.
     * @param {String} Key - Mouse button identifier (e.g. "lButton").
-    * @param {Object} ShapeObj - The shape control object that was clicked.
+    * @param {commonShape} ShapeObj - The shape control object that was clicked.
     * @param {*} * - Additional event parameters (ignored).
     */
    Static ShapeClickHandler(Key, ShapeObj, *) {
@@ -448,8 +448,8 @@ Class Shapes {
       }
       ; Update the clipboard automatically if that mode is enabled
       If (changed AND Snips.UpdateClipboard) {
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, hWnd)
-         Snips.flashBorder(hWnd)
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.flashBorder()
       }
       Return
    }
@@ -485,7 +485,7 @@ Class Shapes {
 
          hBitmap := Clipboard.HBITMAPFromClipboard(&W:=0, &H:=0)
          If (hBitmap) {
-            If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, hBitmap, lX, lY)) {
+            If NOT ( ShapeObj := Shapes.CreatePicFromSource(SnipObj, hBitmap, lX, lY)) {
                qTrayTip("Failed to paste Bitmap found from Clipboard", 2)
             } Else {
                ShapeObj.PostAction(UnDo.ADD_SHAPE)
@@ -508,12 +508,12 @@ Class Shapes {
     * 
     * Text is not drawn here
     * 
-    * @param SnipObj Object Handle for the snip
-    * @param ShapeObj Canned Shape Number or Existing Shape Object
+    * @param {GuiSnip} SnipObj Object Handle for the snip
+    * @param {commonShape} ShapeObj Canned Shape Number or Existing Shape Object
     * @param baseThicknessOrFactor Factor to pass to shape (thickness, blur values...)
     * @returns Nothing
     */
-   Static Draw(SnipObj, ShapeObj, baseThicknessOrFactor := 1) {
+   static Draw(SnipObj, ShapeObj, baseThicknessOrFactor := 1) {
       Static canvasGui := Gui('+E0x20 -Caption -Border +E0x80000 +ToolWindow +AlwaysOnTop -DPIScale')
       ; All window relative
       Static shapeStart := {X:0, Y:0} ; Location where first click is done (window)
@@ -585,7 +585,10 @@ Class Shapes {
       } else if (ShapeObj) {
          newShape := true
          ; No passed in Shape, just the Shape type, so create one
+      /** @type {commonShape} */
          Shape := ShapeObj
+
+      /** @type {commonShape} */
          ShapeObj         := SnipObj.AddNewShape(Shape, baseThicknessOrFactor)
          ShapeObj.Visible := false
          ; In case key is no longer pressed on a draw
@@ -884,19 +887,19 @@ Class Shapes {
             Case this.SHAPE_CROP:
                ; Crop the selection
                ShapeObj.Close(true)
-               this.Crop(ShapeObj, Snips.UpdateClipboard)
+               SnipObj.Crop(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_SLICE:
                ; Slice the selection
                ShapeObj.Close(true)
-               this.Slice(ShapeObj, Snips.UpdateClipboard)
+               SnipObj.Slice(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_EXTEND:
                ; Slice the selection
                ShapeObj.Close(true)
-               this.Extend(ShapeObj, Snips.UpdateClipboard)
+               SnipObj.Extend(ShapeObj, Snips.UpdateClipboard)
             Case this.SHAPE_OCR:
                ; OCR the selection
                ShapeObj.Close(true)
-               this.OCRShape(ShapeObj)
+               SnipObj.OCRShape(ShapeObj)
             Default:
                if (newShape)
                   ShapeObj.PostAction(UnDo.ADD_SHAPE)
@@ -974,6 +977,7 @@ Class Shapes {
       }
 
       ; Latest control clicked will be on top of others (shapes are always over bitmaps for some reason)
+      SnipObj := ShapeObj.Gui
       ShapeOnTop(ShapeObj) ; true
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mouseStart.X, &mouseStart.Y)
@@ -1184,8 +1188,8 @@ Class Shapes {
       Cursor.SetCursor("Select") ; not really needed
       ; Snapshot clipboard if enabled
       If (Snips.UpdateClipboard) {
-         Snips.flashBorder(ShapeObj.Gui.hWnd)
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, ShapeObj.Gui.hWnd)
+         SnipObj.flashBorder()
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
       }
       ShapeObj.Gui.Dirty++
       Return
@@ -1242,228 +1246,6 @@ Class Shapes {
          Default:
       }
       Return
-   }
-
-   /**
-    * OCR the image to one of the drawn shapes/pictures
-    * @param GuiCtrlObj Is the crop rectangle just drawn
-    * @returns Nothing 
-    * OCR.FromRect(X, Y, W, H, lang?, scale:=1) will work on the snip itself
-    */
-   Static OCRShape(ShapeCropObj) {
-      ; Need the screen coordinates of the shape and the GUI
-      ShapeCropObj.Gui.GetPos(&gX1, &gY1, &gW, &gH)
-      ShapeCropObj.GetPos(&cX1, &cY1, &cW, &cH)
-      If (cW < 25 OR cH < 25)
-         Return
-      ; Do the OCR from the window rectangle
-      Result := OCR.FromRect(gx1 + cx1, gy1 + cy1, cW, cH)
-      Cluster := OCR.Cluster(Result.Words)
-      For rowWords in Cluster {
-         LineText .= rowWords.Text . "`n"
-      } Else
-         LineText := ""
-      try {
-         A_Clipboard := LineText
-         qTrayTip("Clipped " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
-      } catch as e {
-         qTrayTip("Error Clipping " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
-      }
-   }
-
-   /**
-    * Crop the image to one of the drawn shapes/pictures
-    * @param GuiCtrlObj Is the crop rectangle just drawn
-    * @returns Nothing 
-    */
-   Static Crop(CropObj, Clipboard := false) {
-      myGUI := CropObj.Gui
-      If (hBitmap := myGUI.handle) {
-         tag := A_TickCount . "Crop"
-         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
-         BW := Settings.BorderWidth
-         ; Get various dimensions
-         myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         ; Crop tool
-         C := CropObj.shapeCoord
-         ; Get the raw picture dimensions
-         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
-         ; Intersection to handle off picture crop tool
-         iR := IntersectRect(
-            C.X1, C.Y1, C.X2, C.Y2, 
-            pX1, pY1, pX1 + pW, pY1 + pH
-         )
-
-         If (IR AND iR.w < 25 AND iR.h < 25)
-            Return
-         ; This destroys the existing snip bitmap and creates a new one
-         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h, 1)
-         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
-         myGui.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
-
-         ; Shift all of the controls so they stay in same place
-         For Ctrl in myGUI {
-            If Ctrl.Visible {
-               Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-               Ctrl.Move(X - C.X1, Y - C.Y1)
-               Ctrl.Refresh()
-            }
-         }
-         myGUI.RefreshTextures()
-         ButtonBar.Show()
-         if Clipboard {
-            Snips.Snip2Clipboard(Snips.UpdateClipboard, CropObj.Gui.hWnd)
-         }
-      }
-   }
-
-   /**
-    * Slice a section out of the bitmap
-    * @param GuiCtrlObj Is the crop rectangle just drawn
-    * @returns Nothing 
-    */
-   Static Slice(SliceObj, Clipboard := false) {
-      myGUI := SliceObj.Gui
-      If (hBitmap := myGUI.handle) {
-         tag := A_TickCount . "Slice"
-         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
-         BW  := Settings.BorderWidth
-         C   := SliceObj.shapeCoord ; includes picture border offset, snip relative
-         myGUI.GetPos(&gX, &gY)     ; screen relative
-         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; Snip picture only, snip relative
-         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
-         ; Offset by borderwidth (0 based)
-         hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
-         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         deltaW := pW - W, deltaH := pH - H
-         ; If we cut off the left or top, recenter to keep rest in same place
-         if (c.x1 < pX1)
-            gX += deltaW
-         else if (c.y1 < pY1)
-            gY += deltaH
-
-         myGUI.ReplaceSnip(hBitmap, gX, gY)
-         ; Shift all of the controls so they stay in same place
-         For Ctrl in myGUI {
-            If Ctrl.Visible {
-               Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-               If (pW = iR.W) ; Horz section
-                  Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
-               Else if (pH = iR.H) ; Vert section
-                  Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
-               ; Ctrl.Refresh()
-            }
-         }
-         myGUI.RefreshTextures()
-         ButtonBar.Show()
-         if Clipboard {
-            Snips.Snip2Clipboard(Snips.UpdateClipboard, SliceObj.Gui.hWnd)
-         }
-      }
-   }
-
-    /**
-    * Extend or expand the image to one of the drawn shapes/pictures
-    * @param GuiCtrlObj Is the crop rectangle just drawn
-    * @returns Nothing 
-    */
-   Static Extend(ExtendObj, bgColor, Clipboard := false) {
-      myGUI := ExtendObj.Gui
-
-      If (hBitmap := myGUI.handle) {
-         tag := A_TickCount . "Extend"
-         myGUI.PostAction(UnDo.CHANGE_SNIP, tag)
-         ; NOTE - Rather then background of extend shape, get closer to start of drag
-         ; bgColor := ExtendObj.ShapeBackgroundColor()
-         bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
-
-         sC :=ExtendObj.shapeCoord ; includes picture border offset
-         myGUI.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
-         sC.X2 := sc.X1 + sc.W, sc.Y2 := sc.Y1 + sc.H
-         pX2 := pX1 + pW, pY2 := pY1 + pH
-         l := r := t := b := 0
-         eType := ""
-         ; Find what was extended
-         Switch {
-            Case (pX1 > sC.X):
-               ; left
-               l := Abs(pX1 - sC.X1)
-               eType := "Extend"
-            Case (pY1 > sC.Y):
-               ; top
-               t := Abs(pY1 - sC.Y1)
-               eType := "Extend"
-            Case (pX2 < sC.X2):
-               ; right
-               r := Abs(pX2 - sC.X2)
-               eType := "Extend"
-            Case (pY2 < sC.Y2):
-               ; bottom
-               b := Abs(pY2 - sC.Y2)
-               eType := "Extend"
-            Case (sc.W = pW AND sc.H != pH):
-               ; Horz
-               t := ExtendObj.shapeStart.Y
-               b := t + sC.H
-               eType := "Expand"
-            Case (sc.H = pH AND sc.W != pW):
-               ; Vert
-               l := ExtendObj.shapeStart.X
-               r := l + sc.W
-               eType := "Expand"
-            Default:
-               Warning("Internal Selection Only")
-               Return 0
-         }
-         ; Extend in the appropriate direction
-         Switch eType {
-            Case "Extend": ; enlarge outside
-               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b, 1)
-            Case "Expand": ; enlarge inside
-               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b, 1)
-            Default:
-               Return
-         }
-         ; Get new dimensions
-         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         myGUI.GetPos(&gX1, &gY1) ; includes the Border 
-         ; Resize GUI to contain the new crop coordinates
-         Switch eType {
-            Case "Expand": ; enlarge inside, don't move window
-               myGui.ReplaceSnip(hBitmap)
-               ; Shift all of the controls so they stay in same place (has to be after the resize)
-                  For Ctrl in myGUI {
-                     If Ctrl.Visible {
-                        Ctrl.GetPos(&X, &Y, &W, &H)
-                        If (l > 0 AND X > l OR (t > 0 and Y > t)) {
-                           Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-                           Ctrl.Move(X + (r - l), Y + (b - t))
-                        }
-                        ; Ctrl.Refresh()
-                     }
-                  }
-            Case "Extend": ; enlarge outside
-               myGui.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
-               ; Shift all of the controls so they stay in same place (has to be after the resize)
-               If (l > 0 OR t > 0) {
-                  For Ctrl in myGUI {
-                     If Ctrl.Visible {
-                        Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-                        Ctrl.GetPos(&X, &Y, &W, &H)
-                        Ctrl.Move(X + l, Y + t)
-                        ; Ctrl.Refresh()
-                     }
-                  }
-               }
-         }
-         myGUI.RefreshTextures()
-         ButtonBar.Show()
-         if Clipboard {
-            Snips.Snip2Clipboard(Snips.UpdateClipboard, ExtendObj.Gui.hWnd)
-         }
-      }
    }
 
    /**

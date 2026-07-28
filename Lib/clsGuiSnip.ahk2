@@ -47,7 +47,7 @@ Class GuiSnip extends Gui {
       ; logGDI("+Create Snip:" this.Title)
       ; RMB menu is on the screenshot picture control
       super.OnEvent("Close", this.Destroy.Bind(this))
-      super.OnEvent("Escape", Snips.Close.Bind(Snips, this.hWnd))
+      super.OnEvent("Escape", Snips.Close.Bind(Snips, this))
       super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
       super.OnMessage(0x0231, this.WM_SIZEEMOVE_GUI.Bind(this))
       super.OnMessage(0x006, this.WM_ACTIVATE_GUI.Bind(this))
@@ -83,8 +83,8 @@ Class GuiSnip extends Gui {
     */
    Destroy(*) {
       Try {
-         title := this.Title
-         Snips.ClearAllShapes(this.hWnd, true)  ; in case we have built in GC
+         ; title := this.Title
+         this.ClearAllShapes(true)  ; in case we have built in GC
          hwnd := this.hWnd
          super.Destroy()
          GDI.DeleteObject(this.myHandle)
@@ -250,6 +250,7 @@ Class GuiSnip extends Gui {
       this.GetPos(&winX, &winY)
       x ??= winX
       y ??= winY
+      ; NOTE If we want to adjust transparency do it here so border is always correct
 
       hdcScreen := GDI.GetDC(0)
       hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
@@ -398,6 +399,32 @@ Class GuiSnip extends Gui {
          }
       }
    }
+      /**
+    * Posta a DELETE_SHAPE event if user is clearing all the shapes
+    * Call separate due to posting vs not posting
+    * @param {Integer} hWnd 
+    */
+   PostClearAllShapes() {
+      tag := A_TickCount . "ClearAll"
+      For Ctrl in this {
+         If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
+            Ctrl.PostAction(UnDo.DELETE_SHAPE, tag)
+         }
+      }
+   }
+   /**
+    * Clear all non-screen shapes from a snip and reset its dirty flag
+    * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active window
+    */
+   ClearAllShapes(skipundo := false) {
+      For Ctrl in this {
+         If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
+            Ctrl.Close(skipundo)
+         }
+      }
+      this.Dirty := 0
+   }
+
    /**
     * Return the most common color at some pixel location.
     * Good for finding the true background color.
@@ -496,4 +523,457 @@ Class GuiSnip extends Gui {
          Default:
       }
    }
+   ;============================================================================
+   ;                S N I P   M A N I P U L A T I O N S
+   ;============================================================================
+   /**
+    * Replace the background color of the snip with the color under the cursor where the menu was launched
+    * @param {Integer} X, Y - Coordinates to look for a color to replace
+    * @param {Integer} radius - Radius to search for color
+    */
+   ReplaceSnipBGColor(X, Y, radius := 8) {
+      this.PostAction(UnDo.CHANGE_SNIP)
+      hBitmap := GDI.CopyImage(this.Handle)
+      ; We are launched from a menu, so the coordinates are where the menu was launched
+      fromRGB := this.BackgroundPICColorFromXY(X, Y, radius)
+      toRGB   := ColorSelectDialog(fromRGB, this.hWnd, Array(fromRGB), true)
+      If (toRGB >= 0 AND fromRGB != toRGB) {
+         hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
+         If (hits > 0) {
+            ; Replace the picture
+            this.Handle := hBitmap ; destroys og hBitmap
+            this.RefreshTextures()
+         } Else {
+            GDI.DeleteObject(hBitmap)
+         }
+      } Else {
+         GDI.DeleteObject(hBitmap)
+      }
+   }
+    /**
+    * Transform the snip colors to make it easier in some cases.
+    * Shapes are not impacted.
+    * @param {Integer} [Angle=0] - Degress to rotate bitmap
+    * @param {Integer} [FlipHow=0] - Flip type: 1=Top/Bottom, 2=left/right
+    */
+   RotateFlipSnip(Angle := 0, FlipHow := 0) {
+      this.PostAction(UnDo.CHANGE_SNIP)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle) ; WrapARGBBitmapFromHBITMAP
+      ; Transform in place
+      If (Angle)
+         pBitmap := BitMap.Rotate(pBitmap, Angle)
+      If (FlipHow)
+         pBitmap := BitMap.Flip(pBitmap, FlipHow)
+      ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+      ; Replace the picture
+      this.ReplaceSnip(ihBitmap)
+      ; Cleanup
+      GDIp.DisposeImage(pBitmap) ;
+      ; Recompute textures
+      this.RefreshTextures()
+   }
+
+   /**
+    * Transform the snip colors to make it easier in some cases.
+    * Shapes are not impacted.
+    * @param {Integer} [numEffect=1] - Transform type: 1=Invert, 2=Grayscale, 3=B&W High Contrast
+    */
+   TransformSnip(numEffect := 1) {
+      this.PostAction(UnDo.CHANGE_SNIP)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
+      ; Transform in place
+      BitMap.TransformBitmap(pBitmap, numEffect)
+      ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+      ; Replace the picture
+      this.Handle := ihBitmap ; destroys og hBitmap
+      ; Cleanup
+      GDIp.DisposeImage(pBitmap) ;
+      ; Recompute textures
+      this.RefreshTextures()
+   }
+   /**
+    * Create a scaled clone of an existing snip in a new snip window, optionally compositing shapes
+    * @param {Float} [ScaleFactor=1.0] - Scale multiplier to apply to the bitmap; values >1 also apply sharpening
+    * @param {Integer} [IncludeShapes=0] - If true, flatten visible shapes into the cloned bitmap
+    */
+   CloneAndScaleSnip(ScaleFactor := 1.0, IncludeShapes := 0) {
+         ; Use the raw picture without any shapes
+      srcSnip := this
+      hBitmap := srcSnip.Handle
+      if (IncludeShapes)
+         pBitMap := BitMap.pBitmapCropFromHWND(this.hWnd, 1, Settings.BorderWidth)
+      else
+         pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
+      WinGetPosEx(&X, &Y, &wW, &wH, this.hWnd)
+      ; Scale to a new bitmap
+      if (ScaleFactor != 1.0)
+         pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
+      if (ScaleFactor > 1.0) ; ScaleFactor => radius
+         pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
+      GDIp.GetImageDimensions(pBitmap, &W, &H)
+      ; Need an hBitmap for the picture
+      hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+      GDIp.DisposeImage(pBitmap)
+      BW := Settings.BorderWidth
+      ; Setup the new Snip information
+      Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+      SnipObj         := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+      ; SnipObj.MarginX := BW, SnipObj.MarginY := BW
+      SnipObj.AddSnipPic(hBitmap)
+      ;-------------------------------------
+      ; Recreate any shapes on the new Snip
+      ;-------------------------------------
+      tag := A_TickCount . "AddShapes"
+      For ShapeObj in srcSnip {
+         ; When repooling, clear out the old shape data and properties
+         If (ShapeObj.Visible) {
+            Info := ShapeObj.InstanceInfo()
+            Switch Info.Source {
+               Case "File", "Clip":
+                  CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+               Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+                  CloneObj := SnipObj.AddNewShape(Info.Shape)
+               Default:
+            }
+            If (IsSet(CloneObj)) {
+               CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
+               ; Blend in saved properties
+               For pr, v in Info.OwnProps()
+                  Try CloneObj.%pr% := v
+               ; Now draw the shape on the canvas
+               CloneObj.Refresh()
+               ShapeOnTop(CloneObj)
+               CloneObj.Gui.Dirty++
+            }               
+         }
+      }
+      ; Minimize existing snip
+      if (ScaleFactor != 1.0)
+         srcSnip.Minimize()
+      ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
+      SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
+   }
+
+   /**
+    * Scale the picture in the snip (vs just resizing it)
+    * @param {Float} ScaleFactor , + for relative scale, - for aboslute scape
+    */
+   ScaleSnip(ScaleFactor := 1.0) {
+      if (ScaleFactor != 1.0) {
+         ; Use the raw picture without any shapes
+         if (ScaleFactor > 0)
+            ScaleFactor *= this.ScaleFactor
+         else
+            ScaleFactor *= -1
+         ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
+         this.PostAction(UnDo.CHANGE_SNIP)
+         ; Always scale the base image so we don't lose quality after multiple passes
+         hBitmap := this.OGHandle
+         ; Scale factor is applies against current scale
+         pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
+         WinGetPosEx(&X, &Y, &wW, &wH, this.hWnd)
+         ; Scale to a new bitmap, most of the time is here
+         pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
+         GetCursorPos(&mX, &mY)
+         CoordMode("ToolTip", "Screen")
+         ToolTip("     Zoom at " Round(ScaleFactor * 100) "%", mX, mY)
+         SetTimer(ToolTip, -2000)
+         GDIp.GetImageDimensions(pBitmap, &W, &H)
+         ; Need an hBitmap for the picture
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         ; Recenter bitmap
+         X := (X + wW / 2) - W / 2
+         Y := (Y + wH / 2) - H / 2
+         this.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
+         this.RefreshTextures()
+         ButtonBar.Show()
+      }
+   }   
+   /**
+    * Crop the image to one of the drawn shapes/pictures
+    * @param CropObj Is the crop rectangle just drawn
+    * @param Clipboard Also copy to clipboard
+    * @returns Nothing 
+    */
+   Crop(CropObj, Clipboard := false) {
+      If (hBitmap := this.handle) {
+         tag := A_TickCount . "Crop"
+         this.PostAction(UnDo.CHANGE_SNIP, tag)
+         BW := Settings.BorderWidth
+         ; Get various dimensions
+         this.GetPos(&gX1, &gY1) ; includes the Border 
+         ; Crop tool
+         C := CropObj.shapeCoord
+         ; Get the raw picture dimensions
+         this.GetPicPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
+         ; Intersection to handle off picture crop tool
+         iR := IntersectRect(
+            C.X1, C.Y1, C.X2, C.Y2, 
+            pX1, pY1, pX1 + pW, pY1 + pH
+         )
+
+         If (IR AND iR.w < 25 AND iR.h < 25)
+            Return
+         ; This destroys the existing snip bitmap and creates a new one
+         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h, 1)
+         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
+         this.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
+
+         ; Shift all of the controls so they stay in same place
+         For Ctrl in this {
+            If Ctrl.Visible {
+               Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
+               Ctrl.Move(X - C.X1, Y - C.Y1)
+               Ctrl.Refresh()
+            }
+         }
+         this.RefreshTextures()
+         ButtonBar.Show()
+         if Clipboard {
+            this.Snip2Clipboard(Snips.borderWithSave)
+         }
+      }
+   }
+
+   /**
+    * Slice a section out of the bitmap
+    * @param SliceObj Is the slice rectangle just drawn
+    * @param Clipboard Also copy to clipboard
+    * @returns Nothing 
+    */
+   Slice(SliceObj, Clipboard := false) {
+      If (hBitmap := this.handle) {
+         tag := A_TickCount . "Slice"
+         this.PostAction(UnDo.CHANGE_SNIP, tag)
+         BW  := Settings.BorderWidth
+         C   := SliceObj.shapeCoord ; includes picture border offset, snip relative
+         this.GetPos(&gX, &gY)     ; screen relative
+         this.GetPicPos(&pX1, &pY1, &pW, &pH) ; Snip picture only, snip relative
+         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
+         ; Offset by borderwidth (0 based)
+         hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
+         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         deltaW := pW - W, deltaH := pH - H
+         ; If we cut off the left or top, recenter to keep rest in same place
+         if (c.x1 < pX1)
+            gX += deltaW
+         else if (c.y1 < pY1)
+            gY += deltaH
+
+         this.ReplaceSnip(hBitmap, gX, gY)
+         ; Shift all of the controls so they stay in same place
+         For Ctrl in this {
+            If Ctrl.Visible {
+               Ctrl.GetPos(&X, &Y, &W, &H)
+               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
+               If (pW = iR.W) ; Horz section
+                  Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
+               Else if (pH = iR.H) ; Vert section
+                  Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
+               ; Ctrl.Refresh()
+            }
+         }
+         this.RefreshTextures()
+         ButtonBar.Show()
+         if Clipboard {
+            this.Snip2Clipboard(Snips.borderWithSave)
+         }
+      }
+   }
+
+    /**
+    * Extend or expand the image to one of the drawn shapes/pictures
+    * @param ExtendObj Is the extend rectangle just drawn
+    * @param Clipboard Also copy to clipboard
+    * @returns Nothing 
+    */
+   Extend(ExtendObj, Clipboard := false) {
+      If (hBitmap := this.handle) {
+         tag := A_TickCount . "Extend"
+         this.PostAction(UnDo.CHANGE_SNIP, tag)
+         ; NOTE - Rather then background of extend shape, get closer to start of drag
+         ; bgColor := ExtendObj.ShapeBackgroundColor()
+         bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
+
+         sC :=ExtendObj.shapeCoord ; includes picture border offset
+         this.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
+         sC.X2 := sc.X1 + sc.W, sc.Y2 := sc.Y1 + sc.H
+         pX2 := pX1 + pW, pY2 := pY1 + pH
+         l := r := t := b := 0
+         eType := ""
+         ; Find what was extended
+         Switch {
+            Case (pX1 > sC.X):
+               ; left
+               l := Abs(pX1 - sC.X1)
+               eType := "Extend"
+            Case (pY1 > sC.Y):
+               ; top
+               t := Abs(pY1 - sC.Y1)
+               eType := "Extend"
+            Case (pX2 < sC.X2):
+               ; right
+               r := Abs(pX2 - sC.X2)
+               eType := "Extend"
+            Case (pY2 < sC.Y2):
+               ; bottom
+               b := Abs(pY2 - sC.Y2)
+               eType := "Extend"
+            Case (sc.W = pW AND sc.H != pH):
+               ; Horz
+               t := ExtendObj.shapeStart.Y
+               b := t + sC.H
+               eType := "Expand"
+            Case (sc.H = pH AND sc.W != pW):
+               ; Vert
+               l := ExtendObj.shapeStart.X
+               r := l + sc.W
+               eType := "Expand"
+            Default:
+               Warning("Internal Selection Only")
+               Return 0
+         }
+         ; Extend in the appropriate direction
+         Switch eType {
+            Case "Extend": ; enlarge outside
+               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b, 1)
+            Case "Expand": ; enlarge inside
+               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b, 1)
+            Default:
+               Return
+         }
+         ; Get new dimensions
+         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         this.GetPos(&gX1, &gY1) ; includes the Border 
+         ; Resize GUI to contain the new crop coordinates
+         Switch eType {
+            Case "Expand": ; enlarge inside, don't move window
+               this.ReplaceSnip(hBitmap)
+               ; Shift all of the controls so they stay in same place (has to be after the resize)
+                  For Ctrl in this {
+                     If Ctrl.Visible {
+                        Ctrl.GetPos(&X, &Y, &W, &H)
+                        If (l > 0 AND X > l OR (t > 0 and Y > t)) {
+                           Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
+                           Ctrl.Move(X + (r - l), Y + (b - t))
+                        }
+                        ; Ctrl.Refresh()
+                     }
+                  }
+            Case "Extend": ; enlarge outside
+               this.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
+               ; Shift all of the controls so they stay in same place (has to be after the resize)
+               If (l > 0 OR t > 0) {
+                  For Ctrl in this {
+                     If Ctrl.Visible {
+                        Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
+                        Ctrl.GetPos(&X, &Y, &W, &H)
+                        Ctrl.Move(X + l, Y + t)
+                        ; Ctrl.Refresh()
+                     }
+                  }
+               }
+         }
+         this.RefreshTextures()
+         ButtonBar.Show()
+         if Clipboard {
+            this.Snip2Clipboard(Snips.borderWithSave)
+         }
+      }
+   }
+     /**
+    * Minimize the specified snip window, hiding the button bar if no other snips are visible
+    */
+   Minimize() {
+      WinMinimize(this.hwnd)
+      If NOT Snips.ActivateFirst()
+         ButtonBar.Hide()
+   }
+      /**
+    * 
+    * Briefly flash the snip border to a bright green to signal a completed action (e.g. clipboard copy)
+    * @param {Integer} [flash=100] - Duration in milliseconds for each flash phase
+    */
+   flashBorder(flash := 100) {
+      Try {
+         ; GUI may close during the sleeps
+         bc := this.BackColor
+         Sleep(flash)
+         this.BackColor := "c05ff00"
+         Sleep(flash)
+         this.BackColor := bc
+      }
+   }
+   ;============================================================================
+   ;                S N I P   E X P O R T S
+   ;============================================================================
+   /**
+    * OCR the image to one of the drawn shapes/pictures
+    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @returns Nothing 
+    * OCR.FromRect(X, Y, W, H, lang?, scale:=1) will work on the snip itself
+    */
+   OCRShape(ShapeCropObj) {
+      ; Need the screen coordinates of the shape and the GUI
+      this.GetPos(&gX1, &gY1, &gW, &gH)
+      sC := ShapeCropObj.shapeCoord
+      If (sC.W < 25 OR sC.H < 25)
+         Return
+      ; Do the OCR from the window rectangle
+      Result  := OCR.FromRect(gx1 + sC.X1, gy1 + sC.Y1, sC.W, sC.H)
+      Cluster := OCR.Cluster(Result.Words)
+      For rowWords in Cluster {
+         LineText .= rowWords.Text . "`n"
+      } Else
+         LineText := ""
+      try {
+         A_Clipboard := LineText
+         qTrayTip("Clipped " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
+      } catch as e {
+         qTrayTip("Error Clipping " Cluster.Length " lines and " StrLen(A_Clipboard) " Characters", 4)
+      }
+   }
+   /**
+    * Capture the active snip (or any window) as a bitmap and place it on the clipboard
+    * @param {Integer} [Borders=false] - Include the snip border in the copied image
+    */
+   Snip2Clipboard(Borders := false) {
+      this.GetPos(&X, &Y, &W, &H)
+      ; If there is some transparency, put a black background behind it
+      (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
+      hBitMap := BitMap.hBitmapCropFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
+      g.Destroy()
+      this.Dirty := 0
+      if ((res := Clipboard.SetHBitmapToClipboard(hBitMap)) < 0)
+         MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
+   }
+
+   /**
+    * Capture the active snip window as a bitmap and save it to a file
+    * @param {String} SavePath - Directory path where the file should be saved
+    * @param {Integer} [Borders=false] - Include the snip border in the saved image
+    * @returns {String} Full path of the saved file, or empty string on failure
+    */
+   Snip2File(SavePath, Borders := false) {
+      Try {
+         If !FileExist(SavePath)
+            DirCreate(SavePath)
+         this.GetPos(&X, &Y, &W, &H)
+         (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
+         hBitmap := BitMap.hBitmapCropFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
+         g.Destroy()
+         FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
+         GDI.DeleteObject(hBitmap)
+      } Catch as E {
+         FileName := ""
+         elog(E)
+         MsgBox("Failed to Save Snip to file: " SavePath, "Save", 0x10)
+      }
+      ; Draw a black window under the snip in case it is partially transparent so we don't bleed thru
+      Return FileName
+   }
+
+
 }

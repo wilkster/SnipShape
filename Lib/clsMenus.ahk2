@@ -116,23 +116,24 @@ Class SnipMenus {
     */
    Static ContextSnipMenu_Handler(ItemName, ItemPos, MyMenu) {
       hWnd := WinExist("A")
+      SnipObj := Snips.GetGuiObj(hWnd)
       Switch {
-         Case ItemName ~= "Copy Snip to Clipboard": Snips.Snip2Clipboard(Snips.UpdateClipboard, WinExist("A"))                           
+         Case ItemName ~= "Copy Snip to Clipboard": SnipObj.Snip2Clipboard(Snips.borderWithSave)                           
          Case ItemName ~= "Cut Snip to Clipboard": 
             if (sw := WinExist("A")) {
-               Snips.Snip2Clipboard(Snips.UpdateClipboard, sw)
-               Snips.Close(sw, 0)
+               SnipObj.Snip2Clipboard(Snips.borderWithSave)
+               Snips.Close(SnipObj, 0)
             }
 
-         Case ItemName ~= "Flip ⟺": Snips.RotateFlipSnip(hWnd, 0, 2)
-         Case ItemName ~= "Flip ⇕": Snips.RotateFlipSnip(hWnd, 0, 1)
-         Case ItemName = "↻ Rotate +90": Snips.RotateFlipSnip(hWnd, 90, 0)
-         Case ItemName = "↺ Rotate -90": Snips.RotateFlipSnip(hWnd, -90, 0)
+         Case ItemName ~= "Flip ⟺": SnipObj.RotateFlipSnip(0, 2)
+         Case ItemName ~= "Flip ⇕": SnipObj.RotateFlipSnip(0, 1)
+         Case ItemName = "↻ Rotate +90": SnipObj.RotateFlipSnip(90, 0)
+         Case ItemName = "↺ Rotate -90": SnipObj.RotateFlipSnip(-90, 0)
 
-         Case ItemName ~= "Invert Snip": Snips.TransformSnip(hWnd,1)
-         Case ItemName ~= "Grayscale Snip": Snips.TransformSnip(hWnd,2)
-         Case ItemName ~= "B&W Snip": Snips.TransformSnip(hWnd,3)
-         Case ItemName ~= "Replace Background Color": Snips.ReplaceSnipBGColor(hWnd, this.MenuX, this.MenuY)
+         Case ItemName ~= "Invert Snip": SnipObj.TransformSnip(1)
+         Case ItemName ~= "Grayscale Snip": SnipObj.TransformSnip(2)
+         Case ItemName ~= "B&W Snip": SnipObj.TransformSnip(3)
+         Case ItemName ~= "Replace Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY)
          Case ItemName ~= "Insert Picture From File" : Shapes.AddPictureFromFile(hWnd, "lButton", "P")
 
 
@@ -140,16 +141,16 @@ Class SnipMenus {
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(hWnd,12)                           
          Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(hWnd,14)                           
          Case ItemName ~= "Edit:": 
-            Snips.MSPaint(Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave))
-            Snips.Close()
-         Case ItemName ~= "Save:": Snips.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)                            
-         Case ItemName ~= "Duplicate": Snips.CloneAndScaleSnip(hWnd, 1.0)
-         Case ItemName ~= "Minimize This": Snips.Minimize()
+            SnipObj.MSPaint(SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave))
+            Snips.Close(SnipObj)
+         Case ItemName ~= "Save:": SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)                            
+         Case ItemName ~= "Duplicate": SnipObj.CloneAndScaleSnip(1.0)
+         Case ItemName ~= "Minimize This": SnipObj.Minimize()
          Case ItemName ~= "Minimize All": Snips.MinimizeAll()                                                   
          Case ItemName ~= "Restore": Snips.RestoreAll()                                                   
          Case ItemName ~= "Clear all":
-             Snips.PostClearAllShapes(hWnd)
-             Snips.ClearAllShapes(hWnd, true)
+             SnipObj.PostClearAllShapes()
+             SnipObj.ClearAllShapes(true)
          Case ItemName ~= "Button Bar": 
             if ButtonBar.Enabled {
                ButtonBar.Hide(0)
@@ -157,7 +158,7 @@ Class SnipMenus {
                ButtonBar.Show(0,1)
             }
             this.SyncBB()
-         Case ItemName ~= "Close This Snip": Snips.Close()                                                   
+         Case ItemName ~= "Close This Snip": Snips.Close(SnipObj)                                                   
          Case ItemName ~= "Close All Snips": Snips.CloseAll()                                                    
          Case ItemName ~= "Paste Clipboard Text": Shapes.PasteNewShape(1, 0, this.MenuX, this.MenuY)
          Case ItemName ~= "Paste Clipboard Image": Shapes.PasteNewShape(0, 1, this.MenuX, this.MenuY)
@@ -236,7 +237,8 @@ Class SnipMenus {
     * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
     */
    Static clonerescale(Val, ItemName, ItemPos, MyMenu) {
-      Snips.CloneAndScaleSnip(WinActive('A'), Val)
+      if (SnipObj := Snips.GetGuiObj())
+         SnipObj.CloneAndScaleSnip(Val)
    }
    /**
     * Clone and rescale the active snip to the selected percentage from the resize submenu
@@ -246,7 +248,8 @@ Class SnipMenus {
     * @param {Object} MyMenu - The Menu object that triggered the callback (unused)
     */
    Static rescale(Val, ItemName, ItemPos, MyMenu) {
-      Snips.ScaleSnip(WinActive('A'), -Val)
+      if (SnipObj := Snips.GetGuiObj())
+         SnipObj.ScaleSnip(-Val)
    }   
    /**
     * Populate the Insert Picture Shapes submenu with image files found in the icons folder.
@@ -552,13 +555,16 @@ Class ShapeMenus {
             focusBorder.Sync()
          Case ItemName ~= "to Clipboard":
             focusBorder.HideFocus(false)
-            hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
-            if (Clipboard.SetHBITMAPToClipboard(hBitmap) < 0)
-               MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
+            ; Try raw picture first, otherwise screen grab it
+            If NOT (shapeObj.HasProp("Handle") AND hBitmap := shapeObj.Handle) {
+               hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
+            }
+            if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+               MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
 
          Case ItemName ~= "Clear":
-            Snips.PostClearAllShapes(shapeObj.GUI.hWnd)
-            Snips.ClearAllShapes(shapeObj.GUI.hWnd, true) ; no Undo, done above
+            shapeObj.GUI.PostClearAllShapes()
+            shapeObj.GUI.ClearAllShapes(true) ; no Undo, done above
          Case ItemName ~= "Shape Color": ; No longer used
             cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
             ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)

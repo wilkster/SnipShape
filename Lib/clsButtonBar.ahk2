@@ -300,34 +300,34 @@ Class ButtonBar {
     * Save the active snip to a file
     */
    Static SaveSnip(*) {
-      If (hWnd := WinExist("SnipShapeWindow")) {
-         Snips.Snip2File(Settings.SavePath_Image, Snips.borderWithSave, hWnd)
-         Snips.flashBorder(hWnd)
+      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
+         SnipObj.flashBorder()
       }
    }
     /**
     * Clipboard the active snip
     */
    Static ClipSnip(*) {
-      If (hWnd := WinExist("SnipShapeWindow")) {
-         Snips.Snip2Clipboard(Snips.UpdateClipboard, hWnd)
-         Snips.flashBorder(hWnd)
+      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.flashBorder()
       }
    }
    /**
     * Minimize the foremost SnipShapeWindow via Snips.Minimize
     */
    Static MinimizeSnip(*) {
-     if (hWnd := WinExist("SnipShapeWindow")) {
-         Snips.Minimize(hWnd)
+      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         SnipObj.Minimize()
       }
    }
    /**
     * Close the foremost SnipShapeWindow and activate the next available snip
     */
    Static CloseSnip(*) {
-      If (hWnd := WinExist("SnipShapeWindow")) {
-         Snips.Close(hWnd, 0)
+      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         Snips.Close(SnipObj, 0)
          Snips.ActivateFirst()
       } Else {
          dlog("No Snip Window Found")

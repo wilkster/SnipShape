@@ -121,7 +121,7 @@ Class Snips {
     * @param {Integer} hWnd - Window handle of the snip
     * @returns {Object} The GuiSnip object associated with hWnd
     */
-   Static GetGuiObj(hWnd)  =>   this.guiSnips[hWnd]
+   Static GetGuiObj(hWnd?) => this.guiSnips.get((hWnd ??= WinExist("A")), 0)
    /**
     * Tray menu callback to start a standard orange-bordered snip selection
     */
@@ -189,43 +189,7 @@ Class Snips {
       }
       Return Vis
    }
-   /**
-    * Clear all non-screen shapes from a snip and reset its dirty flag
-    * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active window
-    */
-   Static ClearAllShapes(hWnd := 0, skipundo := false) {
-      if NOT hWnd
-         hWnd := WinExist("A")
-      If (SnipObj := Snips.IsValid(hWnd)) {
-         For Ctrl in SnipObj {
-            If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-               Ctrl.Close(skipundo)
-            }
-         }
-         SnipObj.Dirty := 0
-      } else {
-         warning("Did not find a valid snip to clear shapes from")
-      }
-   }
-   /**
-    * Posta a DELETE_SHAPE event if user is clearing all the shapes
-    * Call separate due to posting vs not posting
-    * @param {Integer} hWnd 
-    */
-   Static PostClearAllShapes(hWnd := 0) {
-      tag := A_TickCount . "ClearAll"
-      if NOT hWnd
-         hWnd := WinExist("A")
-      If (SnipObj := Snips.IsValid(hWnd)) {
-         For Ctrl in SnipObj {
-            If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-               Ctrl.PostAction(UnDo.DELETE_SHAPE, tag)
-            }
-         }
-      } else {
-         warning("Did not find a valid snip to clear shapes from")
-      }
-   }
+
    /**
     * Cancel an in-progress screen selection (e.g. on Escape key press)
     * @param {Object} [objSel] - Optional selection state object (unused; present for callback compatibility)
@@ -332,23 +296,7 @@ Class Snips {
          Return 0
       }
    }
-   /**
-    * 
-    * Briefly flash the snip border to a bright green to signal a completed action (e.g. clipboard copy)
-    * @param {Integer} hWnd - Window handle of the target snip
-    * @param {Integer} [flash=100] - Duration in milliseconds for each flash phase
-    */
-   Static flashBorder(hWnd, flash := 100) {
-      Try {
-         ; GUI may close during the sleeps
-         SnipObj := Snips.GetGuiObj(hWnd)
-         bc := SnipObj.BackColor
-         Sleep(flash)
-         SnipObj.BackColor := "c05ff00"
-         Sleep(flash)
-         SnipObj.BackColor := bc
-      }
-   }
+
    /**
     * Yield briefly then hide the screen selection overlay GUI
     */
@@ -613,7 +561,7 @@ Class Snips {
     * @param {Integer} [SetClipboard=false] - Automatically copy the new snip to the clipboard
     * @param {Integer} [SaveFile=false] - Automatically save the new snip to the configured save path
     * @param {Integer} [CreateSnip=true] - Create a static GUI window to display the snip
-    * @param {Object} [SnipObj=false] - Existing GuiSnip object to reuse instead of creating a new one
+    * @param {GuiSnip} [SnipObj=false] - Existing GuiSnip object to reuse instead of creating a new one
     */
    Static SnipArea(Area, SetClipboard := false, SaveFile := false, CreateSnip := true, SnipObj := false) {
       If (Area.W > 15 and Area.H > 15) {
@@ -635,15 +583,15 @@ Class Snips {
             ; Shifting by neg border width will align the snip exactly over the screen capture region
             SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
             If (SaveFile) {
-               this.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
-               Snips.flashBorder(SnipObj.hWnd)
+               SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
+               SnipObj.flashBorder()
             }
             If Snips.minimizeOnSnip {
                SnipObj.Minimize()
             }
             If SetClipboard {
-               Snips.Snip2Clipboard(Snips.UpdateClipboard, SnipObj.hWnd)
-               Snips.flashBorder(SnipObj.hWnd)
+               SnipObj.Snip2Clipboard(Snips.borderWithSave)
+               SnipObj.flashBorder()
             }
 
          } Else {
@@ -656,74 +604,19 @@ Class Snips {
             } Else {
                msg := "Clipped Area to Clipboard: " W " x " H " pixels"
             }
-            if (Clipboard.SetHBitmapToClipboard(hBitmap) <0 )
-               MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
+            if ((res := Clipboard.SetHBitmapToClipboard(hBitmap)) < 0 )
+               MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
             qTrayTip(msg, 4, "Click Here to Edit", 6000)
          }
       }
    }
    /**
-    * Capture the active snip (or any window) as a bitmap and place it on the clipboard
-    * @param {Integer} [Borders=false] - Include the snip border in the copied image
-    * @param {Integer} [hWnd] - Window handle to capture; defaults to the active window
-    */
-   Static Snip2Clipboard(Borders := false, hWnd?) {
-      If !IsSet(hWnd) {
-         hWnd := WinActive('A')
-         haveWindow := false
-      } Else
-         haveWindow := true
-
-      If (SnipObj := Snips.IsValid(hWnd)) {
-         If (haveWindow) {
-            ; Using a snip, ignore any window on top by grabbing the window handle screen
-            hBitMap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : Settings.BorderWidth)
-         } Else {
-            ; Using active window, not a Snip
-            WinGetPosEx(&X, &Y, &W, &H, hWnd)
-            BW := Settings.BorderWidth
-            If !Borders
-               X += BW, Y += BW, W -= BW * 2, H -= BW * 2
-            hBitMap := BitMap.hBitmapFromScreen({ X: X, Y: Y, W: W, H: H })
-         }
-         SnipObj.Dirty := 0
-         if (Clipboard.SetHBitmapToClipboard(hBitMap) < 0)
-            MsgBox("Failed To Set Clipboard Data", "Clipboard", 0x30)
-      } else {
-         warning("Did not find a valid snip to copy from")
-      }
-   }
-
-   /**
-    * Capture the active snip window as a bitmap and save it to a file
-    * @param {String} SavePath - Directory path where the file should be saved
-    * @param {Integer} [Borders=false] - Include the snip border in the saved image
-    * @param {Integer} [hWnd] - Window handle to capture; defaults to the foreground SnipShapeWindow
-    * @returns {String} Full path of the saved file, or empty string on failure
-    */
-   Static Snip2File(SavePath, Borders := false, hWnd?) {
-      If !FileExist(SavePath)
-         DirCreate(SavePath)
-      hWnd ??= WinActive("SnipShapeWindow") ; Alpha 2+
-      ; hWnd := hWnd ?? WinActive("SnipShapeWindow") ' 2.0'
-      if (hWnd) {
-         if (SnipObj := Snips.IsValid(hWnd))
-            SnipObj.Dirty := 0
-         hBitmap := BitMap.hBitmapCropFromHWND(hWnd, 1, Borders ? 0 : Settings.BorderWidth)
-         FileName := this.SaveHBitMapFile(hBitmap, SavePath, SnipObj)
-         GDI.DeleteObject(hBitmap)
-
-      } else 
-         FileName := ""
-      Return FileName
-   }
-   /**
     * Convert an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.
     * Prompts before overwriting an existing file.
     * @param {Integer} hBitmap - GDI HBITMAP handle to save
     * @param {String} SavePath - Directory path where the file should be written
-    * @param {Object} [SnipObj] - GuiSnip object used to derive the base filename; if omitted, uses dimensions and a timestamp
+    * @param {GuiSnip} [SnipObj] - GuiSnip object used to derive the base filename; if omitted, uses dimensions and a timestamp
     * @returns {String} Full path of the saved file, or empty string on failure
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
@@ -789,6 +682,7 @@ Class Snips {
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             }
             ; BUG - very large bitmaps are clipped where they are offscreen
+            /** @typedef {GuiSnip} SnipObj */
             SnipObj           := GuiSnip(Area)
             SnipObj.BackColor := BorderColor
             SnipObj.AddSnipPic(hBitmap)
@@ -803,86 +697,7 @@ Class Snips {
          Return false
       }
    }
-      /**
-    * Transform the snip colors to make it easier in some cases.
-    * Shapes are not impacted.
-    * @param {Integer} hWnd - Snip window handle
-    * @param {Integer} [Angle=0] - Degress to rotate bitmap
-    * @param {Integer} [FlipHow=0] - Flip type: 1=Top/Bottom, 2=left/right
-    */
-   Static RotateFlipSnip(hWnd, Angle := 0, FlipHow := 0) {
-      If (snipObj := this.IsValid(hWnd)) {
-         SnipObj.PostAction(UnDo.CHANGE_SNIP)
-         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle) ; WrapARGBBitmapFromHBITMAP
-         ; Transform in place
-         if (Angle)
-            pBitmap := Bitmap.Rotate(pBitmap, Angle)
-         if (FlipHow)
-            pBitmap := Bitmap.Flip(pBitmap, FlipHow)
-         ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         ; Replace the picture
-         snipObj.ReplaceSnip(ihBitmap)
-         ; Cleanup
-         GDIp.DisposeImage(pBitmap) ; 
-         ; Recompute textures
-         snipObj.RefreshTextures()
-      } Else {
-         qTrayTip("Failed to get the Snip handle!",2)
-      }
-   }
-   /**
-    * Replace the background color of the snip with the color under the cursor where the menu was launched
-    * @param {Integer} hWnd - Snip window handle
-    */
-   Static ReplaceSnipBGColor(hWnd, X, Y, radius := 8) {
-      If (snipObj := this.IsValid(hWnd)) {
-         SnipObj.PostAction(UnDo.CHANGE_SNIP)
-
-         hBitmap := GDI.CopyImage(snipObj.Handle)
-         ; fromRGB := BitMap.GetBackgroundColor(hBitmap)
-         ; We are launched from a menu, so the coordinates are where the menu was launched
-         fromRGB := SnipObj.BackgroundPICColorFromXY(X, Y, radius)
-
-         toRGB := ColorSelectDialog(fromRGB, hWnd, Array(fromRGB), true)
-         If (toRGB >= 0 AND fromRGB != toRGB) {
-            hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
-            If (hits > 0) {
-               ; Replace the picture
-               snipObj.Handle := hBitmap ; destroys og hBitmap
-               snipObj.RefreshTextures()
-            } else {
-               GDI.DeleteObject(hBitmap)
-            }
-         } Else {
-            GDI.DeleteObject(hBitmap)
-         }
-      } Else {
-         qTrayTip("Failed to get the Snip handle!",2)
-      }
-   }
-   /**
-    * Transform the snip colors to make it easier in some cases.
-    * Shapes are not impacted.
-    * @param {Integer} hWnd - Snip window handle
-    * @param {Integer} [numEffect=1] - Transform type: 1=Invert, 2=Grayscale, 3=B&W High Contrast
-    */
-   Static TransformSnip(hWnd, numEffect := 1) {
-      If (snipObj := this.IsValid(hWnd)) {
-         SnipObj.PostAction( UnDo.CHANGE_SNIP)
-         pBitmap  := GDIp.WrapARGBBitmapFromHBITMAP(snipObj.Handle)
-         ; Transform in place
-         Bitmap.TransformBitmap(pBitmap, numEffect)
-         ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         ; Replace the picture
-         snipObj.Handle := ihBitmap ; destroys og hBitmap
-         ; Cleanup
-         GDIp.DisposeImage(pBitmap) ; 
-         ; Recompute textures
-         snipObj.RefreshTextures()
-      } Else {
-         qTrayTip("Failed to get the Snip handle!",2)
-      }
-   }
+  
    /**
     * Perform an undo action from the undo stack
     * @param hwnd snip handle
@@ -902,114 +717,6 @@ Class Snips {
       }
    }
    /**
-    * Create a scaled clone of an existing snip in a new snip window, optionally compositing shapes
-    * @param {Integer} hWnd - Source snip window handle
-    * @param {Float} [ScaleFactor=1.0] - Scale multiplier to apply to the bitmap; values >1 also apply sharpening
-    * @param {Integer} [IncludeShapes=0] - If true, flatten visible shapes into the cloned bitmap
-    */
-   Static CloneAndScaleSnip(hWnd, ScaleFactor := 1.0, IncludeShapes := 0) {
-      if this.IsValid(hWnd) {
-         ; Use the raw picture without any shapes
-         srcSnip := this.GetGuiObj(hWnd)
-         hBitmap := srcSnip.Handle
-         if (IncludeShapes)
-            pBitMap := BitMap.pBitmapCropFromHWND(hWnd, 1, Settings.BorderWidth)
-         else
-            pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
-         WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
-         ; Scale to a new bitmap
-         if (ScaleFactor != 1.0)
-            pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
-         if (ScaleFactor > 1.0) ; ScaleFactor => radius
-            pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
-         GDIp.GetImageDimensions(pBitmap, &W, &H)
-         ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
-         BW := Settings.BorderWidth
-         ; Setup the new Snip information
-         Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
-         SnipObj         := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
-         ; SnipObj.MarginX := BW, SnipObj.MarginY := BW
-         SnipObj.AddSnipPic(hBitmap)
-         ;-------------------------------------
-         ; Recreate any shapes on the new Snip
-         ;-------------------------------------
-         tag := A_TickCount . "AddShapes"
-         For ShapeObj in srcSnip {
-            ; When repooling, clear out the old shape data and properties
-            If (ShapeObj.Visible) {
-               Info := ShapeObj.InstanceInfo()
-               Switch Info.Source {
-                  Case "File", "Clip":
-                     CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
-                  Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
-                     CloneObj := SnipObj.AddNewShape(Info.Shape)
-                  Default:
-               }
-               If (IsSet(CloneObj)) {
-                  CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
-                  ; Blend in saved properties
-                  For pr, v in Info.OwnProps()
-                     Try CloneObj.%pr% := v
-                  ; Now draw the shape on the canvas
-                  CloneObj.Refresh()
-                  ShapeOnTop(CloneObj)
-                  CloneObj.Gui.Dirty++
-               }               
-            }
-         }
-         ; Minimize existing snip
-         if (ScaleFactor != 1.0)
-            srcSnip.Minimize()
-         ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
-         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
-      } else {
-         qTrayTip("Did not find a valid snip to resize", 2)
-      }
-   }
-
-   /**
-    * Scale the picture in the snip (vs just resizing it)
-    * @param hWnd Active handle to snip to scale
-    * @param {Float} ScaleFactor , + for relative scale, - for aboslute scape
-    */
-   Static ScaleSnip(hWnd, ScaleFactor := 1.0) {
-      if (ScaleFactor != 1.0 AND this.IsValid(hWnd)) {
-         ; Use the raw picture without any shapes
-         SnipObj := this.GetGuiObj(hWnd)
-         if (ScaleFactor > 0)
-            ScaleFactor *= snipObj.ScaleFactor
-         else
-            ScaleFactor *= -1
-         ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
-         SnipObj.PostAction(UnDo.CHANGE_SNIP)
-         ; Always scale the base image so we don't lose quality after multiple passes
-         hBitmap := SnipObj.OGHandle
-         ; Scale factor is applies against current scale
-         pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
-         WinGetPosEx(&X, &Y, &wW, &wH, hWnd)
-         ; Scale to a new bitmap, most of the time is here
-         pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
-         GetCursorPos(&mX, &mY)
-         CoordMode("ToolTip", "Screen")
-         ToolTip("     Zoom at " Round(ScaleFactor * 100) "%", mX, mY)
-         SetTimer(ToolTip, -2000)
-         GDIp.GetImageDimensions(pBitmap, &W, &H)
-         ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
-         ; Recenter bitmap
-         X := (X + wW / 2) - W / 2
-         Y := (Y + wH / 2) - H / 2
-         SnipObj.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
-         SnipObj.RefreshTextures()
-         ButtonBar.Show()
-      } else {
-         qTrayTip("Did not find a valid snip to resize", 2)
-      }
-   }   
-   /**
     * Load an image file and create a new snip window centered on the active monitor
     * @param {String} sFile - Full path to the image file to load
     */
@@ -1027,6 +734,7 @@ Class Snips {
          Y := MonInfo.Y + MonInfo.H/2 - H/2
          ; Setup the new Snip information
          Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         /** @type {GuiSnip} SnipObj */
          SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          SnipObj.FileName := sFile
          ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
@@ -1053,6 +761,7 @@ Class Snips {
          ; Setup the new Snip information
          Area := useArea ?? { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          ; Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
+         /** @type {GuiSnip} SnipObj */
          SnipObj := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          ; SnipObj.FileName := sFile
          ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
@@ -1350,31 +1059,18 @@ Class Snips {
       }
       return false
    }
-   /**
-    * Minimize the specified snip window, hiding the button bar if no other snips are visible
-    * @param {Integer} [hWnd=0] - Window handle to minimize; defaults to the foreground SnipShapeWindow
-    */
-   Static Minimize(hWnd := 0) {
-      If NOT hWnd
-         hWnd := WinActive("SnipShapeWindow")
-      If (SnipObj := this.IsValid(hWnd)) {
-         WinMinimize(hWnd)
-         If NOT Snips.ActivateFirst()
-            ButtonBar.Hide()
-      }
-   }
+ 
    /**
     * Close a snip window, prompting for confirmation if unsaved shapes are present.
     * If the snip is in draw mode, reverts to normal mode on the first call instead of closing.
-    * @param {Integer} [hWnd=0] - Window handle to close; defaults to the foreground SnipShapeWindow
+    * @param {GuiSnip} [SnipObj] - Window handle to close; defaults to the foreground SnipShapeWindow
     * @param {Integer} [DMCheck=1] - If true, exit draw mode on first call rather than closing immediately
     */
-   Static Close(hWnd := 0, DMCheck:=1) {
-      If NOT hWnd
-         hWnd := WinActive("SnipShapeWindow")
+   Static Close(SnipObj?, DMCheck:=1) {
+      SnipObj ??= Snips.GetGuiObj()
       If GetKeyState("lbutton", "P") {
          dlog("Mouse Button is down - Skipping Snip close")
-      } Else If (SnipObj := this.IsValid(hWnd)) {
+      } Else If (SnipObj) {
          ; If in draw mode, revert to regular mode first
          If (DMCheck AND SnipObj.DrawMode) {
             Snips.SetDrawMode(0)
