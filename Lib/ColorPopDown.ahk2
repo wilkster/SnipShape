@@ -397,11 +397,17 @@ Class ColorPopDown {
       If (menuString ~= "Color") {
          If not IsWindowVisible(this.colorGui.hwnd) {
             pos := GetMenuItemPositionById(lParam,idOrPos)
+            this.colorGui.GetPos(,,&wW,&wH)
+            am := ActiveMonitorSides()
             If (pos > 0) {
                ; Get the top and right hand location of the menu so we don't overlap
                rect := GetMenuItemScreenRect(lParam, hwnd, pos)
                sY := rect.y1
-               sX := rect.x2
+               ; Put on left side of menu if it won't fit on right
+               If (rect.x2 + wW) > am.X2
+                  sX := rect.x1 - wW
+               else
+                  sX := rect.x2
             } Else {
                ; backup
                cm := CoordMode("Mouse", "Screen")
@@ -410,7 +416,6 @@ Class ColorPopDown {
             }
             ; Position to the right of the item, like a real flyout
             ; Colors should have already been initialized, NA is important here
-            this.colorGui.GetPos(,,&wW,&wH)
             KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
             this.colorGui.Opt("+Owner" hwnd)
             this.colorGui.Show("NA x" X " y" Y)

@@ -258,6 +258,23 @@ ShapeOnTop(shapeObj) {
       return res
    }
 }
+/**
+ * Return the coordinates of the active monitor
+ * @returns {Object} X1,X2,Y1,Y2 Coordinates
+ */
+ActiveMonitorSides() {
+   cm := CoordMode('Mouse', 'Screen')
+   MouseGetPos(&mx, &my)
+   CoordMode('Mouse', cm)
+   L := R := T := B := 0
+   Loop MonitorGetCount() {
+      MonitorGet(A_Index, &L, &T, &R, &B)
+      If (mx >= L && mx < R && my >= T && my < B) {
+         Break
+      }
+   }
+   Return { X1: L, X2: R, Y1: T, Y2: B }
+}
 ;----------------------------------------------------------------------
 ; Compute the X/Y locations of a GUI to keep it fully on active monitor
 ;----------------------------------------------------------------------
