@@ -168,8 +168,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
 
 ## Toolbar - F1 to toggle while snip active
-
-![image](https://github.com/user-attachments/assets/ee359017-e9a0-4d23-bf6b-537e9953096e)
+![image](https://github.com/user-attachments/assets/002835e2-0e1b-45a8-aef5-446a3b9ef32a")
 
 A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
