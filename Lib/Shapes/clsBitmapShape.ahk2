@@ -32,7 +32,7 @@ Class BMShape extends commonShape {
          this.myHandle :=GDI.CopyImage(sPicImage)
       }
       ; Replace transparent pixels with alpha channel of 1 so we can grab them.
-      BitMap.ReplaceBitmapColor(this.myHandle, 0, 0x01000000, true)
+      BitMap.ReplaceBitmapColor(this.myHandle, 0x00000000, 0x01000000, true)
       ; Init for common shape
       Super.Init(sPicImage)
       this.DisplayBitmap(this.myHandle, sX, sY)
@@ -73,16 +73,17 @@ Class BMShape extends commonShape {
       this.UpdateCoord()
    }
    /**
-    * Make the background color of a shape transparent
+    * Make the background color of a shape transparent (alpha = 1)
     */
    TransparentBackground() {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
       hBitmap := GDI.CopyImage(this.Handle)
       changed := 0
-      ; BUG, if we blend in 0x000000 vs 0x000001 we don't see new background on subsequent pass
-      bgColor := 0x00000000 | BitMap.GetBackgroundColor(hBitmap, &matchCount := 0) ; blend in 0 alpha channel (no-op but shown for clarity)
-      If ((matchCount > 0) AND (changed := BitMap.ReplaceBitmapColor(hBitmap, bgColor, 0x00000001, false))) {
+      ; Blend in a very small alpha so we can grab the image
+      bgColor := 0x01000000 | BitMap.GetBackgroundColor(hBitmap, &matchCount := 0)
+      ; ReplaceBitmapColor with false will flow over alpho from bgColor where the target RGB matches it
+      If ((matchCount > 0) AND (changed := BitMap.ReplaceBitmapColor(hBitmap, bgColor, 0x000000, false))) {
          this.Handle := hBitmap
       } Else {
          GDI.DeleteObject(hBitmap)
@@ -152,7 +153,8 @@ Class BMShape extends commonShape {
          oldhBitmap := this.myHandle
          this.DisplayBitmap(value)
          this.myHandle := value
-         BitMap.ReplaceBitmapColor(this.myHandle, 0x01000000, 0)
+         ; Replace transparent pixels with alpha channel of 1 so we can grab them.
+         BitMap.ReplaceBitmapColor(this.myHandle, 0x00000000, 0x01000000, true)
          GDI.DeleteObject(oldhBitmap)
       }
    }  

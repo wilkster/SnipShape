@@ -531,8 +531,8 @@ Class BitMap {
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
     * @param fromARGB RGB you want to replace,  alpha here is used in replacement pixel
     * @param toARGB RGB replacement value
-    * @param matchAlpha 1 = full match on fromARGB and replace with toARGB
-    *                   0= match RGB on fromARGB and flow over same alpha to target, 
+    * @param matchAlpha 1 = full match on fromARGB and replace with full toARGB, 
+    *                   0 = match RGB on fromARGB and flow over fromARGB alpha to toARGB, 
     * @returns {Integer} number of replaced pixels
     * See ReplaceColor.cpp mcode source
     */
@@ -627,6 +627,7 @@ Class BitMap {
 
    /**GetBackgroundColor
     * Return the most common rgb value from a pBitmap, typically the background.
+    * Ignores pixels with alpha channel < 0x0F
     * @param {Integer} pBitmap Handle to the source pBitmap
     * @returns {Integer} RGB color value as R<<16 | G<<8 | B without alpha channel
     * NOTE, could be adpted to use an hBitmap as well
@@ -643,7 +644,7 @@ Class BitMap {
             sAAAAAACAAB/NIO8JKgAAABAD49oAgAAg7wksAAAAEAPj1oCAADHRCQ4AQAAAIuEJLAAAACLlCSoAAAA6xyLlCSoAAAAi4QksAAA
             AMdEJDgEAAAAwfoCwfgCD6/Cuw4AAAC6AQAAAInZweACQYnWQdPmQTnGD4MkAgAAg8EBg/kUdemJy7///w8AQb4AABAAuQAAIAC6
             BAAAAOgAAAAASYnESIXAD4TNAQAAi0wkOMdEJDwAAAAAD6/xjQSNAAAAALkgAAAASJgp2UiJRCQwSGPGSIlEJEhEifBIiUQkQGYP
-            H0QAAMdEJCwAAAAATIusJKAAAADrJGYPH0QAAIt0JDhMA2wkMAF0JCyLRCQsOYQkqAAAAA+O6gAAAEGAfQMAdNtFD7ZVAkEPtkUB
+            H0QAAMdEJCwAAAAATIusJKAAAADrJGYPH0QAAIt0JDhMA2wkMAF0JCyLRCQsOYQkqAAAAA+O6gAAAEGAfQMOdttFD7ZVAkEPtkUB
             vQEAAADB4AhBweIQQQnCQQ+2RQBBCcIxwEVpwrF5N55B0+jrPQ8fQABEiw5FOdF0WEFp0bF5N57T6kGJ10SJwkQp+iH6OdB2DUSJ
             FonQRYnKiStEid2DwAFBg8ABRDnwczdEicIh+gHSRI1KAUmNNJRLjRyMRIsbRYXbdaxEiRaJK+lK////ZpBBAetEiRvpPf///w8f
             RAAATItcJEAxwEG4/////0UxyUGLVMQERDnCcwZBidBBicFIg8ABSTnDdedDjQQJRYkUhI1AAUGJLITp+/7//w8fAEiLRCRIAXQk
