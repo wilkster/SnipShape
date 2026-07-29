@@ -230,9 +230,9 @@ Class GuiSnip extends Gui {
     * to redraw texture brushes after a bitmap change
     */
    RefreshTextures() {
-      For Ctrl in this {
-         If (Ctrl.Visible) {
-            Ctrl.Refresh()
+      For ShapeObj in this {
+         If (ShapeObj.Visible) {
+            ShapeObj.Refresh()
          }
       }
    }
@@ -406,9 +406,9 @@ Class GuiSnip extends Gui {
     */
    PostClearAllShapes() {
       tag := A_TickCount . "ClearAll"
-      For Ctrl in this {
-         If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-            Ctrl.PostAction(UnDo.DELETE_SHAPE, tag)
+      For ShapeObj in this {
+         If (ShapeObj.Visible) {  ; only visible ones, they have been closed already??
+            ShapeObj.PostAction(UnDo.DELETE_SHAPE, tag)
          }
       }
    }
@@ -417,9 +417,9 @@ Class GuiSnip extends Gui {
     * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active window
     */
    ClearAllShapes(skipundo := false) {
-      For Ctrl in this {
-         If (Ctrl.Visible) {  ; only visible ones, they have been closed already??
-            Ctrl.Close(skipundo)
+      For ShapeObj in this {
+         If (ShapeObj.Visible) {  ; only visible ones, they have been closed already??
+            ShapeObj.Close(skipundo)
          }
       }
       this.Dirty := 0
@@ -543,6 +543,9 @@ Class GuiSnip extends Gui {
             ; Replace the picture
             this.Handle := hBitmap ; destroys og hBitmap
             this.RefreshTextures()
+            ; If (this.OGHandle) {
+            ;    hits := BitMap.ReplaceBitmapColor(this.OGHandle, 0xFF000000 | fromRGB, toRGB)
+            ; }
          } Else {
             GDI.DeleteObject(hBitmap)
          }
@@ -656,6 +659,7 @@ Class GuiSnip extends Gui {
 
    /**
     * Scale the picture in the snip (vs just resizing it)
+    * NOTE - OGHandle is saved the first scalefactor so any subsequent snip changes may be replaced if you scale again.
     * @param {Float} ScaleFactor , + for relative scale, - for aboslute scape
     */
    ScaleSnip(ScaleFactor := 1.0) {
@@ -721,12 +725,12 @@ Class GuiSnip extends Gui {
          this.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
 
          ; Shift all of the controls so they stay in same place
-         For Ctrl in this {
-            If Ctrl.Visible {
-               Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-               Ctrl.Move(X - C.X1, Y - C.Y1)
-               Ctrl.Refresh()
+         For ShapeObj in this {
+            If ShapeObj.Visible {
+               ShapeObj.GetPos(&X, &Y, &W, &H)
+               ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+               ShapeObj.Move(X - C.X1, Y - C.Y1)
+               ShapeObj.Refresh()
             }
          }
          this.RefreshTextures()
@@ -764,15 +768,15 @@ Class GuiSnip extends Gui {
 
          this.ReplaceSnip(hBitmap, gX, gY)
          ; Shift all of the controls so they stay in same place
-         For Ctrl in this {
-            If Ctrl.Visible {
-               Ctrl.GetPos(&X, &Y, &W, &H)
-               Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
+         For ShapeObj in this {
+            If ShapeObj.Visible {
+               ShapeObj.GetPos(&X, &Y, &W, &H)
+               ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
                If (pW = iR.W) ; Horz section
-                  Ctrl.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
+                  ShapeObj.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
                Else if (pH = iR.H) ; Vert section
-                  Ctrl.Move(X - (X > iR.L ? iR.w :0) , Y)
-               ; Ctrl.Refresh()
+                  ShapeObj.Move(X - (X > iR.L ? iR.w :0) , Y)
+               ; ShapeObj.Refresh()
             }
          }
          this.RefreshTextures()
@@ -795,7 +799,8 @@ Class GuiSnip extends Gui {
          this.PostAction(UnDo.CHANGE_SNIP, tag)
          ; NOTE - Rather then background of extend shape, get closer to start of drag
          ; bgColor := ExtendObj.ShapeBackgroundColor()
-         bgColor := ExtendObj.SnipObj.BackgroundPICColorFromXY(ExtendObj.shapeStart.X, ExtendObj.shapeStart.Y, 10)
+         SS := ExtendObj.shapeStart
+         bgColor := this.BackgroundPICColorFromXY(SS.X, SS.Y, 10)
 
          sC :=ExtendObj.shapeCoord ; includes picture border offset
          this.GetPicPos(&pX1, &pY1, &pW, &pH) ; relative to frame, includes picture lef/top border offset
@@ -823,12 +828,12 @@ Class GuiSnip extends Gui {
                eType := "Extend"
             Case (sc.W = pW AND sc.H != pH):
                ; Horz
-               t := ExtendObj.shapeStart.Y
+               t := SS.Y
                b := t + sC.H
                eType := "Expand"
             Case (sc.H = pH AND sc.W != pW):
                ; Vert
-               l := ExtendObj.shapeStart.X
+               l := SS.X
                r := l + sc.W
                eType := "Expand"
             Default:
@@ -852,26 +857,26 @@ Class GuiSnip extends Gui {
             Case "Expand": ; enlarge inside, don't move window
                this.ReplaceSnip(hBitmap)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
-                  For Ctrl in this {
-                     If Ctrl.Visible {
-                        Ctrl.GetPos(&X, &Y, &W, &H)
+                  For ShapeObj in this {
+                     If ShapeObj.Visible {
+                        ShapeObj.GetPos(&X, &Y, &W, &H)
                         If (l > 0 AND X > l OR (t > 0 and Y > t)) {
-                           Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-                           Ctrl.Move(X + (r - l), Y + (b - t))
+                           ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+                           ShapeObj.Move(X + (r - l), Y + (b - t))
                         }
-                        ; Ctrl.Refresh()
+                        ; ShapeObj.Refresh()
                      }
                   }
             Case "Extend": ; enlarge outside
                this.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                If (l > 0 OR t > 0) {
-                  For Ctrl in this {
-                     If Ctrl.Visible {
-                        Ctrl.PostAction(UnDo.MOVE_SHAPE, tag)
-                        Ctrl.GetPos(&X, &Y, &W, &H)
-                        Ctrl.Move(X + l, Y + t)
-                        ; Ctrl.Refresh()
+                  For ShapeObj in this {
+                     If ShapeObj.Visible {
+                        ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+                        ShapeObj.GetPos(&X, &Y, &W, &H)
+                        ShapeObj.Move(X + l, Y + t)
+                        ; ShapeObj.Refresh()
                      }
                   }
                }
@@ -911,7 +916,7 @@ Class GuiSnip extends Gui {
    ;============================================================================
    /**
     * OCR the image to one of the drawn shapes/pictures
-    * @param GuiCtrlObj Is the crop rectangle just drawn
+    * @param {commonShape} ShapeCropObj Is the crop rectangle just drawn
     * @returns Nothing 
     * OCR.FromRect(X, Y, W, H, lang?, scale:=1) will work on the snip itself
     */
