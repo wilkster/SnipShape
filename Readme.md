@@ -457,3 +457,4 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 ## Limitations/Future
 
 - Shapes on saved snips are merged with snip when saved, and no longer editable. (future idea)
+- Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes).
