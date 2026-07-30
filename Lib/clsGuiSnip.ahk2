@@ -113,6 +113,12 @@ Class GuiSnip extends Gui {
          If (this._OGHandle) {
             GDI.GetHBitmapDimensions(this._OGHandle, &ogW, &ogH)
             GDI.GetHBitmapDimensions(this.myHandle, &aW, &aH)
+            ; Use a fresh OG handle incase something changed on the snip (color, trim...)
+            ; Note, we modifed more than one dimension then don't save OGHandle again
+            If (ogW == aW OR ogH == aH) {
+               GDI.DeleteObject(this._OGHandle)
+               this._OGHandle := GDI.CopyImage(this.myHandle)
+            }
             Return aW / ogW
          } else
             return 1.0
@@ -536,7 +542,9 @@ Class GuiSnip extends Gui {
       hBitmap := GDI.CopyImage(this.Handle)
       ; We are launched from a menu, so the coordinates are where the menu was launched
       fromRGB := this.BackgroundPICColorFromXY(X, Y, radius)
-      toRGB   := ColorSelectDialog(fromRGB, this.hWnd, Array(fromRGB), true)
+      colorArray := ColorPopDown.colorValArray
+      colorArray.Length := Min(16, colorArray.Length)
+      toRGB   := ColorSelectDialog(fromRGB, this.hWnd, colorArray, true)
       If (toRGB >= 0 AND fromRGB != toRGB) {
          hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
          If (hits > 0) {

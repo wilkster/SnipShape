@@ -282,8 +282,14 @@ Class UnDo {
                   snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
                   ButtonBar.Show(snipObj.hWnd)
                   snipObj.RefreshTextures()
+                  ; If we undo all they way back, then reset the OGHandle to 0 if it is use
+                  If (UnDo AND sourceStack.Length == 0) {
+                     If (snipObj._OGHandle) {
+                        GDI.DeleteObject(snipObj._OGHandle)
+                        snipObj._OGHandle := 0
+                     }
+                  }
                }
-
             Default:
          }
          ; Determine if we have more to do with the same tag
