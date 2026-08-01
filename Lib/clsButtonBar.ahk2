@@ -301,6 +301,7 @@ Class ButtonBar {
     */
    Static SaveSnip(*) {
       If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         Tooltip ; don't capture the tooltip!
          SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
          SnipObj.flashBorder()
       }
@@ -310,6 +311,7 @@ Class ButtonBar {
     */
    Static ClipSnip(*) {
       If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+         Tooltip ; don't capture the tooltip!
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          SnipObj.flashBorder()
       }
