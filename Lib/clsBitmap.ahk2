@@ -264,17 +264,17 @@ Class BitMap {
       Return hClone
    }
 
-   /**
-    * Clone an hBitmap and crop a uniform border off all sides.
-    * Caller is responsible for managing the returned bitmap.
-    * @param {Integer} hBitmap Handle to the source bitmap
-    * @param {Integer} BW Border width in pixels to remove from each side
-    * @returns {Integer} hBitmap handle to the new border-cropped bitmap
-    */
-   Static CropHBitmapBorder(hBitmap, BW) {
-      GDI.GetHBitmapDimensions(hBitmap, &Width, &Height)
-      Return this.CropHBITMAP(hBitmap, BW, BW, Width - 2 * BW, Height - 2 * BW)
-   }
+   ; /**
+   ;  * Clone an hBitmap and crop a uniform border off all sides.
+   ;  * Caller is responsible for managing the returned bitmap.
+   ;  * @param {Integer} hBitmap Handle to the source bitmap
+   ;  * @param {Integer} BW Border width in pixels to remove from each side
+   ;  * @returns {Integer} hBitmap handle to the new border-cropped bitmap
+   ;  */
+   ; Static CropHBitmapBorder(hBitmap, BW) {
+   ;    GDI.GetHBitmapDimensions(hBitmap, &Width, &Height)
+   ;    Return this.CropHBITMAP(hBitmap, BW, BW, Width - 2 * BW, Height - 2 * BW)
+   ; }
 
    /**
     * Return a pBitmap of the specified window's contents, independent of any windows above it,
@@ -285,58 +285,47 @@ Class BitMap {
     * @returns {Integer} pBitmap handle to the captured (and optionally cropped) bitmap
     */
    Static pBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
-      hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
+      hBitmap := this.HBitmapFromHWND(hWnd, clientOnly, BW)
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
       GDI.DeleteObject(hBitmap)
-      If (BW) {
-         cBitmap := this.CropPBitmapBorder(pBitmap, BW) ; gdi+
-         GDI.DeleteObject(hBitmap)
-         GDIp.DisposeImage(pBitmap)
-         Return cBitmap
-      } Else {
-         Return pBitmap
-      }
+      Return pBitmap
    }
 
-   /**
-    * Return a portion of a window as an hBitmap, with an optional uniform border crop.
-    * @param {Integer} hWnd Window handle
-    * @param {Integer} clientOnly 1 to capture client area only
-    * @param {Integer} BW Border width in pixels to crop from each side (0 = no crop)
-    * @returns {Integer} hBitmap handle to the captured (and optionally cropped) bitmap
-    */
-   Static hBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
-      hBitmap := this.HBitmapFromHWND(hWnd, clientOnly)
-      If (BW) {
-         hBitmap := this.CropHBitmapBorder(hBitmap, BW)
-      }
-      Return hBitmap
-   }
+   ; /**
+   ;  * Return a portion of a window as an hBitmap, with an optional uniform border crop.
+   ;  * @param {Integer} hWnd Window handle
+   ;  * @param {Integer} clientOnly 1 to capture client area only
+   ;  * @param {Integer} BW Border width in pixels to crop from each side (0 = no crop)
+   ;  * @returns {Integer} hBitmap handle to the captured (and optionally cropped) bitmap
+   ;  */
+   ; Static hBitmapCropFromHWND(hWnd, clientOnly := 1, BW := 0) {
+   ;    Return this.HBitmapFromHWND(hWnd, clientOnly, BW)
+   ; }
 
-   /**
-    * Clone a pBitmap and crop a uniform border off all sides, retaining the original pixel format.
-    * Caller is responsible for managing both the passed-in and returned bitmaps.
-    * @param {Integer} pBitmap Handle to the source pBitmap
-    * @param {Integer} BW Border width in pixels to remove from each side
-    * @returns {Integer} pBitmap handle to the new border-cropped bitmap
-    */
-   Static CropPBitmapBorder(pBitmap, BW) {
-      ; Retain the current PixelFormat, unlike GdipCloneImage.
-      DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &width := 0)
-      DllCall("gdiplus\GdipGetImageHeight", "ptr", pBitmap, "uint*", &height := 0)
-      DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", pBitmap, "int*", &pformat := 0)
-      res := DllCall("gdiplus\GdipCloneBitmapAreaI"
-         , "int", BW
-         , "int", BW
-         , "int", width - BW * 2
-         , "int", height - BW * 2
-         , "int", pformat
-         , "ptr", pBitmap
-         , "ptr*", &pBitmapCrop := 0)
-      If (res)
-         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
-      Return pBitmapCrop
-   }
+   ; /**
+   ;  * Clone a pBitmap and crop a uniform border off all sides, retaining the original pixel format.
+   ;  * Caller is responsible for managing both the passed-in and returned bitmaps.
+   ;  * @param {Integer} pBitmap Handle to the source pBitmap
+   ;  * @param {Integer} BW Border width in pixels to remove from each side
+   ;  * @returns {Integer} pBitmap handle to the new border-cropped bitmap
+   ;  */
+   ; Static CropPBitmapBorder(pBitmap, BW) {
+   ;    ; Retain the current PixelFormat, unlike GdipCloneImage.
+   ;    DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &width := 0)
+   ;    DllCall("gdiplus\GdipGetImageHeight", "ptr", pBitmap, "uint*", &height := 0)
+   ;    DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", pBitmap, "int*", &pformat := 0)
+   ;    res := DllCall("gdiplus\GdipCloneBitmapAreaI"
+   ;       , "int", BW
+   ;       , "int", BW
+   ;       , "int", width - BW * 2
+   ;       , "int", height - BW * 2
+   ;       , "int", pformat
+   ;       , "ptr", pBitmap
+   ;       , "ptr*", &pBitmapCrop := 0)
+   ;    If (res)
+   ;       warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+   ;    Return pBitmapCrop
+   ; }
 
    /**
     * Clone a pBitmap and crop it to the specified rectangle, retaining the original pixel format.
@@ -374,13 +363,13 @@ Class BitMap {
     * @param {Integer} NoExtendedBorder 1 to exclude the extended (DWM) border (default), 0 to include it
     * @returns {Integer} hBitmap handle to the captured bitmap, or 0 on failure
     */
-   Static HBitmapFromHWND(hWnd, NoExtendedBorder := 1) {
+   Static HBitmapFromHWND(hWnd, NoExtendedBorder := 1, BW := 0) {
       If ((GetParent(hWnd) != hWnd) OR NOT NoExtendedBorder)
          WinGetPos(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
       Else
          WinGetPosEx(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
       If (W > 0 AND H > 0) {
-         Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H }
+         Area := { X: X + BW, Y: Y + BW, X2: X + W - BW, Y2: Y = H - BW, W: W - 2 * BW, H: H - 2 * BW }
          Return this.HBitmapFromScreen(Area)
       } Else {
          warning("Failed to retrive window position for " hex(hWnd))
@@ -398,10 +387,6 @@ Class BitMap {
     */
    Static HBitmapFromHWNDPW(hWnd, skipBorders := 1) {
       Static PW_RENDERFULLCONTENT := 0x2
-      ; If (skipBorders = 1)
-      ;    WinGetPosEx(&X, &Y, &W, &H, hWnd)
-      ; Else
-      ;    WinGetPos(&X, &Y, &W, &H, hWnd)
 
       hWndDpi := WinDPI(hWnd)
       monDpi := MonDPIunderWindow(hWnd)
