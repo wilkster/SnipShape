@@ -672,7 +672,7 @@ Class Snips {
          If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
             CoordMode('Mouse', 'Screen')
             ; MouseGetPos(&X, &Y)
-            If (hWnd) {
+            If (WinExist(hWnd)) {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
             } Else {
