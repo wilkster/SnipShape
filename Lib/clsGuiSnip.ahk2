@@ -12,6 +12,8 @@
 #include clsGDIp.ahk2
 #include clsBitmap.ahk2 
 #include clsShapes.ahk2
+#include clsMenus.ahk2
+#include ColorPopDown.ahk2
 /**
  * Extended GUI class that stores snip-specific metadata, brush caches, and bitmap state
  */
@@ -269,6 +271,9 @@ Class GuiSnip extends Gui {
          pen := GDIp.CreatePen(0xFF000000 | RGBval(this.BackColor), BW)
          GDIp.SetPenAlignment(pen, 1)
          GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
+         ; NOTE, to draw a dropoff shadow around border we need a bigger BW
+         ; and a loop to draw progressively thinner rectangle lines with some alpha value (not overlay let them stack opacity)
+         ; to simlate a shadow
       }
 
       ; blit the caller's bitmap into the middle, inset by bw on each side
@@ -615,7 +620,7 @@ Class GuiSnip extends Gui {
          pBitMap := BitMap.pBitmapCropFromHWND(this.hWnd, 1, Settings.BorderWidth)
       else
          pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
-      WinGetPosEx(&X, &Y, &wW, &wH, this.hWnd)
+      this.GetPos(&X, &Y)
       ; Scale to a new bitmap
       if (ScaleFactor != 1.0)
          pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
@@ -683,7 +688,7 @@ Class GuiSnip extends Gui {
          hBitmap := this.OGHandle
          ; Scale factor is applies against current scale
          pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
-         WinGetPosEx(&X, &Y, &wW, &wH, this.hWnd)
+         this.GetPos(&X, &Y, &wW, &wH)
          ; Scale to a new bitmap, most of the time is here
          pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
          GetCursorPos(&mX, &mY)
@@ -744,7 +749,7 @@ Class GuiSnip extends Gui {
          this.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
-            this.Snip2Clipboard(Snips.borderWithSave)
+            this.Snip2Clipboard(Snips.borderWithCopy)
          }
       }
    }
@@ -790,7 +795,7 @@ Class GuiSnip extends Gui {
          this.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
-            this.Snip2Clipboard(Snips.borderWithSave)
+            this.Snip2Clipboard(Snips.borderWithCopy)
          }
       }
    }
@@ -892,7 +897,7 @@ Class GuiSnip extends Gui {
          this.RefreshTextures()
          ButtonBar.Show()
          if Clipboard {
-            this.Snip2Clipboard(Snips.borderWithSave)
+            this.Snip2Clipboard(Snips.borderWithCopy)
          }
       }
    }
@@ -956,7 +961,7 @@ Class GuiSnip extends Gui {
       this.GetPos(&X, &Y, &W, &H)
       ; If there is some transparency, put a black background behind it
       (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
-      hBitMap := BitMap.hBitmapCropFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
+      hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
       g.Destroy()
       this.Dirty := 0
       if ((res := Clipboard.SetHBitmapToClipboard(hBitMap)) < 0)
@@ -975,7 +980,7 @@ Class GuiSnip extends Gui {
             DirCreate(SavePath)
          this.GetPos(&X, &Y, &W, &H)
          (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
-         hBitmap := BitMap.hBitmapCropFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
+         hBitmap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
          g.Destroy()
          FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          GDI.DeleteObject(hBitmap)

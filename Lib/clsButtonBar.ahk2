@@ -95,7 +95,7 @@ Class ButtonBar {
       ; Save the height for positioning on Show
       logGDI("GUI Show complete")
       this.bbgui.Show("NA Y" 100000 " X" 100000)
-      WinGetPos(, , , &nH, this.bbgui.hwnd)
+      this.bbgui.GetPos(,,,&nH)
 
       this.bbHeight := nH
       ; Windows 10 round the corners (not needed with backcolor)
@@ -310,7 +310,7 @@ Class ButtonBar {
     */
    Static ClipSnip(*) {
       If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          SnipObj.flashBorder()
       }
    }
