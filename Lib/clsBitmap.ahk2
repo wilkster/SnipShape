@@ -564,7 +564,7 @@ Class BitMap {
          Return uBitmap
       }
    }
-      /**
+         /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
     * @param NewAlpha Alpha replacement value (e.g 0xFF)
@@ -601,6 +601,53 @@ Class BitMap {
                ; Doesn't matter of top/down or bottom up just looking for a background color
                ; Issue with  pixels not having any alpha so we would need to handle in mcode
                replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint", NewAlpha)
+            Default:
+         }
+         Return replaced
+      } Else {
+         elog("Failed to compile MCode")
+         Return uBitmap
+      }
+   }
+   /**
+    * Replace one color with another in a bitmap (in place)
+    * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
+    * @param NewAlpha Alpha replacement value (e.g 0xFF)
+    * @returns {Integer} number of replaced pixels
+    */
+   Static PreMultiplyBitmap(uBitmap, NewAlpha:=-1) {
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+         ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            QVdBVkFVQVRFicRVV1ZTRItEJGiF0g+OvgAAAEWF5A+OtQAAAEiJz4nTTWPpMe1FMdtEicZBuoGAgIAPH0QAAEiJ+kUxyWYuDx+E
+            AAAAAACJ8UWFwH8ED7ZKA4D5/3ROD7YCRA+2+UQPtnIBiEoDQYPDAUEPr8dFD6/3g8B/SQ+vwkGDxn9ND6/ySMHoJ4gCD7ZCAknB
+            7idEiHIBQQ+vx4PAf0kPr8JIwegniEICQYPBAUiDwgREOct/lYPFAUwB70E57A+Pdv///1tEidheX11BXEFdQV5BX8NFMdtbXkSJ
+            2F9dQVxBXUFeQV/DkJCQ
+            )"
+            mCodeFunc := Bitmap.GetMcodePtr(x64)
+         } Else {
+            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            return
+         }
+      }
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         replaced := 0
+         NewAlpha := Number(NewAlpha)
+         Switch BitMap.getImageType(uBitmap) {
+            Case "pBitmap":
+               GDIp.GetImageDimensions(uBitmap, &w, &h)
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3) ; 3 is read/write only
+               replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "int", NewAlpha)
+               GDIp.UnlockBits(uBitmap, &iData)
+            Case "hBitmap":
+               res := BitMap.GetDIBSectionInfo(uBitmap)
+               ; Doesn't matter of top/down or bottom up just looking for a background color
+               ; Issue with  pixels not having any alpha so we would need to handle in mcode
+               replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "int", NewAlpha)
             Default:
          }
          Return replaced

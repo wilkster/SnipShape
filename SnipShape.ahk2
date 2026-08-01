@@ -397,6 +397,26 @@ HotIfWinActive
       If (SnipObj)
          SnipObj.ScaleSnip(1 / 1.20)
    }
+   !WheelUp::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Alpha += 0xF
+         MouseGetPos(&mX,&mY)
+         ToolTip("     Alpha Set to " Round(SnipObj.Alpha/0xFF * 100) "%", mX, mY)
+         SetTimer(ToolTip, -2000)
+      }
+   }
+   !WheelDown::{
+      /** @type {GuiSnip} */
+      SnipObj := Snips.GetGuiObj()
+      If (SnipObj) {
+         SnipObj.Alpha -= 0xF
+         MouseGetPos(&mX,&mY)
+         ToolTip("     Alpha Set to " Round(SnipObj.Alpha/0xFF * 100) "%", mX, mY)
+         SetTimer(ToolTip, -2000)
+      }
+   }
    ; !WheelUp / !WheelDown for transparency
 
    F1:: {

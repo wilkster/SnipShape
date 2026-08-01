@@ -44,7 +44,8 @@ Class GuiSnip extends Gui {
       this.BW                   := Settings.BorderWidth
       Snips.guiSnips[this.hWnd] := this
       this.UnDo                 := UnDo()
-      this._OGHandle             := 0
+      this._OGHandle            := 0
+      this._alpha                := 0xFF
       super.MarginX := super.MarginY := this.BW
       ; logGDI("+Create Snip:" this.Title)
       ; RMB menu is on the screenshot picture control
@@ -214,6 +215,17 @@ Class GuiSnip extends Gui {
          GDI.DeleteObject(oldhBitmap)
       }
    }  
+   Alpha {
+      get => this._alpha
+      set {
+         ; Don't allow fully transparent otherwise it disappears
+         newAlpha := Min(Max(Value, 0xF), 0xFF)
+         If (newAlpha != this._alpha) {
+            this._replaceSnip(this.myHandle)
+            this._alpha := newAlpha
+         }
+      }
+   }
    /**
     * Get or set the underlying HBITMAP handle for the GUI.
     * It will resize the window to match the new bitmap dimensions.
@@ -265,7 +277,15 @@ Class GuiSnip extends Gui {
       hDIB      := GDI.CreateDIBSection(newW, newH, hdcMem)
       obm       := GDI.SelectObject(hdcMem, hDIB)
 
-      ; Paint the border
+      ; blit the caller's bitmap into the middle, inset by bw on each side
+      hdcSrc := GDI.CreateCompatibleDC(hdcScreen)
+      obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
+      GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
+      ; Premultiply if we have some transparency to show
+      if (this._alpha < 0xFF)
+         BitMap.PreMultiplyBitmap(hDIB,this._alpha)
+
+      ; Paint the border fully opaque
       If (BW > 0) {
          iG := GDIp.GraphicsFromHDC(hdcMem)
          pen := GDIp.CreatePen(0xFF000000 | RGBval(this.BackColor), BW)
@@ -275,19 +295,18 @@ Class GuiSnip extends Gui {
          ; and a loop to draw progressively thinner rectangle lines with some alpha value (not overlay let them stack opacity)
          ; to simlate a shadow
       }
-
-      ; blit the caller's bitmap into the middle, inset by bw on each side
-      hdcSrc := GDI.CreateCompatibleDC(hdcScreen)
-      obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
-      GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
+      ; Restore obm and delete DC we created
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
+
       ; Update the GUI with the snip and border
       GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, newW, newH)
 
       ; clean up
-      GDIp.DeletePen(pen)
-      GDIp.DeleteGraphics(iG)
+      if (IsSet(pen))
+         GDIp.DeletePen(pen)
+      if (IsSet(iG))
+         GDIp.DeleteGraphics(iG)
       GDI.SelectObject(hdcMem, obm)
       GDI.DeleteObject(hDIB)
       GDI.DeleteDC(hdcMem)
