@@ -120,7 +120,7 @@ ClipActiveWindow(*) {
       if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
-      qTrayTip("Captured Active Window to clipboard",4,,5000)
+      qTrayTip("Captured Active Window to clipboard", 4, "Click Here to Edit", 6000)
    } else {
       qTrayTip("Did not find an active window")
    }
