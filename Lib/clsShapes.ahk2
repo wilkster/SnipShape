@@ -448,7 +448,7 @@ Class Shapes {
       }
       ; Update the clipboard automatically if that mode is enabled
       If (changed AND Snips.UpdateClipboard) {
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          SnipObj.flashBorder()
       }
       Return
@@ -523,7 +523,7 @@ Class Shapes {
       this.ColorQueue.Length := 0
       CoordMode('Mouse', 'Window')
       MouseGetPos(&shapeStart.X, &shapeStart.Y)
-      WinGetPosEx(&winX, &winY, &winW, &winH, SnipObj.hWnd)
+      SnipObj.GetPos(&winX, &winY, &winW, &winH)
       DPIFactor      := WinDPI(SnipObj.hWnd)/96
       snapGrid       := DPIFactor * 10
       reverseLine    := false
@@ -1189,7 +1189,7 @@ Class Shapes {
       ; Snapshot clipboard if enabled
       If (Snips.UpdateClipboard) {
          SnipObj.flashBorder()
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
       }
       ShapeObj.Gui.Dirty++
       Return

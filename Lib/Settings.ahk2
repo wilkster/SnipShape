@@ -102,7 +102,7 @@ SaveSettings() {
    IniWriteIfBlank(SETTINGS.OCRBorderColor, "User Snips", "OCR Border Color")
    
    IniWriteValue(Snips.UpdateClipboard,  "Snips", "Auto Update Clipboard")
-   IniWriteValue(Snips.UpdateClipboard,  "Snips", "Border With Copy")
+   IniWriteValue(Snips.borderWithCopy,  "Snips", "Border With Copy")
    IniWriteValue(Snips.borderWithSave,  "Snips", "Border With Save")
    IniWriteValue(Snips.autoSaveToFile,  "Snips", "Auto Save Clips to File")
    IniWriteValue(Snips.minimizeOnSnip,  "Snips", "Minimize On Snip to File")

@@ -293,7 +293,7 @@ HotIfWinActive
       /** @type {GuiSnip} */
       SnipObj := Snips.GetGuiObj()
       If (SnipObj) {
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          SnipObj.Minimize()
       }
    }
@@ -302,7 +302,7 @@ HotIfWinActive
       /** @type {GuiSnip} */
       SnipObj := Snips.GetGuiObj()
       If (SnipObj) {
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          Snips.Close(SnipObj, 0)
       }
    }
@@ -319,7 +319,7 @@ HotIfWinActive
       SnipObj := Snips.GetGuiObj()
       If (SnipObj) {
          SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
-         SnipObj.Snip2Clipboard(Snips.borderWithSave)
+         SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          qTrayTip("Snip saved to clipboard and " SETTINGS.SavePath_Image)
          SnipObj.flashBorder(WinExist("A"))
       }

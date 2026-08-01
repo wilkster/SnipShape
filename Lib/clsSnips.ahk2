@@ -83,15 +83,15 @@ Class Snips {
       this.AddMenuCheck("Freeze Active Screen Before Selection", "captureStatic")
       this.AddMenuCheck("Dim Screen When Selecting", "dimScreen")
       this.AddMenuCheck("Snip Guides When Selecting", "snipGuides")
-      this.TrayMenu.Add()
       this.AddMenuCheck("Snips Always On Top", "topMost")
-      this.AddMenuCheck("Confirm Snip Close if it has Shapes", "confirmClose") 
       this.TrayMenu.Add()  ; Creates a new menu item.
+      this.AddMenuCheck("Minimize Snip After Capture", "minimizeOnSnip") 
       this.AddMenuCheck("Auto Update Clipboard", "UpdateClipboard")
       this.AddMenuCheck("Auto Save Snips to File", "autoSaveToFile")
-      this.AddMenuCheck("Minimize Snip After Capture", "minimizeOnSnip") 
+      this.TrayMenu.Add()  ; Creates a new menu item.
       this.AddMenuCheck("Include Border With Clipboard Copy", "borderWithCopy")
       this.AddMenuCheck("Include Border With File Save", "borderWithSave")  
+      this.AddMenuCheck("Confirm Snip Close if it has Shapes", "confirmClose") 
       ; this.AddMenuCheck("Show Focus Rectangle", "focusRectangle")  
 
       this.TrayMenu.Add()
@@ -590,7 +590,7 @@ Class Snips {
                SnipObj.Minimize()
             }
             If SetClipboard {
-               SnipObj.Snip2Clipboard(Snips.borderWithSave)
+               SnipObj.Snip2Clipboard(Snips.borderWithCopy)
                SnipObj.flashBorder()
             }
 

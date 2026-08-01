@@ -118,10 +118,10 @@ Class SnipMenus {
       hWnd := WinExist("A")
       SnipObj := Snips.GetGuiObj(hWnd)
       Switch {
-         Case ItemName ~= "Copy Snip to Clipboard": SnipObj.Snip2Clipboard(Snips.borderWithSave)                           
+         Case ItemName ~= "Copy Snip to Clipboard": SnipObj.Snip2Clipboard(Snips.borderWithCopy)                           
          Case ItemName ~= "Cut Snip to Clipboard": 
             if (sw := WinExist("A")) {
-               SnipObj.Snip2Clipboard(Snips.borderWithSave)
+               SnipObj.Snip2Clipboard(Snips.borderWithCopy)
                Snips.Close(SnipObj, 0)
             }
 
@@ -185,7 +185,6 @@ Class SnipMenus {
       MouseGetPos(&mX, &mY)
       this.menuX := mX
       this.menuY := mY
-      WinGetPos(&X, &Y, &W, &H, SnipObj.hWnd)
       ; Sync the button bar state
       this.SyncBB()
       Try this.csMenu.Delete("Paste Clipboard Text")
