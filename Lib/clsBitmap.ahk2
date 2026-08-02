@@ -788,28 +788,13 @@ Class BitMap {
          Return -2
 
       Static IsUnicode := StrLen(Chr(0xFFFF))
-      If (IsUnicode) {
-         StrGet_Name := "StrGet"
-         Loop nCount {
-            sString := %StrGet_Name%(NumGet(ci, (idx := (48 + 7 * A_PtrSize) * (A_Index - 1)) + 32 + 3 * A_PtrSize, "Ptr"), "UTF-16")
-            If !InStr(sString, "*" Extension)
-               Continue
+      Loop nCount {
+         sString := StrGet(NumGet(ci, (idx := (48 + 7 * A_PtrSize) * (A_Index - 1)) + 32 + 3 * A_PtrSize, "Ptr"), "UTF-16")
+         If !InStr(sString, "*" Extension)
+            Continue
 
-            pCodec := ci.ptr + idx
-            Break
-         }
-      } Else {
-         Loop nCount {
-            Location := NumGet(ci, 76 * (A_Index - 1) + 44, "Ptr")
-            nSize := DllCall("Kernel32\WideCharToMultiByte", "uint", 0, "uint", 0, "uint", Location, "int", -1, "uint", 0, "int", 0, "uint", 0, "uint", 0)
-            sString := Buffer(nSize)
-            DllCall("Kernel32\WideCharToMultiByte", "uint", 0, "uint", 0, "uint", Location, "int", -1, "str", sString, "int", nSize, "uint", 0, "uint", 0)
-            If !InStr(sString, "*" Extension)
-               Continue
-
-            pCodec := ci.ptr + 76 * (A_Index - 1)
-            Break
-         }
+         pCodec := ci.ptr + idx
+         Break
       }
 
       If !pCodec
@@ -844,9 +829,9 @@ Class BitMap {
          If _E
             Return -6
 
-         DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "uint*", &hData)
+         DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hData := 0)
          pData := DllCall("GlobalLock", "Ptr", hData, "Ptr")
-         nSize := DllCall("GlobalSize", "uint", pData)
+         nSize := DllCall("GlobalSize", "Ptr", pData, "Ptr")
 
          bin := Buffer(nSize, 0)
          DllCall("RtlMoveMemory", "Ptr", bin.ptr, "Ptr", pData, "Ptr", nSize)
@@ -857,7 +842,7 @@ Class BitMap {
          ; Using CryptBinaryToStringA saves about 2MB in memory.
          DllCall("Crypt32.dll\CryptBinaryToStringA", "Ptr", bin.ptr, "uint", nSize, "uint", 0x40000001, "Ptr", 0, "uint*", &base64Length := 0)
          base64 := Buffer(base64Length, 0)
-         _E := DllCall("Crypt32.dll\CryptBinaryToStringA", "Ptr", bin.ptr, "uint", nSize, "uint", 0x40000001, "Ptr", &base64, "uint*", base64Length)
+         _E := DllCall("Crypt32.dll\CryptBinaryToStringA", "Ptr", bin.ptr, "uint", nSize, "uint", 0x40000001, "Ptr", base64.Ptr, "uint*", base64Length)
          If !_E
             Return -7
 
@@ -869,6 +854,38 @@ Class BitMap {
       Return _E ? -5 : 0
    }
 
+   /**
+    * Convert a raw PNG base64 string back into a pBitmap (Untested)
+    * @param base64Str Encoded string (same as calling SaveBitmapToFile with toBase64 set to 1)
+    * @returns GDI+ pBitmap, delete when done 
+    */
+   Static LoadBitmapFromBase64(base64Str) {
+      ; get required buffer size first
+      DllCall("Crypt32.dll\CryptStringToBinaryW"
+         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
+         , "Ptr", 0, "uint*", &nSize := 0, "Ptr", 0, "Ptr", 0)
+      If !nSize
+         Return -1
+
+      bin := Buffer(nSize, 0)
+      _E := DllCall("Crypt32.dll\CryptStringToBinaryW"
+         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
+         , "Ptr", bin.ptr, "uint*", &nSize, "Ptr", 0, "Ptr", 0)
+      If !_E
+         Return -2
+
+      pStream := DllCall("Shlwapi\SHCreateMemStream", "Ptr", bin.ptr, "uint", nSize, "Ptr")
+      If !pStream
+         Return -3
+
+      _E := DllCall("gdiplus\GdipCreateBitmapFromStream", "Ptr", pStream, "Ptr*", &pBitmap := 0)
+      ObjRelease(pStream)
+
+      If (_E || !pBitmap)
+         Return -4
+
+      Return pBitmap
+   }
    /**
     * Scale a pBitmap to a new size using highest-quality GDI+ settings (HighQualityBicubic).
     * The input pBitmap is disposed after scaling.

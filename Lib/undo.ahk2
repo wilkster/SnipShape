@@ -177,6 +177,11 @@ Class UnDo {
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+            If (Info.HasProp("drawFunction")) {
+               ; Saved as text, get the pointer
+               fa := StrSplit(Info.DrawFunction,".")
+               Info.DrawFunction := %fa[1]%.GetMethod(fa[2])
+            }
             ; Other shapes
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 

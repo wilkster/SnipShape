@@ -477,7 +477,7 @@ Class FreeHandShape extends commonShape {
    InstanceInfo() {
       infoObj              := super.InstanceInfo()
       infoObj.hasImage     := 0
-      infoObj.drawFunction := this.drawFunction ; GDIp draw function
+      infoObj.drawFunction := this.drawFunction.Name ; GDIp draw function
       infoObj.Points       := CloneBuffer(this.Points) ; will clone on set
       infoObj.OG           := this.OG.clone() ; Original size
       return infoObj

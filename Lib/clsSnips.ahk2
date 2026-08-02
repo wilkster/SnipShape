@@ -19,6 +19,7 @@
 #include clsButtonBar.ahk2
 #include undo.ahk2
 #include OCR.ahk2
+#include clsFileOjbect.ahk2
 #Include Shapes\clsTextShape.ahk2
 ; Cancel start of selection with escape, when hidden won't meet WinExist criteria
 #HotIf IsWindowVisible(Snips.guiSSR.hWnd)
@@ -642,6 +643,13 @@ Class Snips {
             Bitmap.SaveBitmapToFile(pBitmap, FileName)
          }
          Gdip.DisposeImage(pBitmap)
+         ; Save the Snip in Editable format as well if it has shapes
+         If (IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
+            FileName := SavePath . baseName . ".snp"
+            FileObject.SaveSnip(SnipObj, FileName)
+         }
+         SnipObj.Dirty := 0
+
       } catch as e {
          qTrayTip("Snipper File Save: " e.Message ", from " e.What " @ line " e.Line ,3)
          elog(e,"Saving File")
@@ -718,31 +726,42 @@ Class Snips {
    }
    /**
     * Load an image file and create a new snip window centered on the active monitor
+    * If we are restoring an editable version that place it in its original position
     * @param {String} sFile - Full path to the image file to load
     */
    Static CreateSnipFromFile(sFile) {
-      pBitmap := Gdip.CreateBitmapFromFile(sFile)
-      if (pBitmap) {
-         MonInfo := activeMonArea(1)
-         GDIp.GetImageDimensions(pBitmap, &W, &H)
-         ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
-         BW := Settings.BorderWidth
-         ; Center image
-         X := MonInfo.X + MonInfo.W/2 - W/2
-         Y := MonInfo.Y + MonInfo.H/2 - H/2
-         ; Setup the new Snip information
-         Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
-         /** @type {GuiSnip} SnipObj */
-         SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
-         SnipObj.FileName := sFile
-         ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
-         SnipObj.AddSnipPic(hBitmap)
-         ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
-         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
-      } else {
-         qTrayTip("Did not find a valid bitmap to load", 2)
+      SplitPath(sFile,,&folder,,&baseName)
+      editFile := folder "\" baseName ".snp"
+      If FileExist(editFile) {
+         If (SnipObj := FileObject.LoadSnip(editFile)) {
+            ButtonBar.Show(SnipObj.Hwnd)
+         } Else {
+            MsgBox("Failed to load Editable Snip File " editFile)
+         }
+      } Else {
+         pBitmap := GDIp.CreateBitmapFromFile(sFile)
+         If (pBitmap) {
+            MonInfo := activeMonArea(1)
+            GDIp.GetImageDimensions(pBitmap, &W, &H)
+            ; Need an hBitmap for the picture
+            hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+            GDIp.DisposeImage(pBitmap)
+            BW := Settings.BorderWidth
+            ; Center image
+            X := MonInfo.X + MonInfo.W / 2 - W / 2
+            Y := MonInfo.Y + MonInfo.H / 2 - H / 2
+            ; Setup the new Snip information
+            Area := { X: X + 50, Y: Y + 50, W: W, H: H, X2: X + W, Y2: Y + H }
+            /** @type {GuiSnip} SnipObj */
+            SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+            SnipObj.FileName := sFile
+            ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
+            SnipObj.AddSnipPic(hBitmap)
+            ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
+            SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
+         } Else {
+            qTrayTip("Did not find a valid bitmap to load", 2)
+         }
       }
    }
    /**
@@ -762,14 +781,16 @@ Class Snips {
          Area := useArea ?? { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          ; Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          /** @type {GuiSnip} SnipObj */
-         SnipObj := this.GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
+         SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
          ; SnipObj.FileName := sFile
          ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
          SnipObj.AddSnipPic(hBitmap)
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
-         SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
+         SnipObj.Show('x' Area.X ' y' Area.Y) ; NA -> want active
+         Return SnipObj
       } else {
          qTrayTip("Did not find a valid bitmap to load", 2)
+         Return 0
       }
    }
    /**
@@ -1076,14 +1097,10 @@ Class Snips {
             Snips.SetDrawMode(0)
          } Else {
             ; Prompt to close if Snip has unsaved changes
-            shapeCount := 0
-            For ShapeObj in SnipObj {
-               If (ShapeObj.Visible)
-                  shapeCount++
-            }
-            if SnipObj.Dirty AND shapeCount > 0 AND Snips.confirmClose {
+            activeShapes := SnipObj.VisibleShapes.Length
+            if SnipObj.Dirty AND activeShapes > 0 AND Snips.confirmClose {
                SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
-               ans := MsgBox("Snip has unsaved changes with " shapeCount " Shapes, please confirm close", "Confirm Close", 1 + 32)
+               ans := MsgBox("Snip has unsaved changes with " activeShapes " Shapes, please confirm close", "Confirm Close", 1 + 32)
                If (ans != "OK")
                   Return
                Sleep(100)

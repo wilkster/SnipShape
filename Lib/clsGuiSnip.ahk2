@@ -226,6 +226,21 @@ Class GuiSnip extends Gui {
          }
       }
    }
+   /**   
+    * Return a list of visible (active) shapes on the snip
+    */
+   VisibleShapes {
+      get {
+         shapes := Array()
+         For ShapeObj in this {
+            If (ShapeObj.Visible) {
+               shapes.Push(ShapeObj)
+            }
+         }
+         Return shapes
+      }
+   }
+
    /**
     * Get or set the underlying HBITMAP handle for the GUI.
     * It will resize the window to match the new bitmap dimensions.
@@ -250,10 +265,8 @@ Class GuiSnip extends Gui {
     * to redraw texture brushes after a bitmap change
     */
    RefreshTextures() {
-      For ShapeObj in this {
-         If (ShapeObj.Visible) {
-            ShapeObj.Refresh()
-         }
+      For ShapeObj in this.VisibleShapes {
+         ShapeObj.Refresh()
       }
    }
    /**
@@ -436,10 +449,8 @@ Class GuiSnip extends Gui {
     */
    PostClearAllShapes() {
       tag := A_TickCount . "ClearAll"
-      For ShapeObj in this {
-         If (ShapeObj.Visible) {  ; only visible ones, they have been closed already??
-            ShapeObj.PostAction(UnDo.DELETE_SHAPE, tag)
-         }
+      For ShapeObj in this.VisibleShapes {
+         ShapeObj.PostAction(UnDo.DELETE_SHAPE, tag)
       }
    }
    /**
@@ -447,10 +458,8 @@ Class GuiSnip extends Gui {
     * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active window
     */
    ClearAllShapes(skipundo := false) {
-      For ShapeObj in this {
-         If (ShapeObj.Visible) {  ; only visible ones, they have been closed already??
-            ShapeObj.Close(skipundo)
-         }
+      For ShapeObj in this.VisibleShapes {
+         ShapeObj.Close(skipundo)
       }
       this.Dirty := 0
    }
@@ -659,28 +668,26 @@ Class GuiSnip extends Gui {
       ; Recreate any shapes on the new Snip
       ;-------------------------------------
       tag := A_TickCount . "AddShapes"
-      For ShapeObj in srcSnip {
+      For ShapeObj in srcSnip.VisibleShapes {
          ; When repooling, clear out the old shape data and properties
-         If (ShapeObj.Visible) {
-            Info := ShapeObj.InstanceInfo()
-            Switch Info.Source {
-               Case "File", "Clip":
-                  CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
-               Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
-                  CloneObj := SnipObj.AddNewShape(Info.Shape)
-               Default:
-            }
-            If (IsSet(CloneObj)) {
-               CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
-               ; Blend in saved properties
-               For pr, v in Info.OwnProps()
-                  Try CloneObj.%pr% := v
-               ; Now draw the shape on the canvas
-               CloneObj.Refresh()
-               ShapeOnTop(CloneObj)
-               CloneObj.Gui.Dirty++
-            }               
+         Info := ShapeObj.InstanceInfo()
+         Switch Info.Source {
+            Case "File", "Clip":
+               CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+            Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+               CloneObj := SnipObj.AddNewShape(Info.Shape)
+            Default:
          }
+         If (IsSet(CloneObj)) {
+            CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
+            ; Blend in saved properties
+            For pr, v in Info.OwnProps()
+               Try CloneObj.%pr% := v
+            ; Now draw the shape on the canvas
+            CloneObj.Refresh()
+            ShapeOnTop(CloneObj)
+            CloneObj.Gui.Dirty++
+         }               
       }
       ; Minimize existing snip
       if (ScaleFactor != 1.0)
@@ -757,13 +764,11 @@ Class GuiSnip extends Gui {
          this.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
 
          ; Shift all of the controls so they stay in same place
-         For ShapeObj in this {
-            If ShapeObj.Visible {
-               ShapeObj.GetPos(&X, &Y, &W, &H)
-               ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-               ShapeObj.Move(X - C.X1, Y - C.Y1)
-               ShapeObj.Refresh()
-            }
+         For ShapeObj in this.VisibleShapes {
+            ShapeObj.GetPos(&X, &Y, &W, &H)
+            ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+            ShapeObj.Move(X - C.X1, Y - C.Y1)
+            ShapeObj.Refresh()
          }
          this.RefreshTextures()
          ButtonBar.Show()
@@ -800,16 +805,13 @@ Class GuiSnip extends Gui {
 
          this.ReplaceSnip(hBitmap, gX, gY)
          ; Shift all of the controls so they stay in same place
-         For ShapeObj in this {
-            If ShapeObj.Visible {
-               ShapeObj.GetPos(&X, &Y, &W, &H)
-               ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-               If (pW = iR.W) ; Horz section
-                  ShapeObj.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
-               Else if (pH = iR.H) ; Vert section
-                  ShapeObj.Move(X - (X > iR.L ? iR.w :0) , Y)
-               ; ShapeObj.Refresh()
-            }
+         For ShapeObj in this.VisibleShapes {
+            ShapeObj.GetPos(&X, &Y, &W, &H)
+            ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+            If (pW = iR.W) ; Horz section
+               ShapeObj.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
+            Else if (pH = iR.H) ; Vert section
+               ShapeObj.Move(X - (X > iR.L ? iR.w :0) , Y)
          }
          this.RefreshTextures()
          ButtonBar.Show()
@@ -889,27 +891,21 @@ Class GuiSnip extends Gui {
             Case "Expand": ; enlarge inside, don't move window
                this.ReplaceSnip(hBitmap)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
-                  For ShapeObj in this {
-                     If ShapeObj.Visible {
-                        ShapeObj.GetPos(&X, &Y, &W, &H)
-                        If (l > 0 AND X > l OR (t > 0 and Y > t)) {
-                           ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-                           ShapeObj.Move(X + (r - l), Y + (b - t))
-                        }
-                        ; ShapeObj.Refresh()
+                  For ShapeObj in this.VisibleShapes {
+                     ShapeObj.GetPos(&X, &Y, &W, &H)
+                     If (l > 0 AND X > l OR (t > 0 and Y > t)) {
+                        ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+                        ShapeObj.Move(X + (r - l), Y + (b - t))
                      }
                   }
             Case "Extend": ; enlarge outside
                this.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
                If (l > 0 OR t > 0) {
-                  For ShapeObj in this {
-                     If ShapeObj.Visible {
-                        ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-                        ShapeObj.GetPos(&X, &Y, &W, &H)
-                        ShapeObj.Move(X + l, Y + t)
-                        ; ShapeObj.Refresh()
-                     }
+                  For ShapeObj in this.VisibleShapes {
+                     ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+                     ShapeObj.GetPos(&X, &Y, &W, &H)
+                     ShapeObj.Move(X + l, Y + t)
                   }
                }
          }
