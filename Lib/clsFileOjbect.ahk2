@@ -139,17 +139,21 @@ Class FileObject {
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 
          Default:
+            warning("Unknwon Shape Source " Info.Source)
+            Return 0
       }
       ; Restore saved properties and build the shape
-      If (IsSet(CloneObj)) {
+      If (IsSet(CloneObj) AND IsObject(CloneObj)) {
          ; Blend in saved properties
          For pr, v in Info.OwnProps()
             Try CloneObj.%pr% := v
          ; Now draw the shape on the canvas
          CloneObj.Refresh()
          ShapeOnTop(CloneObj)
-      } else
-         CloneObj := 0
+      } Else {
+         warning("Expected Object for " Info.Source " shape, Num=" Info.Shape)
+         Return 0
+      }
       Return CloneObj
    }
 }

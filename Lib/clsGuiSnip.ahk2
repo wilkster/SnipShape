@@ -684,8 +684,10 @@ Class GuiSnip extends Gui {
             Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
                CloneObj := SnipObj.AddNewShape(Info.Shape)
             Default:
+               warning("Unknown Shape Source " Info.Source)
+               Continue
          }
-         If (IsSet(CloneObj)) {
+         If (IsSet(CloneObj) AND IsObject(CloneObj)) {
             CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
@@ -694,7 +696,8 @@ Class GuiSnip extends Gui {
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)
             CloneObj.Gui.Dirty++
-         }               
+         } Else
+            warning("Expected Object for " Info.Source " shape, Num=" Info.Shape)
       }
       ; Minimize existing snip
       if (ScaleFactor != 1.0)
