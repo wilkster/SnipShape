@@ -165,6 +165,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | **Snip HotKey**          | **Scaling Action**                                                                                                       |
 | = / -                    | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | Ctrl-Scroll Wheel        | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
+| Alt-Scroll Wheel         | Adjust the transparency (Alpha) of the visible snip bitmap                                                               |
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
 
 ## Toolbar - F1 to toggle while snip active
@@ -416,7 +417,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 - Auto Save clips to the screenshot folder on snip (toggle)
 - Include Border With Clipboard Copy (toggle)
 - Include Border With File Save (toggle)
-- Open Saved Snips dialog to retrieve a prior saved snip or screenshot
+- Open Saved Snips dialog to retrieve a prior saved snip or screenshot, if snip has shapes the will be editable when re-opened
 - Edit Settings File in Notepad to edit additional settings
 
 ## Configuration Files
@@ -456,5 +457,4 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 
 ## Limitations/Future
 
-- Shapes on saved snips are merged with snip when saved, and no longer editable. (future idea)
 - Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes).
