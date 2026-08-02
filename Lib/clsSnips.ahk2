@@ -349,7 +349,7 @@ Class Snips {
          ; NOTE - for now use active monitor since it is slower by Nx for N monitors
          ; MonInfo := allMonArea()
          MonInfo := activeMonArea(0)
-         BW := Settings.BorderWidth * 1.2
+         BW := Settings.BorderWidth
          ; for slower computers grab the mouse start before any delays
          If (mode = 3) {
             GetCursorPos(&sX, &sY)
@@ -370,8 +370,8 @@ Class Snips {
          ;        which can be slow to updatelayer on slower computers
          selSurf := GDIp.DIBSurface(winW, winH, this.guiSSR.hWnd)
          ; decrease quality for speed (quality not needed here)
-         GDIp.SetSmoothingMode(selSurf.G,1)
-         GDIp.SetInterpolationMode(selSurf.G,1)
+         GDIp.SetSmoothingMode(selSurf.G, 1)
+         GDIp.SetInterpolationMode(selSurf.G, 1)
          ; To dim or not dim, that is the question
          fill          := dimScreen ? 0x60000000 : 0x01000000 ; need some opacity for the mouse to change
          lastDimScreen := dimScreen
