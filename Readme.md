@@ -234,6 +234,7 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | --- | ---------------------------------------------------------------------- |
 | P   | Free-hand Pen in current color, shift to stay on an axis               |
 | M   | Free-hand Wide (Marker) Pen in current color, shift to stay on an axis |
+
 ## Highlighters
 
 | Key | Action                                                             |

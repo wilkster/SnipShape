@@ -645,7 +645,7 @@ Class Snips {
          Gdip.DisposeImage(pBitmap)
          ; Save the Snip in Editable format as well if it has shapes
          If (IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
-            FileName := SavePath . baseName . ".snp"
+            FileName := SavePath . baseName . ".json"
             FileObject.SaveSnip(SnipObj, FileName)
          }
          SnipObj.Dirty := 0
@@ -731,7 +731,7 @@ Class Snips {
     */
    Static CreateSnipFromFile(sFile) {
       SplitPath(sFile,,&folder,,&baseName)
-      editFile := folder "\" baseName ".snp"
+      editFile := folder "\" baseName ".json"
       If FileExist(editFile) {
          If (SnipObj := FileObject.LoadSnip(editFile)) {
             ButtonBar.Show(SnipObj.Hwnd)
