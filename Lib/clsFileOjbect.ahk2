@@ -11,9 +11,6 @@
 #include clsBitmap.ahk2
 #include clsSnips.ahk2
 Class FileObject {
-   Static _Init() {
-
-   }
    /**
     * Save a snip and all of its shapes for alter editing in JSON format
     * @param SnipObj Snip Object to save
@@ -24,7 +21,7 @@ Class FileObject {
       fileObj := {}
       ; Save the shape bitmap
       fileObj.Snip := SnipObj.SnipInfo()
-      pTemp := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle)
+      pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle)
       ; This gets a base64 encoded stream to save to the file
       fileObj.Snip.hBitmap := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
       GDIp.DisposeImage(pTemp)
@@ -36,10 +33,15 @@ Class FileObject {
             ; Points is a buffer, serialize the data
             If (Info.hasProp("Points")) {
                ; Type=Buffer
-               Info.Points := this.SerializeBufferToBase64(Info.Points)
+               pts := Bitmap.BinaryToBase64(Info.Points, Info.Points.Size)
+               If (Type(pts) = "String") {
+                  Info.Points := pts
+               } Else {
+                  Info.Points := ""
+                  MsgBox("Failed to Set Points for Shape", "Shape Error", 0x30)
+               }
             }
-            ; For now we make sure there is a default for the shape
-            ; Handle embedded bitmaps
+            ; Serialize embedded bitmaps
             If (Info.HasProp("FileName") and IsInteger(Info.FileName)) {
                pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName)
                Info.FileName := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
@@ -48,20 +50,25 @@ Class FileObject {
             fileObj.Shapes.push(Info)
          }
       }
+      ; We have the fileObj, now ready to save to file
       If (FileExist(fileName)) {
          if (MsgBox("Ok to overwrite`n" fileName, "File Exists", 0x1024) = "Yes") {
             Try {
                FileDelete(fileName)
             } Catch as E {
-               MsgBox("Error Removing File",FileName,0x30)
+               MsgBox("Error Removing File " fileName, "Remove Error", 0x30)
                Return 0
             }
          } else
             Return 0
       }
       ; Now we have the object constructed, get a text version we can write to a file
-      txt := JSON.stringify(fileObj)      
-      FileAppend(txt, fileName)
+      txt := JSON.Stringify(fileObj)      
+      Try {
+         FileAppend(txt, fileName)
+      } Catch as E {
+         MsgBox("Failed to save " fileName, "Save Error", 0x30)
+      }
       Return 1
    }
    /**
@@ -72,18 +79,28 @@ Class FileObject {
    Static LoadSnip(fileName) {
       If (FileExist(fileName)) {
          If (txt := FileRead(fileName)) {
-            fileObj              := JSON.parse(txt, , false)
-            pTemp                := BitMap.LoadBitmapFromBase64(fileObj.Snip.hBitmap)
-            hBitmap              := GDIp.CreateHBITMAPFromBitmap(pTemp)
-            fileObj.Snip.hBitmap := ""
-            GDIp.DisposeImage(pTemp)
-            ; We haave the data for the snip and the shapes, so recreate them here
-            If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
-               For ShapeInfo in fileObj.Shapes {
-                  this.RecreateShape(SnipObj, ShapeInfo)
-               }
-               Return SnipObj
+            Try {
+               fileObj := JSON.Parse(txt, , false)
+            } Catch as E {
+               elog(E)
+               MsgBox("Error Parsing " fileName ", " E.Message)
+               Return 0
             }
+            pTemp := BitMap.LoadBitmapFromBase64(fileObj.Snip.hBitmap)
+            If (pTemp > 0) {
+               hBitmap := GDIp.CreateHBITMAPFromBitmap(pTemp)
+               fileObj.Snip.hBitmap := ""
+               GDIp.DisposeImage(pTemp)
+               ; We haave the data for the snip and the shapes, so recreate them here
+               If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
+                  For ShapeInfo in fileObj.Shapes {
+                     this.RecreateShape(SnipObj, ShapeInfo)
+                  }
+                  Return SnipObj
+               } else 
+                  MsgBox("Failed to Create Snip from " fileName,"File Load Error", 0x30)
+            }
+            MsgBox("Failed to Read bitmap from " fileName,"File Load Error:" pTemp, 0x30)
          }
       }
       Return 0
@@ -99,10 +116,13 @@ Class FileObject {
       Switch Info.Source {
          Case "File", "Clip":
             ; Bitmap has already been replaced in Info.FileName
-            If (StrLen(Info.FileName) > 300 OR NOT FileExist(Info.FileName)) {
-               pTemp         := BitMap.LoadBitmapFromBase64(Info.FileName)
-               Info.FileName := GDIp.CreateHBITMAPFromBitmap(pTemp)
-               GDIp.DisposeImage(pTemp)
+            If (StrLen(Info.FileName) > 500 OR NOT FileExist(Info.FileName)) {
+               pTemp := BitMap.LoadBitmapFromBase64(Info.FileName)
+               If (pTemp > 0) {
+                  Info.FileName := GDIp.CreateHBITMAPFromBitmap(pTemp)
+                  GDIp.DisposeImage(pTemp)
+               } else 
+                  MsgBox("Failed to Create Bitmap Shape:" pTemp, "Shape Error", 0x30)
             }
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
 
@@ -115,7 +135,7 @@ Class FileObject {
             }
             ; Points buffer recreate
             If (Info.hasProp("Points")) {
-               Info.Points := this.DeserializeBase64ToBuffer(Info.Points)
+               Info.Points := Bitmap.Base64ToBinary(Info.Points)
             }
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 
@@ -130,58 +150,11 @@ Class FileObject {
          CloneObj.Refresh()
          ShapeOnTop(CloneObj)
          CloneObj.Gui.Dirty++
-      }
+      } else
+         CloneObj := 0
       Return CloneObj
    }
-   /**
-    * Serialize the contents of a raw buffer pointer 
-    * @param buf Raw buffer pointer
-    * @returns {Integer | String} 
-    */
-   Static SerializeBufferToBase64(buf) {
-      ; buf is any Buffer object — buf.Ptr / buf.Size describe the raw bytes
-      DllCall("Crypt32.dll\CryptBinaryToStringW"
-         , "Ptr", buf.Ptr, "uint", buf.Size, "uint", 0x40000001
-         , "Ptr", 0, "uint*", &base64Length := 0)
-      If !base64Length
-         Return -1
-
-      out := Buffer(base64Length * 2, 0)  ; *2 because W variant writes UTF-16 (2 bytes/char)
-      _E := DllCall("Crypt32.dll\CryptBinaryToStringW"
-         , "Ptr", buf.Ptr, "uint", buf.Size, "uint", 0x40000001
-         , "Ptr", out.Ptr, "uint*", &base64Length)
-      If !_E
-         Return -2
-
-      Return StrGet(out.Ptr, base64Length, "UTF-16")
-   }
-
-   /**
-    * Unseriazie a buffer object
-    * @param base64Str String from file to create a buffer from
-    * @returns {Integer | FileObject} 
-    */
-   Static DeserializeBase64ToBuffer(base64Str) {
-      DllCall("Crypt32.dll\CryptStringToBinaryW"
-         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
-         , "Ptr", 0, "uint*", &nSize := 0, "Ptr", 0, "Ptr", 0)
-      If !nSize
-         Return -1
-
-      buf := Buffer(nSize, 0)
-      _E := DllCall("Crypt32.dll\CryptStringToBinaryW"
-         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
-         , "Ptr", buf.Ptr, "uint*", &nSize, "Ptr", 0, "Ptr", 0)
-      If !_E
-         Return -2
-
-      Return buf   ; caller reads this back with NumGet at whatever integer width they used originally
-   }   
 }
-
-
-
-
 /************************************************************************
  * @description: JSON格式字符串序列化和反序列化, 修改自[HotKeyIt/Yaml](https://github.com/HotKeyIt/Yaml)
  * 增加了对true/false/null类型的支持, 保留了数值的类型
@@ -200,7 +173,7 @@ Class JSON {
     * @param keepbooltype convert true/false/null to JSON.true / JSON.false / JSON.null where it's true, otherwise 1 / 0 / ''
     * @param as_map object literals are converted to map, otherwise to object
     */
-   Static parse(text, keepbooltype := false, as_map := true) {
+   Static Parse(text, keepbooltype := false, as_map := true) {
       keepbooltype ? (_true := this.true, _false := this.false, _null := this.null) : (_true := true, _false := false, _null := "")
       as_map ? (map_set := (maptype := Map).Prototype.Set) : (map_set := (obj, key, val) => obj.%key% := val, maptype := Object)
       NQ := "", LF := "", LP := 0, P := "", R := "", text := LTrim(text, " `t`r`n")
@@ -286,7 +259,7 @@ Class JSON {
     * @param expandlevel The level of JSON string need to expand, by default expand all.
     * @param space Adds indentation, white space, and line break characters to the return-value JSON text to make it easier to read.
     */
-   Static stringify(obj, expandlevel := unset, space := "  ") {
+   Static Stringify(obj, expandlevel := unset, space := "  ") {
       expandlevel := IsSet(expandlevel) ? Abs(expandlevel) : 10000000
       Return Trim(CO(obj, expandlevel))
       CO(O, J := 0, R := 0, Q := 0) {

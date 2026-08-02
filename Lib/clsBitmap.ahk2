@@ -840,20 +840,81 @@ Class BitMap {
          DllCall("GlobalFree", "Ptr", hData)
 
          ; Using CryptBinaryToStringA saves about 2MB in memory.
-         DllCall("Crypt32.dll\CryptBinaryToStringA", "Ptr", bin.ptr, "uint", nSize, "uint", 0x40000001, "Ptr", 0, "uint*", &base64Length := 0)
-         base64 := Buffer(base64Length, 0)
-         _E := DllCall("Crypt32.dll\CryptBinaryToStringA", "Ptr", bin.ptr, "uint", nSize, "uint", 0x40000001, "Ptr", base64.Ptr, "uint*", base64Length)
-         If !_E
-            Return -7
-
-         bin := Buffer(0)
-         Return StrGet(base64, base64Length, "CP0")
+         Return BitMap.BinaryToBase64(bin, bin.Size)
       }
 
       _E := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", sOutput, "Ptr", pCodec, "uint", _p)
       Return _E ? -5 : 0
    }
+   /**
+    * Encode a raw memory block to an ASCII base64 string.
+    * @param ptr Pointer to the raw binary data
+    * @param size Size in bytes of the data at ptr
+    * @param flags CryptBinaryToString flags (default: CRYPT_STRING_BASE64 | no CRYPT_STRING_NOCRLF)
+    * @returns {String | Integer} base64 string, or negative error code
+    */
+   Static BinaryToBase64(ptr, size, flags := 0x40000001) {
+      if (NOT size)
+         return ""
+      ; Get buffer size
+      If !DllCall("Crypt32.dll\CryptBinaryToStringA"
+         , "Ptr", ptr
+         , "uint", size
+         , "uint", flags
+         , "Ptr", 0
+         , "uint*", &base64Length := 0)
+         Return -1
 
+      If (NOT base64Length)
+         Return -1
+      ; do the conversion
+      out := Buffer(base64Length, 0)
+      If !DllCall("Crypt32.dll\CryptBinaryToStringA"
+         , "Ptr", ptr
+         , "uint", size
+         , "uint", flags
+         , "Ptr", out.Ptr
+         , "uint*", &base64Length)
+         Return -2
+
+      Return StrGet(out.Ptr, base64Length, "CP0")
+   }
+   /**
+    * Decode a base64 string to a raw Buffer.
+    * @param base64Str Base64-encoded string (native AHK string, UTF-16)
+    * @param flags CryptStringToBinary flags (default: CRYPT_STRING_BASE64)
+    * @returns {Buffer} Buffer of decoded bytes, or empty if failed
+    */
+   Static Base64ToBinary(base64Str, flags := 0x00000001) {
+      If (NOT StrLen(base64Str))
+         Return Buffer(0)
+
+      If !DllCall("Crypt32.dll\CryptStringToBinaryW"
+         , "Ptr", StrPtr(base64Str)
+         , "uint", 0
+         , "uint", flags
+         , "Ptr", 0
+         , "uint*", &nSize := 0
+         , "Ptr", 0
+         , "Ptr", 0)
+         Return -1
+
+      If (NOT nSize)
+         Return -2
+
+      buf := Buffer(nSize, 0)
+      If !DllCall("Crypt32.dll\CryptStringToBinaryW"
+         , "Ptr", StrPtr(base64Str)
+         , "uint", 0
+         , "uint", flags
+         , "Ptr", buf.Ptr
+         , "uint*", &nSize
+         , "Ptr", 0
+         , "Ptr", 0)
+         Return -3
+
+      Return buf
+   }   
    /**
     * Convert a raw PNG base64 string back into a pBitmap (Untested)
     * @param base64Str Encoded string (same as calling SaveBitmapToFile with toBase64 set to 1)
@@ -861,28 +922,22 @@ Class BitMap {
     */
    Static LoadBitmapFromBase64(base64Str) {
       ; get required buffer size first
-      DllCall("Crypt32.dll\CryptStringToBinaryW"
-         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
-         , "Ptr", 0, "uint*", &nSize := 0, "Ptr", 0, "Ptr", 0)
-      If !nSize
-         Return -1
+      bin := BitMap.Base64ToBinary(base64Str)
+      If (NOT IsObject(bin))
+         Return bin
 
-      bin := Buffer(nSize, 0)
-      _E := DllCall("Crypt32.dll\CryptStringToBinaryW"
-         , "Ptr", StrPtr(base64Str), "uint", 0, "uint", 0x00000001
-         , "Ptr", bin.ptr, "uint*", &nSize, "Ptr", 0, "Ptr", 0)
-      If !_E
-         Return -2
+      if (NOT bin.size)
+         Return -5
 
-      pStream := DllCall("Shlwapi\SHCreateMemStream", "Ptr", bin.ptr, "uint", nSize, "Ptr")
+      pStream := DllCall("Shlwapi\SHCreateMemStream", "Ptr", bin.ptr, "uint", bin.Size, "Ptr")
       If !pStream
-         Return -3
+         Return -6
 
       _E := DllCall("gdiplus\GdipCreateBitmapFromStream", "Ptr", pStream, "Ptr*", &pBitmap := 0)
       ObjRelease(pStream)
 
       If (_E || !pBitmap)
-         Return -4
+         Return -7
 
       Return pBitmap
    }
@@ -1438,35 +1493,6 @@ Class BitMap {
          Throw Error("CLSIDFromString failed. Error: " . Format("{:#x}", res))
       Return CLSID
    }
-
-   /**
-    * Encrypt the mcode string into a run-time dll entry point
-    * @param mcode base64 Encoded mcode
-    * @returns Pointer to memory based function 
-    */
-   Static RunMCode(mcode) {
-      Static e := Map(1, 4, 2, 1 , "1", 4, "2", 1)
-      , c := (A_PtrSize = 8) ? "x64" : "x86"
-
-      If (!RegExMatch(mcode, "^([0-9]+),(" c ":|.*?," c ":)([^,]+)", &m))
-         Return 0
-      ; m[1] is 2
-      ; m[2] is x64: or x86:
-      ; m[3] is raw string
-      If (!DllCall("crypt32\CryptStringToBinary", "str", m[3], "uint", StrLen(m[3]), "uint", e[m[1]], "UPtr", 0, "uint*", &s := 0, "UPtr", 0, "UPtr", 0))
-         Return 0
-
-      p := DllCall("GlobalAlloc", "uint", 0, "UPtr", s, "UPtr")
-      ; if (c="x64")
-      DllCall("VirtualProtect", "UPtr", p, "UPtr", s, "uint", 0x40, "uint*", &op := 0)
-
-      If (DllCall("crypt32\CryptStringToBinary", "str", m[3], "uint", StrLen(m[3]), "uint", e[m[1]], "UPtr", p, "uint*", &s, "UPtr", 0, "UPtr", 0))
-         Return p ; success here
-
-      DllCall("GlobalFree", "UPtr", p)
-      Return 0
-   }
-
    /**
     * Return the mcode binary created by MCF (Mcode Factory app)
     * Handles external DLLs in parsing
