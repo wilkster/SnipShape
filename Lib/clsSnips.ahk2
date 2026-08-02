@@ -643,12 +643,12 @@ Class Snips {
             Bitmap.SaveBitmapToFile(pBitmap, FileName)
          }
          Gdip.DisposeImage(pBitmap)
+         SnipObj.Dirty := 0
          ; Save the Snip in Editable format as well if it has shapes
          If (IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
             FileName := SavePath . baseName . ".json"
             FileObject.SaveSnip(SnipObj, FileName)
          }
-         SnipObj.Dirty := 0
 
       } catch as e {
          qTrayTip("Snipper File Save: " e.Message ", from " e.What " @ line " e.Line ,3)

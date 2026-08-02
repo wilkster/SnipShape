@@ -149,7 +149,6 @@ Class FileObject {
          ; Now draw the shape on the canvas
          CloneObj.Refresh()
          ShapeOnTop(CloneObj)
-         CloneObj.Gui.Dirty++
       } else
          CloneObj := 0
       Return CloneObj
