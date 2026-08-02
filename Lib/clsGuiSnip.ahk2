@@ -231,13 +231,13 @@ Class GuiSnip extends Gui {
     */
    VisibleShapes {
       get {
-         shapes := Array()
+         myShapes := Array()
          For ShapeObj in this {
             If (ShapeObj.Visible) {
-               shapes.Push(ShapeObj)
+               myShapes.Push(ShapeObj)
             }
          }
-         Return shapes
+         Return myShapes
       }
    }
 
