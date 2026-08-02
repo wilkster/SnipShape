@@ -874,20 +874,28 @@ logGDI(BFN(Error("", -1).File) " loaded...")
  * @param Timeout Display duration in milliseconds (default: 2000)
  */
 qTrayTip(Message, Code := 4, Title := "SnipShape", Timeout := 2000) {
-   Static nextTip := A_TickCount + Timeout/10
+   static sMessage := ""
+   static sTitle   := ""
+   static sCode    := 0
+   static sTimeout := 0
+
+   sMessage := Message
+   sTitle   := Title
+   sCode    := Code
+   sTimeout := Timeout
+   delay := Max(100, Timeout // 10)
    ; Throttle rate at which they can appear
-   If (A_TickCount > nextTip) {
-      TrayTip() ; hide any existing/pending tips
-      ; Cancel any pending timers
-      SetTimer(ShowTip, 0)
-      ; Need a small timer to delay message on windows 11
-      SetTimer(ShowTip, -Timeout/10)
-      SetTimer(TrayTip, -Timeout)
-      nextTip := A_TickCount + Timeout/10
-   }
+   ; Cancel any pending timers
+   SetTimer(TrayTip, 0)
+   SetTimer(ShowTip, 0)
+   ; Need a small timer to delay message on windows 11
+   SetTimer(ShowTip, -delay)
    Return
-   ShowTip() {
-      TrayTip(Message, Title, Code | 0x30)
+   ; If we use static, we don't create a new function each call
+   Static ShowTip() {
+      TrayTip() ; hide any existing/pending tips
+      TrayTip(sMessage, sTitle, sCode | 0x30)
+      SetTimer(TrayTip, -sTimeout)
    }
 }
 
