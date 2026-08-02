@@ -27,28 +27,27 @@ Class FileObject {
       GDIp.DisposeImage(pTemp)
       ; Save the shape info objects
       fileObj.Shapes := Array()
-      For ShapeObj in SnipObj {
-         If (ShapeObj.Visible) {
-            Info := ShapeObj.InstanceInfo()
-            ; Points is a buffer, serialize the data
-            If (Info.hasProp("Points")) {
-               ; Type=Buffer
-               pts := Bitmap.BinaryToBase64(Info.Points, Info.Points.Size)
-               If (Type(pts) = "String") {
-                  Info.Points := pts
-               } Else {
-                  Info.Points := ""
-                  MsgBox("Failed to Set Points for Shape", "Shape Error", 0x30)
-               }
+      For ShapeObj in SnipObj.VisibleShapes {
+         Info := ShapeObj.InstanceInfo()
+         ; Points is a buffer, serialize the data
+         If (Info.hasProp("Points")) {
+            ; Type=Buffer
+            pts := Bitmap.BinaryToBase64(Info.Points, Info.Points.Size)
+            If (Type(pts) = "String") {
+               Info.Points := pts
+            } Else {
+               Info.Points := ""
+               MsgBox("Failed to Set Points for Shape", "Shape Error", 0x30)
             }
-            ; Serialize embedded bitmaps
-            If (Info.HasProp("FileName") and IsInteger(Info.FileName)) {
-               pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName)
-               Info.FileName := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
-               GDIp.DisposeImage(pTemp)
-            }
-            fileObj.Shapes.push(Info)
          }
+         ; Serialize embedded bitmaps
+         If (Info.HasProp("FileName") and IsInteger(Info.FileName)) {
+            pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName)
+            Info.FileName := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
+            GDIp.DisposeImage(pTemp)
+         }
+         ; Push each to front so they are restored in the proper Z-Order
+         fileObj.Shapes.InsertAt(1, Info)
       }
       ; We have the fileObj, now ready to save to file
       If (FileExist(fileName)) {

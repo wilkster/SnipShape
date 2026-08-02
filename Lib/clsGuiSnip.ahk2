@@ -227,20 +227,27 @@ Class GuiSnip extends Gui {
       }
    }
    /**   
-    * Return a list of visible (active) shapes on the snip
+    * Return a list of visible (active) shapes on the snip in Z-Order
+    * Order is Useful when restoring shapes from sidecar file
     */
    VisibleShapes {
       get {
          myShapes := Array()
-         For ShapeObj in this {
-            If (ShapeObj.Visible) {
-               myShapes.Push(ShapeObj)
-            }
+         hwndShape := DllCall("GetWindow", "Ptr", this.Hwnd, "UInt", 5, "Ptr")  ; GW_CHILD = 5
+         Obj := GuiCtrlFromHwnd(hwndShape)
+         If (Obj.HasProp("Visible") AND Obj.Visible)
+            myShapes.Push(Obj)
+         ; Loop through all child windows
+         While (hwndShape != 0) {
+            ; Get the next child window in Z-order (below the current one)
+            hwndShape := DllCall("GetWindow", "Ptr", hwndShape, "UInt", 2, "Ptr")  ; GW_HWNDNEXT = 2
+            Obj := GuiCtrlFromHwnd(hwndShape)
+            If (Obj.HasProp("Visible") AND Obj.Visible)
+               myShapes.Push(Obj) ; First In First Out
          }
          Return myShapes
       }
    }
-
    /**
     * Get or set the underlying HBITMAP handle for the GUI.
     * It will resize the window to match the new bitmap dimensions.
