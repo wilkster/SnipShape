@@ -2,12 +2,15 @@
 
 **SnipShape** is a lightweight screen-capture utility written in
 **AutoHotkey 2.1**. It provides an alternative to the Windows Snipping Tool while
-using fewer system resources.
+using much fewer system resources (~2MB when idle).
 
 The tool captures a screen region and immediately displays it as an **overlay
 GUI positioned directly over the captured area**. This overlay can be edited in
 place using annotation and shape tools, allowing you to quickly highlight or
 mark up the captured content without opening additional windows.
+
+Full Undo/Redo capabilties, as well as Snips are saved with sidecar files to allow
+resuming editing without shapes being baked into the Snip.
 
 The application is based on the AutoHotkey **Snipper** concept by keeping the
 editing surface directly on the screen rather than moving the image to a
@@ -64,12 +67,14 @@ Fanatic Guru / SKAN / iseahound / Descolada plus
 the work of dozens of people inspired this script.
 Additional contributors are referenced in the source code.
 
-| Script          | Link                                                            |
-| --------------- | --------------------------------------------------------------- |
-| Screen Clipping | <https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088>   |
-| GDIp            | <https://www.autohotkey.com/boards/viewtopic.php?t=72011>       |
-| Snipper         | <https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622> |
-| UWP OCR Library | <https://github.com/Descolada/OCR>                              |
+| Script            | Link                                                            |
+| ------------------| --------------------------------------------------------------- |
+| Screen Clipping   | <https://www.autohotkey.com/boards/viewtopic.php?f=6&t=12088>   |
+| GDIp              | <https://www.autohotkey.com/boards/viewtopic.php?t=72011>       |
+| Snipper           | <https://www.autohotkey.com/boards/viewtopic.php?f=83&t=115622> |
+| UWP OCR Library   | <https://github.com/Descolada/OCR>                             |
+| Thqby JSON Library | <https://github.com/thqby/ahk2_lib/blob/master/JSON.ahk>     |
+| Mcode Forge       | <https://github.com/Vedette1/MCF.ahk>                          | 
 
 ## Requirements
 
@@ -169,8 +174,8 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
 
 ## Toolbar - F1 to toggle while snip active
-<img alt="image" src="https://github.com/user-attachments/assets/74d88463-941b-41e9-b2d3-7046232f8f8e" />
 
+<img alt="image" src="https://github.com/user-attachments/assets/74d88463-941b-41e9-b2d3-7046232f8f8e" />
 
 A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
