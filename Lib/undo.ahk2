@@ -188,7 +188,7 @@ Class UnDo {
             Return 0
       }
       ; Restore saved properties and build the shape
-      If (IsSet(CloneObj) AND IsObject(CloneObj)) {
+      If (IsSet(CloneObj) AND (CloneObj is CommonShape)) {
          ; Blend in saved properties
          For pr, v in Info.OwnProps()
             Try CloneObj.%pr% := v

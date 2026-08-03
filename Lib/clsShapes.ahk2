@@ -534,7 +534,7 @@ Class Shapes {
       ;----------------------------------------------------------------------
       ; If pre-existing shape to resize, then pull properties from the shape
       ;----------------------------------------------------------------------
-      If IsObject(ShapeObj) {
+      If (ShapeObj is commonShape) {
          newShape := false
          coord                 := ShapeObj.shapeCoord
          Shape                 := ShapeObj.Shape
@@ -582,7 +582,7 @@ Class Shapes {
 
          ResizeMode := True
          SisShapes := this.SisterShapes(ShapeObj)
-      } else if (ShapeObj) {
+      } else if (IsInteger(ShapeObj)) {
          newShape := true
          ; No passed in Shape, just the Shape type, so create one
       /** @type {commonShape} */

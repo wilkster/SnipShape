@@ -687,7 +687,7 @@ Class GuiSnip extends Gui {
                warning("Unknown Shape Source " Info.Source)
                Continue
          }
-         If (IsSet(CloneObj) AND IsObject(CloneObj)) {
+         If (IsSet(CloneObj) AND (CloneObj is commonShape)) {
             CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
             ; Blend in saved properties
             For pr, v in Info.OwnProps()
@@ -1009,6 +1009,7 @@ Class GuiSnip extends Gui {
          g.Destroy()
          FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          GDI.DeleteObject(hBitmap)
+         this.Dirty := 0
       } Catch as E {
          FileName := ""
          elog(E)

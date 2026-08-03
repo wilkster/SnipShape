@@ -646,7 +646,6 @@ Class Snips {
             Bitmap.SaveBitmapToFile(pBitmap, FileName)
          }
          Gdip.DisposeImage(pBitmap)
-         SnipObj.Dirty := 0
          ; Save the Snip in Editable format as well if it has shapes
          If (this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
             FileName := SavePath . baseName . ".json"

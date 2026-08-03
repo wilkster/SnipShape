@@ -1035,6 +1035,7 @@ Class BitMap {
       If (!PixelateBitmap) {
          If (A_PtrSize != 8) { ; x86 machine code
          ; -m32 -O2 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
+         ; PixelateBitmapFast.cpp, no memcpy
             x86 := "
             (
             VVdWU4PsSIt8JFyLRCRki0wkaIX/D4QrAgAAi3QkYIX2D4QfAgAAhcAPnsOFyQ+ewgjTD4UNAgAAi1wkcIXbD44BAgAAmfd8JHCJRCQkiciLfCQkiVQkKJn3fCRwg3wkKAGD3/+JfCQgg/oBiUQkQIPY/4lUJESJRCQ4hcAPhLcBAACL
