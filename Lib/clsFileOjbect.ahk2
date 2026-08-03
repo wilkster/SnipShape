@@ -50,16 +50,14 @@ Class FileObject {
          fileObj.Shapes.InsertAt(1, Info)
       }
       ; We have the fileObj, now ready to save to file
+      ; We won't get here unless we have been prompted to overwrite
       If (FileExist(fileName)) {
-         if (MsgBox("Ok to overwrite`n" fileName, "File Exists", 0x1024) = "Yes") {
-            Try {
-               FileDelete(fileName)
-            } Catch as E {
-               MsgBox("Error Removing File " fileName, "Remove Error", 0x30)
-               Return 0
-            }
-         } else
+         Try {
+            FileDelete(fileName)
+         } Catch as E {
+            MsgBox("Error Removing File " fileName, "Remove Error", 0x30)
             Return 0
+         }
       }
       ; Now we have the object constructed, get a text version we can write to a file
       txt := JSON.Stringify(fileObj)      
@@ -90,8 +88,14 @@ Class FileObject {
                hBitmap := GDIp.CreateHBITMAPFromBitmap(pTemp)
                fileObj.Snip.hBitmap := ""
                GDIp.DisposeImage(pTemp)
-               ; We haave the data for the snip and the shapes, so recreate them here
                If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
+                  ; If allow edits is true, use the original name and title
+                  If (Snips.SaveSidecar) {
+                     SplitPath(fileName, , , , &basename)
+                     SnipObj._FileName := fileName
+                     SnipObj.Title := "SnipShapeWindow - " basename
+                  }
+                  ; We have the data for the snip and the shapes, so recreate them here
                   For ShapeInfo in fileObj.Shapes {
                      this.RecreateShape(SnipObj, ShapeInfo)
                   }

@@ -51,6 +51,7 @@ Class Snips {
       this.captureStatic   := IniReadValue("Snips", "Capture Static Screen", false)
       this.topMost         := IniReadValue("Snips", "Keep Snip Always On Top", true)
       this.updateInterval  := 10
+      this.SaveSidecar     := IniReadValue("Snips", "Allow edits to saved Snips", true)
 
       this.UpdateClipboard := IniReadValue("Snips", "Auto Update Clipboard", false)
       this.borderWithCopy  := IniReadValue("Snips", "Border With Copy", false)
@@ -89,10 +90,12 @@ Class Snips {
       this.AddMenuCheck("Minimize Snip After Capture", "minimizeOnSnip") 
       this.AddMenuCheck("Auto Update Clipboard", "UpdateClipboard")
       this.AddMenuCheck("Auto Save Snips to File", "autoSaveToFile")
+      this.AddMenuCheck("Allow Edits to Saved Snips", "SaveSidecar") 
       this.TrayMenu.Add()  ; Creates a new menu item.
       this.AddMenuCheck("Include Border With Clipboard Copy", "borderWithCopy")
       this.AddMenuCheck("Include Border With File Save", "borderWithSave")  
       this.AddMenuCheck("Confirm Snip Close if it has Shapes", "confirmClose") 
+
       ; this.AddMenuCheck("Show Focus Rectangle", "focusRectangle")  
 
       this.TrayMenu.Add()
@@ -645,7 +648,7 @@ Class Snips {
          Gdip.DisposeImage(pBitmap)
          SnipObj.Dirty := 0
          ; Save the Snip in Editable format as well if it has shapes
-         If (IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
+         If (this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
             FileName := SavePath . baseName . ".json"
             FileObject.SaveSnip(SnipObj, FileName)
          }
