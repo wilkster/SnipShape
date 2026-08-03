@@ -96,8 +96,8 @@ Class SnipMenus {
       this.csMenu.SetIcon("Insert Picture From File (Ctrl-P)", SETTINGS.CursorPath . "Shapes.ico")
 
       this.csMenu.Add('') ;16
-      this.csMenu.Add("Open Saved Snips",Snips.OpenSnipDialog.Bind(this))
-      this.csMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
+      this.csMenu.Add("Open Saved Snips (Ctrl-E)",Snips.OpenSnipDialog.Bind(this))
+      this.csMenu.SetIcon("Open Saved Snips (Ctrl-E)", SETTINGS.CursorPath . "Edit.ico")
 
      
 
@@ -187,16 +187,16 @@ Class SnipMenus {
       this.menuY := mY
       ; Sync the button bar state
       this.SyncBB()
-      Try this.csMenu.Delete("Paste Clipboard Text")
-      Try this.csMenu.Delete("Paste Clipboard Image")
+      Try this.csMenu.Delete("Paste Clipboard Text (Ctrl-V)")
+      Try this.csMenu.Delete("Paste Clipboard Image (Ctrl-V)")
       ; Add Menu entries and icons only if we have that format available
       If Clipboard.hasText() {
-         this.csMenu.Insert("18&", "Paste Clipboard Text",this.ContextSnipMenu_Handler.bind(this))
-         this.csMenu.SetIcon("Paste Clipboard Text", SETTINGS.CursorPath . "Paste.ico")
+         this.csMenu.Insert("18&", "Paste Clipboard Text (Ctrl-V)",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.SetIcon("Paste Clipboard Text (Ctrl-V)", SETTINGS.CursorPath . "Paste.ico")
       }
       If Clipboard.hasImage() {
-         this.csMenu.Insert("18&", "Paste Clipboard Image",this.ContextSnipMenu_Handler.bind(this))
-         this.csMenu.SetIcon("Paste Clipboard Image", SETTINGS.CursorPath . "Paste.ico")
+         this.csMenu.Insert("18&", "Paste Clipboard Image (Ctrl-V)",this.ContextSnipMenu_Handler.bind(this))
+         this.csMenu.SetIcon("Paste Clipboard Image (Ctrl-V)", SETTINGS.CursorPath . "Paste.ico")
       }
       ; NOTE Keep positional rename since menu is renamed dynamically
       this.csMenu.Rename('4&', "Edit: "  SnipObj.BaseName)

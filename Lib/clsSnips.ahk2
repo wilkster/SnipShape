@@ -100,7 +100,7 @@ Class Snips {
 
       this.TrayMenu.Add()
       this.TrayMenu.Add("Open Saved Snips", Snips.OpenSnipDialog.Bind(this))  ; Creates a new menu item.
-      this.TrayMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Shapes.ico")
+      this.TrayMenu.SetIcon("Open Saved Snips", SETTINGS.CursorPath . "Edit.ico")
       this.TrayMenu.Add()
       this.TrayMenu.Add("Edit Settings File", (*) => Run(SETTINGS.File))  ; Creates a new menu item.
       this.TrayMenu.SetIcon("Edit Settings File", SETTINGS.CursorPath . "Settings.ico")

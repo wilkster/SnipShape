@@ -369,6 +369,7 @@ HotIfWinActive
    ^O:: Snips.OCRSnipToClipboard(WinExist("A"), 15)
    ^T:: Snips.OCRSnipToClipboard(WinExist("A"), 14)
 
+   ^E:: Snips.OpenSnipDialog()
    =::
    NumpadAdd::{
       /** @type {GuiSnip} */
