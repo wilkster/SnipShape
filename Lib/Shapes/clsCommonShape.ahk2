@@ -338,7 +338,7 @@ Class commonShape extends Gui.Pic {
       this.sCoord := { X1: X1, Y1: Y1, X2: X2, Y2: Y2, W: W, H: H, X: Min(X1, X2), Y: Min(Y1, Y2) }
       Return
       ; Closure
-      SwapIf(test, &L, &R) {
+      Static SwapIf(test, &L, &R) {
          If (test) {
             T := L
             L := R
