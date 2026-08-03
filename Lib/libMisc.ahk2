@@ -537,6 +537,18 @@ activeDPIFactor() {
 
 }
 /**
+ * Translate a string name for drawfunction into a proper method
+ * @param txt String name of drawfunction
+ * @returns {Object}  Drawfunction method
+ */
+getFunctionObject(txt) {
+   fa := StrSplit(txt, ".")
+   If (fa.length = 1)
+      Return %txt%
+   Else
+      Return %fa[1]%.GetMethod(fa[2])
+}
+/**
  * Return the last Win32 error code for the calling thread
  * @returns {Integer} Win32 error code
  */

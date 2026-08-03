@@ -129,8 +129,7 @@ Class FileObject {
             ; Other shapes
             If (Info.HasProp("drawFunction")) {
                ; Saved as text, get the pointer for freehand draw function
-               fa := StrSplit(Info.DrawFunction,".")
-               Info.DrawFunction := %fa[1]%.GetMethod(fa[2])
+               Info.DrawFunction := getFunctionObject(Info.DrawFunction)
             }
             ; Points buffer recreate
             If (Info.hasProp("Points")) {

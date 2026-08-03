@@ -178,9 +178,7 @@ Class UnDo {
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             If (Info.HasProp("drawFunction")) {
-               ; Saved as text, get the pointer
-               fa := StrSplit(Info.DrawFunction,".")
-               Info.DrawFunction := %fa[1]%.GetMethod(fa[2])
+               Info.DrawFunction := getFunctionObject(Info.DrawFunction)
             }
             ; Other shapes
             CloneObj := SnipObj.AddNewShape(Info.Shape)
