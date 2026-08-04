@@ -148,7 +148,7 @@ Class FreeHandShape extends commonShape {
          Case "Medium":
             this.beta   := 0.03
             this.cutoff := 1.5
-            this.minGap := 5
+            this.minGap := 7
          Case "Low":
             this.beta   := 0.05
             this.cutoff := 5.0
@@ -278,6 +278,7 @@ Class FreeHandShape extends commonShape {
     * @param {Integer} useLines - 1 to draw with lines, 0 with curves
     */
    CloseCurve(G, useLines) {
+      ; Any post processing calls would be inserted here
       this.MyPoints.CompleteCurve(G, useLines)
       this.useLines := useLines
    }
@@ -542,6 +543,9 @@ Class FreeHandShape extends commonShape {
          this.lastY        := -1000
          this.lastXc       := -1000
          this.lastYc       := -1000
+         this.lastTick     := A_TickCount
+         this.lastEdx      := 0
+         this.dcutoff      := 1.0 ; < 1 a bit more smoothing
          this.nextTick     := A_TickCount
          this.coord        := { X1: 10000, Y1: 10000, X2: -10000, Y2: -10000 }
          this.firstPoint   := { X: -1000, Y: -1000 }
@@ -551,7 +555,7 @@ Class FreeHandShape extends commonShape {
          this.minGap       := minGap
          this.mincutoff    := cutoff ; hand tuned
          this.beta         := beta   ; hand tuned
-         this.FS           := 50     ; 50Hz draw rate approx
+         this.FS           := 60     ; 60Hz default draw rate approx
       }
 
       /**
@@ -582,17 +586,28 @@ Class FreeHandShape extends commonShape {
          2. Replace the point from 1. if we have reached the timeout or minGap with the smoothed value,
             And create the next point at the current position and repeat 1/2.
          */
-         Xc := X, Yc := Y 
+         Xc := X, Yc := Y
          ; Save first point for closing polygon check later
          If ( this.firstPoint.X = -1000) {
             this.firstPoint := { X: X, Y: Y }
+            this.lastTick := now  ; seed dt tracking so the 2nd call gets a real interval
          } else if (NOT useLines) {
-               ; One Euro Filtering, dynamic alpha based on drawing speed
-            velocity := this.distance(Xc, this.lastXc, Yc, this.lastYc) * this.Fs
-            ; Dynamiclly adjust alpha based on mouse speed
-            k := TwoPi * (this.mincutoff + this.beta * velocity)
+            ; Measured sample rate from actual elapsed time, not an assumed constant.
+            ; Mouse-move events are bursty/irregular, so this keeps velocity and alpha honest.
+            dt := now - this.lastTick
+            Fs := (dt > 0) ? (1000 / dt) : this.Fs  ; fall back to nominal Fs on a zero/dupe-tick event ! 62ms
+            ; One Euro Filtering, dynamic alpha based on drawing speed
+            dx := this.distance(Xc, this.lastXc, Yc, this.lastYc) * Fs
+
+            ; Low-pass the derivative itself (fixed dcutoff) before using it to drive the
+            ; adaptive cutoff — raw per-sample velocity is noisy and otherwise makes alpha jitter.
+            dAlpha := (TwoPi * this.dcutoff) / (TwoPi * this.dcutoff + Fs)
+            edx := this.lastEdx + (dx - this.lastEdx) * dAlpha
+            this.lastEdx := edx
+
+            k := TwoPi * (this.mincutoff + this.beta * edx)
             ; NOTE alpha is linear with K (velocity)
-            alpha := k / (k + this.Fs)
+            alpha := k / (k + Fs)
             Y := Y * alpha + (1 - alpha) * this.lastInY
             X := X * alpha + (1 - alpha) * this.lastInX
          }
@@ -611,8 +626,9 @@ Class FreeHandShape extends commonShape {
          ; Ensures the moust cursor will always be the end of the shape
          NumPut("Float", Xc, "Float", Yc, this.pBuf, this.Offset)
          this.lastInX := X, this.lastInY := Y
-         this.nextTick := A_TickCount + 300 ; HC of 300 ms pause
+         this.nextTick := now + 300 ; HC of 300 ms pause
          this.lastXc   := Xc, this.lastYc := Yc
+         this.lastTick := now
       }
       /**
        * Count of points currently in the buffer
