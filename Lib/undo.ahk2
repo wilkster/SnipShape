@@ -224,7 +224,6 @@ Class UnDo {
    _PerformAction(sourceStack, targetStack, isUndo) {
       If (sourceStack.Length = 0)
          Return false
-      ; TODO - Use tags to do this in a loop for items with the same tag
       item := sourceStack.Pop()
       label := isUndo ? "Undo" : "Redo"
       tag := item.tag
