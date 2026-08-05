@@ -740,6 +740,7 @@ Class GuiSnip extends Gui {
          ; Recenter bitmap
          X := (X + wW / 2) - W / 2
          Y := (Y + wH / 2) - H / 2
+         focusBorder.HideFocus()
          this.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
          ; Relocate and scale all of the shapes on this snip
          relativeScaleFactor := W/ogWidth
