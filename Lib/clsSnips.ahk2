@@ -290,8 +290,9 @@ Class Snips {
    Static OpenSnipDialog(*) {
       If (SnipObj := Snips.IsValid(WinActive("A"))) {
          SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+      } else {
+         hook := FileDialogHook() ; Needed for tray launch in some cases
       }
-      hook := FileDialogHook() ; Needed for tray launch in some cases
       SelectedFiles := FileSelect("M", SETTINGS.SavePath_Image, "Select Screenshots to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
       hook := unset
       ; IDEA - save last folder in settings?
