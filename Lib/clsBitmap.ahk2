@@ -612,7 +612,7 @@ Class BitMap {
    /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
-    * @param NewAlpha Alpha replacement value (e.g 0xFF)
+    * @param NewAlpha Alpha replacement value (e.g 0xFF), -1 means using existing alpha channel per pixel
     * @returns {Integer} number of replaced pixels
     */
    Static PreMultiplyBitmap(uBitmap, NewAlpha:=-1) {
