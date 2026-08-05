@@ -1761,6 +1761,7 @@ Class GDIp {
   ;----------------------------------------------------------------------
    /**
     * Create a GDI hBitmap from a GDI+ bitmap, compositing over an optional background color
+    * NOTE - Does not support 32 bit ARGB bitmaps with alpha!!
     * @param pBitmap Source GDI+ bitmap
     * @param Background Background color to composite against (default: 0xffffffff = white)
     * @returns {Ptr} Handle to the GDI hBitmap
