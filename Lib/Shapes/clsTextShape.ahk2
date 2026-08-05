@@ -563,7 +563,15 @@ Class TextShape extends CommonShape {
          this.DrawText(wX?, wY?, fontSize)
       }
    }
-
+   /**
+    * Scale and move shapes when the snip is scaled
+    * @param amount Factor to adjust
+    * @returns {unset?} 
+    */
+   Scale(amount) {
+      sc := this.shapeCoord
+      this.Move(sc.X * amount, sc.Y * amount, this._fontSize * amount)
+   }
    /**
     * Padding not used for Text
     * @param {Integer} L - Left padding (ignored)

@@ -299,6 +299,17 @@ Class commonShape extends Gui.Pic {
       this.UpdateCoordinates(sX?, sY?, sW?, sH?)
    }
    /**
+    * Scale and move shapes when the snip is scaled
+    * @param amount Factor to adjust
+    * @returns {unset?} 
+    */
+   Scale(amount) {
+      sc := this.shapeCoord
+      this.shapeThickness *= amount
+      this.Move(sc.X * amount, sc.Y * amount, sc.W * amount, sc.H * amount)
+   }
+   /**
+   /**
     * Return the shape position based on control position
     * @param sX Return sX if provided
     * @param sY Return sX if provided

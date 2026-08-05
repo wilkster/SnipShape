@@ -719,12 +719,14 @@ Class GuiSnip extends Gui {
          else
             ScaleFactor *= -1
          ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
-         this.PostAction(UnDo.CHANGE_SNIP)
+         tag := A_TickCount "ScaleSnip"
+         this.PostAction(UnDo.CHANGE_SNIP, tag)
          ; Always scale the base image so we don't lose quality after multiple passes
          hBitmap := this.OGHandle
          ; Scale factor is applies against current scale
          pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
          this.GetPos(&X, &Y, &wW, &wH)
+         GDI.GetHBitmapDimensions(this.Handle, &ogWidth, &ogHeight)
          ; Scale to a new bitmap, most of the time is here
          pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
          GetCursorPos(&mX, &mY)
@@ -739,6 +741,12 @@ Class GuiSnip extends Gui {
          X := (X + wW / 2) - W / 2
          Y := (Y + wH / 2) - H / 2
          this.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
+         ; Relocate and scale all of the shapes on this snip
+         relativeScaleFactor := W/ogWidth
+         For objShape in this.VisibleShapes {
+            objShape.PostAction(UnDo.MOVE_SHAPE, tag)
+            objShape.Scale(relativeScaleFactor)
+         }
          this.RefreshTextures()
          ButtonBar.Show()
       }
@@ -778,7 +786,6 @@ Class GuiSnip extends Gui {
             ShapeObj.GetPos(&X, &Y, &W, &H)
             ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
             ShapeObj.Move(X - C.X1, Y - C.Y1)
-            ShapeObj.Refresh()
          }
          this.RefreshTextures()
          ButtonBar.Show()
