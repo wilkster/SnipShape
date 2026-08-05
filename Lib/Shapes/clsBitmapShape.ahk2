@@ -22,7 +22,7 @@
 Class BMShape extends commonShape {
    /**
     * Initialize this shape as a non-layered bitmap control.
-    * @param sPicImage - Optional picture source path or HBITMAP reference
+    * @param sPicImage - Optional picture source path or HBITMAP reference, owned and deleted by caller
     */
    Init(sPicImage := "", sX := 0, sY := 0) {
       ; Create a copy of the hBitmap regardless of source
@@ -30,6 +30,8 @@ Class BMShape extends commonShape {
          this.myHandle := LoadPicture(sPicImage)
       } Else {
          this.myHandle :=GDI.CopyImage(sPicImage)
+         ; Cleanup Alpha channel from clipboard, if alpha < 255 then pixels may still show, so premultiply here.
+         BitMap.PreMultiplyBitmap(this.myHandle)
       }
       ; Replace transparent pixels with alpha channel of 1 so we can grab them.
       BitMap.ReplaceBitmapColor(this.myHandle, 0x00000000, 0x01000000, true)
