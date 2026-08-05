@@ -177,7 +177,6 @@ Class BMShape extends commonShape {
     * @returns {InfoObject} 
     */
    InstanceInfo() {
-      ; Needs file name for picture control
       infoObj := Super.InstanceInfo()
       ; Use a copy of the hbitmap as it may be invalidated later
       ; Always use the hBitmap, even if it came from a picture file so we keep rotation and other aspects
