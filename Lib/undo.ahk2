@@ -236,68 +236,80 @@ Class UnDo {
                ; recreate when: undoing a DELETE, or redoing an ADD
                ; recreate if delete shape and undo, OR add shape and redo
                recreate := (item.action == UnDo.DELETE_SHAPE) = isUndo
-               shapeObj := item.obj
-               If (recreate) {
-                  Info := item.data
-                  CloneObj := this._RecreateShape(shapeObj, Info)
-                  ; The NEXT time this item is popped it will be a "close" op, which
-                  ; doesn't read .data at all - so this snapshot is unused, but capture
-                  ; the cheap ADD_SHAPE (empty) schema for consistency.
-                  If (CloneObj) {
-                     reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
-                     targetStack.Push({ obj: CloneObj, action: item.action, Tag: item.tag, data: reverseData })
+               If (item.obj is commonShape) {
+                  shapeObj := item.obj
+                  If (recreate) {
+                     Info := item.data
+                     CloneObj := this._RecreateShape(shapeObj, Info)
+                     ; The NEXT time this item is popped it will be a "close" op, which
+                     ; doesn't read .data at all - so this snapshot is unused, but capture
+                     ; the cheap ADD_SHAPE (empty) schema for consistency.
+                     If (CloneObj) {
+                        reverseData := this._CaptureData(UnDo.ADD_SHAPE, CloneObj)
+                        targetStack.Push({ obj: CloneObj, action: item.action, Tag: item.tag, data: reverseData })
+                     }
+                  } Else {
+                     ; The NEXT time this item is popped it will be a "recreate" op, which
+                     ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
+                     ; of what item.action says (it stays fixed across the whole chain,
+                     ; while the operation itself alternates recreate/close each round).
+                     reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
+                     targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
+                     shapeObj.Close(true)
                   }
-               } Else {
-                  ; The NEXT time this item is popped it will be a "recreate" op, which
-                  ; needs full InstanceInfo - capture it now, BEFORE closing, regardless
-                  ; of what item.action says (it stays fixed across the whole chain,
-                  ; while the operation itself alternates recreate/close each round).
-                  reverseData := this._CaptureData(UnDo.DELETE_SHAPE, shapeObj)
+               } else
+                  warning("Expected Shape but did not get it for Action " item.action)
+
+            Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE, UnDo.BITMAP_CHANGE:
+               If (item.obj is commonShape) {
+                  shapeObj := item.obj
+                  reverseData := this._CaptureData(item.action, shapeObj)
                   targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
-                  shapeObj.Close(true)
-               }
+                  ; Blend in saved properties
+                  For pr, v in item.data.OwnProps()
+                     shapeObj.%pr% := v
+                  ; If there was a bitmap in the undo/redo data then apply it
+                  If (hbitmap := item.data.hBitmap ?? 0) {
+                     shapeObj.Handle := hbitmap
+                  }
+                  ; Redraw with new properties
+                  shapeObj.Refresh()
+                  ; Make sure focus border is synced
+                  focusBorder.Sync(shapeObj)
+               } else 
+                  warning("Expected Shape but did not get it for Action " item.action)
 
             Case UnDo.MOVE_SNIP:
-               snipObj := item.obj
-               Area := item.data.Area
-               reverseData := this._CaptureData(item.action, snipObj)
-               targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
-               snipObj.Move(Area.X, Area.Y)
-               ButtonBar.Show(snipObj.hWnd)
-               
-            Case UnDo.SHAPE_COLOR, UnDo.MOVE_SHAPE, UnDo.RESIZE_SHAPE, UnDo.TEXT_CHANGE, UnDo.BITMAP_CHANGE:
-               shapeObj := item.obj
-               reverseData := this._CaptureData(item.action, shapeObj)
-               targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
-               ; Blend in saved properties
-               For pr, v in item.data.OwnProps()
-                  shapeObj.%pr% := v
-               ; If there was a bitmap in the undo/redo data then apply it
-               If (hbitmap := item.data.hBitmap ?? 0) {
-                  shapeObj.Handle := hbitmap
-               }
-               ; Redraw with new properties
-               shapeObj.Refresh()
-               ; Make sure focus border is synced
-               focusBorder.Sync(shapeObj)
-
-            Case UnDo.CHANGE_SNIP:
-               snipObj := item.obj
-               Area := item.data.Area
-               reverseData := this._CaptureData(item.action, snipObj)
-               targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
-               If (hbitmap := item.data.hBitmap ?? 0) {
-                  snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
+               If (item.obj is GuiSnip) {
+                  snipObj := item.obj
+                  Area := item.data.Area
+                  reverseData := this._CaptureData(item.action, snipObj)
+                  targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
+                  snipObj.Move(Area.X, Area.Y)
                   ButtonBar.Show(snipObj.hWnd)
-                  snipObj.RefreshTextures()
-                  ; If we undo all they way back, then reset the OGHandle to 0 if it is use
-                  If (UnDo AND sourceStack.Length == 0) {
-                     If (snipObj._OGHandle) {
-                        GDI.DeleteObject(snipObj._OGHandle)
-                        snipObj._OGHandle := 0
+               } else
+                  warning("Expected Snip but did not get it for Action " item.action)
+               
+            Case UnDo.CHANGE_SNIP:
+               If (item.obj is GuiSnip) {
+                  snipObj := item.obj
+                  Area := item.data.Area
+                  reverseData := this._CaptureData(item.action, snipObj)
+                  targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
+                  If (hbitmap := item.data.hBitmap ?? 0) {
+                     snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
+                     ButtonBar.Show(snipObj.hWnd)
+                     snipObj.RefreshTextures()
+                     ; If we undo all they way back, then reset the OGHandle to 0 if it is use
+                     If (UnDo AND sourceStack.Length == 0) {
+                        If (snipObj._OGHandle) {
+                           GDI.DeleteObject(snipObj._OGHandle)
+                           snipObj._OGHandle := 0
+                        }
                      }
                   }
-               }
+               } else
+                  warning("Expected Snip but did not get it for Action " item.action)
             Default:
          }
          ; Determine if we have more to do with the same tag
