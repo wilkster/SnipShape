@@ -171,6 +171,21 @@ Class BMShape extends commonShape {
          hBitmap    : GDI.CopyImage(this.Handle)
       }
    }
+   /**
+    * InstanceInfo
+    * Get the key common instance info to recreate this shape instance
+    * @returns {InfoObject} 
+    */
+   InstanceInfo() {
+      ; Needs file name for picture control
+      infoObj := Super.InstanceInfo()
+      ; Use a copy of the hbitmap as it may be invalidated later
+      ; Always use the hBitmap, even if it came from a picture file so we keep rotation and other aspects
+      hBitmap := GDI.CopyImage(this.Handle)
+      infoObj.FileName := hBitmap
+      infoObj.hBitmap  := hBitmap ; so we can free it in undo unstack
+      Return infoObj
+   }
 
    /**
     * Capture a screen area as an hBitmap and paint it into a layered window.
