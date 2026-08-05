@@ -285,20 +285,24 @@ Class Snips {
    }
    /**
     * Display a file-open dialog and load the selected image as a new snip
-    * @returns {String|Integer} Full path of the opened file, or 0 if no file was selected
+    * @returns {Integer} Count of files opened
     */
    Static OpenSnipDialog(*) {
       If (SnipObj := Snips.IsValid(WinActive("A"))) {
          SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
       }
-      SelectedFile := FileSelect(, SETTINGS.SavePath_Image, "Select Screenshot to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      hook := FileDialogHook() ; Needed for tray launch in some cases
+      SelectedFiles := FileSelect("M", SETTINGS.SavePath_Image, "Select Screenshots to Open", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      hook := unset
       ; IDEA - save last folder in settings?
-      if (FileExist(SelectedFile)) {
-         Snips.CreateSnipFromFile(SelectedFile)
-         Return SelectedFile
-      } else {
-         Return 0
+      Count := 0
+      For SelectedFile in SelectedFiles {
+         If (FileExist(SelectedFile)) {
+            Snips.CreateSnipFromFile(SelectedFile)
+            Count++
+         }
       }
+      Return Count
    }
 
    /**

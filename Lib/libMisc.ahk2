@@ -1327,4 +1327,56 @@ Class ImageList extends map {
          Return 0
    }
 }
+/**
+ * Tempoarary hook to call just before a FileSelect dialog is launched
+ * This will keep the dialog on top of any other ontop windows
+ * Only really needed if calling fileselect from the Tray.
+ */
+Class FileDialogHook {
+   Static EVENT_OBJECT_SHOW     := 0x8002
+   Static OBJID_WINDOW          := 0
+   Static WINEVENT_OUTOFCONTEXT := 0
+
+   __New() {
+      this.Callback := CallbackCreate(WinEventProc, , 7)
+
+      this.hHook := DllCall(
+         "SetWinEventHook"
+         , "UInt", FileDialogHook.EVENT_OBJECT_SHOW
+         , "UInt", FileDialogHook.EVENT_OBJECT_SHOW
+         , "Ptr", 0
+         , "Ptr", this.Callback
+         , "UInt", DllCall("GetCurrentProcessId")
+         , "UInt", DllCall("GetCurrentThreadId")
+         , "UInt", FileDialogHook.WINEVENT_OUTOFCONTEXT
+         , "Ptr")
+
+      WinEventProc(hHook, event, hwnd, idObject, idChild, eventThread, eventTime) {
+         If (idObject != 0)
+            Return
+         Try
+            If WinGetClass(hwnd) != "#32770"
+               Return
+         Catch
+            Return
+         ; Raise it above all other topmost windows.
+         SetWindowTop(hwnd)
+      }
+   }
+   __Delete() {
+      this.Close
+   }
+   Close() {
+      If this.hHook {
+         DllCall("UnhookWinEvent", "Ptr", this.hHook)
+         this.hHook := 0
+      }
+
+      If this.Callback {
+         CallbackFree(this.Callback)
+         this.Callback := 0
+      }
+   }
+}
+
 logGDI(BFN(Error("", -1).File) " loaded...")

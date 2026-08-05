@@ -1276,18 +1276,19 @@ Class Shapes {
       SnipObj.GetPos(,,&W,&H)
       KeyWait(letter,"t3") ; wait for key to not be pressed
       SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
-      SelectedFile := FileSelect(, SETTINGS.SavePath_Icons, "Select Picture to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
-      if (FileExist(SelectedFile)) {
-         ; Place 1/3 in
-         if (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, W//3, H//3)) {
-            SplitPath(SelectedFile,,&SETTINGS.SavePath_Icons)  ; Save new location for snips
-            ShapeObj.Gui.Dirty++
-            ShapeObj.PostAction(UnDo.ADD_SHAPE)
+      SelectedFiles := FileSelect("M", SETTINGS.SavePath_Icons, "Select Pictures to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
+      Count := 0
+      For SelectedFile in SelectedFiles {
+         If (FileExist(SelectedFile)) {
+            If (ShapeObj := this.CreatePicFromSource(SnipObj, SelectedFile, W // 3, H // 3)) {
+               SplitPath(SelectedFile, , &Settings.SavePath_Icons)  ; Save new location for snips
+               ShapeObj.Gui.Dirty++
+               ShapeObj.PostAction(UnDo.ADD_SHAPE)
+               Count++
+            }
          }
-         Return ShapeObj
-      } else {
-         Return 0
       }
+      Return Count
    }
 
    /**
