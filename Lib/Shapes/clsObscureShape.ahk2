@@ -51,10 +51,10 @@ Class ObscureShape extends commonShape {
          this.createImageBrush()
       }
       ; During a move we may have changed the translation
-      ; If (this.imageBrush) {
-      ;    GDIp.ResetTextureTransform(this.imageBrush)
-      ;    GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
-      ; }
+      If (this.imageBrush) {
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
+      }
    }
 
    /**
