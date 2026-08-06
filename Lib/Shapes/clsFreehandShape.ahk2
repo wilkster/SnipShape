@@ -5,13 +5,13 @@
  * @version 1.0.0
  ***********************************************************************/
 #Requires AutoHotkey v2.1-alpha.23 
+#include clsCommonShape.ahk2
 #include ..\clsGDIp.ahk2
 #include ..\libMisc.ahk2
 #include ..\clsBitmap.ahk2
 #include ..\clsShapes.ahk2
 #include ..\clsSnips.ahk2
 #include ..\Settings.ahk2
-#include clsCommonShape.ahk2
 
 /**
  * Class Freehand shape
@@ -35,7 +35,6 @@ Class FreeHandShape extends commonShape {
       this.highlightOpacity      := Shapes.highlightOpacity
       this.scaleFreeHand         := SETTINGS.Scale_Freehand
       this.imageBrush            := 0
-      this.hasImage              := false
       this.lastColor             := -1
       this.lastFactor            := -1
       this.pOutline              := 0
@@ -97,10 +96,10 @@ Class FreeHandShape extends commonShape {
             ; Real time draw the underlying highlighted bitmap
             Switch this.Shape {
                Case Shapes.SHAPE_HILITER:
-                  If ( NOT this.hasImage OR this.Color != this.lastColor)
+                  If ( NOT this.imageBrush OR this.Color != this.lastColor)
                      this.createImageBrush()
                Case Shapes.SHAPE_SMUDGE:
-                  If ( NOT this.hasImage OR this.Factor != this.lastFactor)
+                  If ( NOT this.imageBrush OR this.Factor != this.lastFactor)
                      this.createImageBrush()
             }
          Case Shapes.SHAPE_ARCARROW:
@@ -127,49 +126,6 @@ Class FreeHandShape extends commonShape {
    }
 
    /**
-    * Set the smoothing factor for the freehand drawing
-    * @param {String} amount - Smoothing level (e.g., "Extreme", "High", "Medium", "Low", "Minimal", "None")
-    */
-   setSmoothingFactor(amount) {
-      ; Ratio of minGap to alpha smoothing
-      Switch amount {
-         Case "Extreme":
-            this.beta   := 0.0015
-            this.cutoff := 0.0
-            this.minGap := 25
-         Case "Very High":
-            this.beta   := 0.008
-            this.cutoff := 0.10
-            this.minGap := 15
-         Case "High":
-            this.beta   := 0.015
-            this.cutoff := 0.5
-            this.minGap := 10
-         Case "Medium":
-            this.beta   := 0.03
-            this.cutoff := 1.5
-            this.minGap := 7
-         Case "Low":
-            this.beta   := 0.05
-            this.cutoff := 5.0
-            this.minGap := 5
-         Case "Minimal":
-            this.beta   := 0.1
-            this.cutoff := 10
-            this.minGap := 2
-         Case "None":
-            this.beta   := 5
-            this.cutoff := 30
-            this.minGap := 1
-         Default:
-            this.beta   := 5
-            this.cutoff := 30
-            this.minGap := 1
-      }
-      this.minGap *= this.DPIFactor    ; default minimum gap between curve points
-   }
-
-   /**
     * Closing the shape for later reuse and releasing GDI+ resources
     */
    Close(skipUndo?) {
@@ -179,21 +135,25 @@ Class FreeHandShape extends commonShape {
       If (this.imageBrush) {
          this.GUI.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
-         this.hasImage   := 0
       }
    }
 
    /**
     * Update or Create the image brush as needed for highlighting or smudging
+    * ImageBrush aligned with picture by contains the specified texture
+    * imageBrush is managed by reference count indexed by brushKey
+    * Reuse the brush if possible to reduce memory
     */
    createImageBrush() {
       If (this.imageBrush) {
          this.SnipObj.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
       }
+      scaleTag := "-" . Round(this.SnipObj.ScaleFactor, 2) ; Scaling is part of brush tag
       Switch this.Shape {
          Case Shapes.SHAPE_HILITER:
-            brushKey := this.Color . "-" this.shapeOpacity
+            param := (this.Color . "-" this.shapeOpacity)
+            brushKey := param . scaleTag
             If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush))
             } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
@@ -202,12 +162,14 @@ Class FreeHandShape extends commonShape {
                warning("Failed to retrieve a text brush from the highlighted shape")
                Return 0
             }
+
          Case Shapes.SHAPE_SMUDGE:
-            brushKey := Constrain(1, 100, Round(this.Factor))
+            param := Constrain(1, 100, Round(this.Factor))
+            brushKey := param . scaleTag
             If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
-               pBitOutput := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
+               pBitOutput := BitMap.BlurBitmap(pBitInput, param) ; don't scale with DPI?
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
                this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
@@ -217,13 +179,17 @@ Class FreeHandShape extends commonShape {
          Default:
       }
       ; During a move we may have changed the translation
-      GDIp.ResetTextureTransform(this.imageBrush)
-      GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth)
-      ; Set the Pen brush to draw with the image
-      GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
-      this.hasImage  := true
-      this.lastColor := this.Color
-
+      If (this.imageBrush) {
+         ; Shift to account for Snip border (PIC inset)
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth)
+         ; debug("Have imagebrush " hex(this.imageBrush) ", Started=" this.Started ", key=" param)
+         ; Set the Pen brush to draw with the image
+         ; Needed only for initial draw, done elsewhere during refresh
+         if (this.Started)
+            GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
+         this.lastColor := this.Color
+      }
    }
 
    /**
@@ -243,22 +209,6 @@ Class FreeHandShape extends commonShape {
    }
 
    /**
-    * Points property for managing the freehand coordinate buffer
-    * @type {Buffer}
-    */
-   Points {
-      set {  
-         If (Type(value) = "Buffer") {
-            ; Create a new buffer for this instance
-            this._Points := CloneBuffer(value)
-         } Else {
-            warning("Expected to receive a points buffer, but got a " Type(value))
-         }
-      }
-      get => this._Points
-   }
-
-   /**
     * Draw a new point (plus prior points) into the canvas
     * @param {Ptr} G - Graphics Handle
     * @param {Number} X - X Location
@@ -271,7 +221,129 @@ Class FreeHandShape extends commonShape {
       this.MyPoints.DrawCurve(G, X, Y, useLines, (minGap ?? this.minGap))
       return this.MyPoints.Added
    }
+   /**
+    * Create a new imagebrush and refill the face
+    */
+   Refresh() {
+      this.createImageBrush()
+      this.RefillFace()
+   }
+   /**
+    * Move the shape and refresh if it is a highlighter/whiteout/smudge pen
+    * @param {Number} [wX] - Optional X control location
+    * @param {Number} [wY] - Optional Y control location
+    * @param {Number} [wW] - Optional Width
+    * @param {Number} [wH] - Optional Height
+    */
+   Move(wX?, wY?, wW?, wH?) {
+      ; Post move updates for colors
+      Switch this.Shape {
+         Case Shapes.SHAPE_WHITEOUT:
+            If (this.IsOverSnip() AND (res := this.ShapeBackgroundColor()) >= 0) {
+               ; This call only refreshes the new position
+               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
+               this.Color := res
+               this.RefillFace()
+            } Else {
+               Super.Move(wX?, wY?, wW?, wH?)
+            }
+         Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
+            ; Have to recompute/shift texture
+            ; This call only refreshes the new position
+            this.UpdateCoordinates(wX?, wY?, wW?, wH?)
+            this.RefillFace()
+         Default:
+            ; Resize/redraw points if width or height set
+            if (isset(wW) or IsSet(wH)) {
+               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
+               this.RefillFace()
+            } Else {
+               ; Just move the points intact
+               Super.Move(wX?, wY?, wW?, wH?)
+            }
+      }
+   }
+   /**
+    * Redraw a freehand shape based on its current coordinates and points
+    */
+   RefillFace() {
+      If (type(this._Points) = "Buffer") {
+         ; Have already set these if we are moving/resizing
+         C   := this.shapeCoord
+         If (C.H > 0 OR C.W > 0) {
+            If (NOT this.Started) {
+               Started := true
+               this.Startup()
+            }
+            P   := this.sPad
+            ; The dib is sized to the enlarged surface
+            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+            ; We draw in snip coordinates
+            Surf.Translate(-shapeX, -shapeY)
 
+            ; Scale from OG space to the new space
+            ; We ALWAYS write into the OG sized space and the transform will
+            ; do the scaling for us.
+            ogSize := this.OG
+            ; If we aren't changing dimensions then just redraw
+            If (ogSize.W != C.W OR ogSize.H != C.H) {
+               ; Scale pen size as well
+               If (this.scaleFreeHand) {
+                  pWidth := (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness
+                  GDIp.SetPenWidth(this.pPrime, pWidth)
+                  if (this.pOutline)
+                     GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
+               }
+               WS := Min(C.W / ogSize.W, 500)
+               HS := Min(C.H / ogSize.H, 500)
+               ; Scale  points for the resize
+               pm := GDIp.Matrix(, , , WS, HS)
+            } Else {
+               pm := GDIp.Matrix()
+            }
+            ; Translate points into the translated DIB
+            pm.Translate(C.X, C.Y)
+            cpts := CloneBuffer(this.Points)
+            pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
+            pm := ""
+
+            ; If a highlighter, then fill the pen with the image vs a solid color
+            If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
+               ; Replace the pen contents with the highlighted//blured background under the shape
+               GDIp.ResetTextureTransform(this.imageBrush)
+               GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
+               GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
+            }
+            ; Draw the outline and fill it in blank (Arc Arrow)
+            this.OutlinePoints(Surf.G, this.useLines, cpts)
+            ; draw the inside line
+            this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
+            ; Grabber
+            GDIp.DrawRectangle(Surf.G, this.pGrab, C.X, C.Y, C.W, C.H)
+            ; Update the control window surface
+            Surf.UpdateLayer(shapeX, shapeY)
+            ; Get recommended new padding for next time
+            bbox := this.GetPathInfo(cpts, this.pPrime).bnd
+            this.savePadding(bbox.L, bbox.T, bbox.R, bbox.B)
+
+            cpts := ""
+            Surf := ""
+            If (IsSet(Started)) {
+               this.CleanUp()
+            }
+         }
+      } Else {
+         warning("Expected to have Points property but did not!")
+      }
+   }
+   /**
+    * Reset the shape to its original recorded dimensions
+    */
+   ResetSize() {
+      this.shapeThickness := this.OG.PenWidth
+      this.Move(, , this.OG.W, this.OG.H) ; Move relys on GDI being active
+   }
    /**
     * Complete and redraw the curve, determining if it should be closed
     * @param {Ptr} G - Graphics handle
@@ -351,125 +423,6 @@ Class FreeHandShape extends commonShape {
       }
       return res
    }
-
-   /**
-    * Move the shape and refresh if it is a highlighter/whiteout/smudge pen
-    * @param {Number} [wX] - Optional X control location
-    * @param {Number} [wY] - Optional Y control location
-    * @param {Number} [wW] - Optional Width
-    * @param {Number} [wH] - Optional Height
-    */
-   Move(wX?, wY?, wW?, wH?) {
-      ; Post move updates for colors
-      Switch this.Shape {
-         Case Shapes.SHAPE_WHITEOUT:
-            If (this.IsOverSnip() AND (res := this.ShapeBackgroundColor()) >= 0) {
-               ; This call only refreshes the new position
-               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
-               this.Color := res
-               this.Refresh()
-            } Else {
-               Super.Move(wX?, wY?, wW?, wH?)
-            }
-         Case Shapes.SHAPE_HILITER, Shapes.SHAPE_SMUDGE:
-            ; Have to recompute/shift texture
-            ; This call only refreshes the new position
-            this.UpdateCoordinates(wX?, wY?, wW?, wH?)
-            this.Refresh()
-         Default:
-            ; Resize/redraw points if width or height set
-            if (isset(wW) or IsSet(wH)) {
-               this.UpdateCoordinates(wX?, wY?, wW?, wH?)
-               this.Refresh()
-            } Else {
-               ; Just move the points intact
-               Super.Move(wX?, wY?, wW?, wH?)
-            }
-      }
-   }
-
-   /**
-    * Reset the shape to its original recorded dimensions
-    */
-   ResetSize() {
-      this.shapeThickness := this.OG.PenWidth
-      this.Move(, , this.OG.W, this.OG.H) ; Move relys on GDI being active
-   }
-   /**
-    * Redraw a freehand shape based on its current coordinates and points
-    */
-   Refresh() {
-      If (type(this._Points) = "Buffer") {
-         ; Have already set these if we are moving/resizing
-         C   := this.shapeCoord
-         If (C.H > 0 OR C.W > 0) {
-            If (NOT this.Started) {
-               Started := true
-               this.Startup()
-            }
-            P   := this.sPad
-; debug(C.X " " P.L " " C.X - P.L)            
-            ; The dib is sized to the enlarged surface
-            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-            ; We draw in snip coordinates
-            Surf.Translate(-shapeX, -shapeY)
-
-            ; Scale from OG space to the new space
-            ; We ALWAYS write into the OG sized space and the transform will
-            ; do the scaling for us.
-            ogSize := this.OG
-            ; If we aren't changing dimensions then just redraw
-            If (ogSize.W != C.W OR ogSize.H != C.H) {
-               ; Scale pen size as well
-               If (this.scaleFreeHand) {
-                  pWidth := (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness
-                  GDIp.SetPenWidth(this.pPrime, pWidth)
-                  if (this.pOutline)
-                     GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
-               }
-               WS := Min(C.W / ogSize.W, 500)
-               HS := Min(C.H / ogSize.H, 500)
-               ; Scale  points for the resize
-               pm := GDIp.Matrix(, , , WS, HS)
-            } Else {
-               pm := GDIp.Matrix()
-            }
-            ; Translate points into the translated DIB
-            pm.Translate(C.X, C.Y)
-            cpts := CloneBuffer(this.Points)
-            pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
-            pm := ""
-
-            ; If a highlighter, then fill the pen with the image vs a solid color
-            If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
-               ; Replace the pen contents with the highlighted//blured background under the shape
-               GDIp.ResetTextureTransform(this.imageBrush)
-               GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
-               GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
-            }
-            ; Draw the outline and fill it in blank (Arc Arrow)
-            this.OutlinePoints(Surf.G, this.useLines, cpts)
-            ; draw the inside line
-            this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
-            ; Grabber
-            GDIp.DrawRectangle(Surf.G, this.pGrab, C.X, C.Y, C.W, C.H)
-            ; Update the control window surface
-            Surf.UpdateLayer(shapeX, shapeY)
-            ; Get recommended new padding for next time
-            bbox := this.GetPathInfo(cpts, this.pPrime).bnd
-            this.savePadding(bbox.L, bbox.T, bbox.R, bbox.B)
-
-            cpts := ""
-            Surf := ""
-            If (IsSet(Started)) {
-               this.CleanUp()
-            }
-         }
-      } Else {
-         warning("Expected to have Points property but did not!")
-      }
-   }
    /**
     * InstanceInfo
     * Get the key unique instance info to recreate this shape instance
@@ -477,11 +430,71 @@ Class FreeHandShape extends commonShape {
     */
    InstanceInfo() {
       infoObj              := super.InstanceInfo()
-      infoObj.hasImage     := 0
+      ; infoObj.hasImage     := 0
+      infoObj.imageBrush   := 0
       infoObj.drawFunction := this.drawFunction.Name ; GDIp draw function
       infoObj.Points       := CloneBuffer(this.Points) ; will clone on set
       infoObj.OG           := this.OG.clone() ; Original size
       return infoObj
+   }
+
+   /**
+    * Set the smoothing factor for the freehand drawing
+    * @param {String} amount - Smoothing level (e.g., "Extreme", "High", "Medium", "Low", "Minimal", "None")
+    */
+   setSmoothingFactor(amount) {
+      ; Ratio of minGap to alpha smoothing
+      Switch amount {
+         Case "Extreme":
+            this.beta   := 0.0015
+            this.cutoff := 0.0
+            this.minGap := 25
+         Case "Very High":
+            this.beta   := 0.008
+            this.cutoff := 0.10
+            this.minGap := 15
+         Case "High":
+            this.beta   := 0.015
+            this.cutoff := 0.5
+            this.minGap := 10
+         Case "Medium":
+            this.beta   := 0.03
+            this.cutoff := 1.5
+            this.minGap := 7
+         Case "Low":
+            this.beta   := 0.05
+            this.cutoff := 5.0
+            this.minGap := 5
+         Case "Minimal":
+            this.beta   := 0.1
+            this.cutoff := 10
+            this.minGap := 2
+         Case "None":
+            this.beta   := 5
+            this.cutoff := 30
+            this.minGap := 1
+         Default:
+            this.beta   := 5
+            this.cutoff := 30
+            this.minGap := 1
+      }
+      this.minGap *= this.DPIFactor    ; default minimum gap between curve points
+   }
+
+   /**
+    * Points property for managing the freehand coordinate buffer
+    * @type {Buffer}
+    */
+   Points {
+      set {  
+         If (Type(value) = "Buffer") {
+            ; Create a new buffer for this instance
+            this._Points := CloneBuffer(value)
+         } Else {
+            warning("Expected to receive a points buffer, but got a " Type(value))
+         }
+      }
+      get => this._Points
    }
 
    /**

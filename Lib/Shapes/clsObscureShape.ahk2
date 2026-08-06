@@ -11,7 +11,8 @@
 #include ..\libMisc.ahk2
 #Include ..\clsBitmap.ahk2
 #Include ..\clsShapes.ahk2
-; #Include ..\clsSnips.ahk2
+#include ..\clsSnips.ahk2
+#include ..\Settings.ahk2
 
 ;----------------------------------------------------------------------
 ; Blur and other obscure shapes
@@ -26,7 +27,6 @@ Class ObscureShape extends commonShape {
       this.BlurDivisor       := Shapes.BlurDivisor
       this.imageBrush        := 0
       this.redactBrush       := 0
-      this.hasImage          := 0
       this.Color             :=0xFFFFFF
       Switch this.Shape {
          Case Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_BLUR:
@@ -42,65 +42,102 @@ Class ObscureShape extends commonShape {
       }
    }
    /**
+    * Shape unique startup actions, detect if this is the first startup to create
+    * the brushes
+    */
+   Startup() {
+      super.Startup()
+      If ( NOT this.imageBrush) {
+         this.createImageBrush()
+      }
+      ; During a move we may have changed the translation
+      ; If (this.imageBrush) {
+      ;    GDIp.ResetTextureTransform(this.imageBrush)
+      ;    GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
+      ; }
+   }
+
+   /**
+    * Done with shape, we can now get rid of the brushes
+    */
+   Close(skipUndo?) {
+      super.Close(skipUndo?)
+      If (this.imageBrush) {
+         this.GUI.ReleaseBrush(this.imageBrush)
+         this.imageBrush := 0
+      }
+      ; Do we need to retain this? Yes
+      If (this.redactBrush) {
+         GDIp.DeleteBrush(this.redactBrush)
+         this.redactBrush := 0
+      }
+   }
+   /**
     * Grab a version of the Snip that is processed by the shape,
     * Then create a texture brush with the underlying processed image aligned
     * with the snip image.
+    * imageBrush is managed by reference count indexed by brushKey
+    * Reuse the brush if possible to reduce memory
     */
    createImageBrush() {
-      Snip := this.GUI
+      ; Snip := this.SnipObj
       If (this.imageBrush) {
-         Snip.ReleaseBrush(this.imageBrush)
+         this.SnipObj.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
       }
+      scaleTag := "-" . Round(this.SnipObj.ScaleFactor, 2) ; Scaling is part of brush tag
       Switch this.Shape {
          Case Shapes.SHAPE_PIXELATE: ; Time 9ms
-            Snip.getPicPos(,,&W,&H)
-            brushKey := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
-            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+            this.SnipObj.getPicPos(, , &W, &H)
+            param := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
+            brushKey := param . scaleTag
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush " brushKey)
             } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
-               pBitOutput      := BitMap.PixelateBitmap(pBitInput, brushKey)
+               pBitOutput      := BitMap.PixelateBitmap(pBitInput, param)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
-               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
-            } Else {
-               warning("Failed to retrieve the Snip picture for " this.ShapeName)
-            }
-         ; Pen version handled in FreehandClass
-         Case Shapes.SHAPE_BLUR : ; , Shapes.SHAPE_SMUDGE: ; Time 22ms
-            brushKey := Constrain(1, 100, Round(this.Factor))
-            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
-               ; debug("Reusing a " this.shapeName " brush")
-            } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
-               pBitOutput      := BitMap.BlurBitmap(pBitInput, brushKey) ; don't scale with DPI?
-               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
-               GDIp.DisposeImage(pBitOutput)
-               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
 
-         Case Shapes.SHAPE_GAUS_BLUR: ; Time 67 ms (slower with higher values)
-            brushKey := Constrain(0, 255, Round(this.Factor * this.DPIScale))
-            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+         Case Shapes.SHAPE_BLUR : 
+            param := Constrain(1, 100, Round(this.Factor))
+            brushKey := param . scaleTag
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
+               ; debug("Reusing a " this.shapeName " brush")
+            } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
+               pBitOutput      := BitMap.BlurBitmap(pBitInput, param) ; don't scale with DPI?
+               this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
+               GDIp.DisposeImage(pBitOutput)
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
+            } Else {
+               warning("Failed to retrieve the Snip picture for " this.ShapeName)
+            }
+
+         Case Shapes.SHAPE_GAUS_BLUR:
+            param := Constrain(0, 255, Round(this.Factor * this.DPIScale))
+            brushKey := param . scaleTag
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
                ; Call this up to three times to converge to a gaussian blur, fairly fast
-               pBitOutput := BitMap.BoxBlurMultiPass(pBitInput, brushKey, 3, 1)
+               pBitOutput := BitMap.BoxBlurMultiPass(pBitInput, param, 3, 1)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
-               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
 
-         ; Pen version handled in FreehandClass
          Case Shapes.SHAPE_HILITE: ; , Shapes.SHAPE_HILITER: ; Time 33ms
-            brushKey := this.Color . "-" this.shapeOpacity
-            If (this.imageBrush := Snip.GetBrush(this.Shape, brushKey)) {
+            param := this.Color . "-" this.shapeOpacity
+            brushKey := param . scaleTag
+            If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
                ; debug("Reusing a " this.shapeName " brush")
             } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
-               Snip.AddBrush(this.imageBrush, this.Shape, brushKey)
+               this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
             } Else {
                warning("Failed to retrieve the Snip highlight for " this.ShapeName)
             }
@@ -132,41 +169,9 @@ Class ObscureShape extends commonShape {
       If (this.imageBrush) {
          GDIp.ResetTextureTransform(this.imageBrush)
          GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth)
-         this.hasImage := true
-      }
-   }
-   /**
-    * Shape unique startup actions, detect if this is the first startup to create
-    * the brushes
-    */
-   Startup() {
-      super.Startup()
-      If ( NOT this.hasImage) {
-         this.createImageBrush()
-      }
-      ; During a move we may have changed the translation
-      If (this.imageBrush) {
-         GDIp.ResetTextureTransform(this.imageBrush)
-         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
       }
    }
 
-   /**
-    * Done with shape, we can now get rid of the brushes
-    */
-   Close(skipUndo?) {
-      super.Close(skipUndo?)
-      If (this.imageBrush) {
-         this.GUI.ReleaseBrush(this.imageBrush)
-         this.imageBrush := 0
-      }
-      ; Do we need to retain this? Yes
-      If (this.redactBrush) {
-         GDIp.DeleteBrush(this.redactBrush)
-         this.redactBrush := 0
-      }
-      this.hasImage := 0
-   }
    /**
     * Set the primary pen and body brush color
     * Requires GDIp to be running
@@ -213,7 +218,7 @@ Class ObscureShape extends commonShape {
          ; Since we are redrawing at new pos, just do the coordinates calc
          this.UpdateCoordinates(X?, Y?, W?, H?)
          ; REDAC is local over shape only
-         if (this.Shape = Shapes.SHAPE_REDAC OR NOT this.hasImage)
+         if (this.Shape = Shapes.SHAPE_REDAC OR NOT this.imageBrush)
             this.createImageBrush()
          this.RefillFace()
       } Else {
