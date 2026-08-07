@@ -193,7 +193,14 @@ Class GuiSnip extends Gui {
    * Update the border color of the snip to the back color of the GUI
    */
    BackColor {
-      get => super.BackColor ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+      get {
+         Try {
+            bc := super.BackColor ;  STM_GETIMAGE, STM_SETIMAGE := 0x172 to set
+            return bc
+         } Catch as E {
+            return 0x808080
+         }
+      }
       ; Resize control to actual bitmap size
       set {
          super.Backcolor := value
@@ -219,7 +226,7 @@ Class GuiSnip extends Gui {
       get => this._alpha
       set {
          ; Don't allow fully transparent otherwise it disappears
-         newAlpha := Min(Max(Value, 0xF), 0xFF)
+         newAlpha := Constrain(0xF, 0xFF, Value)
          If (newAlpha != this._alpha) {
             this._replaceSnip(this.myHandle)
             this._alpha := newAlpha
@@ -234,16 +241,17 @@ Class GuiSnip extends Gui {
       get {
          myShapes := Array()
          hwndShape := DllCall("GetWindow", "Ptr", this.Hwnd, "UInt", 5, "Ptr")  ; GW_CHILD = 5
-         Obj := GuiCtrlFromHwnd(hwndShape)
-         If (Obj.HasProp("Visible") AND Obj.Visible)
-            myShapes.Push(Obj)
-         ; Loop through all child windows
-         While (hwndShape != 0) {
-            ; Get the next child window in Z-order (below the current one)
-            hwndShape := DllCall("GetWindow", "Ptr", hwndShape, "UInt", 2, "Ptr")  ; GW_HWNDNEXT = 2
-            Obj := GuiCtrlFromHwnd(hwndShape)
+         If (Obj := (GuiCtrlFromHwnd(hwndShape) ?? false)) {
             If (Obj.HasProp("Visible") AND Obj.Visible)
-               myShapes.Push(Obj) ; First In First Out
+               myShapes.Push(Obj)
+            ; Loop through all child windows
+            While (hwndShape != 0) {
+               ; Get the next child window in Z-order (below the current one)
+               hwndShape := DllCall("GetWindow", "Ptr", hwndShape, "UInt", 2, "Ptr")  ; GW_HWNDNEXT = 2
+               Obj := GuiCtrlFromHwnd(hwndShape) ?? false
+               If (Obj AND Obj.HasProp("Visible") AND Obj.Visible)
+                  myShapes.Push(Obj) ; First In First Out
+            }
          }
          Return myShapes
       }
@@ -302,8 +310,7 @@ Class GuiSnip extends Gui {
       obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
       GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
       ; Premultiply if we have some transparency to show
-      if (this._alpha < 0xFF)
-         BitMap.PreMultiplyBitmap(hDIB,this._alpha)
+      BitMap.PreMultiplyBitmap(hDIB,this._alpha)
 
       ; Paint the border fully opaque
       If (BW > 0) {
@@ -690,6 +697,10 @@ Class GuiSnip extends Gui {
          If (IsSet(CloneObj) AND (CloneObj is commonShape)) {
             CloneObj.PostAction(UnDo.ADD_SHAPE, tag)
             ; Blend in saved properties
+            If (Info.HasProp("drawFunction")) {
+               ; Saved as text, get the pointer
+               Info.DrawFunction := getFunctionObject(Info.DrawFunction)
+            }
             For pr, v in Info.OwnProps()
                Try CloneObj.%pr% := v
             ; Now draw the shape on the canvas

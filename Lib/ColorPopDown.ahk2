@@ -334,7 +334,7 @@ Class ColorPopDown {
             }
          }
          this.lastControl := 0
-      } else If (picControl := GuiCtrlFromHwnd(wparam)) {
+      } else If (picControl := (GuiCtrlFromHwnd(wparam) ?? false)) {
          ; over a control, service it if different than last control
          If (picControl != this.lastControl) {
             If (picControl.IconType != this.circledIcon) {
