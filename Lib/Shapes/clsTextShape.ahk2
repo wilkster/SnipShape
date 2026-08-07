@@ -550,10 +550,10 @@ Class TextShape extends CommonShape {
          Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
             ; Recompute and redraw with the text background color
             If ((res := this.ShapeBackgroundColor()) >= 0) {
-               this._BGColor := res
-               willRefresh := true
-               ; This will force a new draw below
-               fontSize := fontSize ?? this._fontSize
+               If (this._BGColor != res) {
+                  this._BGColor := res
+                  willRefresh := true
+               }
             }
          Default:
       }
@@ -561,7 +561,7 @@ Class TextShape extends CommonShape {
       if not willRefresh
          super.Move(wX?, wY?)
       else
-         this.DrawText(wX?, wY?, fontSize)
+         this.DrawText(wX?, wY?, fontSize?)
    }
    /**
     * Scale and move shapes when the snip is scaled
