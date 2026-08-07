@@ -7,6 +7,11 @@
  * @version 1.0.0
  ***********************************************************************/
 TraySetIcon(A_ScriptDir "\Cursors\SnipShape.ico") ; Scissors
+If (A_PtrSize < 8) {
+   MsgBox("Autohotkey 64 bit is required!","Error",0x10)
+   exit
+}
+
 ;-----------------------------------------------
 ;
 ; AutoHotkey alternate to Windows Snipping Tool with additional features
