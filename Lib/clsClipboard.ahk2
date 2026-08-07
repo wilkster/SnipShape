@@ -30,6 +30,9 @@ Class Clipboard {
    Static CopyMemory(dest, src, length)       => DllCall('NtDll.dll\RtlCopyMemory', 'Ptr',dest, 'Ptr', src, "Uint", length, "Int")
    Static RtlMoveMemory(pDest, pSource, Size) => DllCall("RtlMoveMemory", "Ptr", pDest, "Ptr", pSource, "UPtr", Size)
     
+   Static __New() {
+      Clipboard.png := this.RegisterClipboardFormat("PNG")
+   }
    /**
     * Retrieves an HBITMAP handle from the clipboard and returns its dimensions.
     * @param {Integer} W - Output parameter receiving the bitmap width in pixels
@@ -156,9 +159,8 @@ Class Clipboard {
       ;--------------------------------------------------------------------
       ; Registered PNG -- what new Outlook/WebView2 paste targets look for
       ;--------------------------------------------------------------------
-      cfPng := this.RegisterClipboardFormat("PNG")
       hPng  := this.ToPNG(hBitmap)
-      If not this.SetClipboardData(cfPng, hPng) {
+      If not this.SetClipboardData(Clipboard.png, hPng) {
          warning("Clipboard: Failed to set PNG Format")
          this.CloseClipboard()
          Gdi.DeleteObject(hBitmap)
@@ -225,6 +227,8 @@ Class Clipboard {
       ; CreateARGBBitmapFromHBITMAP already handles the 32bpp-alpha-preserving
       ; path vs falling back to CreateBitmapFromHBITMAP -- no manual alpha
       ; handling needed here.
+      if (NOT hBitmap)
+         return 0
       pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
 
       DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "Int", true, "Ptr*", &pStream := 0)
@@ -232,11 +236,17 @@ Class Clipboard {
       ; PNG encoder CLSID: {557CF406-1A04-11D3-9A73-0000F81EF32E}
       clsid := Buffer(16)
       DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsid)
-      DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)
+      if (res := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)) {
+         warning("Failure to Save to PNG format " res " " A_LastError)
+         return 0
+      }
+      ; STREAM_SEEK_END = 2 -- gets the real written length, not the
+      ; over-allocated HGLOBAL block size that GlobalSize would report.
+      ComCall(5, pStream, "Int64", 0, "UInt", 2, "UInt64*", &size := 0)
+
       DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hGlobal := 0)
 
       ; Duplicate the memory -- releasing pStream frees hGlobal (fDeleteOnRelease=true above)
-      size  := this.GlobalSize(hGlobal)
       hCopy := this.GlobalAlloc(0x42, size)
       pSrc  := this.GlobalLock(hGlobal)
       pDst  := this.GlobalLock(hCopy)
@@ -444,7 +454,7 @@ Class Clipboard {
     * @returns {Integer} 1 (true) if a recognised image format is available, 0 (false) otherwise
     */
    Static hasImage() {
-      For fmt in Array(2, 6, 8, 17)
+      For fmt in Array(2, 6, 8, 17, Clipboard.png)
          if (ClipIsAvailable(fmt))
             Return true
       Return false
