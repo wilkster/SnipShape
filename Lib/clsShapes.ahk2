@@ -1043,7 +1043,7 @@ Class Shapes {
                Sleep(10)
                
                If (this.ColorQueue.Length) {
-                  ShapeObj.colorPicked(this.ColorQueue.Pop())  ; works on active pen
+                  ShapeObj.SetColor(this.ColorQueue.Pop())  ; works on active pen
                   ShapeObj.Refresh()           ; not needed for all shapes
                }
                ;----------------------------------------------------------------------
