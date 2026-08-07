@@ -244,6 +244,19 @@ Class LineShape extends commonShape {
          }
       }
    }
+      /**
+    * InstanceInfo
+    * Get the key unique instance info to recreate this shape instance
+    * @returns {FreeHandShape} 
+    */
+   InstanceInfo() {
+      infoObj := super.InstanceInfo()
+      ; Connectors have direction
+      if this.HasOwnProp("HasDirection")
+         infoObj.HasDirection  := this.HasDirection
+      return infoObj
+   }
+
       /*
          1-------------------------------------------------2
          |                                                 |
