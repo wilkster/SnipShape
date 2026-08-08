@@ -970,7 +970,7 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    ctrlBG := DarkMode ? " cD9D9D9 Background323232" : "" ; Other controls have a bit lighter background
    ; Want to be on top
    ; Edit GUI
-   textGui := Gui('+Resize +ToolWindow -MaximizeBox -MinimizeBox +DPIScale' . (Owner ? ' +Owner' . Owner : ''), Title " - " Prompt)
+   textGui := Gui('+Resize +ToolWindow -MaximizeBox -MinimizeBox +DPIScale +AlwaysOnTop' . (Owner ? ' +Owner' . Owner : ''), Title " - " Prompt)
    Scale := WinDPI(textGui.hWnd) / 96
 
    textGui.BackColor := guiBC
