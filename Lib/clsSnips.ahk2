@@ -289,7 +289,7 @@ Class Snips {
     */
    Static OpenSnipDialog(*) {
       If (SnipObj := Snips.IsValid(WinActive("A"))) {
-         SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+         hook := PreDialog(SnipObj)
       } else {
          hook := FileDialogHook() ; Needed for tray launch in some cases
       }
@@ -630,6 +630,12 @@ Class Snips {
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
       try {
+         If (SnipObj := Snips.IsValid(WinActive("A"))) {
+            hook := PreDialog(SnipObj)
+         } Else {
+            hook := FileDialogHook() ; Needed for tray launch in some cases
+         }
+
          pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap)
          If IsSet(SnipObj) {
             baseName := SnipObj.BaseName
@@ -639,20 +645,34 @@ Class Snips {
          }
          FileName := SavePath . baseName . "." . SETTINGS.SavePath_Image_Ext
          If FileExist(FileName) {
-            If (ans := MsgBox("The File Exists, do you want to replace it?", FileName, 0x1024) = "Yes") {
+            Switch MsgBox("The File Exists, do you want to replace it (Yes), Save as new (No), Skip (Cancel)?", FileName, 0x1033) {
+               Case "Yes":
                Try {
                   FileDelete(FileName)
+                  Bitmap.SaveBitmapToFile(pBitmap, FileName)
                } Catch as E {
-                  MsgBox("Error Removing File",FileName,0x30)
+                  MsgBox("Error Removing or Saving File",FileName,0x30)
+                  FileName := ""
                }
-               Bitmap.SaveBitmapToFile(pBitmap, FileName)
+               Case "No":
+                  If (FileName := FileSelect("S", FileName)) {
+                     ; New filename
+                     SplitPath(FileName, , &SavePath, , &baseName)
+                     SavePath .= "\"
+                     If IsSet(SnipObj)
+                        SnipObj.FileName := FileName
+                     BitMap.SaveBitmapToFile(pBitmap, FileName)
+                  }
+               Case "Cancel":
+                  Filename := ""
             }
          } Else {
+            ; Doesn't exist, go ahead and save
             Bitmap.SaveBitmapToFile(pBitmap, FileName)
          }
-         Gdip.DisposeImage(pBitmap)
          ; Save the Snip in Editable format as well if it has shapes
-         If (this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
+         ; May be a different filename
+         If (FileName AND this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
             FileName := SavePath . baseName . ".json"
             FileObject.SaveSnip(SnipObj, FileName)
          }
@@ -661,7 +681,12 @@ Class Snips {
          qTrayTip("Snipper File Save: " e.Message ", from " e.What " @ line " e.Line ,3)
          elog(e,"Saving File")
          FileName := ""
+
       }
+      if (IsSet(pBitmap))
+         Gdip.DisposeImage(pBitmap)
+
+      hook := unset
       Return FileName
    }
    /**
@@ -1106,12 +1131,20 @@ Class Snips {
             ; Prompt to close if Snip has unsaved changes
             activeShapes := SnipObj.VisibleShapes.Length
             if SnipObj.Dirty AND activeShapes > 0 AND Snips.confirmClose {
-               SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
-               ans := MsgBox("Snip has unsaved changes with " activeShapes " Shapes, please confirm close", "Confirm Close", 1 + 32)
-               If (ans != "OK")
-                  Return
-               Sleep(100)
+               _ := PreDialog(SnipObj)
+               ans := MsgBox("Snip has unsaved changes with " activeShapes " Shapes, would you like to save it first?", "Confirm Close", 0x3|0x20)
+               Switch ans, "Off" {
+                  Case "Yes" :
+                     SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
+                  Case "No" :
+                     ; Just close below
+                  Case "Cancel" :
+                     Return
+                  Default :
+               }
             }
+            _ := unset
+            Sleep(100)
             SnipObj.UnDo := unset
             SnipObj.Destroy()
          }
