@@ -356,7 +356,12 @@ Class ButtonBar {
             this.pinButton.Pinned := 0
          }
       }
+      ; ALso sync the undo/redo state
+      this.SyncUndoRedo()
    }
+   /**
+    * Sync undo/redo buttons to their stack length
+    */
    Static SyncUndoRedo(*) {
       If (SnipObj := this.SnipObj) {
          this.btnUndo.enabled := (SnipObj.UnDo.undoStack.length > 0)
