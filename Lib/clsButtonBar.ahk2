@@ -339,34 +339,37 @@ Class ButtonBar {
          } Else {
             SnipObj.Opt("+AlwaysOnTop")
          }
-         this.syncPin(SnipObj.hwnd)
+         this.SyncPin(SnipObj.hwnd)
       }
    }
    /**
     * Sync Pin or UnPin button to the window state
     */
-   Static syncPin(hWnd) {
-      state := WinGetAlwaysOnTop(hWnd)
-      If (state != this.pinButton.Pinned) {
-         If (state) {
-            this.pinButton.SetImg(Settings.CursorPath . "Pin.ico")
-            this.pinButton.Pinned := 1
-         } Else {
-            this.pinButton.SetImg(Settings.CursorPath . "UnPin.ico")
-            this.pinButton.Pinned := 0
+   Static SyncPin(hWnd) {
+      If (this.SyncUndoRedo()) {
+      ; ALso sync the undo/redo state
+         state := WinGetAlwaysOnTop(hWnd)
+         If (state != this.pinButton.Pinned) {
+            If (state) {
+               this.pinButton.SetImg(Settings.CursorPath . "Pin.ico")
+               this.pinButton.Pinned := 1
+            } Else {
+               this.pinButton.SetImg(Settings.CursorPath . "UnPin.ico")
+               this.pinButton.Pinned := 0
+            }
          }
       }
-      ; ALso sync the undo/redo state
-      this.SyncUndoRedo()
    }
    /**
     * Sync undo/redo buttons to their stack length
     */
    Static SyncUndoRedo(*) {
-      If (SnipObj := this.SnipObj) {
-         this.btnUndo.enabled := (SnipObj.UnDo.undoStack.length > 0)
-         this.btnRedo.enabled := (SnipObj.UnDo.redoStack.length > 0)
+      If (this.SnipObj is GuiSnip) {
+         this.btnUndo.enabled := (this.SnipObj.UnDo.undoStack.length > 0)
+         this.btnRedo.enabled := (this.SnipObj.UnDo.redoStack.length > 0)
+         return true
       }
+      return false
    }
    /**
     * Close the foremost SnipShapeWindow and activate the next available snip
