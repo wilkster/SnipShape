@@ -551,16 +551,16 @@ Class Snips {
        */
       __New(Area) {
          ; now := A_TickCount +E0x20  for not selectable
-         this.SnipObj := Gui("+E0x20 +E0x80000 -Caption +AlwaysOnTop +ToolWindow +OwnDialogs -Border -DPIScale", "tempWindow")
-         this.SnipObj.Show("NA W0 H0") ; unhide without activating
+         this.OverlayObj := Gui("+E0x20 +E0x80000 -Caption +AlwaysOnTop +ToolWindow +OwnDialogs -Border -DPIScale", "tempWindow")
+         this.OverlayObj.Show("NA W0 H0") ; unhide without activating
          ; The screen capture bitblt is nearly all of the time, haven't found a faster method
-         BitMap.OverlayToLayeredWindow(Area, this.SnipObj.hWnd)
+         BitMap.OverlayToLayeredWindow(Area, this.OverlayObj.hWnd)
       }
       /**
        * Destroy the overlay window when the object is released
        */
       __Delete() {
-         this.SnipObj.Destroy()
+         this.OverlayObj.Destroy()
       }
    }
    /**
