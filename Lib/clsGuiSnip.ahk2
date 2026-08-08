@@ -557,6 +557,7 @@ Class GuiSnip extends Gui {
                ; lParam is 0 if non AHK gui was activated
             }
             Sleep(50) ; let it Deactivate first so we know where it is
+            ButtonBar.syncPin(hWnd)
             If (lParam = 0 OR WinExist("A") = 0 OR NOT WinActive("ahk_class AutoHotkeyGUI"))
                ButtonBar.Hide()
          Case 1, 2:  ; Activate
@@ -570,6 +571,7 @@ Class GuiSnip extends Gui {
                If (wParam = 1)
                   Sleep(50) ; let it restore first so we know where it is
                ButtonBar.Show(hWnd)
+               ButtonBar.syncPin(hWnd)
             } Else {
                debug("Expected snip")
             }

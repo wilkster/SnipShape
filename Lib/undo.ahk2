@@ -50,6 +50,7 @@ Class UnDo {
          this._PerformAction(this.undoStack, this.redoStack, true)
       else
          qTrayTip("Nothing to Undo",, "Undo Action", 1000)
+      ButtonBar.SyncUndoRedo()
    }
 
    /**
@@ -60,6 +61,7 @@ Class UnDo {
          this._PerformAction(this.redoStack, this.undoStack, false)
       else
          qTrayTip("Nothing to Redo",, "Redo Action", 1000)
+      ButtonBar.SyncUndoRedo()
    }
    /**
     * Remove the last undo posted due to a cancel action
@@ -70,6 +72,7 @@ Class UnDo {
          this._clearItem(obj)
          ; debug("Popping one off the undo stack, length=" this.undoStack.Length)
       }
+      ButtonBar.SyncUndoRedo()
    }
    /**
     * Snapshot the necessary state prior to changing a snip or shape,
@@ -92,6 +95,7 @@ Class UnDo {
          item := this.undoStack.RemoveAt(1)
          this._clearItem(item)
       }
+      ButtonBar.SyncUndoRedo()
    }
 
    ; ===================== P R I V A T E  M E T H O D S  B E L O W ==============================

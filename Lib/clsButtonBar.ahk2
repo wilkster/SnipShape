@@ -81,9 +81,14 @@ Class ButtonBar {
 
       this.btnUndo := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Undo.ico", round(cH*.8), "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
       this.btnRedo := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "Redo.ico", round(cH*.8), "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
+      this.btnUndo.enabled := false
+      this.btnRedo.enabled := false
 
-      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
-      b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
+      this.pinButton := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Pin.ico", round(cH*.8), "Pin or Unpin Snip", this.TogglePin.Bind(this, 0))
+      this.pinButton.Pinned := 1
+
+      b := this.AddBarButton("Y" this.Margin " X+" o , Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
+      b := this.AddBarButton("Y" this.Margin " X+" o,  Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
       logGDI("Built Snip Buttons")
       ; Also handle Escape
       this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
@@ -287,12 +292,12 @@ Class ButtonBar {
       ToolTip
    }
    Static Undo(*) {
-      If (hWnd := WinExist("SnipShapeWindow")) {
+      If (hWnd := this.SnipObj.hWnd) {
          Snips.UndoAction(hWnd)
       }
    }
    Static Redo(*) {
-      If (hWnd := WinExist("SnipShapeWindow")) {
+      If (hWnd := this.SnipObj.hWnd) {
          Snips.RedoAction(hWnd)
       }
    }
@@ -300,7 +305,7 @@ Class ButtonBar {
     * Save the active snip to a file
     */
    Static SaveSnip(*) {
-      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+      If (SnipObj := this) {
          Tooltip ; don't capture the tooltip!
          SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
          SnipObj.flashBorder()
@@ -310,7 +315,7 @@ Class ButtonBar {
     * Clipboard the active snip
     */
    Static ClipSnip(*) {
-      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+      If (SnipObj := this.SnipObj) {
          Tooltip ; don't capture the tooltip!
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          SnipObj.flashBorder()
@@ -320,15 +325,49 @@ Class ButtonBar {
     * Minimize the foremost SnipShapeWindow via Snips.Minimize
     */
    Static MinimizeSnip(*) {
-      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+      If (SnipObj := this.SnipObj) {
          SnipObj.Minimize()
+      }
+   }
+   /**
+    * Pin or UnPin the image on top
+    */
+   Static TogglePin(*) {
+      If (SnipObj := this.SnipObj) {
+         If (WinGetAlwaysOnTop(SnipObj.hWnd)) {
+            SnipObj.Opt("-AlwaysOnTop")
+         } Else {
+            SnipObj.Opt("+AlwaysOnTop")
+         }
+         this.syncPin(SnipObj.hwnd)
+      }
+   }
+   /**
+    * Sync Pin or UnPin button to the window state
+    */
+   Static syncPin(hWnd) {
+      state := WinGetAlwaysOnTop(hWnd)
+      If (state != this.pinButton.Pinned) {
+         If (state) {
+            this.pinButton.SetImg(Settings.CursorPath . "Pin.ico")
+            this.pinButton.Pinned := 1
+         } Else {
+            this.pinButton.SetImg(Settings.CursorPath . "UnPin.ico")
+            this.pinButton.Pinned := 0
+         }
+      }
+   }
+   Static SyncUndoRedo(*) {
+      If (SnipObj := this.SnipObj) {
+         this.btnUndo.enabled := (SnipObj.UnDo.undoStack.length > 0)
+         this.btnRedo.enabled := (SnipObj.UnDo.redoStack.length > 0)
       }
    }
    /**
     * Close the foremost SnipShapeWindow and activate the next available snip
     */
    Static CloseSnip(*) {
-      If (SnipObj := Snips.GetGuiObj(WinExist("SnipShapeWindow"))) {
+      If (SnipObj := this.SnipObj) {
          Snips.Close(SnipObj, 0)
          Snips.ActivateFirst()
       } Else {

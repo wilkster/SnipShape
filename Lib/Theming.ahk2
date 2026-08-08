@@ -333,8 +333,9 @@ Class PicButton extends Gui.Button {
       ; AddPicButton is called from GUI, so this points to the GUI object
       ctl := this.AddButton(sOptions, txt)   ; OK, this = GUI vs Button
       ctl.base := PicButton.Prototype
+      ctl.options := sPicFileOpt
       If sPicFile
-         ctl.SetImg(sPicFile, sPicFileOpt) ; 4 gdi objects (2DC and 2 Bitmaps)
+         ctl.SetImg(sPicFile, sPicFileOpt?) ; 4 gdi objects (2DC and 2 Bitmaps)
       ; Also set the light/dark theme
       PicButton.Theme(ctl.Hwnd)
       ctl.hImg := 0
@@ -359,7 +360,8 @@ Class PicButton extends Gui.Button {
     * @param {String} sFile - Path to the image file (supports .ico, .png, .bmp, .cur, etc.)
     * @param {String} [sOptions=""] - Options forwarded to LoadPicture (e.g. "W32 H32 Icon1")
     */
-   SetImg(sFile, sOptions := "") {      ; input params exact same as first 2 params of LoadPicture()
+   SetImg(sFile, sOptions?) {      ; input params exact same as first 2 params of LoadPicture()
+      sOptions ??= this.options
       ; thanks to teadrinker: https://www.autohotkey.com/boards/viewtopic.php?p=299834#p299834
       Static BS_ICON        := 0x40, BS_BITMAP  := 0x80, BM_SETIMAGE  := 0xF7
       Static IMAGE_BITMAP   := 0,    IMAGE_ICON := 1,    IMAGE_CURSOR := 2
@@ -374,8 +376,10 @@ Class PicButton extends Gui.Button {
          ; Force cursors to icons, since buttons don't support IMAGE_CURSOR
          hOldImg := SendMessage(BM_SETIMAGE, this.Imagetype ? IMAGE_ICON : IMAGE_BITMAP, this.hImg, this.hwnd) ; 4 gdi opbjects
          ; If resettign image, destroy the old one if it exists first
-         GDI.DeleteImage(hOldImg, IMAGE_BITMAP)
-         ; GDI.DeleteImage(hImg, _type) ; Not supposed to delete, but seems to work fine if I do
+         if (this.Imagetype)
+            GDI.DeleteImage(hOldImg, IMAGE_ICON)
+         else
+            GDI.DeleteImage(hOldImg, IMAGE_BITMAP)
       } Else {
          warning("Failed to load button image:" sFile)
       }
