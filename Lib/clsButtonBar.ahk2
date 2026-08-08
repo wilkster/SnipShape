@@ -305,7 +305,7 @@ Class ButtonBar {
     * Save the active snip to a file
     */
    Static SaveSnip(*) {
-      If (SnipObj := this) {
+      If (SnipObj := this.SnipObj) {
          Tooltip ; don't capture the tooltip!
          SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
          SnipObj.flashBorder()
