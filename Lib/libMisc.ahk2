@@ -1378,5 +1378,22 @@ Class FileDialogHook {
       }
    }
 }
+/*
+ * Helper class to set owndialogs, when it goes out of scope the dialog is released
+ */
+Class PreDialog {
+   __New(SnipObj) {
+      this.SnipObj := SnipObj
+      SnipObj.Opt("+OwnDialogs")
+      ; debug("Grabbing Dialog")
+   }
+   __Delete() {
+      ; Snip may be destroyed
+      If this.SnipObj is GuiSnip {
+         this.SnipObj.Opt("-OwnDialogs")
+         ; debug("Releasing Dialog")
+      }
+   }
+}
 
 logGDI(BFN(Error("", -1).File) " loaded...")

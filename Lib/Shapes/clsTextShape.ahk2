@@ -487,9 +487,8 @@ Class TextShape extends CommonShape {
       CoordMode('Mouse', 'Window')
       C := this.shapeCoord
       this.PostAction(UnDo.TEXT_CHANGE) 
-      this.Gui.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
+      _ := PreDialog(this.Gui)
       Obj := TextInputBox(this, "Edit Text (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", this.text)
-      this.Gui.Opt("-OwnDialogs -Disabled") ; forces to grab the top focus
       If (Obj.Result = "OK") {
          this.Shape := Obj.Shape
          this.DrawText(C.X1, C.Y1, Obj.Size, Trim(Obj.Value, " `n"), Obj.Font, Obj.ALignment, Obj.FontStyle, RGBval(Obj.Color))

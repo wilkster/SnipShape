@@ -1275,7 +1275,7 @@ Class Shapes {
       SnipObj := Snips.GetGuiObj(hWnd)
       SnipObj.GetPos(,,&W,&H)
       KeyWait(letter,"t3") ; wait for key to not be pressed
-      SnipObj.Opt("+OwnDialogs") ; forces to grab the top focus
+      _ := PreDialog(SnipObj)
       SelectedFiles := FileSelect("M", SETTINGS.SavePath_Icons, "Select Pictures to Add", "Picture (*.png; *.ico; *.bmp *.gif *.jpg *.WMF)")
       Count := 0
       For SelectedFile in SelectedFiles {
@@ -1469,7 +1469,7 @@ Class Shapes {
       if (letter)
          KeyWait(letter, "t2") ; wait for key to not be pressed (repeats)
       SnipObj := Snips.GetGuiObj(hWnd)
-      SnipObj.Opt("+OwnDialogs +Disabled") ; forces to grab the top focus
+
       ; Background is fill for tags and fill style
       BGColor := SnipObj.BackgroundPICColorFromXY(sX, sY, 32)
       TextObj := SnipObj.AddNewShape(Shape)
@@ -1490,10 +1490,10 @@ Class Shapes {
             TextObj.FontSize  := TextShape.OLFontSize * factor
          Default:
       }
+      _ := PreDialog(SnipObj)
       TextObj.Color := Shapes.globalShapeColor
       Obj := TextInputBox(TextObj, "Enter Text to Add (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", "")
       If (WinExist(hWnd)) {
-         SnipObj.Opt("-OwnDialogs -Disabled") ; forces to grab the top focus
          If (Obj.Result = "OK") {
             If (TextObj.DrawText(sX, sY, Obj.Size, Trim(Obj.Value, " `n"), Obj.Font, Obj.ALignment, Obj.FontStyle, RGBval(Obj.Color), BGColor)) {
                ShapeOnTop(TextObj)
