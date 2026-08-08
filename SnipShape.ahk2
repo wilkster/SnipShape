@@ -284,8 +284,7 @@ HotIfWinActive
    ; Hide/clean all shapes
    +Del:: {
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.PostClearAllShapes()
          SnipObj.ClearAllShapes(true)
          SnipObj.flashBorder()
@@ -296,37 +295,34 @@ HotIfWinActive
       ; Copy active snip and shapes to the clipboard
       ; NOTE - We will copy focus border if it is active
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
-         SnipObj.Minimize()
+         ; SnipObj.Minimize()
       }
    }
    ^x:: {
       ; Cut active snip and shapes to the clipboard
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
          Snips.Close(SnipObj, 0)
       }
    }
    ^s:: {
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
-         SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)
-         SnipObj.flashBorder()
+      If (SnipObj := Snips.GetGuiObj()) {
+         if (SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave))
+            SnipObj.flashBorder()
       }
    }
    ^j:: {
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
-         SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
-         qTrayTip("Snip saved to clipboard and " SETTINGS.SavePath_Image)
-         SnipObj.flashBorder(WinExist("A"))
+         If (SnipObj.Snip2File(Settings.SavePath_Image, Snips.borderWithSave)) {
+            qTrayTip("Snip saved to clipboard and " Settings.SavePath_Image)
+            SnipObj.flashBorder()
+         }
       }
    }
    ^D:: {
@@ -346,20 +342,17 @@ HotIfWinActive
    ; Simple transformations
    ^i::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
          SnipObj.TransformSnip(1) ; invert
    }
    ^g::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
          SnipObj.TransformSnip(2) ; grayscale
    }
    ^b::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
         SnipObj.TransformSnip(3) ; black and white high contrast
    }
    ; Undo / Redo hotkeys
@@ -378,35 +371,30 @@ HotIfWinActive
    =::
    NumpadAdd::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
          SnipObj.ScaleSnip(1.20)
    }
 
    -::
    NumpadSub::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
         SnipObj.ScaleSnip(1 / 1.2)
    }
    
    ^WheelUp::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
          SnipObj.ScaleSnip(1.20)
    }
    ^WheelDown::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj)
+      If (SnipObj := Snips.GetGuiObj())
          SnipObj.ScaleSnip(1 / 1.20)
    }
    !WheelUp::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Alpha += 0xF
          MouseGetPos(&mX,&mY)
          ToolTip("     Alpha Set to " Round(SnipObj.Alpha/0xFF * 100) "%", mX, mY)
@@ -415,8 +403,7 @@ HotIfWinActive
    }
    !WheelDown::{
       /** @type {GuiSnip} */
-      SnipObj := Snips.GetGuiObj()
-      If (SnipObj) {
+      If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Alpha -= 0xF
          MouseGetPos(&mX,&mY)
          ToolTip("     Alpha Set to " Round(SnipObj.Alpha/0xFF * 100) "%", mX, mY)
