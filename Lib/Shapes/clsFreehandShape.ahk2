@@ -149,14 +149,16 @@ Class FreeHandShape extends commonShape {
          this.SnipObj.ReleaseBrush(this.imageBrush)
          this.imageBrush := 0
       }
-      scaleTag := "-" . Round(this.SnipObj.ScaleFactor, 2) ; Scaling is part of brush tag
+      this.SnipObj.getPicPos(, , &W, &H)
+      scaleTag := "-" . W . "-" . H ; Bitmap size is part of brush tag
       Switch this.Shape {
          Case Shapes.SHAPE_HILITER:
             param := (this.Color . "-" this.shapeOpacity)
             brushKey := param . scaleTag
             If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
-               ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush))
+               ; debug("Reusing a " this.shapeName " brush " hex(this.imageBrush) " " param)
             } Else If (this.imageBrush := this.getHighlightedSnipBrush(this.Color, this.shapeOpacity)) {
+               ; debug("Adding a " this.shapeName " brush " hex(this.imageBrush) " " param)
                this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
             } Else {
                warning("Failed to retrieve a text brush from the highlighted shape")
