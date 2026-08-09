@@ -321,27 +321,27 @@ Class GuiSnip extends Gui {
          pen := GDIp.CreatePen(0xFF000000 | bc, BW)
          GDIp.SetPenAlignment(pen, 1)
          GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
-         GDIp.DeletePen(pen)
          ; Shadow, fade the border color outside to in to fill the gap
          ; between snip border width and the live snipper border width.
          If (SBW < BW) {
             GDIp.SetCompositingMode(iG, 1)
             maxAlpha := 200
             n := BW - SBW                          ; number of 1px fade rings
-            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.5)
             i := 0
-            While (SBW++ < BW) {
-               of := A_Index - 1
-               t := (i + 1) / n                    ; 0 < t <= 1  (1 = innermost, touching solid border)
-               opacity := Round(maxAlpha * t * t)  ; quadratic ease-in: fades slowly near the edge, ramps up near the border
-               pen := GDIp.CreatePen(opacity << 24 | shadowRGB, 1)
-               GDIp.SetPenAlignment(pen, 1)        ; match the solid border pen's alignment
-               GDIp.DrawRectangle(iG, pen, of, of, newW - of * 2, newH - of * 2)
-               GDIp.DeletePen(pen)
+            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.5)
+            ; pen := GDIp.CreatePen(0xFF000000 | shadowRGB, 1)
+            GDIp.SetPenWidth(pen, 1)
+            i := 0
+            Loop n {
+               t := (i + 1) / n
+               opacity := Round(maxAlpha * t * t)
+               GDIp.SetPenColor(pen, opacity << 24 | shadowRGB)
+               GDIp.DrawRectangle(iG, pen, i, i, newW - i * 2, newH - i * 2)
                i += 1
             }
          }
       }
+      GDIp.DeletePen(pen)
       ; Restore obm and delete DC we created
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
@@ -435,7 +435,8 @@ Class GuiSnip extends Gui {
     */
    ReleaseAllBrushes() {
       For key, brush in this.BrushMap {
-         this.BrushCount[brush] := 1
+         if (this.BrushCount[brush] > 1)
+            this.BrushCount[brush] := 1
       }
    }
    /**
