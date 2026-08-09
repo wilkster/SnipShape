@@ -127,7 +127,9 @@ Class Cursor {
          If (wParam = lastControl) {
             ; nothing
          } else if (wParam AND ButtonBar.buttonTips.Has(wParam) And WinActive("ahk_class AutoHotkeyGUI")) { ; active menus have a class #32768
-            Tooltip " " . ButtonBar.buttonTips[wParam] . " "
+            GetCursorPos(&mX, &mY)
+            CoordMode("ToolTip", "Screen")
+            ToolTip(" " . ButtonBar.buttonTips[wParam] . " ", mX, mY + ButtonBar.ButSize)
             SetTimer(ToolTip,-1500)
             lastControl := wParam
          } else {
