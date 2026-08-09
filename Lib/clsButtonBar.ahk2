@@ -271,8 +271,8 @@ Class ButtonBar {
                sX := X, sY := Y
             Else
                WinGetPos(&sX, &sY,,, hWnd)
-            ; Keep it visible on current monitor
-            MonInfo := activeMonArea()
+            ; Keep it visible on monitor containing snip
+            MonInfo := windowMonArea(hWnd)
             newY    := Max(sY - this.bbHeight, MonInfo.Y)
             sX      := Max(sX, MonInfo.X)
             this.bbgui.Show("NA Y" newY " X" sX)

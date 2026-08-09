@@ -427,7 +427,19 @@ activeMonArea(workArea := 1) {
    Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
    Return Area
 }
-
+/**
+ * Return active monitor metrics based on the current cursor position
+ * @param {Integer} [workArea=1] - If true, exclude the taskbar from the returned area
+ * @returns {Object} Area object with X, Y, X2, Y2, W, H of the active monitor
+ */
+windowMonArea(hWnd, workArea := 1) {
+   Static MONITOR_DEFAULTTONEAREST := 0x00000002
+   hMon := DllCall("User32\MonitorFromWindow", "Ptr", hWnd, "Uint64", MONITOR_DEFAULTTONEAREST)
+   DllCall("User32\GetMonitorInfo", "ptr", hMon, stMONITORINFOEX.Ptr, &mnInfo)
+   base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
+   Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
+   Return Area
+}
 /**
  * Return the bounding area covering all monitors combined
  * @returns {Object} Area object with X, Y, W, H of the virtual screen spanning all monitors
