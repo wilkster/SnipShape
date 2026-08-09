@@ -427,6 +427,17 @@ Class GuiSnip extends Gui {
       Return 0
    }
    /**
+    * Reset all the texture/image brushes
+    * Needed if the bitmap changes underneath
+    */
+   ResetAllBrushes() {
+      For key, brush in this.BrushMap {
+         GDIp.DeleteBrush(brush)
+         this.BrushMap.Delete(key)
+         this.BrushCount.Delete(brush)
+      }
+   }
+   /**
     * Get or set the area object describing the captured screen region
     * @type {Object}
     */
