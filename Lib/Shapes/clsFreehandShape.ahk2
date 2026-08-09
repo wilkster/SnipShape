@@ -227,7 +227,6 @@ Class FreeHandShape extends commonShape {
     * Create a new imagebrush and refill the face
     */
    Refresh() {
-      this.SnipObj.ResetAllBrushes()
       this.createImageBrush()
       this.RefillFace()
    }

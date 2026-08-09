@@ -280,6 +280,7 @@ Class GuiSnip extends Gui {
     * to redraw texture brushes after a bitmap change
     */
    RefreshTextures() {
+      this.ReleaseAllBrushes()
       For ShapeObj in this.VisibleShapes {
          ShapeObj.Refresh()
       }
@@ -415,7 +416,7 @@ Class GuiSnip extends Gui {
       For key, brush in this.BrushMap {
          If (brush = handle) {
             ; If there remain no more references to the brush delete it
-            if ((res := this._BrushRefCount(brush,-1)) = 0) {
+            if ((res := this._BrushRefCount(brush,-1)) == 0) {
                GDIp.DeleteBrush(brush)
                this.BrushMap.Delete(key)
                this.BrushCount.Delete(brush)
@@ -427,14 +428,14 @@ Class GuiSnip extends Gui {
       Return 0
    }
    /**
-    * Reset all the texture/image brushes
+    * Reset all the texture/image brushes ref count to 1
     * Needed if the bitmap changes underneath
+    * Next time we refresh a brush, it will be replaces since
+    * Count is only 1
     */
-   ResetAllBrushes() {
+   ReleaseAllBrushes() {
       For key, brush in this.BrushMap {
-         GDIp.DeleteBrush(brush)
-         this.BrushMap.Delete(key)
-         this.BrushCount.Delete(brush)
+         this.BrushCount[brush] := 1
       }
    }
    /**

@@ -92,13 +92,13 @@ Class ObscureShape extends commonShape {
             param := Round(Constrain(1, Min(W, H) / 2, this.Factor * this.DPIScale))
             brushKey := param . scaleTag
             If (this.imageBrush := this.SnipObj.GetBrush(this.Shape, brushKey)) {
-               debug("Reusing a obscure brush " this.shapeName " brush " brushKey)
+               ; debug("Reusing a obscure brush " this.shapeName " brush " brushKey)
             } Else If (pBitInput := GDIp.CreateARGBBitmapFromHBITMAP(this.GUI.handle)) {
                pBitOutput      := BitMap.PixelateBitmap(pBitInput, param)
                this.imageBrush := GDIp.BrushCreateTexture(pBitOutput)
                GDIp.DisposeImage(pBitOutput)
                this.SnipObj.AddBrush(this.imageBrush, this.Shape, brushKey)
-               debug("Adding a obscure brush " this.shapeName " brush " brushKey)
+               ; debug("Adding a obscure brush " this.shapeName " brush " brushKey)
             } Else {
                warning("Failed to retrieve the Snip picture for " this.ShapeName)
             }
