@@ -630,16 +630,12 @@ Class Snips {
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
       try {
-         If (SnipObj := Snips.IsValid(WinActive("A"))) {
-            hook := PreDialog(SnipObj)
-         } Else {
-            hook := FileDialogHook() ; Needed for tray launch in some cases
-         }
-
          pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap)
          If IsSet(SnipObj) {
+            hook := PreDialog(SnipObj)
             baseName := SnipObj.BaseName
          } else {
+            hook := FileDialogHook() ; Needed for tray launch in some cases
             GDIp.GetImageDimensions(pBitmap, &W, &H)
             baseName := Snips.timeTag . ' (' W 'x' H ')'
          }
