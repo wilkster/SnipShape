@@ -586,6 +586,28 @@ Luminosity(rgb) {
 /**
  * 
  * @param rgb hex value of input color to adjust
+ * @param {Float} satFactor 0 to 1 value on saturation to remove (1 = fully desaturate, 0 = leave alone)
+ * @returns {Number} Desaturated complementary color
+ */
+DeSaturate(rgb, satFactor := 0.3) {
+   a := rgb & 0xFF000000
+   r := (rgb >>> 16) & 0xFF
+   g := (rgb >>> 8) & 0xFF
+   b := rgb & 0xFF
+   gray := 0.2989 * r + 0.5870 * g + 0.1140 * b ; //weights from CCIR 601 spec
+   ; if close to gray aready, then force the color to black
+   If Within(98, 158, r) AND Within(98, 158, g) and Within(98, 158, b)
+      r := 255, g := 255, b := 255
+   ; adjust for saturation
+   ; This may not be perfect, but it is close
+   r := Round(gray * satFactor + r * (1 - satFactor)), r := Constrain(0, 255, r)
+   g := Round(gray * satFactor + g * (1 - satFactor)), g := Constrain(0, 255, g)
+   b := Round(gray * satFactor + b * (1 - satFactor)), b := Constrain(0, 255, b)
+   Return a | r << 16 | g << 8 | b
+}
+/**
+ * 
+ * @param rgb hex value of input color to adjust
  * @param {Float} satFactor 0 to 100% value on saturation to remove (desaturate)
  * @returns {Number} Desaturated complementary color
  */

@@ -7,20 +7,21 @@
  ***********************************************************************/
 #include libMisc.ahk2
 Class Settings {
-   Static Path               := A_AppData . "\SnipShape"
-   Static File               := Settings.Path . "\SnipShape.ini"
-   Static CursorPath         := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
-   Static SavePath_Image     := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
-   Static SavePath_Image_Ext := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
-   Static SavePath_Icons     := IniReadValue("User Snips", "IconPath", GetFullPathName('.\Stickies\'))
-   Static DIBPad             := Integer(IniReadValue("User Shapes", "Padding", 450))
-   Static Scale_Freehand     := IniReadValue("User Shapes", "ScaleFreehand", 0)
-   Static rawBorderWidth     := IniReadValue("User Snips", "Border Width",2)
-   Static focusRectangle     := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
-   Static SnipBorderColor    := IniReadValue("User Snips", "Snip Border Color", "0xf89b06")
-   Static ClipBorderColor    := IniReadValue("User Snips", "Clip Border Color", "0xf00a0a")
-   Static OCRBorderColor     := IniReadValue("User Snips", "OCR Border Color", "0xaecff4")
-
+   Static Path                   := A_AppData . "\SnipShape"
+   Static File                   := Settings.Path . "\SnipShape.ini"
+   Static CursorPath             := IniReadValue("User Snips", "CursorPath", GetFullPathName('.\Cursors\'))
+   Static SavePath_Image         := IniReadValue("User Snips", "SnipPath", GetFullPathName(A_MyDocuments . "\..\Pictures\Screenshots\"))
+   Static SavePath_Image_Ext     := 'PNG' ; BMP|DIB|RLE|JPG|JPEG|JPE|JFIF|GIF|TIF|TIFF|PNG
+   Static SavePath_Icons         := IniReadValue("User Snips", "IconPath", GetFullPathName('.\Stickies\'))
+   Static DIBPad                 := Integer(IniReadValue("User Shapes", "Padding", 450))
+   Static Scale_Freehand         := IniReadValue("User Shapes", "ScaleFreehand", 0)
+   Static rawBorderWidth         := IniReadValue("User Snips", "Border Width",2)
+   Static rawSnippingBorderWidth := IniReadValue("User Snips", "Snipping Border Width",2)
+   Static focusRectangle         := True ; IniReadValue("Snips","Focus Rectangle", true), always leave true for now as it is integral
+   Static ActiveSnipBorderColor  := IniReadValue("User Snips", "Active Snip Border Color", "0x00d120")
+   Static SnipBorderColor        := IniReadValue("User Snips", "Snip Border Color", "0xf89b06")
+   Static ClipBorderColor        := IniReadValue("User Snips", "Clip Border Color", "0xf00a0a")
+   Static OCRBorderColor         := IniReadValue("User Snips", "OCR Border Color", "0xaecff4")
    Static __New() {
       If !FileExist(Settings.Path)
          DirCreate(Settings.Path)
@@ -33,7 +34,10 @@ Class Settings {
       get => round(this.rawBorderWidth * activeMonDPIFactor(1))
       set => rawBorderWidth := round(Value / activeMonDPIFactor(1))
    }
-
+   Static SnippingBorderWidth {
+      get => round(this.rawSnippingBorderWidth * activeMonDPIFactor(1))
+      set => rawSnippingBorderWidth := round(Value / activeMonDPIFactor(1))
+   }
 }
 ;----------------------------------------------------------------------
 ; INI Helper Function

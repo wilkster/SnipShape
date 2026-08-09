@@ -291,7 +291,8 @@ Class GuiSnip extends Gui {
     */
    _replaceSnip(hBitmap, x?, y?) {
       GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-      BW := Settings.BorderWidth
+      BW   := Settings.BorderWidth
+      SBW  := Settings.SnippingBorderWidth
       newW := W + BW * 2
       newH := H + BW * 2
       ; keep this.hWnd's current top-left; only the size grows (per spec)
@@ -312,15 +313,33 @@ Class GuiSnip extends Gui {
       ; Premultiply if we have some transparency to show
       BitMap.PreMultiplyBitmap(hDIB,this._alpha)
 
-      ; Paint the border fully opaque
       If (BW > 0) {
          iG := GDIp.GraphicsFromHDC(hdcMem)
-         pen := GDIp.CreatePen(0xFF000000 | RGBval(this.BackColor), BW)
+         ; Paint the border fully opaque
+         bc := RGBval(this.BackColor)
+         pen := GDIp.CreatePen(0xFF000000 | bc, BW)
          GDIp.SetPenAlignment(pen, 1)
          GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
-         ; NOTE, to draw a dropoff shadow around border we need a bigger BW
-         ; and a loop to draw progressively thinner rectangle lines with some alpha value (not overlay let them stack opacity)
-         ; to simlate a shadow
+         GDIp.DeletePen(pen)
+         ; Shadow, fade the border color outside to in to fill the gap
+         ; between snip border width and the live snipper border width.
+         If (SBW < BW) {
+            GDIp.SetCompositingMode(iG, 1)
+            maxAlpha := 200
+            n := BW - SBW                          ; number of 1px fade rings
+            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.5)
+            i := 0
+            While (SBW++ < BW) {
+               of := A_Index - 1
+               t := (i + 1) / n                    ; 0 < t <= 1  (1 = innermost, touching solid border)
+               opacity := Round(maxAlpha * t * t)  ; quadratic ease-in: fades slowly near the edge, ramps up near the border
+               pen := GDIp.CreatePen(opacity << 24 | shadowRGB, 1)
+               GDIp.SetPenAlignment(pen, 1)        ; match the solid border pen's alignment
+               GDIp.DrawRectangle(iG, pen, of, of, newW - of * 2, newH - of * 2)
+               GDIp.DeletePen(pen)
+               i += 1
+            }
+         }
       }
       ; Restore obm and delete DC we created
       GDI.SelectObject(hdcSrc, obmSrc)
@@ -330,8 +349,6 @@ Class GuiSnip extends Gui {
       GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, newW, newH)
 
       ; clean up
-      if (IsSet(pen))
-         GDIp.DeletePen(pen)
       if (IsSet(iG))
          GDIp.DeleteGraphics(iG)
       GDI.SelectObject(hdcMem, obm)
@@ -964,7 +981,7 @@ Class GuiSnip extends Gui {
          ; GUI may close during the sleeps
          bc := this.BackColor
          Sleep(flash)
-         this.BackColor := "c05ff00"
+         this.BackColor := Settings.ActiveSnipBorderColor
          Sleep(flash)
          this.BackColor := bc
       }
