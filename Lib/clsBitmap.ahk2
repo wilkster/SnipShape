@@ -836,7 +836,7 @@ Class BitMap {
     * @param {Integer} pBitmap Handle to the source pBitmap
     * @param {String} sOutput Destination file path including extension
     * @param {Integer} Quality JPEG quality level 0–100 (default: 75)
-    * @param {Integer} toBase64 1 to return a Base64 string instead of writing a file (default: 0)
+    * @param {Integer} toBase64 1 to return a Base64 string instead of writing a file (default: 0), 2 to return the binary buffer itself
     * @returns {Integer|String} 0 on success, a Base64 string when toBase64=1,
     *                           or a negative error code on failure:
     *                           -1 unsupported extension, -2 no encoders found,

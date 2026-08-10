@@ -669,8 +669,7 @@ Class Snips {
          ; Save the Snip in Editable format as well if it has shapes
          ; May be a different filename
          If (FileName AND this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
-            FileName := SavePath . baseName . ".json"
-            FileObject.SaveSnip(SnipObj, FileName)
+            FileObject.SaveSnipMetaData(SnipObj, FileName)
          }
 
       } catch as e {
@@ -758,39 +757,15 @@ Class Snips {
     * @param {String} sFile - Full path to the image file to load
     */
    Static CreateSnipFromFile(sFile) {
-      SplitPath(sFile,,&folder,,&baseName)
-      editFile := folder "\" baseName ".json"
-      If FileExist(editFile) {
-         If (SnipObj := FileObject.LoadSnip(editFile)) {
+      If FileExist(sFile) {
+         If (SnipObj := FileObject.LoadSnip(sFile)) {
             ButtonBar.Show(SnipObj.Hwnd)
          } Else {
-            MsgBox("Failed to load Editable Snip File " editFile)
+            warning("Failed to load Snip File " sFile)
+            qTrayTip("Failed to Load Snip File`n" sFile, 2)
          }
-      } Else {
-         pBitmap := GDIp.CreateBitmapFromFile(sFile)
-         If (pBitmap) {
-            MonInfo := activeMonArea(1)
-            GDIp.GetImageDimensions(pBitmap, &W, &H)
-            ; Need an hBitmap for the picture
-            hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-            GDIp.DisposeImage(pBitmap)
-            BW := Settings.BorderWidth
-            ; Center image
-            X := MonInfo.X + MonInfo.W / 2 - W / 2
-            Y := MonInfo.Y + MonInfo.H / 2 - H / 2
-            ; Setup the new Snip information
-            Area := { X: X + 50, Y: Y + 50, W: W, H: H, X2: X + W, Y2: Y + H }
-            /** @type {GuiSnip} SnipObj */
-            SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
-            SnipObj.FileName := sFile
-            ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
-            SnipObj.AddSnipPic(hBitmap)
-            ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
-            SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
-         } Else {
-            qTrayTip("Did not find a valid bitmap to load", 2)
-         }
-      }
+      } else
+         qTrayTip("Did not find a valid snip file to load", 2)
    }
    /**
     * Create a new snip window from an existing HBITMAP, centered on the active monitor
@@ -807,11 +782,8 @@ Class Snips {
          Y := MonInfo.Y + MonInfo.H/2 - H/2
          ; Setup the new Snip information
          Area := useArea ?? { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
-         ; Area := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
          /** @type {GuiSnip} SnipObj */
          SnipObj := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
-         ; SnipObj.FileName := sFile
-         ; SnipObj.MarginX  := BW, SnipObj.MarginY := BW
          SnipObj.AddSnipPic(hBitmap)
          ; Shift by margin so picture lays over the real image, specify h/w in case we need to be larger than the screen
          SnipObj.Show('x' Area.X ' y' Area.Y) ; NA -> want active

@@ -1,5 +1,6 @@
 /************************************************************************
- * @description Class to recreate editable screen clips
+ * @description Class to save recreate editable screen clips using
+ *              Either json sidecar or embedded iTxt in PNG files
  * @file clsFileObject.ahk2
  * @author Tom Wilkason
  * @date 2026-08-01 
@@ -7,25 +8,31 @@
  ***********************************************************************/
 #Requires AutoHotkey v2
 #include Settings.ahk2
+#include clsGDIp.ahk2
 #include libMisc.ahk2
 #include clsBitmap.ahk2
 #include clsSnips.ahk2
+#include shapes\clsCommonShape.ahk2
 Class FileObject {
+   Static FileTag := "SnipShape"
    /**
     * Save a snip and all of its shapes for alter editing in JSON format
     * @param SnipObj Snip Object to save
-    * @param fileName File name to save it
+    * @param fileName Existing File name of png image to append data to
     * @returns {Integer} 1 if sucessful
     */
-   Static SaveSnip(SnipObj, fileName) {
+   Static SaveSnipMetaData(SnipObj, pngFileName) {
       fileObj := {}
       ; Save the shape bitmap
       fileObj.Snip := SnipObj.SnipInfo()
       pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle)
-      ; This gets a base64 encoded stream to save to the file
+
+      ; TODO - look into saving binary chunk here vs base64 to save space
+      ; Base snip bitmap gets a base64 encoded stream to save to the file
       fileObj.Snip.hBitmap := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
       GDIp.DisposeImage(pTemp)
-      ; Save the shape info objects
+
+      ; Create the shape info objects in JSON format
       fileObj.Shapes := Array()
       For ShapeObj in SnipObj.VisibleShapes {
          Info := ShapeObj.InstanceInfo()
@@ -49,62 +56,126 @@ Class FileObject {
          ; Push each to front so they are restored in the proper Z-Order
          fileObj.Shapes.InsertAt(1, Info)
       }
-      ; We have the fileObj, now ready to save to file
-      ; We won't get here unless we have been prompted to overwrite
-      If (FileExist(fileName)) {
-         Try {
-            FileDelete(fileName)
-         } Catch as E {
-            MsgBox("Error Removing File " fileName, "Remove Error", 0x30)
-            Return 0
-         }
-      }
+
       ; Now we have the object constructed, get a text version we can write to a file
       txt := JSON.Stringify(fileObj)      
+
+      ; We have the text data, now ready to append to png file
+      If (FileExist(pngFileName)) {
+         Try {
+            PngMeta.WriteText(pngFileName, this.FileTag, txt)
+            Return 1
+         } Catch as E {
+            MsgBox("Error Appending to PNG File`n" pngFileName E.message, 0x30)
+         }
+      } else
+            MsgBox("PNG File does not exist!`n" pngFileName E.message, 0x30)
+
+      ; Failsafe if writing to PNG fails
+      ; Try the json sidecar approach if we fail appending to pngfile
+      SplitPath(pngFileName,,&folder,,&baseName)
+      scFileName := folder "\" baseName ".json"
+      ; We have the fileObj, now ready to save to file
+      ; We won't get here unless we have been prompted to overwrite
       Try {
-         FileAppend(txt, fileName)
+         f := FileOpen(scFileName, "w")
+         f.write(txt)
+         f.Close()
+         Return 1
       } Catch as E {
-         MsgBox("Failed to save " fileName, "Save Error", 0x30)
+         MsgBox("Failed to save " scFileName, "Save Error", 0x30)
       }
-      Return 1
+      Return 0
    }
    /**
     * Load a snp snip file so we can continue to edit it.
     * @param fileName File name of the snip to load (snp)
     * @returns {GuiSnip | 0} 
     */
-   Static LoadSnip(fileName) {
-      If (FileExist(fileName)) {
-         If (txt := FileRead(fileName)) {
-            Try {
-               fileObj := JSON.Parse(txt, , false)
-            } Catch as E {
-               elog(E)
-               MsgBox("Error Parsing " fileName ", " E.Message)
-               Return 0
-            }
-            pTemp := BitMap.LoadBitmapFromBase64(fileObj.Snip.hBitmap)
-            If (pTemp > 0) {
-               hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pTemp)
-               fileObj.Snip.hBitmap := ""
-               GDIp.DisposeImage(pTemp)
-               If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
-                  ; If allow edits is true, use the original name and title
+   Static LoadSnip(pngFileName) {
+
+      ; 1. First try the png file to see if data is embedded
+      If (FileExist(pngFileName)) {
+         Try {
+            ; If txt is null there was no sidecar data in the file
+            If (txt := PngMeta.ReadText(pngFileName, this.FileTag)) {
+               If (SnipObj := this._buildSnip(txt)) {
                   If (Snips.SaveSidecar) {
-                     SplitPath(fileName, , , , &basename)
-                     SnipObj._FileName := fileName
+                     SplitPath(pngFileName, , , , &basename)
+                     SnipObj._FileName := pngFileName
                      SnipObj.Title := "SnipShapeWindow - " basename
                   }
-                  ; We have the data for the snip and the shapes, so recreate them here
-                  For ShapeInfo in fileObj.Shapes {
-                     this.RecreateShape(SnipObj, ShapeInfo)
-                  }
                   Return SnipObj
-               } else 
-                  MsgBox("Failed to Create Snip from " fileName,"File Load Error", 0x30)
+               }
             }
-            MsgBox("Failed to Read bitmap from " fileName,"File Load Error:" pTemp, 0x30)
+         } Catch as E {
+            MsgBox("Error Reading PNG File " pngFileName E.message, 0x30)
          }
+      }
+
+      ; 2. Then look for sidecar files if png doesn't contain the data
+      SplitPath(pngFileName,,&folder,,&baseName)
+      sideCarFileName := folder "\" baseName ".json"
+      If (FileExist(sideCarFileName)) {
+         If (txt := FileRead(sideCarFileName)) {
+            If (SnipObj := this._buildSnip(txt)) {
+               If (Snips.SaveSidecar) {
+                  SplitPath(sideCarFileName, , , , &basename)
+                  SnipObj._FileName := sideCarFileName
+                  SnipObj.Title := "SnipShapeWindow - " basename
+               }
+               Return SnipObj
+            }
+         } Else {
+            MsgBox("Failed to read any text from " sideCarFileName E.message, 0x30)
+         }
+      }
+
+      ; 3. Finally try to load the png file with layers merged, transparency is supported
+      pBitmap := GDIp.CreateBitmapFromFile(pngFileName) 
+      If (pBitmap) {
+         ; Need an hBitmap for the picture, hand if off
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+         SnipObj := Snips.CreateSnipFromHBitmap(hBitmap)
+         Return SnipObj
+      } Else {
+         MsgBox("Did not find a valid bitmap to load for " pngFileName E.message, 0x30)
+      }
+      ; Nothing worked, return failure
+      Return 0
+   }
+   /**
+    * Build the Snip Object from JSON Text data
+    * @param txt text of JSON to build with
+    * @returns {Integer | GuiSnip} 
+    */
+   Static _buildSnip(txt) {
+      If (txt) {
+         Try {
+            fileObj := JSON.Parse(txt, , false)
+         } Catch as E {
+            elog(E)
+            MsgBox("Error Parsing JSON data" E.Message, 0x30)
+            Return 0
+         }
+
+         pTemp := BitMap.LoadBitmapFromBase64(fileObj.Snip.hBitmap)
+         If (pTemp > 0) {
+            hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pTemp)
+            fileObj.Snip.hBitmap := ""
+            GDIp.DisposeImage(pTemp)
+            If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
+               ; If allow edits is true, use the original name and title
+               ; We have the data for the snip and the shapes, so recreate them here
+               For ShapeInfo in fileObj.Shapes {
+                  this._RecreateShape(SnipObj, ShapeInfo)
+               }
+               Return SnipObj
+            } else 
+               MsgBox("Failed to Create Snip" , "File Load Error", 0x30)
+         }
+         MsgBox("Failed to Read bitmap","File Load Error:" pTemp, 0x30)
       }
       Return 0
    }
@@ -114,7 +185,7 @@ Class FileObject {
     * @param Info Info Object with information how to create the shape
     * @returns {Object} handle to the created shape object
     */
-   Static RecreateShape(SnipObj, Info) {
+   Static _RecreateShape(SnipObj, Info) {
       Info.Gui := SnipObj
       Switch Info.Source {
          Case "File", "Clip":
@@ -158,6 +229,112 @@ Class FileObject {
          Return 0
       }
       Return CloneObj
+   }
+}
+/*
+ * PngMeta Class
+ * Read and write iTXt chunks to PNG files to contain extra user txt data
+ * In this case we are saving the shape information to allow using PNG
+ * files as editable SnipShape files. PNG files are still compatible with other apps
+ */
+class PngMeta {
+   ; ---- CRC32 over the type+data bytes of a chunk ----
+   static CRC32(pData, size) {
+      Return DllCall("ntdll\RtlComputeCrc32", "UInt", 0, "Ptr", pData, "UInt", size, "UInt")
+   }
+
+   static Swap32(v) {
+      Return ((v & 0xFF) << 24) | ((v & 0xFF00) << 8) | ((v >> 8) & 0xFF00) | ((v >> 24) & 0xFF)
+   }
+
+   ; ---- UTF-8 encode a string into a buffer, returns {Buf, Size} (Size excludes the null) ----
+   static Utf8Bytes(str) {
+      n := StrPut(str, "UTF-8") - 1
+      buf := Buffer(n + 1)
+      StrPut(str, buf, "UTF-8")
+      Return {Buf: buf, Size: n}
+   }
+
+   ; ---- Build the iTXt payload: keyword\0 flag(0) method(0) lang\0 xkeyword\0 text ----
+   static BuildITXtPayload(keyword, text) {
+      kw  := PngMeta.Utf8Bytes(keyword)
+      txt := PngMeta.Utf8Bytes(text)
+      size := kw.Size + 1 + 1 + 1 + 1 + 1 + txt.Size
+      out := Buffer(size, 0)
+      off := 0
+      DllCall("RtlMoveMemory", "Ptr", out.Ptr + off, "Ptr", kw.Buf.Ptr, "UPtr", kw.Size)
+      off += kw.Size + 1        ; keyword's null terminator
+      off += 2                  ; compression flag=0, method=0 (buffer already zeroed)
+      off += 1 + 1               ; empty language tag + empty translated keyword, both null-terminated
+      DllCall("RtlMoveMemory", "Ptr", out.Ptr + off, "Ptr", txt.Buf.Ptr, "UPtr", txt.Size)
+      Return out
+   }
+
+   ; ---- Wrap a chunk type + payload into a full length/type/data/crc chunk buffer ----
+   static BuildChunk(type, pData, dataSize) {
+      out := Buffer(12 + dataSize)
+      NumPut("UInt", PngMeta.Swap32(dataSize), out, 0)
+      Loop 4
+         NumPut("UChar", Ord(SubStr(type, A_Index, 1)), out, 3 + A_Index)
+      DllCall("RtlMoveMemory", "Ptr", out.Ptr + 8, "Ptr", pData, "UPtr", dataSize)
+      crc := PngMeta.CRC32(out.Ptr + 4, 4 + dataSize)
+      NumPut("UInt", PngMeta.Swap32(crc), out, 8 + dataSize)
+      Return out
+   }
+
+   ; ---- Locate every top-level chunk in a PNG buffer ----
+   static Parse(buf) {
+      chunks := []
+      pos := 8
+      While (pos + 8 <= buf.Size) {
+         len  := PngMeta.Swap32(NumGet(buf, pos, "UInt"))
+         type := StrGet(buf.Ptr + pos + 4, 4, "CP0")
+         chunks.Push({Start:pos, Len:len, Type:type, Total: 8 + len + 4})
+         pos += 8 + len + 4
+      }
+      Return chunks
+   }
+
+   ; ---- Write (replacing any prior copy) a keyword/text pair into a PNG's iTXt chunks ----
+   ; Writes bitmaps as well as base64, uses keywords but tradeoff is file size
+   static WriteText(fileName, keyword, text) {
+      buf := FileRead(fileName, "RAW")
+      chunks := PngMeta.Parse(buf)
+      payload := PngMeta.BuildITXtPayload(keyword, text)
+      newChunk := PngMeta.BuildChunk("iTXt", payload.Ptr, payload.Size)
+      tmp := fileName ".tmp"
+      f := FileOpen(tmp, "w")
+      f.RawWrite(buf.Ptr, 8)                       ; <-- PNG signature, was missing
+      For c in chunks {
+         If (c.Type = "iTXt") {
+            kw := StrGet(buf.Ptr + c.Start + 8, "UTF-8")
+            If (kw = keyword)
+               Continue                 ; drop the stale copy
+         }
+         If (c.Type = "IEND")
+            f.RawWrite(newChunk.Ptr, newChunk.Size)   ; insert just before IEND
+         f.RawWrite(buf.Ptr + c.Start, c.Total)
+      }
+      f.Close()
+      FileDelete(fileName)
+      FileMove(tmp, fileName)
+   }
+
+   ; ---- Read a keyword's text back out of a PNG's iTXt chunks ----
+   static ReadText(fileName, keyword) {
+      buf := FileRead(fileName, "RAW")
+      For c in PngMeta.Parse(buf) {
+         If (c.Type != "iTXt")
+            Continue
+         kw := StrGet(buf.Ptr + c.Start + 8, "UTF-8")
+         If (kw != keyword)
+            Continue
+         kwSize := StrPut(kw, "UTF-8") - 1
+         textOffset := c.Start + 8 + kwSize + 5   ; kw + \0 + flag + method + lang\0 + xkw\0
+         textSize   := c.Len - (kwSize + 5)
+         Return StrGet(buf.Ptr + textOffset, textSize, "UTF-8")
+      }
+      Return ""
    }
 }
 /************************************************************************
