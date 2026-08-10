@@ -144,9 +144,6 @@ Class SnipMenus {
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(hWnd,15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(hWnd,12)                           
          Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(hWnd,14)                           
-         Case ItemName ~= "Edit:": 
-            SnipObj.MSPaint(SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave))
-            Snips.Close(SnipObj)
          Case ItemName ~= "Save:": SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)                            
          Case ItemName ~= "Duplicate": SnipObj.CloneAndScaleSnip(1.0)
          Case ItemName ~= "Minimize This": SnipObj.Minimize()
