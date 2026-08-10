@@ -511,6 +511,76 @@ Class BitMap {
          Return 0
       }
    }
+      /**
+    * Replace one color with another in a bitmap (in place)
+    * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
+    * @param fromARGB RGB you want to replace,  alpha here is used in replacement pixel
+    * @param toARGB RGB replacement value
+    * @param matchAlpha 1 = full match on fromARGB and replace with full toARGB, 
+    *                   0 = match RGB on fromARGB and flow over fromARGB alpha to toARGB, 
+    * @returns {Integer} number of replaced pixels
+    * See ReplaceColor.cpp mcode source
+    */
+   Static ContrastStretch(uBitmap, lowTH :=0.5, highTH := 0.5) {
+      Static mCodeFunc := 0
+      If (mCodeFunc = 0) {
+         ; Using MFC.exe to compile -m64 -O3 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
+         If (A_PtrSize = 8) {
+            x64 := "
+            (
+            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
+            AAAAAOA/AAAAAAAAAAA=
+            )"
+            mCodeFunc := Bitmap.GetMcodePtr(x64)
+         } Else {
+            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            return 0
+         }
+      }
+      ; get dimensions and reference to first pixel in memory (iScan)
+      If (mCodeFunc) {
+         replaced := 0
+         Switch BitMap.getImageType(uBitmap) {
+            Case "pBitmap":
+               GDIp.GetImageDimensions(uBitmap, &w, &h)
+               GDIp.LockBits(uBitmap, 0, 0, w, h, &stride, &iScan, &iData, 3) ; 3 is read/write only
+               replaced := DllCall(mCodeFunc, "UPtr", iScan, "uInt", w, "Int", h, "uInt", stride, "Float", lowTH, "Float", highTH, "Uint")
+               GDIp.UnlockBits(uBitmap, &iData)
+            Case "hBitmap":
+               res := BitMap.GetDIBSectionInfo(uBitmap)
+               ; Doesn't matter of top/down or bottom up just looking for a background color
+               ; Issue with  pixels not having any alpha so we would need to handle in mcode
+               replaced := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "Float", lowTH, "Float", highTH, "Uint")
+            Default:
+         }
+
+         Return replaced
+      } Else {
+         elog("Failed to compile MCode")
+         Return uBitmap
+      }
+   }
    /**
     * Replace one color with another in a bitmap (in place)
     * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap

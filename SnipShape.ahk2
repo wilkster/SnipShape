@@ -355,6 +355,11 @@ HotIfWinActive
       If (SnipObj := Snips.GetGuiObj())
         SnipObj.TransformSnip(3) ; black and white high contrast
    }
+   ^=::{
+      /** @type {GuiSnip} */
+      If (SnipObj := Snips.GetGuiObj())
+        SnipObj.StretchSnip() ; Expand contrast
+   }
    ; Undo / Redo hotkeys
    ^z::Snips.UnDoAction(WinExist("A"))
    ^y::Snips.ReDoAction(WinExist("A"))

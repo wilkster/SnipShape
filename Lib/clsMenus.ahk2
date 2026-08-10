@@ -69,6 +69,9 @@ Class SnipMenus {
       this.BitmapMenu.Add('B&W Snip (Ctrl-B)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("B&W Snip (Ctrl-B)", SETTINGS.CursorPath . "screenshot.ico")
 
+      this.BitmapMenu.Add('Stretch Contrast', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Stretch Contrast", SETTINGS.CursorPath . "screenshot.ico")
+
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "colors.ico")
       ; Note, these two are renamed with current file name in Post
@@ -133,6 +136,7 @@ Class SnipMenus {
          Case ItemName ~= "Invert Snip": SnipObj.TransformSnip(1)
          Case ItemName ~= "Grayscale Snip": SnipObj.TransformSnip(2)
          Case ItemName ~= "B&W Snip": SnipObj.TransformSnip(3)
+         Case ItemName ~= "Stretch Contrast": SnipObj.StretchSnip()
          Case ItemName ~= "Replace Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY)
          Case ItemName ~= "Insert Picture From File" : Shapes.AddPictureFromFile(hWnd, "lButton", "P")
 
