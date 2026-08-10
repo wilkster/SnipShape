@@ -1126,7 +1126,7 @@ Class Snips {
          } Else {
             ; Prompt to close if Snip has unsaved changes
             activeShapes := SnipObj.VisibleShapes.Length
-            if SnipObj.Dirty AND activeShapes > 0 AND Snips.confirmClose {
+            if SnipObj.Dirty AND Snips.confirmClose {
                _ := PreDialog(SnipObj)
                ans := MsgBox("Snip has unsaved changes with " activeShapes " Shapes, would you like to save it first?", "Confirm Close", 0x3|0x20)
                Switch ans, "Off" {
