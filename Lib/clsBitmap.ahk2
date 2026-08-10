@@ -890,8 +890,8 @@ Class BitMap {
             }
          }
       }
-
-      If (toBase64 = 1) {
+      ; If user wants buffers only, handle that here vs saving to a file
+      If (toBase64 >= 1) {
          ; part of the function extracted from ImagePut by iseahound
          ; https://www.autohotkey.com/boards/viewtopic.php?f=6&t=76301&sid=bfb7c648736849c3c53f08ea6b0b1309
          DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "int", true, "UPtr*", &pStream := 0)
@@ -909,8 +909,14 @@ Class BitMap {
          ObjRelease(pStream)
          DllCall("GlobalFree", "Ptr", hData)
 
-         ; Using CryptBinaryToStringA saves about 2MB in memory.
-         Return BitMap.BinaryToBase64(bin, bin.Size)
+         If (toBase64 = 2) {
+            ; Just return the binary data
+            ; raw binary Buffer — .Ptr / .Size ready for PngMeta.WriteChunks
+            Return bin
+         } Else {
+            ; Using CryptBinaryToStringA saves about 2MB in memory.
+            Return BitMap.BinaryToBase64(bin, bin.Size)
+         }
       }
 
       _E := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", sOutput, "Ptr", pCodec, "uint", _p)
