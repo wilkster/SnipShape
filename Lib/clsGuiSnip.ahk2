@@ -616,7 +616,6 @@ Class GuiSnip extends Gui {
     * @param {Integer} radius - Radius to search for color
     */
    ReplaceSnipBGColor(X, Y, radius := 8) {
-      this.PostAction(UnDo.CHANGE_SNIP)
       hBitmap := GDI.CopyImage(this.Handle)
       ; We are launched from a menu, so the coordinates are where the menu was launched
       fromRGB := this.BackgroundPICColorFromXY(X, Y, radius)
@@ -624,16 +623,16 @@ Class GuiSnip extends Gui {
       colorArray.Length := Min(16, colorArray.Length)
       toRGB   := ColorSelectDialog(fromRGB, this.hWnd, colorArray, true)
       If (toRGB >= 0 AND fromRGB != toRGB) {
+         this.PostAction(UnDo.CHANGE_SNIP)
          hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
          If (hits > 0) {
             ; Replace the picture
             this.Handle := hBitmap ; destroys og hBitmap
             this.RefreshTextures()
-            ; If (this.OGHandle) {
-            ;    hits := BitMap.ReplaceBitmapColor(this.OGHandle, 0xFF000000 | fromRGB, toRGB)
-            ; }
+            this.Dirty++
          } Else {
             GDI.DeleteObject(hBitmap)
+            this.PopAction()
          }
       } Else {
          GDI.DeleteObject(hBitmap)
@@ -659,9 +658,27 @@ Class GuiSnip extends Gui {
       ; Cleanup
       GDIp.DisposeImage(pBitmap) ;
       ; Recompute textures
+      this.Dirty++
       this.RefreshTextures()
    }
 
+   /**
+    * Stretches the contrast of a snip.
+    * Shapes are not impacted.
+    */
+   StretchSnip(*) {
+      hBitmap := GDI.CopyImage(this.Handle)
+      this.PostAction(UnDo.CHANGE_SNIP)
+      If (BitMap.ContrastStretch(hBitmap)) {
+         this.Handle := hBitmap ; destroys og hBitmap
+         ; Recompute textures
+         this.RefreshTextures()
+         this.Dirty++
+      } Else {
+         this.PopAction()
+         dlog("Did not need to change any pixels")
+      }
+   }
    /**
     * Transform the snip colors to make it easier in some cases.
     * Shapes are not impacted.
@@ -679,6 +696,8 @@ Class GuiSnip extends Gui {
       GDIp.DisposeImage(pBitmap) ;
       ; Recompute textures
       this.RefreshTextures()
+      this.Dirty++
+
    }
    /**
     * Create a scaled clone of an existing snip in a new snip window, optionally compositing shapes
@@ -791,6 +810,7 @@ Class GuiSnip extends Gui {
             objShape.Scale(relativeScaleFactor)
          }
          this.RefreshTextures()
+         this.Dirty++
          ButtonBar.Show()
       }
    }   
@@ -831,6 +851,7 @@ Class GuiSnip extends Gui {
             ShapeObj.Move(X - C.X1, Y - C.Y1)
          }
          this.RefreshTextures()
+         this.Dirty++
          ButtonBar.Show()
          if Clipboard {
             this.Snip2Clipboard(Snips.borderWithCopy)
@@ -874,6 +895,7 @@ Class GuiSnip extends Gui {
                ShapeObj.Move(X - (X > iR.L ? iR.w :0) , Y)
          }
          this.RefreshTextures()
+         this.Dirty++
          ButtonBar.Show()
          if Clipboard {
             this.Snip2Clipboard(Snips.borderWithCopy)
@@ -970,6 +992,7 @@ Class GuiSnip extends Gui {
                }
          }
          this.RefreshTextures()
+         this.Dirty++
          ButtonBar.Show()
          if Clipboard {
             this.Snip2Clipboard(Snips.borderWithCopy)
