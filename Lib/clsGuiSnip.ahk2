@@ -322,8 +322,8 @@ Class GuiSnip extends Gui {
          GDIp.SetPenLineJoin(pen, 2)  ;1=bevel, 2=rounded
          ; Shadow, fade the border color outside to in to fill the gap
          ; between snip border width and the live snipper border width.
+         GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
          If (SBW < BW) {
-            GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
             GDIp.SetCompositingMode(iG, 1)
             maxAlpha := 200
             n := BW - SBW                          ; number of 1px fade rings
@@ -338,10 +338,6 @@ Class GuiSnip extends Gui {
                GDIp.DrawRectangle(iG, pen, i, i, newW - i * 2, newH - i * 2)
                i += 1
             }
-         } Else {
-            radius := SBW * 2
-            GDIp.SetSmoothingMode(iG, 4) ; cleaner rounded corners
-            GDIp.DrawRoundedRectangle(iG, pen, 0, 0, newW, newH, radius)
          }
          GDIp.DeletePen(pen)
       }
