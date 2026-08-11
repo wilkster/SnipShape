@@ -667,8 +667,12 @@ Class Snips {
          }
          ; Save the Snip in Editable format as well if it has shapes
          ; May be a different filename
-         If (FileName AND this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
-            FileObject.SaveSnipMetaData(SnipObj, FileName)
+         If (FileExist(FileName)) {
+            If (this.SaveSidecar AND IsSet(SnipObj) AND SnipObj.VisibleShapes.Length > 0) {
+               if (NOT FileObject.SaveSnipMetaData(SnipObj, FileName))
+                  warning("Failed to Save " FileName " Metadata")
+            }
+            Clipboard.AddFileToClipboard(filename)
          }
 
       } catch as e {

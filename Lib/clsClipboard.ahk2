@@ -459,7 +459,65 @@ Class Clipboard {
             Return true
       Return false
    }
+   /**
+    * Add a file to the clipboard such that it can pasted it somewhere.
+    * @param files one or more files to add to the clipboard
+    * @returns {Any} 
+    */
+   Static AddFilesToClipboard(files) {
+      ; files: a single path string or an Array of path strings
+      If !(files is Array)
+         files := [files]
+      If !files.Length
+         Return false
 
+      ; --- size the file-list block (wide chars, each null-terminated, +1 final null) ---
+      listSize := 2  ; final terminating null
+      For file in files
+         listSize += (StrLen(file) + 1) * 2
+
+      dropFilesSize := 20  ; sizeof(DROPFILES): DWORD pFiles + POINT + BOOL fNC + BOOL fWide
+      totalSize := dropFilesSize + listSize
+
+      hGlobal := this.GlobalAlloc(0x42, totalSize)  ; GMEM_MOVEABLE | GMEM_ZEROINIT
+      If !hGlobal
+         Return false
+
+      pGlobal := this.GlobalLock(hGlobal)
+      If !pGlobal {
+         this.GlobalFree(hGlobal)
+         Return false
+      }
+
+      NumPut("UInt", dropFilesSize, pGlobal, 0)   ; pFiles - offset to list
+      NumPut("Int", 0, pGlobal, 4)   ; pt.x
+      NumPut("Int", 0, pGlobal, 8)   ; pt.y
+      NumPut("Int", 0, pGlobal, 12)  ; fNC
+      NumPut("Int", 1, pGlobal, 16)  ; fWide = TRUE
+
+      offset := dropFilesSize
+      For file in files {
+         StrPut(file, pGlobal + offset, StrLen(file) + 1, "UTF-16")
+         offset += (StrLen(file) + 1) * 2
+      }
+      ; trailing double-null already present from GMEM_ZEROINIT
+
+      this.GlobalUnlock(hGlobal)
+
+      If !this.OpenClipboard() {
+         this.GlobalFree(hGlobal)
+         Return false
+      }
+      this.EmptyClipboard()
+      ok := this.SetClipboardData(15, hGlobal)  ; CF_HDROP = 15
+      this.CloseClipboard()
+
+      If !ok
+         this.GlobalFree(hGlobal)  ; only free on failure - clipboard owns it once SetClipboardData succeeds
+
+      Return !!ok
+   }
+   Static AddFileToClipboard(file) => this.AddFilesToClipboard(file)
 }
 ClipIsAvailable(format) => DllCall("IsClipboardFormatAvailable", "uint", format)
 logGDI(BFN(Error("", -1).File) " loaded...")
