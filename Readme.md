@@ -9,8 +9,8 @@ GUI positioned directly over the captured area**. This overlay can be edited in
 place using annotation and shape tools, allowing you to quickly highlight or
 mark up the captured content without opening additional windows.
 
-Full Undo/Redo capabilties, as well as Snips are saved with sidecar files to allow
-resuming editing without shapes being baked into the Snip.
+Full Undo/Redo capabilties, as well as Snips PNG files are saved with sidecar
+data to allow resuming editing without shapes being baked into the Snip.
 
 The application is based on the AutoHotkey **Snipper** concept by keeping the
 editing surface directly on the screen rather than moving the image to a
