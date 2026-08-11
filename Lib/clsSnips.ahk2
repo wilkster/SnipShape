@@ -329,7 +329,7 @@ Class Snips {
    Static SelectScreenRegion(mode, Key, BorderColor := "Orange", pushClipboard:=false, SnipMode := false, captureStatic:=false, dimScreen := false) {
       Static selSurf := "", winX, winY, winW, winH, bDim := 0, fill, cpMode := false, bColor := "Orange", TempCap := ""
       Static ActiveState := 0
-      Static SBW
+      Static SBW := Settings.snippingBorderWidth
       static lastDimScreen
 
 
@@ -357,7 +357,6 @@ Class Snips {
          ; NOTE - for now use active monitor since it is slower by Nx for N monitors
          ; MonInfo := allMonArea()
          MonInfo := activeMonArea(0)
-         SBW := Settings.snippingBorderWidth
          ; for slower computers grab the mouse start before any delays
          If (mode = 3) {
             GetCursorPos(&sX, &sY)
@@ -405,13 +404,13 @@ Class Snips {
          GDIp.SetPenAlignment(pCross, 0)                ; draw border inside of edge
          GDIp.SetPenDashStyle(pCross, 1)
          ; A bit wider if not dimming first
-         factor  := lastDimScreen ? 1 : 2
+         factor  := lastDimScreen ? 1 : 1.2
          ; ALternating border
          pBorder := myPens.Add(0xFF000000 | RGBval(bColor), SBW * factor)
          pSolid  := myPens.Add(0x80000000 | BlackOrWhite(RGBval(bColor)), SBW * factor)
          GDIp.SetPenAlignment(pBorder, 1)                ; draw border inside of edge
          GDIp.SetPenAlignment(pSolid, 1)                ; draw border inside of edge
-         GDIp.SetPenDashArray(pBorder, [SBW / factor, SBW / factor])
+         GDIp.SetPenDashArray(pBorder, [SBW / (factor*2), SBW / (factor*2)])
          ; Set composting mode so we overwrite the dimming in the middle, not merge with it
          Gdip.SetCompositingMode(selSurf.G, 1)
          ; don't make the punched whole transparent or the cursor will go to default when sizing smaller

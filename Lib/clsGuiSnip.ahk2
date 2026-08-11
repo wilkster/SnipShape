@@ -135,7 +135,7 @@ Class GuiSnip extends Gui {
     */
    AddSnipPic(hBitmap, x?, y?) {
       this.OnEvent("ContextMenu", SnipMenus.Post.bind(SnipMenus))
-      this._replaceSnip(hBitmap, x?, y?)
+      this._renderSnip(hBitmap, x?, y?)
       this.MyHandle := hBitmap
       Return hBitmap
    }
@@ -184,7 +184,7 @@ Class GuiSnip extends Gui {
     */
    ReplaceSnip(hBitmap, x?, y?) {
       If (hBitmap != this.MyHandle) {
-         this._replaceSnip(hBitmap, x?, y?)
+         this._renderSnip(hBitmap, x?, y?)
          GDI.DeleteObject(this.MyHandle)
          this.MyHandle := hBitmap
       }
@@ -205,7 +205,7 @@ Class GuiSnip extends Gui {
       set {
          super.Backcolor := value
          if (this.myHandle)
-            this._replaceSnip(this.myHandle)
+            this._renderSnip(this.myHandle)
       }
    }
    /**
@@ -216,7 +216,7 @@ Class GuiSnip extends Gui {
    Handle {
       get => this.myHandle
       set {
-         this._replaceSnip(value)
+         this._renderSnip(value)
          oldhBitmap := this.myHandle
          this.myHandle := value
          GDI.DeleteObject(oldhBitmap)
@@ -228,7 +228,7 @@ Class GuiSnip extends Gui {
          ; Don't allow fully transparent otherwise it disappears
          newAlpha := Constrain(0xF, 0xFF, Value)
          If (newAlpha != this._alpha) {
-            this._replaceSnip(this.myHandle)
+            this._renderSnip(this.myHandle)
             this._alpha := newAlpha
          }
       }
@@ -269,7 +269,7 @@ Class GuiSnip extends Gui {
          return this._OGHandle
       }
       set {
-         this._replaceSnip(value)
+         this._renderSnip(value)
          oldhBitmap := this.myHandle
          this.myHandle := value
          GDI.DeleteObject(oldhBitmap)
@@ -290,7 +290,7 @@ Class GuiSnip extends Gui {
     * @param {Object} Bitmap Handle Object with X, Y, W, H properties defining the region
     * @param {Integer} X/Y, optional location to place the gui
     */
-   _replaceSnip(hBitmap, x?, y?) {
+   _renderSnip(hBitmap, x?, y?) {
       GDI.GetHBitmapDimensions(hBitmap, &W, &H)
       BW   := Settings.BorderWidth
       SBW  := Settings.SnippingBorderWidth
@@ -312,24 +312,23 @@ Class GuiSnip extends Gui {
       obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
       GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
       ; Premultiply if we have some transparency to show
-      BitMap.PreMultiplyBitmap(hDIB,this._alpha)
-
+      BitMap.PreMultiplyBitmap(hDIB, this._alpha)
       If (BW > 0) {
          iG := GDIp.GraphicsFromHDC(hdcMem)
          ; Paint the border fully opaque
          bc := RGBval(this.BackColor)
          pen := GDIp.CreatePen(0xFF000000 | bc, BW)
          GDIp.SetPenAlignment(pen, 1)
-         GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
+         GDIp.SetPenLineJoin(pen, 2)  ;1=bevel, 2=rounded
          ; Shadow, fade the border color outside to in to fill the gap
          ; between snip border width and the live snipper border width.
          If (SBW < BW) {
+            GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
             GDIp.SetCompositingMode(iG, 1)
             maxAlpha := 200
             n := BW - SBW                          ; number of 1px fade rings
             i := 0
-            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.5)
-            ; pen := GDIp.CreatePen(0xFF000000 | shadowRGB, 1)
+            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.7)
             GDIp.SetPenWidth(pen, 1)
             i := 0
             Loop n {
@@ -339,9 +338,13 @@ Class GuiSnip extends Gui {
                GDIp.DrawRectangle(iG, pen, i, i, newW - i * 2, newH - i * 2)
                i += 1
             }
+         } Else {
+            radius := SBW * 2
+            GDIp.SetSmoothingMode(iG, 4) ; cleaner rounded corners
+            GDIp.DrawRoundedRectangle(iG, pen, 0, 0, newW, newH, radius)
          }
+         GDIp.DeletePen(pen)
       }
-      GDIp.DeletePen(pen)
       ; Restore obm and delete DC we created
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
