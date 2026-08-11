@@ -355,7 +355,8 @@ HotIfWinActive
       If (SnipObj := Snips.GetGuiObj())
         SnipObj.TransformSnip(3) ; black and white high contrast
    }
-   ^=::{
+   ^l::
+   {
       /** @type {GuiSnip} */
       If (SnipObj := Snips.GetGuiObj())
         SnipObj.StretchSnip() ; Expand contrast

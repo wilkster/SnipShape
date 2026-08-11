@@ -69,8 +69,8 @@ Class SnipMenus {
       this.BitmapMenu.Add('B&W Snip (Ctrl-B)', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("B&W Snip (Ctrl-B)", SETTINGS.CursorPath . "screenshot.ico")
 
-      this.BitmapMenu.Add('Stretch Contrast (Ctrl-=)', this.ContextSnipMenu_Handler.bind(this))
-      this.BitmapMenu.SetIcon("Stretch Contrast (Ctrl-=)", SETTINGS.CursorPath . "screenshot.ico")
+      this.BitmapMenu.Add('Stretch Contrast (Ctrl-l)', this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Stretch Contrast (Ctrl-l)", SETTINGS.CursorPath . "screenshot.ico")
 
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "colors.ico")

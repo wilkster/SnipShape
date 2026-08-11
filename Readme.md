@@ -164,6 +164,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
 | Ctrl-B                   | Black and White the Snip Colors                                                                                          |
 | Ctrl-G                   | Gray Scale the Snip Colors                                                                                               |
+| Ctrl-L                   | Stretch Controls of the Snip                                                                                             |
 | Ctrl-Z                   | Undo the last snip action                                                                                                |
 | Ctrl-Y                   | Redo the last undo action on the snip                                                                                    |
 | Ctrl-Down                | Minimize all Snips                                                                                                       |
