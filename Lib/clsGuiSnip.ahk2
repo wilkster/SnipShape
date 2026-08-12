@@ -675,7 +675,7 @@ Class GuiSnip extends Gui {
          this.Dirty++
       } Else {
          this.PopAction()
-         dlog("Did not need to change any pixels")
+         qTrayTip("Did not need to change any pixels")
       }
    }
    /**
