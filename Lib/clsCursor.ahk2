@@ -352,7 +352,24 @@ Class focusBorder {
          }
       }
    }
-
+   /**
+    * Pause ro resume focus border, useful for clipping/saving
+    * files making sure the focus border is not showing.
+    * @param pause to stop the focus border for showing
+    * @returns {unset?} 
+    */
+   Static PauseResumeFocus(pause) {
+      static FR ; Saving the focusRectangle state
+      If (pause) {
+         FR := Settings.focusRectangle
+         Settings.focusRectangle := false
+         this.focusBorderGui.Hide()
+         SetTimer(this.PauseResumeFocus.Bind(this, false), -100)
+      } Else {
+         ; Resume
+         Settings.focusRectangle := FR
+      }
+   }
    /**
     * @description Schedules the Block flag to be cleared after a 20 ms delay,
     *   preventing rapid cursor callbacks from causing focus rectangle flicker

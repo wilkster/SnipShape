@@ -1057,6 +1057,7 @@ Class GuiSnip extends Gui {
    Snip2Clipboard(Borders := false) {
       this.GetPos(&X, &Y, &W, &H)
       ; If there is some transparency, put a black background behind it
+      focusBorder.PauseResumeFocus(true)
       (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
       hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
       g.Destroy()
@@ -1076,8 +1077,11 @@ Class GuiSnip extends Gui {
          If !FileExist(SavePath)
             DirCreate(SavePath)
          this.GetPos(&X, &Y, &W, &H)
+         fr := Settings.focusRectangle
+         focusBorder.PauseResumeFocus(true)
          (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
          hBitmap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
+
          g.Destroy()
          FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          GDI.DeleteObject(hBitmap)
