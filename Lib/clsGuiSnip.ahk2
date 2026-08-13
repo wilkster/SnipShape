@@ -553,7 +553,7 @@ Class GuiSnip extends Gui {
    WM_SIZEEMOVE_GUI(snipObj, wParam, lParam, msg) {
       Switch msg {
          Case 0x231: ; start dragging Snip
-            snipObj.PostAction(UnDo.MOVE_SNIP)
+            ; snipObj.PostAction(UnDo.MOVE_SNIP) ; may not be a good idea
          Case 0x216: ; dragging
             ; lParam is pointer to a rect structure of new position
             ; better than WinGetPos while dragging
@@ -1077,7 +1077,6 @@ Class GuiSnip extends Gui {
          If !FileExist(SavePath)
             DirCreate(SavePath)
          this.GetPos(&X, &Y, &W, &H)
-         fr := Settings.focusRectangle
          focusBorder.PauseResumeFocus(true)
          (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
          hBitmap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
