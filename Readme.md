@@ -9,11 +9,12 @@ GUI positioned directly over the captured area**. This overlay can be edited in
 place using annotation and shape tools, allowing you to quickly highlight or
 mark up the captured content without opening additional windows.
 
-Full Undo/Redo capabilties, as well as Snips PNG files are saved with sidecar
-data to allow resuming editing without shapes being baked into the Snip.
+Full Undo/Redo capabilties, as well as PNG files that are saved with sidecar
+data, to allow round trip editing while still preserving the normal PNG
+Screenshot/annotation data for use in other applications.
 
-The application is based on the AutoHotkey **Snipper** concept by keeping the
-editing surface directly on the screen rather than moving the image to a
+SnipShape is originally based on the AutoHotkey **Snipper** concept by keeping
+the editing surface directly on the screen rather than moving the image to a
 separate editor or clipboard. Powerful annotation tools are provided to further
 markup the snip.
 
@@ -164,7 +165,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
 | Ctrl-B                   | Black and White the Snip Colors                                                                                          |
 | Ctrl-G                   | Gray Scale the Snip Colors                                                                                               |
-| Ctrl-L                   | Stretch Controls of the Snip                                                                                             |
+| Ctrl-L                   | Stretch Contrast of the Snip                                                                                             |
 | Ctrl-Z                   | Undo the last snip action                                                                                                |
 | Ctrl-Y                   | Redo the last undo action on the snip                                                                                    |
 | Ctrl-Down                | Minimize all Snips                                                                                                       |
@@ -369,11 +370,12 @@ While hovering over a shape, you can also use the hotkeys listed below to perfor
 
 ### Hotkeys on Shapes
 
-| **Shape HotKey**     | **Action**                              |
-| -------------------- | --------------------------------------- |
-| Ctrl-Click<br>Ctrl-D | Duplicate the shape                     |
-| Del                  | Remove the shape                        |
-| 1 to 9               | Apply the associated color to the shape |
+| **Shape HotKey**     | **Action**                               |
+| -------------------- | ---------------------------------------- |
+| Ctrl-Click<br>Ctrl-D | Duplicate the shape.                     |
+| Del                  | Remove the shape.                        |
+| 1 to 9               | Apply the associated color to the shape. |
+| Scroll up/down       | Adjust thickness or obfuscation amount.  |
 
 ### Text / Graphics
 
@@ -446,7 +448,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
 
-- Below are the various hotkeys and their default values.
+- Below are the various global hotkeys and their default values.
 
 | `[Hotkey]`                       | Description                                                                                         |
 | -------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -464,4 +466,5 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 
 ## Limitations/Future
 
-- Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes).
+- Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes). Working on a solution to this.
+- Align drawing text shapes and other shapes such that callouts for text shapes will be possible.

@@ -293,7 +293,6 @@ HotIfWinActive
    ^P:: Shapes.AddPictureFromFile(WinExist("A"), "lButton", "P")
    ^c:: {
       ; Copy active snip and shapes to the clipboard
-      ; NOTE - We will copy focus border if it is active
       /** @type {GuiSnip} */
       If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
