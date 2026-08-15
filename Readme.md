@@ -388,21 +388,17 @@ Moving Shapes
 ### Deleting Shapes
 
 - If focus rectangle is active and a shape is highlighted then Del key will remove it
-- Alt-Click on a shape will remove it
-- Shift-Del will remove all shapes on a ship
-- RMB on Snip area, select Clear all Shapes in the menu selection Resizing Shapes
+r- Shift-Del will remove all shapes on a ship
+- RMB on Snip area, select Clear all Shapes (Shift-Del) in the menu selection Resizing Shapes
 - Enabling focus rectangle will help locate edges and resize points
 - Grab corner to resize in that direction, shift key maintains aspect ratio or square/linear
 - While resizing shapes you can use up/down to change the line thickness (when it applies)
 
 ### Clicking on Shapes
 
-- Alt-click to remove the object
+- Right Mouse Button on shape will bring up a shape specific menu with additional functions.
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
 - Click on a shape and the up/down arrow key will adjust border thickness, blur amount
-- RMB on text will edit the text
-- RMB over inserted picture will reset to original size
-- RMB on other shapes will send them to the bottom of the stack / z-order
 - OCR - Uses Descolada's OCR engine to read text from snip
   - Read lines of text, with line breaks as shown
   - Read words of text, that only have line breaks at paragraph breaks, good of pasting
