@@ -297,11 +297,12 @@ Class UnDo {
             Case UnDo.CHANGE_SNIP:
                If (item.obj is GuiSnip) {
                   snipObj := item.obj
-                  Area := item.data.Area
+                  ; Area := item.data.Area
                   reverseData := this._CaptureData(item.action, snipObj)
                   targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
                   If (hbitmap := item.data.hBitmap ?? 0) {
-                     snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y)
+                     snipObj.ReplaceSnip(hbitmap)
+                     ; snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y) ; for undo, don't move position
                      ButtonBar.Show(snipObj.hWnd)
                      snipObj.RefreshTextures()
                      ; If we undo all they way back, then reset the OGHandle to 0 if it is use
