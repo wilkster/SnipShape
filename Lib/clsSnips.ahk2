@@ -708,8 +708,6 @@ Class Snips {
    Static Clipboard2Snip(hWnd :=0, BorderColor := 0xff00FF00) {
       If (Clipboard.hasImage()) {
          If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
-            CoordMode('Mouse', 'Screen')
-            ; MouseGetPos(&X, &Y)
             If (WinExist(hWnd)) {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
