@@ -69,7 +69,7 @@ Class FileObject {
             MsgBox("Error Appending to PNG File`n" pngFileName E.message, 0x30)
          }
       } else
-            MsgBox("PNG File does not exist!`n" pngFileName E.message, 0x30)
+            MsgBox("PNG File does not exist!`n" pngFileName, 0x30)
 
       ; Failsafe if writing to PNG fails
       ; Try the json sidecar approach if we fail appending to pngfile
