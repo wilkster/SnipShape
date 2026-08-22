@@ -16,7 +16,7 @@
 Class FileObject {
    Static FileTag := "SnipShape"
    /**
-    * Save a snip and all of its shapes for alter editing in JSON format
+    * Save a snip and all of its shapes for later editing in JSON format
     * @param SnipObj Snip Object to save
     * @param fileName Existing File name of png image to append data to
     * @returns {Integer} 1 if sucessful
