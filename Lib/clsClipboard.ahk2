@@ -261,7 +261,7 @@ Class Clipboard {
    /**
     * Ensures a bitmap handle is a DIB section, converting from a DDB if necessary.
     * If hBitmap is already a DIB section, it is returned unchanged.
-    * If hBitmap is a DDB, a new 32bpp top-down DIB section is created with the
+    * If hBitmap is a DDB, a new 32bpp bottum-up DIB section is created with the
     * same pixel data, and (by default) the original DDB is deleted.
     * @param {Integer} hBitmap Handle to a bitmap (DDB or DIB section)
     * @param {Integer} DiscardOriginal If true, deletes the source DDB after conversion
@@ -296,7 +296,7 @@ Class Clipboard {
          DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
          Return 0
       }
-      If !GDI.GetDIBits(hdc, hBitmap, 0, H, ppvBits, bi, 2) {
+      If !GDI.GetDIBits(hdc, hBitmap, 0, H, ppvBits, bi) {
          GDI.DeleteObject(hDIB)
          GDI.ReleaseDC(hdc)
          Return 0

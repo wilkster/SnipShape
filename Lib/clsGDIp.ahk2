@@ -618,10 +618,10 @@ int DrawText(
     * @param cLines Number of scan lines to retrieve
     * @param pBits Pointer to the buffer that receives the bitmap bits, or 0 to query format
     * @param BITMAPINFO Pointer to a BITMAPINFO structure specifying the desired format
-    * @param DIB_COLORS Color table type: 1=PAL, 2=RGB
+    * @param DIB_COLORS Color table type: 1=PAL, 0=RGB
     * @returns {Integer} Number of scan lines copied, 0 on failure
     */
-   Static GetDIBits(hDC, hBitmap, start, cLines, pBits, BITMAPINFO, DIB_COLORS) {
+   Static GetDIBits(hDC, hBitmap, start, cLines, pBits, BITMAPINFO, DIB_COLORS:=0) {
 
       Ptr := "Ptr"
       Return DllCall("Gdi32\GetDIBits"
