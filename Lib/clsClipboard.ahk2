@@ -6,7 +6,7 @@
  * @version 1.0.0
  ***********************************************************************/
 
-#Requires AutoHotkey v2
+#Requires AutoHotkey v2.1-
 #include clsGDIp.ahk2
 #include libMisc.ahk2
 ;----------------------------------------------------------------------
@@ -87,7 +87,7 @@ Class Clipboard {
       If !hBitmap {
          Return -3
       }
-      this.SetHBitmapToClipboard(hBitmap, pszText)
+      return this.SetHBitmapToClipboard(hBitmap, pszText)
    }
    /**
     * Take an hBitmap DIB and put it on the clipboard
@@ -121,6 +121,7 @@ Class Clipboard {
          warning("Clipboard: Failed to set CF_BITMAP format")
          DllCall("CloseClipboard")
          Gdi.DeleteObject(hBitmap)
+         Gdi.DeleteObject(hBmpCopy)
          Return -10
       }
 
@@ -206,8 +207,8 @@ Class Clipboard {
          StrPut(pszText, ptext, textBytes, "UTF-16")          ; CP0 = system ANSI code page
          this.GlobalUnlock(htext)
          ; Place the text on the clipboard — on success clipboard owns htext, do NOT free it
-         If not this.SetClipboardData(CF_TEXT := 13, htext) {
-            warning("Clipboard: Failed to set UTF-16 CF_TEXT Format")
+         If not this.SetClipboardData(CF_UNICODETEXT := 13, htext) {
+            warning("Clipboard: Failed to set UTF-16 CF_UNICODETEXT Format")
             this.GlobalFree(htext)
             this.CloseClipboard()
             Gdi.DeleteObject(hBitmap)
@@ -229,23 +230,30 @@ Class Clipboard {
       ; handling needed here.
       if (NOT hBitmap)
          return 0
-      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
 
-      DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "Int", true, "Ptr*", &pStream := 0)
-
+      res := DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "Int", true, "Ptr*", &pStream := 0)
       ; PNG encoder CLSID: {557CF406-1A04-11D3-9A73-0000F81EF32E}
-      clsid := Buffer(16)
-      DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsid)
-      if (res := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)) {
-         warning("Failure to Save to PNG format " res " " A_LastError)
+      If (pStream == 0 OR res != 0) {
+         warning("Failed to allocate pStream:" res " " A_LastError)
          return 0
+      }
+      pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
+      clsid := Buffer(16)
+      DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsid, "Int")
+      If (res := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)) {
+         warning("Failure to Save to PNG format " res " " A_LastError)
+         Return 0
       }
       ; STREAM_SEEK_END = 2 -- gets the real written length, not the
       ; over-allocated HGLOBAL block size that GlobalSize would report.
       ComCall(5, pStream, "Int64", 0, "UInt", 2, "UInt64*", &size := 0)
 
-      DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hGlobal := 0)
-
+      If (res := DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hGlobal := 0)) {
+         warning("Get Global from Stream " res " " A_LastError)
+         ObjRelease(pStream)
+         GDIp.DisposeImage(pBitmap)
+         Return 0
+      }
       ; Duplicate the memory -- releasing pStream frees hGlobal (fDeleteOnRelease=true above)
       hCopy := this.GlobalAlloc(0x42, size)
       pSrc  := this.GlobalLock(hGlobal)
@@ -293,7 +301,7 @@ Class Clipboard {
       hDib := GDI.CreateDIBSection(bi.biWidth, bi.biHeight, hdc, bi.biBitCount, &ppvBits)
 
       If (!hDIB) {
-         DllCall("ReleaseDC", "Ptr", 0, "Ptr", hdc)
+         GDI.ReleaseDC(hdc)
          Return 0
       }
       If !GDI.GetDIBits(hdc, hBitmap, 0, H, ppvBits, bi) {
@@ -440,7 +448,7 @@ Class Clipboard {
     * Checks whether the clipboard currently contains any text content.
     * @returns {Integer} 1 (true) if a recognised text format is available, 0 (false) otherwise
     */
-   Static hasText() =>StrLen(A_Clipboard)
+   Static hasText() => (StrLen(A_Clipboard) > 0)
    ; 🐞 Below will return true if there is a null string
    ; Static hasText() {
    ;    For fmt in Array(1, 7, 13, 16, 49358)
@@ -455,7 +463,7 @@ Class Clipboard {
     */
    Static hasImage() {
       For fmt in Array(2, 6, 8, 17, Clipboard.png)
-         if (ClipIsAvailable(fmt))
+         if (this.IsClipboardFormatAvailable(fmt))
             Return true
       Return false
    }
@@ -519,5 +527,4 @@ Class Clipboard {
    }
    Static AddFileToClipboard(file) => this.AddFilesToClipboard(file)
 }
-ClipIsAvailable(format) => DllCall("IsClipboardFormatAvailable", "uint", format)
 logGDI(BFN(Error("", -1).File) " loaded...")
