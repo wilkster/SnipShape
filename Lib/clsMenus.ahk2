@@ -436,7 +436,7 @@ Class ShapeMenus {
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards (Alt-Click)", "MoveBack.ico")
       }
       ; Doesn't really work as it gets the pic under the shape as well
-      ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
+      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Duplicate " ShapeObj.ShapeName " (Ctrl-D/Ctrl-Click)", "Duplicate.ico")
       ; Blur Amount
       Switch ShapeObj.Shape {
@@ -556,8 +556,10 @@ Class ShapeMenus {
          Case ItemName ~= "to Clipboard":
             focusBorder.HideFocus(false)
             ; Try raw picture first, otherwise screen grab it
-            If NOT (shapeObj.HasProp("Handle") AND hBitmap := shapeObj.Handle) {
+            If NOT (shapeObj.HasProp("Handle") AND shapeObj.Handle) {
                hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
+            } Else {
+               hBitmap := GDI.CopyImage(shapeObj.Handle)
             }
             if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
                MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
