@@ -28,10 +28,13 @@ Class BMShape extends commonShape {
       ; Create a copy of the hBitmap regardless of source
       If (FileExist(sPicImage)) {
          this.myHandle := LoadPicture(sPicImage)
-      } Else {
+      } Else if (sPicImage) {
          this.myHandle :=GDI.CopyImage(sPicImage)
          ; Cleanup Alpha channel from clipboard, if alpha < 255 then pixels may still show, so premultiply here.
          BitMap.PreMultiplyBitmap(this.myHandle)
+      } Else {
+         MsgBox("No image specified!","Error",0x30)
+         Return
       }
       ; Replace transparent pixels with alpha channel of 1 so we can grab them.
       BitMap.ReplaceBitmapColor(this.myHandle, 0x00000000, 0x01000000, true)
@@ -45,9 +48,9 @@ Class BMShape extends commonShape {
    ChangeThickness(*) => {}
    Startup(*) =>{}
    Cleanup(*) =>{}
-   Close(skipUndo:=false) {
-   super.Close(skipUndo)
-      if (this.myHandle)
+   Close(skipUndo := false) {
+      super.Close(skipUndo)
+      If (this.myHandle)
          GDI.DeleteObject(this.myHandle)
    }
 
@@ -102,13 +105,17 @@ Class BMShape extends commonShape {
    ReplaceColor(fromARGB, toRGB) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      hBitmap := GDI.CopyImage(this.Handle)
-      If (changed := BitMap.ReplaceBitmapColor(hBitmap, fromARGB, toRGB)) {
-         this.Handle := hBitmap
+      If (hBitmap := GDI.CopyImage(this.Handle)) {
+         If (changed := BitMap.ReplaceBitmapColor(hBitmap, fromARGB, toRGB)) {
+            this.Handle := hBitmap
+         } Else {
+            GDI.DeleteObject(hBitmap)
+         }
+         this.Move(X, Y, W, H)
       } Else {
-         GDI.DeleteObject(hBitmap)
+         changed := 0
+         warning("Failed to Copy Image!")
       }
-      this.Move(X, Y, W, H)
       return changed
    }
    /**
@@ -120,13 +127,16 @@ Class BMShape extends commonShape {
    Rotate(Angle) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
-      If (pBitmap := BitMap.Rotate(pBitmap, Angle)) {
-         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
-         this.orientation += Angle
+      If (pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)) {
+         If (BitMap.Rotate(pBitmap, Angle)) {
+            this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+            GDIp.DisposeImage(pBitmap)
+            this.orientation += Angle
+            this.Move(X, Y, H, W) ; reverse H/W
+         }
+      } Else {
+         warning("Failed to Wrap Bitmap!")
       }
-      this.Move(X, Y, H, W) ; reverse H/W
    }
    /**
     * Flip the bitmap horizontally or vertically in place,
@@ -137,12 +147,15 @@ Class BMShape extends commonShape {
    Flip(How := 1) {
       this.PostAction(UnDo.BITMAP_CHANGE)
       this.GetPos(&X, &Y, &W, &H)
-      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
-      If (pBitmap := BitMap.Flip(pBitmap, How)) {
-         this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
+      If (pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)) {
+         If (BitMap.Flip(pBitmap, How)) {
+            this.Handle := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+            GDIp.DisposeImage(pBitmap)
+            this.Move(X, Y, W, H)
+         }
+      } Else {
+         warning("Failed to Flip Bitmap!")
       }
-      this.Move(X, Y, W, H)
    }
    /**
     * Gets or sets the HBITMAP associated with this picture control.
@@ -168,7 +181,7 @@ Class BMShape extends commonShape {
       Return {
          sCoord     : this.sCoord.clone(),
          sPad       : this.sPad.clone(),
-         OG         : this.OG,
+         OG         : this.OG.clone(),
          orientation: this.orientation,
          hBitmap    : GDI.CopyImage(this.Handle)
       }
