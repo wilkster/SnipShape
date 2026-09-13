@@ -80,9 +80,9 @@ IniReadValue(Section,Item, Default) => IniRead(SETTINGS.File, Section, Item, Def
  * @returns {String} Fully qualified absolute path
  */
 GetFullPathName(path) {
-   cc := DllCall('GetFullPathNameW', 'str', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
+   cc := DllCall('GetFullPathNameW', 'Wstr', path, 'uint', 0, 'ptr', 0, 'ptr', 0, 'uint')
    buf := Buffer(cc * 2)
-   DllCall('GetFullPathNameW', 'str', path, 'uint', cc, 'ptr', buf, 'ptr', 0, 'uint')
+   DllCall('GetFullPathNameW', 'Wstr', path, 'uint', cc, 'ptr', buf, 'ptr', 0, 'uint')
    Return StrGet(buf)
 }
 

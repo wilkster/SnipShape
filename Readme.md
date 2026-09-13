@@ -80,6 +80,7 @@ Additional contributors are referenced in the source code.
 ## Requirements
 
 **Autohotkey 2.1 Alpha 29** or later (some 2.1 features are used including **structures**)
+**Windows 8 or Later** to support child layered windows.
 
 ## Installation
 
