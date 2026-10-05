@@ -99,10 +99,8 @@ Class ButtonBar {
       this.BackColor := Shapes.globalShapeColor
       ; Save the height for positioning on Show
       logGDI("GUI Show complete")
-      this.bbgui.Show("NA Y" 100000 " X" 100000)
-      this.bbgui.GetPos(,,,&nH)
-
-      this.bbHeight := nH
+      this.bbgui.Show("NA Hide")
+      this.bbgui.GetPos(,,,&this.bbHeight)
       ; Windows 10 round the corners (not needed with backcolor)
       win10RoundCorners(this.bbgui.hWnd, this.DPIFactor)
 
