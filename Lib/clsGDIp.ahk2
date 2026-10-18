@@ -1196,7 +1196,7 @@ Class GDIp {
          ; this.Stride := W * 4 ; 32 BPP is already aligned
 
          ; Proper method to get the stride, used by GetPixel
-         Static buf := Buffer(24 + A_PtrSize) ; BITMAP
+         buf := Buffer(24 + A_PtrSize) ; BITMAP
          GDI.GetObject(this.ihbm, buf.Size, buf.Ptr)
          this.Stride := NumGet(buf, 12, "Uint")
          ; debug(this.Stride " " this.H)
