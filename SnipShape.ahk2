@@ -6,6 +6,13 @@
  * @date 2024/04/06
  * @version 1.0.0
  ***********************************************************************/
+;@Ahk2Exe-SetName SnipShape
+;@Ahk2Exe-SetDescription SnipShape - Screen clipping and annotation
+;@Ahk2Exe-Set Comments, Snipper and Annotation Tool
+;@Ahk2Exe-SetVersion 2026.10.12
+;@Ahk2Exe-SetCopyright Copyright (c) 2026 Tom Wilkason
+;@Ahk2Exe-SetOrigFilename SnipShape.exe
+;@Ahk2Exe-SetMainIcon Cursors\SnipShape.ico
 TraySetIcon(A_ScriptDir "\Cursors\SnipShape.ico") ; Scissors
 If (A_PtrSize < 8) {
    MsgBox("Autohotkey 64 bit is required!","Error",0x10)
