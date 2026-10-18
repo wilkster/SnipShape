@@ -1,0 +1,428 @@
+#include clsBitmap.ahk2
+#include clsGDIp.ahk2
+#include libMisc.ahk2
+#include Settings.ahk2
+/**
+ * Screen color picker.
+ * Usage:  rgb := ColorPicker.Run()      ; returns 0xRRGGBB, or -1 on Esc / already running
+ */
+class ColorPicker {
+   ; ---------------------------------------------------------------------
+   ; Constants / configuration
+   ; ---------------------------------------------------------------------
+   static iniFile         := Settings.File
+   static title           := "My Color Picker"
+   static fontName        := "Consolas"   ; Can be any font installed on your system
+   static updateInterval  := 16           ; ms between preview updates. 16ms = ~60 updates / second
+   static borderColor     := 0xFF887536   ; 0xAABBGGRR
+   static crosshairColor  := 0xFF0000FF   ; 0xAABBGGRR
+   static gridColor       := 0xFF404040   ; 0xAABBGGRR
+   static borderWidth     := 5            ; Line is centered on edges so 50% of it will show
+   static crosshairWidth  := 1
+   static gridWidth       := 1
+   static previewXOffset  := -1           ; Preview position relative to cursor (to upper-left window corner)
+   static previewYOffset  := -1
+   static csBump          := 2            ; capture size bump amount
+   static hotkeyNames     := ["*C","A","/","*$left","*$right","*$up","*$down"
+                           ,"H","S","-","=","[","]","Esc","*Enter","*NumpadEnter","*Space","*LButton"
+                           ,"Wheelup","Wheeldown","^Wheelup","^Wheeldown","!Wheelup","!Wheeldown"]
+   static cursorIds       := [32512, 32513, 32514, 32515, 32516, 32631, 32640, 32641, 32642
+                           ,32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651]
+
+   ; ---------------------------------------------------------------------
+   ; Reusable buffers
+   ; ---------------------------------------------------------------------
+   static prevLoc  := Buffer(8, 0)
+   static textSize := Buffer(8, 0)
+   static textRect := Buffer(16, 0)
+   static LOGFONT  := Buffer(92, 0)
+
+   ; ---------------------------------------------------------------------
+   ; Per-run state (initialised in Run)
+   ; ---------------------------------------------------------------------
+   static gui             := 0
+   static block           := false
+   static outType         := ""
+   static viewMode        := "grid"
+   static stretchMode     := 3             ; 3                = COLORONCOLOR (no smoothing), 4 = HALFTONE
+   static captureSize     := 15            ; N by N pixels captured around the cursor (odd works best)
+   static baseZoomFactor  := 25            ; preview side length = captureSize * zoomFactor
+   static fontSize        := 0
+   static textPadding     := 0
+   static anchored        := false
+   static highlightCenter := true
+   static isDirty         := false
+   static lastRGB         := 0
+   static lastX           := 0
+   static lastY           := 0
+
+   ;======================================================================
+   ; Entry point
+   ;======================================================================
+   static Run(viewMode := "grid") {
+      CoordMode("Mouse", "Screen")
+      this.SetSysCursor("reset")
+      ; Ignore another instance if already running
+      If WinExist(this.title) {
+         OutputDebug("Gui Already Exists!!")
+         Return -1
+      }
+      dpiCtx := DllCall("SetThreadDpiAwarenessContext", "Ptr", -4, "Ptr")
+
+      ; Reset per-run state
+      this.fontSize        := this.Scale(18)
+      this.textPadding     := this.Scale(6)    ; half above, half below the text
+      this.anchored        := false
+      this.highlightCenter := true
+      this.isDirty         := false
+      this.lastRGB         := this.lastX := this.lastY := 0
+      this.outType         := ""
+      this.viewMode        := viewMode
+      this.stretchMode     := 3
+      this.captureSize     := 19
+      this.baseZoomFactor  := 10
+      this.SetSysCursor("cross")
+
+      ; Read prior values if they exist
+      this.captureSize    := IniRead(this.iniFile, this.viewMode, "captureSize", this.captureSize)
+      this.baseZoomFactor := IniRead(this.iniFile, this.viewMode, "baseZoomFactor", this.baseZoomFactor)
+
+      ; Make sure this GUI is not part of the screen capture (Windows 10+)
+      this.gui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale", this.title)
+      If NOT DllCall("User32\SetWindowDisplayAffinity", "Ptr", this.gui.hWnd, "Int", 0x00000011, "Int") ; WDA_EXCLUDEFROMCAPTURE
+         OutputDebug("Failed to set affinity:" A_LastError)
+      ; Some Windows 10 versions: SetWindowDisplayAffinity & +E0x80000 clash
+      this.gui.Opt("+E0x80000")
+      this.gui.Show("NA x0 y0 w0 h0")
+      this.OnTop(this.gui.Hwnd)
+
+      ; Hotkeys active only while this GUI exists. B0 prevents passing the key to other windows
+      hotCrit := "ahk_id " this.gui.Hwnd
+      handler := this.HotKeyHandler.Bind(this)
+      HotIfWinExist(hotCrit)
+      For key in this.hotkeyNames
+         Hotkey(key, handler, "B0")
+      HotIfWinExist()
+
+      ;-------------------------------------------------------------------
+      ; Main loop to block until complete, bound keys will stop the loop
+      ;-------------------------------------------------------------------
+      ms := this.MouseSpeed()
+      this.MouseSpeed(ms / 4)
+      this.block := true
+      While (this.block) {
+         now := A_TickCount
+         If NOT WinExist(this.gui.Hwnd)
+            this.block := false
+         If GetKeyState("Shift", "P") ; dynamic colors under the picker
+            this.isDirty := true
+         this.CaptureAndPreview()
+         dur := A_TickCount - now
+         Sleep(Max(0, this.updateInterval - dur))
+      }
+
+      ;-------------------------------------------------------------------
+      ; Cleanup
+      ;-------------------------------------------------------------------
+      this.SetSysCursor("reset")
+      this.MouseSpeed(ms)
+      HotIfWinExist(hotCrit)
+      For key in this.hotkeyNames
+         Try Hotkey(key, "Off")
+      HotIfWinExist()
+      this.gui.Destroy()
+      DllCall("SetThreadDpiAwarenessContext", "Ptr", dpiCtx, "Ptr")
+      IniWrite(this.captureSize, this.iniFile, this.viewMode, "captureSize")
+      IniWrite(this.baseZoomFactor, this.iniFile, this.viewMode, "baseZoomFactor")
+      IniWrite(this.stretchMode, this.iniFile, this.viewMode, "stretchMode")
+      Return (this.outType == "Exit" ? -1 : this.lastRGB)
+   }
+
+   ;======================================================================
+   ; Handle various hotkeys while the GUI is up
+   ;======================================================================
+   static HotKeyHandler(key) {
+      Switch key, false {
+         Case "$enter","*Enter","*NumpadEnter","*Space","*LButton":
+            this.outType := "HEX"
+            this.block := false
+         Case "Esc":
+            this.outType := "Exit"
+            this.block := false
+         Case "A":
+            this.anchored := !this.anchored
+         Case "H":
+            this.highlightCenter := !this.highlightCenter
+
+         Case "*$left":
+            MouseMove(-this.BumpAmount(), 0, 0, "R")
+         Case "*$right":
+            MouseMove(this.BumpAmount(), 0, 0, "R")
+         Case "*$up":
+            MouseMove(0, -this.BumpAmount(), 0, "R")
+         Case "*$down":
+            MouseMove(0, this.BumpAmount(), 0, "R")
+
+         Case "=","+Wheelup":
+            ; Keep view window same size but zoom in by 20%
+            base := this.captureSize * this.baseZoomFactor
+            this.captureSize := Max(5, this.OddInteger(this.captureSize / 1.2))
+            this.baseZoomFactor := base / this.captureSize
+         Case "-","+Wheeldown":
+            ; Keep view window same size but zoom out by 20%
+            base := this.captureSize * this.baseZoomFactor
+            this.captureSize := Min(1501, this.OddInteger(this.captureSize * 1.2))
+            this.baseZoomFactor := base / this.captureSize
+
+         Case "^Wheeldown":
+            this.captureSize := Max(3, this.captureSize - this.csBump)
+         Case "^Wheelup":
+            this.captureSize := Min(1001, this.captureSize + this.csBump)
+
+         Case "[","!Wheeldown":
+            this.baseZoomFactor := Max(1, this.baseZoomFactor / 1.1)
+         Case "]","!Wheelup":
+            this.baseZoomFactor := Min(60, this.baseZoomFactor * 1.1)
+         Default:
+            OutputDebug(key "  was not handled")
+      }
+      this.isDirty := true
+   }
+
+   static BumpAmount() => GetKeyState("Ctrl", "P") ? Ceil(this.captureSize / 2) : 1
+
+   ;======================================================================
+   ; Capture screen and update the GUI with its contents
+   ;======================================================================
+   static CaptureAndPreview() {
+      Try {
+         MouseGetPos(&cursorX, &cursorY)
+      } Catch Error As e {
+         elog(e, "MouseGetPos")
+         Return
+      }
+      If (NOT this.isDirty AND cursorX == this.lastX AND cursorY == this.lastY)
+         Return
+
+      captureSize := this.captureSize
+      zoomFactor  := this.baseZoomFactor
+      viewMode    := this.viewMode
+
+      ; Calculate capture region
+      halfSize := (captureSize - 1) // 2
+      left     := cursorX - halfSize
+      top      := cursorY - halfSize
+      width    := captureSize
+      height   := captureSize
+      ; Preview sizes need to be odd integers
+      previewWidth  := Round(width * zoomFactor) // 2 * 2 + 1
+      previewHeight := Round(height * zoomFactor) // 2 * 2 + 1
+
+      ;-------------------------------------------------------------------
+      ; Get the screen and compatible DC
+      ;-------------------------------------------------------------------
+      hScrDC := DllCall("User32\GetDC", "Ptr", 0, "Ptr")
+      hMemDC := DllCall("Gdi32\CreateCompatibleDC", "Ptr", hScrDC, "Ptr")
+
+      ;-------------------------------------------------------------------
+      ; Create the font; its height is needed to enlarge the bitmap
+      ;-------------------------------------------------------------------
+      totalHeight := previewHeight
+      NumPut("Int", this.fontSize, this.LOGFONT, 0)
+      StrPut(this.fontName, this.LOGFONT.Ptr + 28, 28, "UTF-16")
+      hFont := DllCall("Gdi32\CreateFontIndirect", "Ptr", this.LOGFONT, "Ptr")
+      of := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hFont, "Ptr")
+      DllCall("Gdi32\GetTextExtentPoint32", "Ptr", hMemDC, "Str", "Ay", "Int", 2, "Ptr", this.textSize)
+      textHeight := NumGet(this.textSize, 4, "Int") + this.textPadding
+      totalHeight += textHeight
+
+      ;-------------------------------------------------------------------
+      ; Create the large bitmap and StretchBlt the screen into it
+      ;-------------------------------------------------------------------
+      hBitmap := DllCall("Gdi32\CreateCompatibleBitmap", "Ptr", hScrDC, "Int", previewWidth, "Int", totalHeight, "Ptr")
+      obm := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hBitmap, "Ptr")
+      DllCall("Gdi32\SetStretchBltMode", "Ptr", hMemDC, "Int", this.stretchMode) ; HALFTONE = 4, COLORONCOLOR = 3
+      DllCall("Gdi32\StretchBlt", "Ptr", hMemDC, "Int", 0, "Int", 0, "Int", previewWidth, "Int", previewHeight
+         , "Ptr", hScrDC, "Int", left, "Int", top, "Int", width, "Int", height, "UInt", 0x00CC0020)
+
+      ;-------------------------------------------------------------------
+      ; Get color of central pixel (GDI uses BGR) and create text
+      ;-------------------------------------------------------------------
+      centralBGRColor := DllCall("Gdi32\GetPixel", "Ptr", hMemDC, "Int", previewWidth // 2, "Int", previewHeight // 2, "UInt")
+      this.lastRGB    := this.RGB_BGR(centralBGRColor)
+      highlightColor  := this.GetTextColor(this.lastRGB)
+      nullBrush       := DllCall("Gdi32\GetStockObject", "Int", 5, "Ptr") ; NULL_BRUSH: fill GDI solids with blank area
+
+      ;-------------------------------------------------------------------
+      ; Draw text, colors match/complement center color
+      ;-------------------------------------------------------------------
+      colorText   := this.ColorNameLookup(this.lastRGB)
+      textBGColor := centralBGRColor
+      textFGColor := highlightColor
+      DllCall("Gdi32\SetTextColor", "Ptr", hMemDC, "UInt", textFGColor)
+      DllCall("Gdi32\SetBkColor", "Ptr", hMemDC, "UInt", textBGColor)
+      ; text background
+      hBrush := DllCall("Gdi32\CreateSolidBrush", "UInt", textBGColor, "Ptr")
+      NumPut("Int", 0, "Int", previewHeight, "Int", previewWidth, "Int", totalHeight, this.textRect, 0)
+      DllCall("User32\FillRect", "Ptr", hMemDC, "Ptr", this.textRect, "Ptr", hBrush)
+      DllCall("Gdi32\DeleteObject", "Ptr", hBrush)
+      ; text itself
+      DllCall("Gdi32\GetTextExtentPoint32", "Ptr", hMemDC, "Str", colorText, "Int", StrLen(colorText), "Ptr", this.textRect)
+      textX := (previewWidth - NumGet(this.textRect, 0, "Int")) // 2
+      textY := previewHeight + (textHeight - this.fontSize) // 2
+      DllCall("Gdi32\TextOut", "Ptr", hMemDC, "Int", textX, "Int", textY, "Str", colorText, "Int", StrLen(colorText))
+      DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", of)
+      DllCall("Gdi32\DeleteObject", "Ptr", hFont)
+      ; Null (transparent) brush moving forward so we don't overwrite bitmap
+      DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", nullBrush)
+
+      ;-------------------------------------------------------------------
+      ; Draw all of the grids, borders and center color highlighters
+      ;-------------------------------------------------------------------
+      Switch viewMode {
+         Case "crosshair":
+            centerX  := previewWidth // 2
+            centerY  := previewHeight // 2
+            halfZoom := Round(zoomFactor / 2)
+
+            hCrosshairPen := DllCall("Gdi32\CreatePen", "Int", 0, "Int", this.crosshairWidth, "UInt", this.crosshairColor & 0xFFFFFF, "Ptr")
+            op := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hCrosshairPen, "Ptr")
+            this.LineFromTo(hMemDC, 0, previewWidth // 2, previewWidth // 2, previewHeight)
+            this.LineFromTo(hMemDC, 0, previewHeight // 2, previewWidth, previewHeight // 2)
+            DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", op)
+            DllCall("Gdi32\DeleteObject", "Ptr", hCrosshairPen)
+
+            If this.highlightCenter {
+               ; Draw smaller inner crosshair
+               hInnerCrosshairPen := DllCall("Gdi32\CreatePen", "Int", 0, "Int", this.crosshairWidth, "UInt", highlightColor & 0xFFFFFF, "Ptr")
+               op := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hInnerCrosshairPen, "Ptr")
+               this.LineFromTo(hMemDC, centerX, centerY - halfZoom, centerX, centerY + halfZoom)
+               this.LineFromTo(hMemDC, centerX - halfZoom, centerY, centerX + halfZoom, centerY)
+               DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", op)
+               DllCall("Gdi32\DeleteObject", "Ptr", hInnerCrosshairPen)
+            }
+         Case "grid", "none":
+            hGridPen := DllCall("Gdi32\CreatePen", "Int", 0, "Int", this.gridWidth, "UInt", this.gridColor & 0xFFFFFF, "Ptr")
+            op := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hGridPen, "Ptr")
+
+            ; Calculate the center square
+            If Mod(captureSize, 2) == 0
+               centerIndex := captureSize // 2 + 1
+            Else
+               centerIndex := captureSize // 2 + (captureSize & 1)
+
+            If (viewMode = "grid") {
+               Loop captureSize {
+                  x := (A_Index - 1) * zoomFactor
+                  this.LineFromTo(hMemDC, x, 0, x, previewHeight)
+                  this.LineFromTo(hMemDC, 0, x, previewWidth, x)
+               }
+            }
+
+            ; Highlight the center or lower-right of center square
+            If (this.highlightCenter) {
+               hHighlightPen := DllCall("Gdi32\CreatePen", "Int", 0, "Int", this.gridWidth, "UInt", highlightColor & 0xFFFFFF, "Ptr")
+               op1 := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hHighlightPen, "Ptr")
+               fxy := centerIndex * zoomFactor, txy := (centerIndex - 1) * zoomFactor + 1
+               DllCall("Gdi32\Rectangle", "Ptr", hMemDC, "Int", fxy, "Int", fxy, "Int", txy, "Int", txy)
+               DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", op1)
+               DllCall("Gdi32\DeleteObject", "Ptr", hHighlightPen)
+            }
+
+            DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", op)
+            DllCall("Gdi32\DeleteObject", "Ptr", hGridPen)
+      }
+
+      ;-------------------------------------------------------------------
+      ; Draw the outside border and separator line
+      ;-------------------------------------------------------------------
+      hBorderPen := DllCall("Gdi32\CreatePen", "Int", 0, "Int", this.borderWidth, "UInt", this.borderColor & 0xFFFFFF, "Ptr")
+      op := DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", hBorderPen, "Ptr")
+      DllCall("Gdi32\Rectangle", "Ptr", hMemDC, "Int", 0, "Int", 0, "Int", previewWidth, "Int", totalHeight)
+      this.LineFromTo(hMemDC, 0, previewHeight, previewWidth, previewHeight)
+      DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", op)
+      DllCall("Gdi32\DeleteObject", "Ptr", hBorderPen)
+
+      ;-------------------------------------------------------------------
+      ; Keep the preview on the active monitor unless anchored
+      ; 0x10014 -> from center, 0x10000 -> from upper/left corner
+      ;-------------------------------------------------------------------
+      If (NOT this.anchored) {
+         If (viewMode != "magnifier") {
+            KeepOnMonitor(cursorX + this.previewXOffset, cursorY + this.previewYOffset, previewWidth, totalHeight, &x, &y, 0x10000)
+            NumPut("UInt", x, "UInt", y, this.prevLoc)
+         } Else {
+            NumPut("UInt", cursorX - previewWidth // 2, "UInt", cursorY - totalHeight // 2, this.prevLoc)
+         }
+      }
+      DllCall("User32\UpdateLayeredWindow", "Ptr", this.gui.hWnd, "Ptr", 0, "Ptr", this.prevLoc
+         , "Int64*", previewWidth | (totalHeight << 32), "Ptr", hMemDC, "Int64*", 0, "UInt", 0, "UInt*", 0xFF << 16, "UInt", 2)
+
+      ;-------------------------------------------------------------------
+      ; Clean up
+      ;-------------------------------------------------------------------
+      DllCall("Gdi32\SelectObject", "Ptr", hMemDC, "Ptr", obm)
+      DllCall("Gdi32\DeleteObject", "Ptr", hBitmap)
+      DllCall("Gdi32\DeleteDC", "Ptr", hMemDC)
+      DllCall("User32\ReleaseDC", "Ptr", 0, "Ptr", hScrDC)
+      this.lastX := cursorX, this.lastY := cursorY
+      this.isDirty := false
+   }
+
+   ;======================================================================
+   ; Helpers
+   ;======================================================================
+   static LineFromTo(hMemDC, fmX, fmY, toX, toY) {
+      DllCall("Gdi32\MoveToEx", "Ptr", hMemDC, "Int", fmX, "Int", fmY, "Ptr", 0)
+      DllCall("Gdi32\LineTo", "Ptr", hMemDC, "Int", toX, "Int", toY)
+   }
+
+   static Scale(val)      => Round(val * activeMonDPIFactor())
+   static OddInteger(val) => (Floor(val) // 2) * 2 + 1
+   static RGB_BGR(c)      => ((c & 0xFF) << 16 | c & 0xFF00 | c >> 16)
+
+   ; Place the window on top of the Z-Order
+   static OnTop(hWnd) {
+      DllCall("User32\SetWindowPos", "Ptr", hWnd, "Ptr", 0
+         , "Int", 0, "Int", 0, "Int", 0, "Int", 0
+         , "UInt", 0x0013) ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+   }
+
+   ; Light or dark text color based on luminance of an RGB color
+   static GetTextColor(rgb) {
+      r := (rgb >>> 16) & 0xFF
+      g := (rgb >>> 8) & 0xFF
+      b := rgb & 0xFF
+      Return Round(0.299 * r + 0.587 * g + 0.114 * b) < 128 ? 0xFFFFFF : 0x000000
+   }
+
+   ; Text of the color
+   static ColorNameLookup(rgb) {
+      r := (rgb >> 16) & 0xFF, g := (rgb >> 8) & 0xFF, b := rgb & 0xFF
+      Return Trim(Format("#{:06X} ", rgb) . "(" r "," g "," b ")")
+   }
+
+   ; Optionally set the mouse speed to val (1-20). Returns the speed prior to any change
+   static MouseSpeed(val?) {
+      Static SPI_GETMOUSESPEED := 0x70
+      Static SPI_SETMOUSESPEED := 0x71
+      DllCall("SystemParametersInfo", "UInt", SPI_GETMOUSESPEED, "UInt", 0, "UInt*", &origSpeed := 0, "UInt", 0)
+      If IsSet(val)
+         DllCall("SystemParametersInfo", "UInt", SPI_SETMOUSESPEED, "UInt", 0, "Ptr", val, "UInt", 0)
+      Return origSpeed
+   }
+
+   ; Control the system cursor
+   static SetSysCursor(how) {
+      Switch how {
+         Case "cross", "arrow":
+            DllCall("User32\ShowCursor", "Int", 1)
+            hCursor := DllCall("User32\LoadCursor", "Ptr", 0, "Ptr", how = "cross" ? 32515 : 32512, "Ptr")
+            For cursorId in this.cursorIds
+               DllCall("User32\SetSystemCursor", "Ptr", DllCall("CopyImage", "Ptr", hCursor, "UInt", 2, "Int", 0, "Int", 0, "UInt", 0, "Ptr"), "UInt", cursorId)
+         Default: ; "reset"
+            DllCall("User32\SystemParametersInfo", "UInt", 0x57, "UInt", 0, "Ptr", 0, "UInt", 0)
+            DllCall("User32\ShowCursor", "Int", 1)
+      }
+   }
+}

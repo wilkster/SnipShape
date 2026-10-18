@@ -8,7 +8,7 @@
 #Requires Autohotkey 2.1-alpha.25
 #include LibMisc.ahk2    ; custom imagelist
 #include clsShapes.ahk2 ; default colors are shared
-
+#include clsColorPicker.ahk2
 Class ColorPopDown {
    Static colorNameArray   := Array() ; Index -> name (tool tips only)
    Static colorValArray    := Array() ; Index -> Color value in decimal
@@ -22,6 +22,7 @@ Class ColorPopDown {
    Static lastControl      := 0
    Static DPIFactor        := activeDPIFactor()
    Static defaultColor     := 0
+   Static MaxIndex         := 36
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Scalle circle size with the size of the font/buttons for the button bar
@@ -40,7 +41,7 @@ Class ColorPopDown {
       this.circleSize := bs
       ; This are the background colors for the light/dark windows menus
       this.smallerIconsObj.Size := this.circledIconsObj.Size := this.largerIconsObj.Size := this.circleSize
-      Loop 36 {
+      Loop this.MaxIndex {
          ColorName := IniReadValue("User Shape Color", "Color " A_Index, 123)
          If ColorName = 123 {
             Color := 0x808080
@@ -53,11 +54,13 @@ Class ColorPopDown {
          name := "Set " ColorName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color " A_Index)
          ; Save this information by use in the shape class
          this.colorNameArray.push(name)
+         ; Last index is reserved for color wheel / color picker
+         If (A_Index == this.MaxIndex)
+            Color := -1
          ; Save in an image list (this consumes then discards the icon)
          this.smallerIconsObj[A_Index] := this._BuildAColor(Color,1)
          this.circledIconsObj[A_Index] := this._BuildAColor(Color,2)
          this.largerIconsObj[A_Index]  := this._BuildAColor(Color,3)
-
          this.colorValArray.push(RGBval(Color))
       }
       ; Build the GUI
@@ -80,10 +83,12 @@ Class ColorPopDown {
             }
          }
       }
-      ; If users leaves moust down while dragging over controls,
+      ; If users leaves mouse down while dragging over controls,
       ; allow releasing of the buttton over a control select that color
       ; Similar to how menus work.
+      ; BUG button up hotkey this is working on flyouts, probably due to menu bind handling
       Hotkey("~LButton Up", HK_LButtonUp, "On")
+      ; Debug("Registered Hotkey")
       Return
       /**
        * Callback if the user releases the mouse button over a picture
@@ -91,6 +96,7 @@ Class ColorPopDown {
        */
       HK_LButtonUp(*) {
          Hotkey("~LButton Up", "Off", "Off")   ; one-shot; don't leave a global hook dangling
+         ; Debug("Triggered Hotkey, value=" IsObject(this.lastControl))
          If (this.lastControl) {
             this._colorPicked(this.lastControl.Index)
          }
@@ -159,24 +165,31 @@ Class ColorPopDown {
       Switch type {
          Case this.smallerIcon:
             ; Smaller circle
-            brush := GDIp.BrushCreateSolid(0xFF000000 | color)
+            if (color >= 0)
+               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
             bs    := smCirSize
             pad   := (this.circleSize - bs) / 2
             
          Case this.largerIcon:
             ; Larger Circle, highlighted
-            brush := GDIp.BrushCreateSolid(0xFF000000 | color)
+            if (color >= 0)
+               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
             bs    := this.circleSize - 2
             pad   := 1
 
          Case this.circledIcon:
             ; Outline Circle, default
-            penwidth := this.circleSize * 0.07
-            pen   := GDIp.CreatePen(0xFFFFFFFF, penwidth) ; white for now. leave small gap between circle so we can see it on white
-            brush := GDIp.BrushCreateSolid(0xFF000000 | color)
-            bs := smCirSize
-            pad   := (this.circleSize - bs) / 2
-            GDIp.SetPenAlignment(pen,0)
+            If (color >= 0) {
+               penwidth := this.circleSize * 0.07
+               pen := GDIp.CreatePen(0xFFFFFFFF, penwidth) ; white for now. leave small gap between circle so we can see it on white
+               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
+               bs := smCirSize
+               pad := (this.circleSize - bs) / 2
+               GDIp.SetPenAlignment(pen, 0)
+            } Else {
+               bs    := this.circleSize - 2
+               pad   := 1
+            }
       }
       pBitmap := GDIp.CreateBitmap(this.circleSize, this.circleSize,)
       G := GDIp.GraphicsFromImage(pBitmap)
@@ -186,13 +199,24 @@ Class ColorPopDown {
       GDIp.SetCompositingMode(G, 0)              ; Alpha blend, Source over
       GDIp.SetPixelOffsetMode(G, 4)
       GDIp.GraphicsClear(G, 0x00000000)
-      Switch type {
-         Case this.smallerIcon, this.largerIcon:
-            GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
-         Case this.circledIcon:
-            GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
-            GDIp.DrawEllipse(G, pen, pad - penwidth, pad - penwidth, bs + penwidth * 2, bs + penwidth * 2) ; 0 - based
-         Default:
+      If (color >= 0) {
+         Switch type {
+            Case this.smallerIcon, this.largerIcon:
+               GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
+            Case this.circledIcon:
+               GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
+               GDIp.DrawEllipse(G, pen, pad - penwidth, pad - penwidth, bs + penwidth * 2, bs + penwidth * 2) ; 0 - based
+         }
+      } Else {
+         Loop 360 {
+            ; TODO: Could use loop 240 and MS calls then scale
+            a := A_Index - 1
+            pBrush := GDIp.BrushCreateSolid(this.HsvToArgb(a))
+            DllCall("gdiplus\GdipFillPieI", "Ptr", G, "Ptr", pBrush
+                  , "Int", pad, "Int", pad, "Int", bs, "Int", bs
+                  , "Float", a - 90, "Float", 2)
+            GDip.DeleteBrush(pBrush)
+         }            
       }
       ; GDIp.DrawEllipse(G, br, intPad, intPad, bs - 2 * intPad, bs - 2 * intPad) ; 0 - based
       ; Icons solve the transparency issue on the menu (vs bitmaps)
@@ -207,9 +231,23 @@ Class ColorPopDown {
 
       return hIcon
    } 
+   ; h = 0..359, full saturation/value, integer math
+   Static HsvToArgb(h) {
+      f := Mod(h, 60) * 255 // 60
+      switch h // 60 {
+         case 0: r := 255,     g := f,       b := 0
+         case 1: r := 255 - f, g := 255,     b := 0
+         case 2: r := 0,       g := 255,     b := f
+         case 3: r := 0,       g := 255 - f, b := 255
+         case 4: r := f,       g := 0,       b := 255
+         default: r := 255,    g := 0,       b := 255 - f
+      }
+      return 0xFF000000 | r << 16 | g << 8 | b
+   }   
    /**
     * Build a borderless popup GUI showing color circles in a grid.
     * Built once; shown/positioned on demand near the color button.
+    * Only called once per session
     * @param {Integer} bs - button/icon size in px
     */
    Static _BuildColorPopup() {
@@ -227,7 +265,8 @@ Class ColorPopDown {
          pic := this.colorGui.AddPicture(opt, "HICON:" this.smallerIconsObj[A_Index]) ; 1 user resource
          this.colorPicControls.push(pic)
          pic.OnEvent("Click", this._colorPicked.Bind(this, Index))
-         pic.OnEvent("ContextMenu", _colorEdit)
+         if (Index < this.MaxIndex)
+            pic.OnEvent("ContextMenu", _colorEdit)
          ; Custom properties for this control
          Pic.Index    := Index
          pic.IconType := this.smallerIcon
@@ -269,10 +308,15 @@ Class ColorPopDown {
       _colorEdit(PICControl, *) {
          editColor := PICControl.Color
          Index     := PICControl.Index
-         NewColor  := RGBVal(_PickCustomColor(editColor))
+         oldColor  := RGBval(editColor)
+         ; Ctrl down uses color picker
+         If (GetKeyState("Ctrl", "P")) {
+            NewColor := ColorPicker.Run()
+         } Else {
+            NewColor := RGBval(_PickCustomColor(editColor))
+         }
          this.colorGui.show()
          SetWindowTop(this.colorGui.hwnd)
-         oldColor := RGBval(editColor)
          If (NewColor >= 0 AND oldColor != RGBVal(NewColor)) {
             ; TODO - Create an undo point
             newName := "Set " hex(NewColor) . (Index < 10 ? " color (" . Index . ")" :  " color " Index)
@@ -311,9 +355,14 @@ Class ColorPopDown {
     */
    Static _colorPicked(Index, *) {
       this.lastControl := 0 ; so button-up event doesn't repeat this
-      color := this.colorValArray[Index]
+      If (Index == this.colorValArray.Length) {
+         color := ColorPicker.Run()
+      } Else {
+         color := this.colorValArray[Index]
+      }
+
       this._hideMe()
-      if (this.callback)
+      if (this.callback and color >= 0)
          this.callback(color)
    }      
 
@@ -355,7 +404,10 @@ Class ColorPopDown {
                }
             }
             ; TODO - make tooltips an option
-            ; ToolTip picControl.Tips
+            if (picControl.Index == this.MaxIndex)
+               ToolTip "Color Picker"
+            Else
+               ToolTip
             this.lastControl := picControl
          }
       }
