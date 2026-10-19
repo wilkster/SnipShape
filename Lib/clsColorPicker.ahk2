@@ -70,17 +70,13 @@ class ColorPicker {
       dpiCtx := DllCall("SetThreadDpiAwarenessContext", "Ptr", -4, "Ptr")
 
       ; Reset per-run state
-      this.fontSize        := this.Scale(18)
+      this.fontSize        := this.Scale(17)
       this.textPadding     := this.Scale(6)    ; half above, half below the text
       this.anchored        := false
       this.highlightCenter := true
       this.isDirty         := false
       this.lastRGB         := this.lastX := this.lastY := 0
-      this.outType         := ""
       this.viewMode        := viewMode
-      this.stretchMode     := 3
-      this.captureSize     := 19
-      this.baseZoomFactor  := 10
       this.SetSysCursor("cross")
 
       ; Read prior values if they exist
