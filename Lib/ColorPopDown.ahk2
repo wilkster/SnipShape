@@ -208,17 +208,24 @@ Class ColorPopDown {
                GDIp.DrawEllipse(G, pen, pad - penwidth, pad - penwidth, bs + penwidth * 2, bs + penwidth * 2) ; 0 - based
          }
       } Else {
-         Loop 360 {
-            ; TODO: Could use loop 240 and MS calls then scale
-            a := A_Index - 1
-            pBrush := GDIp.BrushCreateSolid(this.HsvToArgb(a))
-            DllCall("gdiplus\GdipFillPieI", "Ptr", G, "Ptr", pBrush
-                  , "Int", pad, "Int", pad, "Int", bs, "Int", bs
-                  , "Float", a - 90, "Float", 2)
-            GDip.DeleteBrush(pBrush)
+         brush := GDIp.BrushCreateSolid(0xFFFFFF)
+         ; Draw the circle in pie pieces
+         pieces := 16
+         slice  := 360 / pieces
+         Loop pieces {
+            a := Round((A_Index - 1) * slice, 0)
+            GDIp.SetBrushColor(brush,this.HsvToArgb(a))
+            DllCall("gdiplus\GdipFillPie", "Ptr", G, "Ptr", brush
+                  , "Float", pad, "Float", pad, "Float", bs, "Float", bs
+                  , "Float", a - 90, "Float", (slice + 5))
          }            
+         ; Punch a small transparent hole
+         GDIp.SetCompositingMode(G, 1)
+         GDIp.SetBrushColor(brush, 0x00000000)
+         Radius := bs / 5
+         Center := this.circleSize / 2
+         GDIp.FillEllipse(G, brush, Center - Radius, Center - Radius, Radius * 2, Radius * 2)
       }
-      ; GDIp.DrawEllipse(G, br, intPad, intPad, bs - 2 * intPad, bs - 2 * intPad) ; 0 - based
       ; Icons solve the transparency issue on the menu (vs bitmaps)
       ; We save them away in imagelist, which is small for resources
       hIcon := GDIp.CreateHICONFromBitmap(pBitmap)
