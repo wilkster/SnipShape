@@ -1075,17 +1075,27 @@ Class GuiSnip extends Gui {
     */
    Snip2File(SavePath, Borders := false) {
       Try {
-         If !FileExist(SavePath)
+         If (SavePath AND !FileExist(SavePath))
             DirCreate(SavePath)
          this.GetPos(&X, &Y, &W, &H)
+         ; TODO - hide the toolbar if active
          focusBorder.PauseResumeFocus(true)
+         bb := ButtonBar.Enabled
+         if (bb)
+            ButtonBar.Hide()
          ToolTip() ; turn them off
          (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
          hBitmap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
 
          g.Destroy()
-         FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
+         if (savePath)
+            FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
+         else
+            FileName := Snips.ExportHBitMapFile(hBitmap)
+
          GDI.DeleteObject(hBitmap)
+         if (bb)
+            ButtonBar.Show()
          this.Dirty := 0
       } Catch as E {
          FileName := ""

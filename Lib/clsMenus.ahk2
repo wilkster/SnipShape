@@ -38,6 +38,7 @@ Class SnipMenus {
       this.AddEntry("Duplicate Snip (Ctrl-D)", "Duplicate.ico")
       this.AddEntry('Edit:', "Edit.ico")
       this.AddEntry('Save: (Ctrl-S)', "SaveAs.ico")
+      this.AddEntry('Export Snip', "SaveAs.ico")
       this.csMenu.Add()
       this.csMenu.Add("OCR Text",this.OCRMenu)
       this.csMenu.SetIcon("OCR Text", SETTINGS.CursorPath . "OCR.cur")
@@ -145,6 +146,7 @@ Class SnipMenus {
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(hWnd,12)                           
          Case ItemName ~= "OCR Text Table": Snips.OCRSnipToClipboard(hWnd,14)                           
          Case ItemName ~= "Save:": SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)                            
+         Case ItemName ~= "Export Snip": SnipObj.Snip2File("", Snips.borderWithSave)                            
          Case ItemName ~= "Duplicate": SnipObj.CloneAndScaleSnip(1.0)
          Case ItemName ~= "Minimize This": SnipObj.Minimize()
          Case ItemName ~= "Minimize All": Snips.MinimizeAll()                                                   
@@ -566,9 +568,9 @@ Class ShapeMenus {
          Case ItemName ~= "Clear":
             shapeObj.GUI.PostClearAllShapes()
             shapeObj.GUI.ClearAllShapes(true) ; no Undo, done above
-         Case ItemName ~= "Shape Color": ; No longer used
-            cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
-            ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)
+         ; Case ItemName ~= "Shape Color": ; No longer used
+         ;    cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
+         ;    ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)
 
          Default:
       }
