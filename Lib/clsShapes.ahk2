@@ -434,6 +434,7 @@ Class Shapes {
          Case 0:
             ; Make it seem the caption was clicked so dragging will work.
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
+            DllCall("ReleaseCapture")
             PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
          Case Shapes.SHAPE_CROP, Shapes.SHAPE_SLICE, Shapes.SHAPE_EXTEND:
             changed := Shapes.Draw(SnipObj,DrawMode)

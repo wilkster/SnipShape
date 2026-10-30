@@ -220,6 +220,7 @@ Class Snips {
          Snips.SelectScreenRegion(2, 'LButton')
       } else if (hWnd = ButtonBar.bbGui.hWnd) {
          ; If buttonbar background then allow moving without caption
+         DllCall("ReleaseCapture")
          PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
       } Else If (cb := ButtonBar.buttonCallbacks.Get(hWnd, 0)) {
          ; Buttonbar Callbacks are handeled here
@@ -589,6 +590,8 @@ Class Snips {
             ; RMB for options, only over picture not the shapes
             ; Have to force the W/H for full screen captures since by default doesn't want to extend beyond screen size
             ; Shifting by neg border width will align the snip exactly over the screen capture region
+            ; Shadow(SnipObj.hwnd)
+
             SnipObj.Show('x' Area.X - BW ' y' Area.Y - BW) ; NA -> want active
             If (SaveFile) {
                SnipObj.Snip2File(SETTINGS.SavePath_Image, Snips.borderWithSave)
@@ -620,7 +623,47 @@ Class Snips {
       }
    }
    /**
+    * Export an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.
+    * Prompts before overwriting an existing file.
+    * @param {Integer} hBitmap - GDI HBITMAP handle to save
+    * @param {String} SavePath - Directory path where the file should be written
+    * @returns {String} Full path of the saved file, or empty string on failure
+    */
+   Static ExportHBitMapFile(hBitmap) {
+      hook := FileDialogHook()
+      lastFolder := IniReadValue("Snips", "Last Export Folder", "")
+      FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png" 
+      If (FileName := FileSelect("S", FileName)) {
+         pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
+         ; New filename
+         If (FileExist(FileName)) {
+            Switch MsgBox("The File Exists, do you want to replace it (Yes), Or skip (No)?", FileName, 0x1034) {
+               Case "Yes":
+                  Try {
+                     FileDelete(FileName)
+                  } Catch as E {
+                     MsgBox("Error Removing or Saving File", FileName, 0x30)
+                     FileName := ""
+                  }
+               Case "No":
+                  FileName := ""
+            }
+         }
+         If (FileName) {
+            BitMap.SaveBitmapToFile(pBitmap, FileName)
+            SplitPath(FileName, , &exportFolder)
+            IniWriteValue(exportFolder, "Snips", "Last Export Folder")
+         }
+      } else
+         FileName := ""
+      if (IsSet(pBitmap))
+         GDIp.DisposeImage(pBitmap)
+      hook := unset
+      Return FileName
+   }
+   /**
     * Convert an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.
+    * Will include shape metadata to allow reconstruction of the snip with shapes
     * Prompts before overwriting an existing file.
     * @param {Integer} hBitmap - GDI HBITMAP handle to save
     * @param {String} SavePath - Directory path where the file should be written
