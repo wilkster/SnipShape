@@ -633,7 +633,7 @@ Class Snips {
       hook := FileDialogHook()
       lastFolder := IniReadValue("Snips", "Last Export Folder", "")
       FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png" 
-      If (FileName := FileSelect("S", FileName)) {
+      If (FileName := FileSelect("S", FileName, "Save Snip","Image (*.png; *.bmp; *.jpg;*.tif)")) {
          pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
          ; New filename
          If (FileExist(FileName)) {
