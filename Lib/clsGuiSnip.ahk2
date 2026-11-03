@@ -1055,6 +1055,10 @@ Class GuiSnip extends Gui {
     * @param {Integer} [Borders=false] - Include the snip border in the copied image
     */
    Snip2Clipboard(Borders := false) {
+      bb := ButtonBar.Enabled
+      if (bb)
+         ButtonBar.Hide()
+
       this.GetPos(&X, &Y, &W, &H)
       ; If there is some transparency, put a black background behind it
       focusBorder.PauseResumeFocus(true)
@@ -1063,6 +1067,8 @@ Class GuiSnip extends Gui {
       hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
       g.Destroy()
       this.Dirty := 0
+      if (bb)
+         ButtonBar.Show()
       if ((res := Clipboard.SetHBitmapToClipboard(hBitMap)) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
    }
