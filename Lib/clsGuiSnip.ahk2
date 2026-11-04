@@ -630,7 +630,7 @@ Class GuiSnip extends Gui {
       }
       If (toRGB >= 0 AND fromRGB != toRGB) {
          this.PostAction(UnDo.CHANGE_SNIP)
-         hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)
+         hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB, 0, 25)
          If (hits > 0) {
             ; Replace the picture
             this.Handle := hBitmap ; destroys og hBitmap
