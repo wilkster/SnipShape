@@ -614,13 +614,20 @@ Class GuiSnip extends Gui {
     * @param {Integer} X, Y - Coordinates to look for a color to replace
     * @param {Integer} radius - Radius to search for color
     */
-   ReplaceSnipBGColor(X, Y, radius := 8) {
+   ReplaceSnipBGColor(X, Y, how:="dialog", radius := 8) {
       hBitmap := GDI.CopyImage(this.Handle)
       ; We are launched from a menu, so the coordinates are where the menu was launched
       fromRGB := this.BackgroundPICColorFromXY(X, Y, radius)
-      colorArray := ColorPopDown.colorValArray.clone()
-      colorArray.Length := Min(16, colorArray.Length)
-      toRGB   := ColorSelectDialog(fromRGB, this.hWnd, colorArray, true)
+      Switch how {
+         Case "dialog" :
+            colorArray := ColorPopDown.colorValArray.clone()
+            colorArray.Length := Min(16, colorArray.Length)
+            toRGB   := ColorSelectDialog(fromRGB, this.hWnd, colorArray, true)
+         Case "picker" :
+            toRGB := ColorPicker.Run()
+         Default :
+            Return
+      }
       If (toRGB >= 0 AND fromRGB != toRGB) {
          this.PostAction(UnDo.CHANGE_SNIP)
          hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB)

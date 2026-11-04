@@ -75,6 +75,9 @@ Class SnipMenus {
 
       this.BitmapMenu.Add('Replace Background Color', this.ContextSnipMenu_Handler.bind(this))
       this.BitmapMenu.SetIcon("Replace Background Color", SETTINGS.CursorPath . "colors.ico")
+      this.BitmapMenu.Add("Pick Background Color", this.ContextSnipMenu_Handler.bind(this))
+      this.BitmapMenu.SetIcon("Pick Background Color", SETTINGS.CursorPath . "EyeDropper.ico") ; 
+
       ; Note, these two are renamed with current file name in Post
       this.csMenu.Add("Resize Snip",this.ResizeMenu)
       this.csMenu.SetIcon("Resize Snip", SETTINGS.CursorPath . "Resize.ico")
@@ -138,9 +141,9 @@ Class SnipMenus {
          Case ItemName ~= "Grayscale Snip": SnipObj.TransformSnip(2)
          Case ItemName ~= "B&W Snip": SnipObj.TransformSnip(3)
          Case ItemName ~= "Stretch Contrast": SnipObj.StretchSnip()
-         Case ItemName ~= "Replace Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY)
+         Case ItemName ~= "Replace Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY, "dialog")
+         Case ItemName ~= "Pick Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY, "picker")
          Case ItemName ~= "Insert Picture From File" : Shapes.AddPictureFromFile(hWnd, "lButton", "P")
-
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(hWnd,15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(hWnd,12)                           
@@ -478,7 +481,7 @@ Class ShapeMenus {
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
          
       ; Track menu for color selections with callback when color is chosen
-      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.colorPicked.Bind(this, ShapeObj), RGBval(ShapeObj.Color)) 
+      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.shapeColorPicked.Bind(this, ShapeObj), RGBval(ShapeObj.Color)) 
       ; Blocks here
       shapeMenu.Show()
       ; Turn off the menu tracker since we don't need it any more
@@ -584,7 +587,7 @@ Class ShapeMenus {
     * @param {Integer} ItemPos - Position of the item in the color submenu (unused)
     * @param {Object} MyMenu - The Menu object that triggered the callback
     */
-   Static colorPicked(shapeObj, cb, colorCode,  *) {
+   Static shapeColorPicked(shapeObj, cb, colorCode,  *) {
       shapeObj.PostAction(UnDo.SHAPE_COLOR)
       shapeObj.Color := colorCode
       shapeObj.Refresh()
