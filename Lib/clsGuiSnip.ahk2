@@ -1067,10 +1067,16 @@ Class GuiSnip extends Gui {
          ButtonBar.Hide()
 
       this.GetPos(&X, &Y, &W, &H)
-      ; If there is some transparency, put a black background behind it
+      ; If there is some transparency, put a black background behind it, must be pinned
+      pinned := WinGetAlwaysOnTop(this.hWnd)
+      if (! pinned)
+         this.Opt("+AlwaysOnTop")
       focusBorder.PauseResumeFocus(true)
       ToolTip() ; turn them off
       (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
+      if (! pinned)
+         this.Opt("-AlwaysOnTop")
+
       hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
       g.Destroy()
       this.Dirty := 0
