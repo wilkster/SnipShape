@@ -23,9 +23,9 @@ class ColorPicker {
    static previewXOffset  := -1           ; Preview position relative to cursor (to upper-left window corner)
    static previewYOffset  := -1
    static csBump          := 2            ; capture size bump amount
-   static hotkeyNames     := ["*C","A","/","*$left","*$right","*$up","*$down"
+   static hotkeyNames     := ["A","*$left","*$right","*$up","*$down"
                            ,"H","S","-","=","[","]","Esc","*Enter","*NumpadEnter","*Space","*LButton"
-                           ,"Wheelup","Wheeldown","^Wheelup","^Wheeldown","!Wheelup","!Wheeldown"]
+                           ,"+Wheelup","+Wheeldown","^Wheelup","^Wheeldown","!Wheelup","!Wheeldown"]
    static cursorIds       := [32512, 32513, 32514, 32515, 32516, 32631, 32640, 32641, 32642
                            ,32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651]
 
@@ -55,6 +55,10 @@ class ColorPicker {
    static lastRGB         := 0
    static lastX           := 0
    static lastY           := 0
+
+   ; Hotkeys are registered once (HotIf variants can't be deleted), live only while block is true
+   static hotReady        := false
+   static hotCtx          := 0
 
    ;======================================================================
    ; Entry point
@@ -92,13 +96,17 @@ class ColorPicker {
       this.gui.Show("NA x0 y0 w0 h0")
       this.OnTop(this.gui.Hwnd)
 
-      ; Hotkeys active only while this GUI exists. B0 prevents passing the key to other windows
-      hotCrit := "ahk_id " this.gui.Hwnd
-      handler := this.HotKeyHandler.Bind(this)
-      HotIfWinExist(hotCrit)
-      For key in this.hotkeyNames
-         Hotkey(key, handler, "B0")
-      HotIfWinExist()
+      ; Hotkeys are created once and are active only while the main loop runs (IsActive).
+      ; B0 prevents passing the key to other windows
+      If (!this.hotReady) {
+         this.hotCtx := this.IsActive.Bind(this)
+         handler := this.HotKeyHandler.Bind(this)
+         HotIf(this.hotCtx)
+         For key in this.hotkeyNames
+            Hotkey(key, handler, "B0")
+         HotIf()
+         this.hotReady := true
+      }
 
       ;-------------------------------------------------------------------
       ; Main loop to block until complete, bound keys will stop the loop
@@ -122,10 +130,6 @@ class ColorPicker {
       ;-------------------------------------------------------------------
       this.SetSysCursor("reset")
       this.MouseSpeed(ms)
-      HotIfWinExist(hotCrit)
-      For key in this.hotkeyNames
-         Try Hotkey(key, "Off")
-      HotIfWinExist()
       this.gui.Destroy()
       DllCall("SetThreadDpiAwarenessContext", "Ptr", dpiCtx, "Ptr")
       IniWrite(this.captureSize, this.iniFile, this.viewMode, "captureSize")
@@ -184,6 +188,9 @@ class ColorPicker {
       }
       this.isDirty := true
    }
+
+   ; HotIf context: hotkeys fire only while the picker loop is running
+   static IsActive(*) => this.block
 
    static BumpAmount() => GetKeyState("Ctrl", "P") ? Ceil(this.captureSize / 2) : 1
 

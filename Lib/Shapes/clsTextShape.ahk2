@@ -1073,11 +1073,20 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    oAccept.OnEvent('Click', InputBox_Close.Bind(Data, true))
    oDefaults.OnEvent('Click', InputBox_SetDefults.Bind(Data, true))
    ; Bind ^Enter to accept input
-   HotIfWinactive("ahk_id " textGui.hWnd)
-   Hotkey("^Enter", InputBox_Close.Bind(Data, true))
-   HotIfWinactive
+   ; Registered once with a fixed criterion so repeated calls don't accumulate
+   ; #HotIf criteria / hotkey variants (which can't be deleted in AHK v2)
+   static activeHwnd := 0, activeCb := 0, registered := false
+   If !registered {
+      HotIf((*) => activeHwnd && WinActive("ahk_id " activeHwnd))
+      Hotkey("^Enter", (*) => activeCb && activeCb())
+      HotIf()
+      registered := true
+   }
+   activeHwnd := textGui.hWnd
+   activeCb   := InputBox_Close.Bind(Data, true)
    ControlFocus(oEdit)
    WinWaitClose(textGui.hWnd)
+   activeHwnd := 0, activeCb := 0   ; release closure over this dialog's state
    Try WinActivate(Owner)
 
    Return Data
