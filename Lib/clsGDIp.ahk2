@@ -27,7 +27,7 @@ Class GDI {
     * @returns {Ptr} Handle to the new memory DC
     */
    Static CreateCompatibleDC(hdc := 0) {
-      Return DllCall("Gdi32\CreateCompatibleDC", "Ptr", hdc)
+      Return DllCall("Gdi32\CreateCompatibleDC", "Ptr", hdc, "Ptr")
    }
    /**
     * Flush all pending DWM rendering and wait for vertical sync
@@ -53,7 +53,7 @@ Class GDI {
     * @returns {Float | Integer | String} 
     */
    Static CreateDIBSection(w, h, hdc := "", bpp := 32, &ppvBits := 0, Usage := 0, hSection := 0, Offset := 0) {
-      hdc2 := hdc ?? this.GetDC()
+      hdc2 := hdc || this.GetDC()   ; "" or 0 means use the screen DC
       ; TODO - add a settings check to invert the height, we can't retrieve it from the DIB so we have to keep track of it as a global
       bi := Buffer(40, 0) ; BITMAPINFO
       NumPut("UInt", bi.size, "Int", w, "Int", h, "UShort", 1, "UShort", bpp, "UInt", 0, bi) ; -h will flip the DIBSection
@@ -151,8 +151,8 @@ Class GDI {
     * @returns {Ptr} Handle to the object being replaced, NULL or HGDI_ERROR on failure
     */
    Static SelectObject(hdc, hgdiobj) {
-      res := DllCall("Gdi32\SelectObject", "Ptr", hdc, "Ptr", hgdiobj)
-      if (res = 0 OR res = 0xFFFFFFFF) ; 0 or HGDI_ERROR
+      res := DllCall("Gdi32\SelectObject", "Ptr", hdc, "Ptr", hgdiobj, "Ptr")
+      if (res = 0 OR res = -1) ; 0 or HGDI_ERROR ((HGDIOBJ)-1)
          warning("Failed to SelectObject " hex(res) ", Error Code " A_LastError) 
       Return res
    }
@@ -209,8 +209,8 @@ Class GDI {
     * @returns {Number} Result
     */
    Static CreateCompatibleBitmap(hdc, w, h) {
-      if (res := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", hdc, "int", w, "int", h, "Ptr") = 0)
-         warning("Failed to Create Compatible Bitmap " res)
+      if !(res := DllCall("gdi32\CreateCompatibleBitmap", "Ptr", hdc, "int", w, "int", h, "Ptr"))
+         warning("Failed to Create Compatible Bitmap, Error Code " A_LastError)
       return res
    }
     /**
@@ -222,7 +222,7 @@ Class GDI {
     * @param {number} 
     * @returns {number} 
     */
-   Static GetDC(hwnd := 0) => DllCall("User32\GetDC", "Ptr", hwnd)
+   Static GetDC(hwnd := 0) => DllCall("User32\GetDC", "Ptr", hwnd, "Ptr")
    /**
     * Release a DC previously got from GetDC
     * @param {Pointer} hdc DC to release
@@ -412,7 +412,7 @@ int DrawText(
     * @returns {Float | Integer | String} 
     */
    Static ExtTextOut(hDc, x, y, lpRect, text, opts := 0) {
-      return DllCall("Gdi32\ExtTextOut", "ptr", hDc, "int", x, "int", y, "Uint", opts, "ptr", lpRect, "Str", text, "Uint", StrLen(text), "Int", 0, "Int")
+      return DllCall("Gdi32\ExtTextOut", "ptr", hDc, "int", x, "int", y, "Uint", opts, "ptr", lpRect, "Str", text, "Uint", StrLen(text), "Ptr", 0, "Int")
    }
    /*
    BOOL GetTextExtentPoint32A(
@@ -448,9 +448,9 @@ int DrawText(
     * @returns {Ptr} Handle to the newly created copy
     */
    Static CopyImage(hSource, type := 0, W := 0, H := 0) {
-     If NOT (res := DllCall("User32\CopyImage", "Uint", hSource, "Uint", type, "Int", W, "Int", H, "Uint", what := 0x00002000, "Ptr")) {
+      static LR_CREATEDIBSECTION := 0x2000
+      If NOT (res := DllCall("User32\CopyImage", "Ptr", hSource, "UInt", type, "Int", W, "Int", H, "UInt", LR_CREATEDIBSECTION, "Ptr"))
          warning("Failed to CopyImage " hex(hSource) " with error " A_LastError)
-      } ; LR_CREATEDIBSECTION 
       return res
    } 
    /**
@@ -467,7 +467,7 @@ int DrawText(
     * @param hWnd Handle to the window
     * @returns {Ptr} Handle to the window DC
     */
-   Static GetWindowDC(hWnd) => DllCall("User32\GetWindowDC", "Ptr",hWnd)
+   Static GetWindowDC(hWnd) => DllCall("User32\GetWindowDC", "Ptr",hWnd, "Ptr")
 
    /**
     * Create a GDI solid color brush to fill areas with
@@ -696,7 +696,7 @@ int DrawText(
     * @returns Font Object 
     */
    Static CreateFontIndirect(cFont) {
-      return DllCall("Gdi32\CreateFontIndirect","Ptr", cFont.Ptr)
+      return DllCall("Gdi32\CreateFontIndirect","Ptr", cFont.Ptr, "Ptr")
    }
    /**
     * Draw text into a DC using the DrawText API (instance method variant)
@@ -2496,7 +2496,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static WidenPath(pPath, pPen, hMatrix := 0, Flatness := 0.5) =>
-      DllCall("gdiplus\GdipWidenPath", "Ptr", pPath, "uint", pPen, "Ptr", hMatrix, "float", Flatness)
+      DllCall("gdiplus\GdipWidenPath", "Ptr", pPath, "Ptr", pPen, "Ptr", hMatrix, "float", Flatness)
    ; Transforms and flattens [segmentates] a pPath object, and then converts the path's data points
    ; so that they represent only the outline of the given path.
    ;
@@ -3425,27 +3425,37 @@ Class GDIp {
     * @returns {Ptr} Handle to the new region
     */
    Static CreateRegion() {
-      DllCall("gdiplus\GdipCreateRegion", "UInt*", &Region := 0)
+      If (res := DllCall("gdiplus\GdipCreateRegion", "Ptr*", &Region := 0)) {
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+         Return 0
+      }
       Return Region
    }
    /**
-    * Get the current clip region of this Graphics object
-    * @returns {Ptr} Handle to the clip region
+    * Get the current clip region of a Graphics object
+    * @param pGraphics Pointer to the GDI+ Graphics object
+    * @returns {Ptr} Pointer to a new region holding the clip (caller deletes it), 0 on failure
     */
-   Static GetClipRegion() {
-      Region := this.CreateRegion()
-      DllCall("gdiplus\GdipGetClip", "Ptr", this, "UInt", Region)
+   Static GetClipRegion(pGraphics) {
+      If !(Region := this.CreateRegion())
+         Return 0
+      If (res := DllCall("gdiplus\GdipGetClip", "Ptr", pGraphics, "Ptr", Region)) {
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+         DllCall("gdiplus\GdipDeleteRegion", "Ptr", Region)
+         Return 0
+      }
       Return Region
    }
 
    /**
-    * Set the clipping region of this Graphics object
-    * @param Region Handle to the region to use as the clip
+    * Set the clipping region of a Graphics object
+    * @param pGraphics Pointer to the GDI+ Graphics object
+    * @param Region Pointer to the region to use as the clip
     * @param CombineMode How to combine with the existing clip: 0=replace (default)
     * @returns {Integer} GDI+ status code
     */
-    Static SetClipRegion(Region, CombineMode := 0) {
-       Return DllCall("gdiplus\GdipSetClipRegion", "Ptr", this, "Ptr", Region, "int", CombineMode)
+    Static SetClipRegion(pGraphics, Region, CombineMode := 0) {
+       Return DllCall("gdiplus\GdipSetClipRegion", "Ptr", pGraphics, "Ptr", Region, "int", CombineMode)
     }
    ; Static GetPointsBounds(Points) {
    ;    ; Points: the coordinates of all the points passed as x1,y1|x2,y2|x3,y3..... [minimum three points must be given]
@@ -4028,7 +4038,7 @@ Struct baseStructure {
          DllCall("RtlCopyMemory", IntPtr, objTarget.Ptr, IntPtr, this.Ptr, IntPtr, this.Size)
          Return 1
       } else  {
-         Error("Object Size Mismatch on " this.__Class, -1, objTarget.__Class)
+         throw Error("Object Size Mismatch on " this.__Class, -1, objTarget.__Class)
       }
    }
    ; Bug fix for alpha 22, Size doesn't work in nested structures
@@ -4163,7 +4173,7 @@ Struct tagBITMAP {
    bmWidthBytes: Int32 ;12
    bmPlanes    : Int16 ;16
    bmBitsPixel : Int16 ; 18
-   bmBits      : IntPtr ;20
+   bmBits      : IntPtr ;20 on x86, 24 on x64 (pointer aligned)
 }
 ; // ----------------------------------------------------------
 ; // 2. tagBITMAPINFOHEADER  (the dsBmih member of tagDIBSECTION)
@@ -4349,5 +4359,5 @@ Struct stMONITORINFOEX {
    /**
     * Return the monitor device name as a string from the raw _name field
     */
-   name => StrGet(this._name, 64)
+   name => StrGet(this._name, 32)   ; szDevice is WCHAR[32] = 64 bytes
 }
