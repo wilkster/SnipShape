@@ -71,7 +71,7 @@ win11RoundCorners(hWnd, type:=3) {
  * @param {Integer} Scale 
  */
 win10RoundCorners(hWnd, Scale := 1) {
-   Static CRadius := 4 * Scale
+   Static CRadius := 4
    static WinVer := StrSplit(A_OSVersion, ".")[3] < 22000 ? 10 : 11
  
    if (WinVer < 11) {
@@ -190,13 +190,18 @@ SetWindowBottom(hWnd, flag:=0x0013) {
 PeerCount(shapeObj) {
    WinCount := 0
    CWCB := CallbackCreate(SiblingList, "Fast", 2)
-   EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
-   CallbackFree(CWCB)
+   try
+      EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
+   finally
+      CallbackFree(CWCB)
    Return WinCount
 
    SiblingList(hWnd, Cont) {
-      ex := WinGetExStyle(hWnd) & 0x00080000
-      vs := WinGetStyle(hWnd)   & 0x10000000
+      try {
+         ex := WinGetExStyle(hWnd) & 0x00080000
+         vs := WinGetStyle(hWnd)   & 0x10000000
+      } catch
+         Return true ; window vanished during enumeration, skip it
       If (ex AND vs) {
          WinCount++
       }
@@ -213,8 +218,10 @@ PushShapeDownOne(shapeObj) {
    CWCB := CallbackCreate(SiblingList, "Fast", 2)
    haveOwnWindow := false
    AfterWin := 0
-   EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
-   CallbackFree(CWCB)
+   try
+      EnumChildWindows(shapeObj.Gui.hWnd, CWCB, 1)
+   finally
+      CallbackFree(CWCB)
 
    If (AfterWin) {
       DllCall("SetWindowPos"
@@ -233,8 +240,11 @@ PushShapeDownOne(shapeObj) {
       if (hWnd = shapeObj.hWnd)
          haveOwnWindow := true
       else If haveOwnWindow = true {
-         ex := WinGetExStyle(hWnd) & 0x00080000
-         vs := WinGetStyle(hWnd)   & 0x10000000
+         try {
+            ex := WinGetExStyle(hWnd) & 0x00080000
+            vs := WinGetStyle(hWnd)   & 0x10000000
+         } catch
+            Return true ; window vanished during enumeration, skip it
          If (ex AND vs) {
             AfterWin := hWnd
             Return false
@@ -282,7 +292,7 @@ KeepOnMonitor(mX, mY, W, H, &X, &Y, flag := 0x10000) {
 ; GWL_WNDPROC = -4
 setWindowCallback(hwnd, callback) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "Ptr", hwnd, "Int", -4, "Ptr", callback, "Ptr")
 GetWindowLong(hwnd, Style)        => DllCall("user32\" (A_PtrSize = 8 ? "GetWindowLongPtr" : "GetWindowLong"), "Ptr", hwnd, "Int", Style, "Int")
-SetWindowLong(hWnd,opCode, Value) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "int", hwnd, "int", opCode, "int", Value)
+SetWindowLong(hWnd,opCode, Value) => DllCall("user32\" (A_PtrSize = 8 ? "SetWindowLongPtr" : "SetWindowLong"), "Ptr", hwnd, "int", opCode, "Ptr", Value, "Ptr")
 /**
  * Retrieve the address of an exported function from a loaded DLL module
  * @param strModule Name of the exported function
@@ -300,7 +310,7 @@ GetProcAddress(handle, function) =>
  * @param parent Handle to the new parent window
  * @returns {Ptr} Handle to the previous parent window, or NULL if failed
  */
-SetParent(child, parent) => DllCall("SetParent", "Ptr", child, "Ptr", parent,"Uint")
+SetParent(child, parent) => DllCall("SetParent", "Ptr", child, "Ptr", parent, "Ptr")
 ;----------------------------------------------------------------------
 ; Return the client dimensions without the invisible border Use with
 ; DwmGetWindowAttribute. Retrieves the extended frame bounds rectangle in screen
@@ -324,10 +334,10 @@ WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
          , "UInt", DWMWA_EXTENDED_FRAME_BOUNDS    ;-- dwAttribute
          , "Ptr", RECTi.Ptr                       ;-- pvAttribute
          , "UInt", RECTi.Size)                     ;-- cbAttribute
+      If (DWMRC != 0) ; HRESULT, S_OK = 0
+         Return false
       X      := RECTi.X1
       Y      := RECTi.Y1
-      Right  := RECTi.X2
-      Bottom := RECTi.Y2
       W      := RECTi.W
       H      := RECTi.H
       Return true
@@ -347,11 +357,13 @@ WinGetPosEx(&X?, &Y?, &W?, &H?, hWindow:=0) {
  */
 WinGetRect(&x?, &y?, &w?, &h?, hWnd:=0) {
    If (hWnd) {
-      DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
-      x := NumGet(winRect, 0, "UInt")
-      y := NumGet(winRect, 4, "UInt")
-      w := NumGet(winRect, 8, "UInt") - x
-      h := NumGet(winRect, 12, "UInt") - y
+      If !DllCall("user32\GetWindowRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
+         Return false
+      ; Signed: windows on monitors left of / above the primary have negative coordinates
+      x := NumGet(winRect, 0, "Int")
+      y := NumGet(winRect, 4, "Int")
+      w := NumGet(winRect, 8, "Int") - x
+      h := NumGet(winRect, 12, "Int") - y
       Return true
    } else
       Return false
@@ -367,11 +379,12 @@ WinGetRect(&x?, &y?, &w?, &h?, hWnd:=0) {
  */
 GetClientRect(&x?, &y?, &w?, &h?, hWnd := 0) {
    If (hWnd) {
-      DllCall("user32\GetClientRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
-      x := NumGet(winRect, 0, "UInt")
-      y := NumGet(winRect, 4, "UInt")
-      w := NumGet(winRect, 8, "UInt") - x
-      h := NumGet(winRect, 12, "UInt") - y
+      If !DllCall("user32\GetClientRect", "Ptr", hWnd, "Ptr", winRect := Buffer(16, 0))
+         Return false
+      x := NumGet(winRect, 0, "Int")
+      y := NumGet(winRect, 4, "Int")
+      w := NumGet(winRect, 8, "Int") - x
+      h := NumGet(winRect, 12, "Int") - y
       Return true
    } Else
       Return false
@@ -404,7 +417,7 @@ SetCursorPos(X, Y) {
  */
 activeMonArea(workArea := 1) {
    DllCall("User32\GetCursorPos", "uint64*", &POINT := 0)
-   hMon := DllCall("User32\MonitorFromPoint", "int64", POINT, "uint", 0)
+   hMon := DllCall("User32\MonitorFromPoint", "int64", POINT, "uint", 2, "Ptr") ; MONITOR_DEFAULTTONEAREST
    DllCall("User32\GetMonitorInfo", "ptr", hMon, stMONITORINFOEX.Ptr, &mnInfo)
    base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
    Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
@@ -417,7 +430,7 @@ activeMonArea(workArea := 1) {
  */
 windowMonArea(hWnd, workArea := 1) {
    Static MONITOR_DEFAULTTONEAREST := 0x00000002
-   hMon := DllCall("User32\MonitorFromWindow", "Ptr", hWnd, "Uint64", MONITOR_DEFAULTTONEAREST)
+   hMon := DllCall("User32\MonitorFromWindow", "Ptr", hWnd, "UInt", MONITOR_DEFAULTTONEAREST, "Ptr")
    DllCall("User32\GetMonitorInfo", "ptr", hMon, stMONITORINFOEX.Ptr, &mnInfo)
    base := workArea ? mnInfo.rcWork : mnInfo.rcMonitor
    Area := { X: base.x1, Y: base.y1, X2: base.x2, Y2: base.y2, W: base.W, H: base.H }
@@ -464,7 +477,7 @@ activeMonDPIFactor(useMouse := 1) {
    If (useMouse)
       DllCall("User32\GetCursorPos", "uint64*", &POINT)
    ; Get Monitor under cursor pack a POINT structure
-   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", POINT, "UInt", 0, "Ptr")
+   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", POINT, "UInt", 2, "Ptr") ; MONITOR_DEFAULTTONEAREST
    DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", MDT_EFFECTIVE_DPI, "Ptr*", &dpiX := 0, "Ptr*", &dpiY := 0)
    Factor := (Sqrt(dpiX * dpiY))/96
    return Factor
@@ -777,7 +790,7 @@ RGBval(rgb) {
 RGBHex(val) {
    if NOT IsInteger(val)
       val := RGBval(val)
-   Return Format("{:X}", val)
+   Return Format("{:06X}", val)
 }
 /**
  * Format a number with thousands separators
@@ -884,10 +897,9 @@ logGDI(txt:="",&gdi?, &user?) {
    userPeakCount := DllCall("GetGuiResources","Ptr",hProcess,"Int", 4)
    gdiStr       := txt " gdi=" gdiCount ", gdiPeak=" gdiPeakCount ", user=" userCount ", userPeak=" userPeakCount
    OutputDebug("(I) AHK2 (" BFN(Error("", -1).File) " @ " Error("", -1).line ") " gdiStr)
-   if (IsSet(gdi))
-      gdi := gdiCount
-   if (IsSet(user))
-      gdi := userCount
+   ; Always assign; harmless when the optional refs were omitted
+   gdi  := gdiCount
+   user := userCount
 }
 logGDI(BFN(Error("", -1).File) " loaded...")
 ;----------------------------------------------------------------------
@@ -1022,8 +1034,9 @@ InflateRect(lprc, dx, dy) {
  */
 CloneBuffer(pSource, newSize?) {
    xBytes := newSize ?? pSource.Size
-   newBuffer := Buffer(xBytes)
-   DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", newBuffer, "Ptr", pSource, "Ptr", xBytes)	;Ptr for Length??
+   newBuffer := Buffer(xBytes, 0)
+   ; Never read past the end of the source when growing
+   DllCall("Ntdll.dll\RtlMoveMemory", "Ptr", newBuffer, "Ptr", pSource, "UPtr", Min(xBytes, pSource.Size))
    return newBuffer
 }
 /**
@@ -1085,10 +1098,10 @@ ColorSelectDialog(Color := 0, hwnd := 0, custColorObj := Array(), disp := false)
    If !DllCall("comdlg32\ChooseColor", "UPtr", CHOOSECOLOR.ptr, "UInt")
       Return -1
 
-   custColorObj := []
+   ; Update the caller's array in place (param is not ByRef, so reassigning would be lost)
    Loop 16 {
       newCustCol := NumGet(CUSTOM, (A_Index - 1) * 4, "UInt")
-      custColorObj.InsertAt(A_Index, RGB_BGR(newCustCol))
+      custColorObj[A_Index] := RGB_BGR(newCustCol)
    }
 
    Color := NumGet(CHOOSECOLOR, 3 * A_PtrSize, "UInt")
@@ -1108,13 +1121,15 @@ GetProcessMemoryInfo(Units := "M") {
    PID := WinGetPID(A_ScriptHwnd)
    is64 := (A_PtrSize = 8)
    Size := 8 + A_PtrSize * 9
-   MEM := Buffer(Size, 0) ; make MEM ; V1toV2: if 'MEM' is a UTF-16 string, use 'VarSetStrCapacity(&MEM, Size)'
+   MEM := Buffer(Size, 0) ; PROCESS_MEMORY_COUNTERS_EX
    NumPut("Uint",Size,Mem)
-   hProcess := DllCall("OpenProcess", "UInt", 0x410, "Int", 0, "Ptr", PID, "Ptr")
+   memory := 0
+   hProcess := DllCall("OpenProcess", "UInt", 0x410, "Int", 0, "UInt", PID, "Ptr")
 
    If (hProcess) {
+      ; Offset 8 + 8*PtrSize is PrivateUsage (SIZE_T)
       If DllCall("psapi.dll\GetProcessMemoryInfo", "Ptr", hProcess, "Ptr", MEM, "UInt", Size)
-         memory := NumGet(MEM, 8 + A_PtrSize * 8, "Uint")
+         memory := NumGet(MEM, 8 + A_PtrSize * 8, "UPtr")
       DllCall("CloseHandle", "Ptr", hProcess)
    }
 
@@ -1265,7 +1280,8 @@ Class ImageList extends map {
     * Destroy the underlying ImageList and free its resources
     */
    __Delete() {
-      IL_Destroy(this.iList)
+      If (this.HasOwnProp("iList") AND this.iList)
+         IL_Destroy(this.iList)
    }
    ; [item] properties override
    /**
@@ -1396,5 +1412,3 @@ Class FileDialogHook {
    }
 }
 
-
-logGDI(BFN(Error("", -1).File) " loaded...")
