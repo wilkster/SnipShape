@@ -342,6 +342,13 @@ Class BitMap {
       DllCall("gdiplus\GdipGetImageWidth", "ptr", pBitmap, "uint*", &width := 0)
       DllCall("gdiplus\GdipGetImageHeight", "ptr", pBitmap, "uint*", &height := 0)
       DllCall("gdiplus\GdipGetImagePixelFormat", "ptr", pBitmap, "int*", &pformat := 0)
+      ; Clamp the crop rectangle to the image, GdipCloneBitmapAreaI fails if it extends outside
+      X := Max(0, X), Y := Max(0, Y)
+      W := Min(W, width - X), H := Min(H, height - Y)
+      If (W <= 0 || H <= 0) {
+         warning("CropPBitmap: crop area outside image")
+         Return 0
+      }
       res := DllCall("gdiplus\GdipCloneBitmapAreaI"
          , "int", X
          , "int", Y
@@ -369,7 +376,7 @@ Class BitMap {
       Else
          WinGetPosEx(&X := 0, &Y := 0, &W := 0, &H := 0, hWnd)
       If (W > 0 AND H > 0) {
-         Area := { X: X + BW, Y: Y + BW, X2: X + W - BW, Y2: Y = H - BW, W: W - 2 * BW, H: H - 2 * BW }
+         Area := { X: X + BW, Y: Y + BW, X2: X + W - BW, Y2: Y + H - BW, W: W - 2 * BW, H: H - 2 * BW }
          Return this.HBitmapFromScreen(Area)
       } Else {
          warning("Failed to retrive window position for " hex(hWnd))
@@ -395,7 +402,7 @@ Class BitMap {
       WinGetPosEx(&X, &Y, &W, &H, hWnd)
       If (hWndDpi != monDpi) {
          If (W > 0 AND H > 0) {
-            Area := { X: X, Y: Y, X2: X + W, Y2: Y = H, W: W, H: H }
+            Area := { X: X, Y: Y, X2: X + W, Y2: Y + H, W: W, H: H }
             debug("DPI Different, using HBitmapFromScreen " hWndDpi " vs " monDpi)
             Return this.HBitmapFromScreen(Area)
          } Else {
@@ -419,8 +426,9 @@ Class BitMap {
       success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT)
       GDI.SelectObject(hdcMem, obm)
       GDI.DeleteDC(hdcMem)
-      GDI.ReleaseDC(hdc)
+      GDI.ReleaseDC(hdc, hWnd)   ; must pass the hWnd used with GetDC
       If ( NOT success) {
+         GDI.DeleteObject(hBitmap)
          MsgBox("Failed to Print Window Properly")
          Return 0
       }
@@ -470,7 +478,7 @@ Class BitMap {
             )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
-            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            MsgBox("32 bit FindExtent Not Implemented")
             return
          }
       }
@@ -552,7 +560,7 @@ Class BitMap {
             )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
-            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            MsgBox("32 bit ContrastStretch Not Implemented")
             return 0
          }
       }
@@ -666,7 +674,7 @@ Class BitMap {
             )"           
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
-            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            MsgBox("32 bit SetAlphaChannel Not Implemented")
             return
          }
       }
@@ -713,7 +721,7 @@ Class BitMap {
             )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {
-            MsgBox("32 bit GetBackgroundColor Not Implemented")
+            MsgBox("32 bit PreMultiplyBitmap Not Implemented")
             return
          }
       }
@@ -790,8 +798,7 @@ Class BitMap {
                r := DllCall(mCodeFunc, "UPtr", res.ptr, "uInt", res.w, "Int", res.h, "uInt", res.stride, "uint*", &return_count:=0)
             Default:
          }
-         if (IsSet(ret_count))
-            ret_count := return_count
+         ret_count := return_count   ; harmless if the caller didn't pass one
          Return r
       } Else {
          elog("Failed to compile MCode")
@@ -871,7 +878,7 @@ Class BitMap {
       If !(nCount && nSize)
          Return -2
 
-      Static IsUnicode := StrLen(Chr(0xFFFF))
+      pCodec := 0
       Loop nCount {
          sString := StrGet(NumGet(ci, (idx := (48 + 7 * A_PtrSize) * (A_Index - 1)) + 32 + 3 * A_PtrSize, "Ptr"), "UTF-16")
          If !InStr(sString, "*" Extension)
@@ -908,20 +915,25 @@ Class BitMap {
       If (toBase64 >= 1) {
          ; part of the function extracted from ImagePut by iseahound
          ; https://www.autohotkey.com/boards/viewtopic.php?f=6&t=76301&sid=bfb7c648736849c3c53f08ea6b0b1309
-         DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "int", true, "UPtr*", &pStream := 0)
-         _E := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", pCodec, "uint", _p)
-         If _E
+         ; fDeleteOnRelease=true: releasing the stream frees hData, never GlobalFree it ourselves
+         If DllCall("ole32\CreateStreamOnHGlobal", "Ptr", 0, "int", true, "Ptr*", &pStream := 0) || !pStream
             Return -6
-
-         DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hData := 0)
+         If (_E := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", pCodec, "Ptr", _p)) {
+            ObjRelease(pStream)
+            Return -6
+         }
+         ; Seek to end (STREAM_SEEK_END = 2) for the bytes actually written,
+         ; GlobalSize would report the larger allocated block size
+         ComCall(5, pStream, "Int64", 0, "UInt", 2, "UInt64*", &nSize := 0)
+         If DllCall("ole32\GetHGlobalFromStream", "Ptr", pStream, "Ptr*", &hData := 0) || !nSize {
+            ObjRelease(pStream)
+            Return -6
+         }
          pData := DllCall("GlobalLock", "Ptr", hData, "Ptr")
-         nSize := DllCall("GlobalSize", "Ptr", pData, "Ptr")
-
          bin := Buffer(nSize, 0)
          DllCall("RtlMoveMemory", "Ptr", bin.ptr, "Ptr", pData, "Ptr", nSize)
          DllCall("GlobalUnlock", "Ptr", hData)
          ObjRelease(pStream)
-         DllCall("GlobalFree", "Ptr", hData)
 
          If (toBase64 = 2) {
             ; Just return the binary data
@@ -933,7 +945,7 @@ Class BitMap {
          }
       }
 
-      _E := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", sOutput, "Ptr", pCodec, "uint", _p)
+      _E := DllCall("gdiplus\GdipSaveImageToFile", "Ptr", pBitmap, "WStr", sOutput, "Ptr", pCodec, "Ptr", _p)
       Return _E ? -5 : 0
    }
    /**
@@ -1121,8 +1133,8 @@ Class BitMap {
     *                    -3 = failed to lock bits
     */
    Static PixelateBitmap(TpBitmapIn, BlockSize) {
-      Static PixelateBitmap := 0
-      If (!PixelateBitmap) {
+      Static mCodeFunc := 0   ; compiled once, cached for the life of the script
+      If (!mCodeFunc) {
          If (A_PtrSize != 8) { ; x86 machine code
          ; -m32 -O2 -fPIC -fno-stack-protector -fno-plt -fno-asynchronous-unwind-tables
          ; PixelateBitmapFast.cpp, no memcpy
@@ -1155,23 +1167,32 @@ Class BitMap {
             SIn6QYPEAegAAAAASInBSAHxRDnjdeaDRCRsAUgDfCRQi0QkbDlEJGQPhW7+//+DRCQ8AYtcJCiLRCQ8AVwkODlEJCwPhQf+//8x
             wEiNZchbXl9BXEFdQV5BX13DQYP9AXQlmUH3/UGJwonImUH3/YnBRInImUH3/UGJwUSJwJlB9/3pE////0GJwkSJwOkI////McAx
             yUUxyUUxwOmP/v//uP/////ro5CQkJA=|msvcrt:memcpy:683:4
-            )"            
+            )"
+            mCodeFunc := BitMap.GetMcodePtr(x64)
          }
-         mCodeFunc := BitMap.GetMcodePtr(x64)
       }
 
       GDIp.GetImageDimensions(TpBitmapIn, &Width, &Height)
-      pBitmapOut := GDIp.CreateBitmap(Width, Height)
-      If (Width != GDIp.GetImageWidth(pBitmapOut) || Height != GDIp.GetImageHeight(pBitmapOut))
-         Return -1
-
       If (BlockSize > Width || BlockSize > Height)
          Return -2
+
+      pBitmapOut := GDIp.CreateBitmap(Width, Height)
+      If (!pBitmapOut || Width != GDIp.GetImageWidth(pBitmapOut) || Height != GDIp.GetImageHeight(pBitmapOut)) {
+         If pBitmapOut
+            GDIp.DisposeImage(pBitmapOut)
+         Return -1
+      }
       ; Copy to new bitmap
       E1 := GDIp.LockBits(TpBitmapIn, 0, 0, Width, Height, &Stride1, &Scan01, &BitmapData1)
       E2 := GDIp.LockBits(pBitmapOut, 0, 0, Width, Height, &Stride2, &Scan02, &BitmapData2)
-      If (E1 || E2)
+      If (E1 || E2) {
+         If !E1
+            GDIp.UnlockBits(TpBitmapIn, &BitmapData1)
+         If !E2
+            GDIp.UnlockBits(pBitmapOut, &BitmapData2)
+         GDIp.DisposeImage(pBitmapOut)
          Return -3
+      }
 
       ; E := - unused exit code
       DllCall(mCodeFunc, "Ptr", Scan01, "Ptr", Scan02, "int", Width, "int", Height, "int", Stride1, "int", BlockSize)
@@ -1244,9 +1265,19 @@ Class BitMap {
       ; get dimensions and reference to first pixel in memory (iScan)
       If (mCodeFunc) {
          GDIp.GetImageDimensions(TpBitmapIn, &w, &h)
-         pBitmapOut := GDIp.CreateBitmap(w, h)
-         GDIp.LockBits(TpBitmapIn, 0, 0, w, h, &stridei, &iScani, &iDatai, 3) ; 3 is read/write for in-place editing
-         GDIp.LockBits(pBitmapOut, 0, 0, w, h, &strideo, &iScano, &iDatao, 3) ; 3 is read/write for in-place editing
+         If !(pBitmapOut := GDIp.CreateBitmap(w, h))
+            Return TpBitmapIn
+         E1 := GDIp.LockBits(TpBitmapIn, 0, 0, w, h, &stridei, &iScani, &iDatai, 3) ; 3 is read/write for in-place editing
+         E2 := GDIp.LockBits(pBitmapOut, 0, 0, w, h, &strideo, &iScano, &iDatao, 3) ; 3 is read/write for in-place editing
+         If (E1 || E2 || !iScani || !iScano) {
+            If !E1
+               GDIp.UnlockBits(TpBitmapIn, &iDatai)
+            If !E2
+               GDIp.UnlockBits(pBitmapOut, &iDatao)
+            GDIp.DisposeImage(pBitmapOut)
+            warning("BoxBlurMultiPass: failed to lock bitmap bits")
+            Return TpBitmapIn
+         }
          radius := Max(1, kernel // 2 - 1)
          ; BoxBlurMultiPass(int passes, const uint8_t *src, uint8_t *dst, int stride, int w, int h, int radius, int horz_only)
          r := DllCall(mCodeFunc, "Uint", passses, "UPtr", iScani, "UPtr", iScano, "uInt", stridei, "uint", w, "uint", h, "uInt", radius, "Uint", horzOnly)
@@ -1458,7 +1489,7 @@ Class BitMap {
                ; NOTE - convolution kernal jumps at 20, so keep below 20 and run multiple passes
                passes := (param1 // 19 + 1)
                param1 := param1 / passes
-               NumPut("Float", param1, "Uchar", param2, FXparams)
+               NumPut("Float", param1, "Int", param2, FXparams)   ; BlurParams {float radius; BOOL expandEdge}
             Case 2:  ; Sharpen
                NumPut("Float", param1, "Float", param2, FXparams)
             Case 5, 8:
@@ -1488,6 +1519,8 @@ Class BitMap {
                , "Ptr", 0
                , "Ptr", 0
                , "Ptr", 0)
+            If E   ; stop on the first failing pass so the error isn't overwritten
+               Break
          }
          GDIp.DisposeEffect(pEffect)
          If E {
@@ -1497,6 +1530,7 @@ Class BitMap {
          Return pBitmap
       } Else {
          warning("Invalid Effect " Effect)
+         Return -1
       }
    }
 
