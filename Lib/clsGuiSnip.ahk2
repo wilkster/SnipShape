@@ -89,12 +89,12 @@ Class GuiSnip extends Gui {
       Try {
          ; title := this.Title
          this.ClearAllShapes(true)  ; in case we have built in GC
-         ; Free the undo/redo history (bitmap copies) and break the snip <-> undo
-         ; reference cycle, otherwise none of it is ever released
-         If (IsObject(this.UnDo)) {
+         ; Free the undo/redo history (bitmap copies). Emptying the stacks also breaks
+         ; the snip <-> undo reference cycle (entries are what point back at the snip).
+         ; Snips.Close unsets UnDo before calling this (which also frees it); other
+         ; paths (the window's Close event) arrive with it still set.
+         If (this.HasOwnProp("UnDo") AND IsObject(this.UnDo))
             this.UnDo.Clear()
-            this.UnDo := ""
-         }
          hwnd := this.hWnd
          super.Destroy()
          GDI.DeleteObject(this.myHandle)

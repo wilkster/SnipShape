@@ -362,7 +362,9 @@ Class ButtonBar {
     * Sync undo/redo buttons to their stack length
     */
    Static SyncUndoRedo(*) {
-      If (this.SnipObj is GuiSnip) {
+      ; SnipObj may be a snip that was just closed (Snips.Close unsets its UnDo):
+      ; only query a live undo history
+      If (this.SnipObj is GuiSnip AND this.SnipObj.HasOwnProp("UnDo") AND IsObject(this.SnipObj.UnDo)) {
          this.btnUndo.enabled := (this.SnipObj.UnDo.undoStack.length > 0)
          this.btnRedo.enabled := (this.SnipObj.UnDo.redoStack.length > 0)
          return true
