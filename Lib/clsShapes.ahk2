@@ -1423,6 +1423,61 @@ Class Shapes {
    }
 
    /**
+    * @description Renumber the numbered tags on a snip 1..N with no gaps (e.g. after one
+    *   was deleted). Only tags whose text is a pure integer are changed; other tags are
+    *   left alone. Order follows the current numbers (ties: oldest first). Each tag keeps
+    *   its centre. One undo restores all of them. The snip's tag counter is set so the
+    *   next tag drawn continues the sequence.
+    * @param {Object} SnipObj - The snip GUI object
+    * @returns {Integer} Number of tags changed
+    */
+   Static RenumberTags(SnipObj) {
+      ; Number tags on this snip whose text is a pure integer (others are left alone)
+      ; VisibleShapes is top of the Z-order first; walk bottom-up so ties keep oldest first
+      list := SnipObj.VisibleShapes, tags := []
+      i := list.Length
+      While (i >= 1) {
+         s := list[i--]
+         If (s.Shape = Shapes.SHAPE_TAG AND RegExMatch(s.Text, "^\d+$"))
+            tags.Push({ shape: s, n: Integer(s.Text) })
+      }
+      If (tags.Length = 0) {
+         qTrayTip("No numbered tags to renumber")
+         Return 0
+      }
+      ; Stable insertion sort by current number
+      Loop tags.Length - 1 {
+         j := A_Index + 1, cur := tags[j]
+         While (j > 1 AND tags[j - 1].n > cur.n) {
+            tags[j] := tags[j - 1], j--
+         }
+         tags[j] := cur
+      }
+      undoTag := A_TickCount "RenumberTags"
+      changed := 0
+      For idx, t in tags {
+         If (t.n = idx)
+            Continue
+         s := t.shape
+         ; Text, then position: undo replays in reverse, restoring the old spot last
+         s.PostAction(UnDo.TEXT_CHANGE, undoTag)
+         s.PostAction(UnDo.MOVE_SHAPE, undoTag)
+         ; Keep the tag centred where it was (the width changes with the digits)
+         C := s.shapeCoord, cx := C.X + C.W / 2, cy := C.Y + C.H / 2
+         s.Text := String(idx)
+         s.DrawText(C.X1, C.Y1)
+         C := s.shapeCoord
+         s.Move(Round(cx - C.W / 2), Round(cy - C.H / 2))
+         changed++
+      }
+      ; The next tag drawn continues the sequence
+      SnipObj.Counter := tags.Length
+      If (changed)
+         SnipObj.Dirty++
+      Return changed
+   }
+
+   /**
     * @description Draws an auto-incrementing numbered tag at the current mouse position.
     *   Resets the snip counter if no text shapes are present. The tag background color is
     *   sampled from the snip bitmap at the mouse location. The tag is centered on the
@@ -1431,6 +1486,7 @@ Class Shapes {
     * @param {Integer} fColor - Foreground color for the tag text (RGB integer).
     * @param {Number} Factor - Font size scaling factor. Defaults to 1.
     * @returns {Integer} Always returns 1.
+    *   (See RenumberTags to close gaps after tags are deleted.)
     */
    Static DrawTag(SnipObj, fColor, Factor:=1) {
       if (this.VisibleTextShapes(SnipObj.hWnd) = 0)

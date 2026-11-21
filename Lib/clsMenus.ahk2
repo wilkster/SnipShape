@@ -424,6 +424,10 @@ Class ShapeMenus {
          Case "Text":
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Shift-Click)","Edit.ico")
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Font Size","Reset.ico")
+            ; Numbered tags: close gaps in the sequence (e.g. after deleting one)
+            If (ShapeObj.Shape = Shapes.SHAPE_TAG)
+               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Renumber Tags")
+            shapeMenu.SetIcon("Renumber Tags", SETTINGS.CursorPath . "Tag.cur" ) 
             ; Special case for fill text
             If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
                shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
@@ -530,7 +534,9 @@ Class ShapeMenus {
     */
    Static ContextShapeMenu_Handler(shapeObj, ItemName, ItemPos, MyMenu) {
       Switch {
-         Case ItemName ~= "to Back" : 
+         Case ItemName = "Renumber Tags":
+            Shapes.RenumberTags(shapeObj.Gui)
+         Case ItemName ~= "to Back" :
             ; NOTE - clips and images are pushed too far down
             ; Also, they are always under drawn shapes
             ; Due to layered vs non-layered child windows (layered stack always on top)
