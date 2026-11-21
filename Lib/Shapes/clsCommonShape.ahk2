@@ -478,6 +478,32 @@ Class commonShape extends Gui.Pic {
               { C: 5, X: C.w / 2, Y: C.h }, { C: 6, x: 0, Y: C.h }, 
               { C: 7, X: 0, Y: C.h/2 },     { C: 8, x: C.W/2, Y: 0 }]
    }
+   ;----------------------------------------------------------------------
+   ; Control points
+   ; A FocusPoints() entry can carry Ctrl: "<name>" to make it a control point
+   ; that reshapes the shape (moves a section of it) instead of resizing it.
+   ; Optional entry fields:  Cur: cursor name (e.g. "SizeEW"; default comes from
+   ; the corner number C), Round: true for a round handle.
+   ; While one is dragged, Shapes.MoveSize calls ControlDrag(name, X, Y) on each
+   ; mouse move (snip coordinates) and ControlDragEnd(name) on release; the shape
+   ; updates its own state and redraws. Undo/redo uses ResizeInfo(), so a shape
+   ; with control points must include their state there (and in InstanceInfo()
+   ; for duplicate/recreate).
+   ;----------------------------------------------------------------------
+   /**
+    * Move the named control point to X/Y and redraw. Override in shapes with control points.
+    * @param {String} name - Ctrl name from FocusPoints()
+    * @param {Number} X - Snip X of the mouse
+    * @param {Number} Y - Snip Y of the mouse
+    */
+   ControlDrag(name, X, Y) {
+   }
+   /**
+    * Called once when a control point drag ends. Override to tidy up (e.g. snap or reset).
+    * @param {String} name - Ctrl name from FocusPoints()
+    */
+   ControlDragEnd(name) {
+   }
    /**
     * Determine which resize handle, if any, the mouse is currently over.
     * @param mX - Mouse X in window coordinates

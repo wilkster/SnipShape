@@ -990,7 +990,7 @@ Class Shapes {
       ; Get start/end points of the shape (may be different than the picture size due to padding)
       ; See if we are near upper right/lower left corner (or line/arrow end-points)
       CI := ShapeObj.CornerInfo(mouseStart.X, mouseStart.Y)
-      cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Move" 
+      cur := CI.C ? (CI.HasOwnProp("Cur") ? CI.Cur : Cursor.ResizeCursors[CI.C]) : "Move"
       ; cur is text version of Move, SizeNWSE and so on
       Cursor.SetCursorMode(cur)
       corner := CI.C
@@ -1009,13 +1009,12 @@ Class Shapes {
          ;    ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
          ; }
          ; Close to the corner, then resize
-         If (corner = 9 AND ShapeObj.Source = "Text") {
+         If (CI.HasOwnProp("Ctrl")) {
             ;-----------------------------------------------------
-            ; Drag the callout tip of a text shape
+            ; Control point: reshape the shape (e.g. text callout tip,
+            ; connector middle segment) rather than resize it
             ;-----------------------------------------------------
-            focusBorder.ShowFocus(ShapeObj.hWnd, true)
-            ShapeObj.DragTip(Key)
-            focusBorder.UnBlockMe()
+            this.DragControl(Key, ShapeObj, CI.Ctrl)
          } Else if ShapeObj.Source ~= "Shape" {
             ;-----------------------------------------------------
             ; If registered shape, then redraw it instead of resizing it
@@ -1208,6 +1207,31 @@ Class Shapes {
       }
       ShapeObj.Gui.Dirty++
       Return
+   }
+
+   /**
+    * Drag a shape's control point while the mouse button is held (see the control
+    * point notes in commonShape). The caller has already posted the undo action.
+    * @param {String} Key - Mouse button being held (e.g. "lButton")
+    * @param {commonShape} ShapeObj - Shape owning the control point
+    * @param {String} name - Ctrl name from the shape's FocusPoints()
+    */
+   Static DragControl(Key, ShapeObj, name) {
+      focusBorder.ShowFocus(ShapeObj.hWnd, true)
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&lastX, &lastY)
+      Loop {
+         Sleep(10)
+         MouseGetPos(&mX, &mY)
+         If (mX != lastX OR mY != lastY) {
+            ShapeObj.ControlDrag(name, mX, mY)
+            focusBorder.Sync(ShapeObj)
+            lastX := mX, lastY := mY
+         }
+      } Until !GetKeyState(Key, 'p')
+      ShapeObj.ControlDragEnd(name)
+      focusBorder.Sync(ShapeObj)
+      focusBorder.UnBlockMe()
    }
 
    /**

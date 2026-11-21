@@ -878,6 +878,19 @@ Class GDIp {
        * @param pArray - Array object
        * @param {Integer} closed - 1 to create a polygon, 2 to create lines
        */
+      /**
+       * Add an open cardinal spline through the points in an array
+       * @param pArray - Array of [x, y] points the curve passes through
+       * @param {Float} tension - 0 = straight segments, 0.5 = GDI+ default
+       * @returns {Integer} GDI+ status code
+       */
+      AddPathCurve2(pArray, tension := 0.5) {
+         Points := Buffer(pArray.Length * 8, 0)
+         For P in pArray
+            NumPut("Float", P[1], "Float", P[2], Points, (A_Index - 1) * 8)
+         Return DllCall("gdiplus\GdipAddPathCurve2", "Ptr", this.pPath, "Ptr", Points, "Int", pArray.Length, "Float", tension)
+      }
+
       AddPathArray(pArray, closed := 0) {
          Points := Buffer(pArray.Length * 8, 0) ; Length of the input array
          For P in pArray {

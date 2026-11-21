@@ -1035,7 +1035,7 @@ Class TextShape extends CommonShape {
       ; Callout tip (C 9, round handle). Checked first so it wins over a corner it overlaps.
       If (this.CalloutCapable) {
          tip := this.TipPoint()
-         pts.InsertAt(1, { C: 9, X: tip.X - C.X, Y: tip.Y - C.Y, Round: true })
+         pts.InsertAt(1, { C: 9, Ctrl: "Tip", Cur: "SizeAll", X: tip.X - C.X, Y: tip.Y - C.Y, Round: true })
       }
       return pts
    }
@@ -1065,25 +1065,23 @@ Class TextShape extends CommonShape {
       Return NOT (mX >= C.X AND mX <= C.X + C.W AND mY >= C.Y AND mY <= C.Y + C.H)
    }
    /**
-    * Drag the callout tip while the mouse button is held, redrawing the tail live.
-    * Releasing the tip inside the shape removes the callout.
-    * Caller posts the undo action and manages the focus border block.
-    * @param {String} Key - Mouse button being held (e.g. "lButton")
+    * Control point drag (see commonShape): "Tip" moves the callout tip, redrawing live.
+    * @param {String} name - Ctrl name
+    * @param {Number} X - Snip X of the mouse
+    * @param {Number} Y - Snip Y of the mouse
     */
-   DragTip(Key) {
-      CoordMode('Mouse', 'Window')
-      MouseGetPos(&lastX, &lastY)
-      Loop {
-         Sleep(10)
-         MouseGetPos(&mX, &mY)
-         If (mX != lastX OR mY != lastY) {
-            this.Tip := { X: mX, Y: mY }
-            this.Refresh()           ; redraws and syncs the focus border
-            lastX := mX, lastY := mY
-         }
-      } Until !GetKeyState(Key, 'p')
-      ; Dropped back inside the shape: no callout
-      If (NOT this._tailShown AND IsObject(this.Tip)) {
+   ControlDrag(name, X, Y) {
+      If (name = "Tip") {
+         this.Tip := { X: X, Y: Y }
+         this.Refresh()           ; redraws and syncs the focus border
+      }
+   }
+   /**
+    * End of a control point drag: a tip dropped back inside the shape removes the callout.
+    * @param {String} name - Ctrl name
+    */
+   ControlDragEnd(name) {
+      If (name = "Tip" AND NOT this._tailShown AND IsObject(this.Tip)) {
          this.Tip := ""
          this.Refresh()
       }

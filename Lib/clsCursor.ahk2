@@ -206,7 +206,8 @@ Class Cursor {
       MouseGetPos(&mX, &mY)
       If (ShapeObj := GuiCtrlFromHwnd(shapehWnd) ?? false) {
          CI := ShapeObj.CornerInfo(mX, mY)
-         cur := CI.C ? Cursor.ResizeCursors[CI.C] : "Select" ; (Changed: was Pointer)
+         ; Control points may name their own cursor
+         cur := CI.C ? (CI.HasOwnProp("Cur") ? CI.Cur : Cursor.ResizeCursors[CI.C]) : "Select" ; (Changed: was Pointer)
          Return this.Cursors[cur]
       } else
          Return this.Cursors[0] ; Return default cursor

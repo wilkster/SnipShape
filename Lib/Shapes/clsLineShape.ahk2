@@ -85,7 +85,10 @@ Class LineShape extends commonShape {
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
             GDIp.SetPenAlignment(this.pPrime, 0) ; doesn't matter
             GDIp.SetPenLineCaps(this.pPrime, 0x12, 0x12) ; triangles
-            this.MidPos := 0.5
+            ; Fraction of the way along the run where the middle segment sits.
+            ; Startup runs on every redraw, so keep a value the user has dragged.
+            If (NOT this.HasOwnProp("MidPos") OR this.MidPos = "")
+               this.MidPos := 0.5
       }
    }
 
@@ -109,10 +112,16 @@ Class LineShape extends commonShape {
     * @param {Number} Y2 - Y Location of finish
     */
    Draw(G, X1, Y1, X2, Y2) {
+      ; Lines/arrows bent with the "Bend" control point are drawn as a curve through
+      ; start, control point and end; 0 = straight (the original drawing below)
+      bend := this._BendPoints(X1, Y1, X2, Y2)
       Switch this.shape {
          Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
             oPath := GDIp.Path(G)
-            oPath.AddPathLine(X1, Y1, X2, Y2)
+            If (bend)
+               oPath.AddPathCurve2(bend)
+            Else
+               oPath.AddPathLine(X1, Y1, X2, Y2)
             oPath.WidenPath(this.pPrime)
             oPath.DrawPath(this.pOutline)
             ; If we are not opaque we have to remove the arrow-head inside lines from the shape
@@ -122,7 +131,10 @@ Class LineShape extends commonShape {
             }
 
             oPath := ""
-            GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2) ; inside pen
+            If (bend)
+               this._DrawCurve(G, this.pPrime, bend)       ; inside pen
+            Else
+               GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2) ; inside pen
 
          Case Shapes.SHAPE_TAPARROW:
             ; Start point is tiny, hard to grab
@@ -182,31 +194,33 @@ Class LineShape extends commonShape {
                This method can be used to draw any shape that follows the start/end
                point while drawing.
             */
-            Static notch := 15 * this.DPIFactor   ; depth of notches
-            ; Static pOffset := 0.20
             GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2) ; grab points
             ; Bracket unique stuff
             ; Create an array of the unrotated points for the bracket shape then put them into a points array
-            dX := Sqrt((X1 - X2) ** 2 + (Y1 - Y2) ** 2)
-            s2 := Min(notch * 2, 0.2 * dX) ; width of callout, 20% nomoly but no bigger than 2x notch size
-            s1 := (dX - s2) / 2 ; length of end segments
+            ; The triangle's position/depth can be moved with the "Notch" control point
+            B := this.BracketGeom(X1, Y1, X2, Y2)
+            notch := B.notch, dX := B.dX
+            s1 := B.s1           ; start of the triangle base (end of the first flat segment)
             ; pArray := [[0, notch], [0, 0], [(0.5 - pOffset) * dX, 0], [dX / 2, -notch], [(0.5 + pOffset) * dX, 0], [dX, 0], [dX, +notch]]
             ;    |_____________  _______________|
             ;                  \/
-            pArray := [[0, notch], [0, 0], [s1, 0], [dX / 2, -notch], [s1 + s2, 0], [dX, 0], [dX, +notch]]
+            pArray := [[0, notch], [0, 0], [s1, 0], [B.c, -B.depth], [s1 + B.s2, 0], [dX, 0], [dX, +notch]]
             ; Translate/Rotate and Draw the points into the current context
             oPath := GDIp.Path(G)
             oPath.AddPathArray(pArray, 0)
-            ; Compute the rotation angle and rotate the bracket (around graphics origin), then translate to the start point
-            ; 2.1 has proper Atan2
-            Ang := myAngle(Y2 - Y1, X2 - X1)
-            oPath.TranslateRotatePath(Ang, X1, Y1)
+            ; Rotate the bracket (around graphics origin), then translate to the start point
+            oPath.TranslateRotatePath(B.Ang, X1, Y1)
             oPath.DrawPath(this.pPrime)
             oPath := ""
 
-         Default:
-            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
-            GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2)
+         Default: ; SHAPE_LINE, SHAPE_ARROW
+            If (bend) {
+               this._DrawCurve(G, this.pGrab, bend)
+               this._DrawCurve(G, this.pPrime, bend)
+            } Else {
+               GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
+               GDIp.DrawLine(G, this.pPrime, X1, Y1, X2, Y2)
+            }
 
       }
       this.shapeCoord := { X1: X1, X2: X2, Y1: Y1, Y2: Y2}
@@ -224,20 +238,34 @@ Class LineShape extends commonShape {
             started := true
             this.Startup()
          }
-         P := this.sPad
-         ; Location of shape on surface (with padding)
-         shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-         ; Create DIB with padding
-         Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-         ; Draw shape (translate by snip position)
-         Surf.Translate(-shapeX, -shapeY)
-         this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
+         ;----------------------------------------------------------------------
+         ; The window is placed using the padding the surface was drawn with, so
+         ; sPad must equal that padding afterwards, or GetPos/Move (and the focus
+         ; box) end up offset from the line. If the measured extent needs different
+         ; padding (thickness change, a bend/notch drag that grew it), redraw once
+         ; with it before placing the window. Usually it matches: one pass.
+         ;----------------------------------------------------------------------
+         Loop 2 {
+            P := this.sPad
+            ; Location of shape on surface (with padding)
+            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+            ; Create DIB with padding
+            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+            ; Draw shape (translate by snip position)
+            Surf.Translate(-shapeX, -shapeY)
+            this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
+            If (A_Index = 2)
+               Break
+            ; Padding the drawn extent needs
+            ; NOTE - if we jumped our pen thickness too much this won't be enough padding
+            ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+            If (ext.L = P.L AND ext.T = P.T AND ext.R = P.R AND ext.B = P.B)
+               Break
+            this.savePadding(ext.L, ext.T, ext.R, ext.B)
+            Surf := ""
+         }
          ; Locate shape on surface
          Surf.UpdateLayer(shapeX, shapeY)
-         ; Compute new padding for next time
-         ; NOTE - if we jumped our pen thickness too much this won't be enough padding
-         ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
-         this.savePadding(ext.L, ext.T, ext.R, ext.B)
          Surf := ""
          If (IsSet(started)) {
             this.CleanUp()
@@ -251,10 +279,37 @@ Class LineShape extends commonShape {
     */
    InstanceInfo() {
       infoObj := super.InstanceInfo()
-      ; Connectors have direction
+      ; Connectors have direction and a middle segment position
       if this.HasOwnProp("HasDirection")
          infoObj.HasDirection  := this.HasDirection
+      this._AddControlState(infoObj)
       return infoObj
+   }
+   /**
+    * Resize info for undo/redo, plus control point state (undo of a control point drag
+    * restores it)
+    * @returns {Object}
+    */
+   ResizeInfo() {
+      info := super.ResizeInfo()
+      this._AddControlState(info)
+      return info
+   }
+   /**
+    * Copy the control point state (connector MidPos, bracket BrPos/BrDepth) into info.
+    * Always included for the shape that owns them, "" meaning "default", so undo of
+    * the first drag can put an untouched shape back.
+    */
+   _AddControlState(info) {
+      Switch this.Shape {
+         Case Shapes.SHAPE_CONNECT: props := ["MidPos"]
+         Case Shapes.SHAPE_BRACKET: props := ["BrPos", "BrDepth"]
+         Case Shapes.SHAPE_LINE, Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
+            props := ["BendT", "BendD"]
+         Default: Return
+      }
+      For prop in props
+         info.%prop% := this.HasOwnProp(prop) ? this.%prop% : ""
    }
 
       /*
@@ -281,12 +336,192 @@ Class LineShape extends commonShape {
       If ((C.Y2 > C.Y1) ^ (C.X2 > C.X1)) {
          ; NESW cursor
          ; ResizePoints.push({ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y })
-          return [{ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+          pts := [{ C: 2, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 6, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
       } Else {
          ; NWSE cursor
          ; ResizePoints.push({ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y })
-          return [{ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
+          pts := [{ C: 1, X: C.X1 - C.X, Y: C.Y1 - C.Y }, { C: 4, X: C.X2 - C.X, Y: C.Y2 - C.Y }]
       }
+      ;----------------------------------------------------------------------
+      ; Control points (see commonShape): sections of the shape that can be moved
+      ;----------------------------------------------------------------------
+      If (this.Shape = Shapes.SHAPE_CONNECT) {
+         ; Middle of the centre segment; it slides along the run (left/right when the
+         ; connector was drawn horizontally first, otherwise up/down)
+         mid := this.ConnectMidPoint()
+         pts.Push({ C: 9, Ctrl: "Mid", Cur: mid.Horz ? "SizeEW" : "SizeNS", X: mid.X - C.X, Y: mid.Y - C.Y })
+      } Else If (this.Bendable) {
+         ; Middle of the line: drag it to bend the line/arrow into a curve.
+         ; Listed after the end points so they win where they overlap on short lines.
+         M := this.BendPoint(C.X1, C.Y1, C.X2, C.Y2)
+         pts.Push({ C: 9, Ctrl: "Bend", Cur: "SizeAll", X: M.X - C.X, Y: M.Y - C.Y })
+      } Else If (this.Shape = Shapes.SHAPE_BRACKET) {
+         ; Tip of the centre triangle: along the bracket moves it, across sets its depth
+         tip := this.BracketTip()
+         pts.Push({ C: 9, Ctrl: "Notch", Cur: "SizeAll", X: tip.X - C.X, Y: tip.Y - C.Y })
+      }
+      return pts
+   }
+   /**
+    * Centre of a connector's middle segment, in snip coordinates
+    * @returns {Object} {X, Y, Horz}: Horz true when the segment moves left/right
+    */
+   ConnectMidPoint() {
+      C    := this.shapeCoord
+      horz := this.HasOwnProp("HasDirection") ? this.HasDirection : true   ; Draw() defaults to true
+      mp   := (this.HasOwnProp("MidPos") AND this.MidPos != "") ? this.MidPos : 0.5
+      If (horz)
+         Return { X: C.X1 + (C.X2 - C.X1) * mp, Y: (C.Y1 + C.Y2) / 2, Horz: true }
+      Return { X: (C.X1 + C.X2) / 2, Y: C.Y1 + (C.Y2 - C.Y1) * mp, Horz: false }
+   }
+   /**
+    * True for the line/arrow shapes that can be bent with the "Bend" control point
+    * @type {Integer}
+    */
+   Bendable => (this.Shape = Shapes.SHAPE_LINE OR this.Shape = Shapes.SHAPE_ARROW
+             OR this.Shape = Shapes.SHAPE_OARROW OR this.Shape = Shapes.SHAPE_ODARROW)
+
+   /**
+    * Snip position of the "Bend" control point for a line from X1,Y1 to X2,Y2.
+    * Stored relative to the line (BendT: fraction along it, BendD: pixels to its left
+    * side looking from start to end) so resizing by the ends keeps the curve's shape.
+    * @returns {Object} {X, Y}
+    */
+   BendPoint(X1, Y1, X2, Y2) {
+      t := (this.HasOwnProp("BendT") AND this.BendT != "") ? this.BendT : 0.5
+      d := (this.HasOwnProp("BendD") AND this.BendD != "") ? this.BendD : 0
+      len := Sqrt((X2 - X1) ** 2 + (Y2 - Y1) ** 2)
+      If (len < 1)
+         Return { X: X1, Y: Y1 }
+      ux := (X2 - X1) / len, uy := (Y2 - Y1) / len
+      Return { X: X1 + (X2 - X1) * t - uy * d, Y: Y1 + (Y2 - Y1) * t + ux * d }
+   }
+
+   /**
+    * Curve points for a bent line, or 0 if the line is straight (or not bendable)
+    * @returns {Array|Integer} [[start], [control point], [end]] or 0
+    */
+   _BendPoints(X1, Y1, X2, Y2) {
+      If (NOT this.Bendable OR NOT this.HasOwnProp("BendD") OR this.BendD = "" OR this.BendD = 0)
+         Return 0
+      M := this.BendPoint(X1, Y1, X2, Y2)
+      Return [[X1, Y1], [M.X, M.Y], [X2, Y2]]
+   }
+
+   /**
+    * Draw an open cardinal curve (GDI+ default tension 0.5) through the points.
+    * Pen caps (arrowheads) follow the curve's direction at its ends.
+    */
+   _DrawCurve(G, pen, pts) {
+      P := GDIp.Path(G)
+      P.AddPathCurve2(pts, 0.5)
+      P.DrawPath(pen)
+   }
+
+   /**
+    * Bracket geometry in its own frame: x along the bracket from (X1,Y1), y across it
+    * (the triangle points to -y). Shared by Draw and the "Notch" control point.
+    * @returns {Object} {dX: length, notch: end-tick depth, s2: triangle base width,
+    *                    c: triangle centre along x, s1: start of the base, depth: triangle
+    *                    height, Ang: rotation in degrees, cos, sin}
+    */
+   BracketGeom(X1, Y1, X2, Y2) {
+      Static notchSize := 0
+      If (NOT notchSize)
+         notchSize := 15 * this.DPIFactor   ; depth of the end ticks (first shape's DPI, as before)
+      dX := Sqrt((X1 - X2) ** 2 + (Y1 - Y2) ** 2)
+      s2 := Min(notchSize * 2, 0.2 * dX) ; width of callout, 20% nomoly but no bigger than 2x notch size
+      pos   := (this.HasOwnProp("BrPos") AND this.BrPos != "") ? this.BrPos : 0.5
+      depth := (this.HasOwnProp("BrDepth") AND this.BrDepth != "") ? this.BrDepth : notchSize
+      c  := dX * pos
+      ; 2.1 has proper Atan2
+      Ang := myAngle(Y2 - Y1, X2 - X1)
+      Return { dX: dX, notch: notchSize, s2: s2, c: c, s1: (dX - s2) / 2 + (c - dX / 2), depth: depth
+             , Ang: Ang, cos: Cos(Ang * 0.017453292519943), sin: Sin(Ang * 0.017453292519943) }
+   }
+   /**
+    * Snip position of the bracket's triangle tip
+    * @returns {Object} {X, Y}
+    */
+   BracketTip() {
+      C := this.shapeCoord
+      B := this.BracketGeom(C.X1, C.Y1, C.X2, C.Y2)
+      ; local (c, -depth) rotated by Ang, then moved to the start point
+      Return { X: C.X1 + B.c * B.cos + B.depth * B.sin, Y: C.Y1 + B.c * B.sin - B.depth * B.cos }
+   }
+   /**
+    * Grow the padding so a point (plus a margin) is inside the drawing area on the next
+    * Refresh. Refresh only grows padding a little per redraw, so a fast drag could clip.
+    * The extent pass in Refresh trims any excess afterwards.
+    */
+   _EnsurePadFor(X, Y, m) {
+      C := this.shapeCoord, P := this.sPad
+      this.sPad := { L: Ceil(Max(P.L, C.X - X + m)), T: Ceil(Max(P.T, C.Y - Y + m))
+                   , R: Ceil(Max(P.R, X - (C.X + C.W) + m)), B: Ceil(Max(P.B, Y - (C.Y + C.H) + m)) }
+   }
+   /**
+    * Control point drag (see commonShape):
+    *  "Mid"   - slides the connector's middle segment; kept between the end points so
+    *            the shape stays inside its drawing area
+    *  "Notch" - bracket triangle: along the bracket moves it, across sets its depth
+    * @param {String} name - Ctrl name
+    * @param {Number} X - Snip X of the mouse
+    * @param {Number} Y - Snip Y of the mouse
+    */
+   ControlDrag(name, X, Y) {
+      If (name = "Bend" AND this.Bendable) {
+         C := this.shapeCoord
+         len := Sqrt((C.X2 - C.X1) ** 2 + (C.Y2 - C.Y1) ** 2)
+         If (len < 1)
+            Return
+         ux := (C.X2 - C.X1) / len, uy := (C.Y2 - C.Y1) / len
+         vx := X - C.X1, vy := Y - C.Y1
+         ; Along the line (kept off the ends so the curve stays well formed) and across it
+         this.BendT := Constrain(0.1, 0.9, (vx * ux + vy * uy) / len)
+         d := -vx * uy + vy * ux
+         ; Back near the straight line: snap straight
+         this.BendD := (Abs(d) < 4 * this.DPIFactor) ? 0 : d
+         ; Make room for the curve and for the end caps, which turn with it
+         ; (AHK names are case-insensitive: don't call these M and m)
+         bp     := this.BendPoint(C.X1, C.Y1, C.X2, C.Y2)
+         margin := this.shapeThickness * 2 + Shapes.shapePad
+         this._EnsurePadFor(bp.X, bp.Y, margin + Abs(this.BendD) * 0.15)   ; a cardinal curve can bulge slightly past it
+         cap := this.shapeThickness * 6 + Shapes.shapePad
+         this._EnsurePadFor(C.X1, C.Y1, cap)
+         this._EnsurePadFor(C.X2, C.Y2, cap)
+         this.Refresh()
+         Return
+      }
+      If (name = "Notch" AND this.Shape = Shapes.SHAPE_BRACKET) {
+         C := this.shapeCoord
+         B := this.BracketGeom(C.X1, C.Y1, C.X2, C.Y2)
+         If (B.dX < 1)
+            Return
+         vx := X - C.X1, vy := Y - C.Y1
+         along := vx * B.cos + vy * B.sin          ; along the bracket
+         depth := vx * B.sin - vy * B.cos          ; across it, toward the tip side
+         half  := B.s2 / 2
+         ; keep the whole triangle base on the bracket line; depth 0 = flat
+         this.BrPos   := Constrain(half / B.dX, 1 - half / B.dX, along / B.dX)
+         this.BrDepth := Max(0, depth)
+         tip := this.BracketTip()
+         this._EnsurePadFor(tip.X, tip.Y, this.shapeThickness * 2 + Shapes.shapePad)
+         this.Refresh()
+         Return
+      }
+      If (name != "Mid" OR this.Shape != Shapes.SHAPE_CONNECT)
+         Return
+      C := this.shapeCoord
+      If (this.ConnectMidPoint().Horz) {
+         If (C.X2 = C.X1)
+            Return
+         this.MidPos := Constrain(0, 1, (X - C.X1) / (C.X2 - C.X1))
+      } Else {
+         If (C.Y2 = C.Y1)
+            Return
+         this.MidPos := Constrain(0, 1, (Y - C.Y1) / (C.Y2 - C.Y1))
+      }
+      this.Refresh()
    }
 
 }
