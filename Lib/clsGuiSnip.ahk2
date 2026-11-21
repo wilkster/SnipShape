@@ -89,6 +89,12 @@ Class GuiSnip extends Gui {
       Try {
          ; title := this.Title
          this.ClearAllShapes(true)  ; in case we have built in GC
+         ; Free the undo/redo history (bitmap copies) and break the snip <-> undo
+         ; reference cycle, otherwise none of it is ever released
+         If (IsObject(this.UnDo)) {
+            this.UnDo.Clear()
+            this.UnDo := ""
+         }
          hwnd := this.hWnd
          super.Destroy()
          GDI.DeleteObject(this.myHandle)
@@ -790,6 +796,7 @@ Class GuiSnip extends Gui {
          this.RefreshTextures()
          this.Dirty++
       } Else {
+         GDI.DeleteObject(hBitmap)   ; the unused copy
          this.PopAction()
          qTrayTip("Did not need to change any pixels")
       }
@@ -866,8 +873,14 @@ Class GuiSnip extends Gui {
                ; Saved as text, get the pointer
                Info.DrawFunction := getFunctionObject(Info.DrawFunction)
             }
-            For pr, v in Info.OwnProps()
+            For pr, v in Info.OwnProps() {
+               If (Info.Source = "File" OR Info.Source = "Clip") AND (pr = "FileName" OR pr = "hBitmap")
+                  Continue   ; InstanceInfo's bitmap copy, freed below
                Try CloneObj.%pr% := v
+            }
+            ; Bitmap shapes: InstanceInfo made a copy; the new shape made its own from it
+            If (Info.Source = "File" OR Info.Source = "Clip")
+               GDI.DeleteObject(Info.hBitmap)
             ; Now draw the shape on the canvas
             CloneObj.Refresh()
             ShapeOnTop(CloneObj)

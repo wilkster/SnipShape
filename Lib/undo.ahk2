@@ -38,6 +38,14 @@ Class UnDo {
     * Instance is deleted when snip is closed, remove all undo data
     */
    __Delete() {
+      this.Clear()
+   }
+   /**
+    * Dispose everything held in the undo and redo history.
+    * Call when the snip closes: stack entries reference the snip/shapes and the snip
+    * references this object, so __Delete alone would never run (reference cycle).
+    */
+   Clear() {
       this._clearStack(this.undoStack)
       this._clearStack(this.redoStack)
    }

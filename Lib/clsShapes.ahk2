@@ -1250,8 +1250,12 @@ Class Shapes {
          Case "File", "Clip":
             CloneObj := this.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
             For pr, v in Info.OwnProps() {
+               If (pr = "FileName" OR pr = "hBitmap")   ; the copy's handle, freed below
+                  Continue
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
             }
+            ; InstanceInfo made a bitmap copy; the new shape made its own from it
+            GDI.DeleteObject(Info.hBitmap)
             CloneObj.Move(csX, csY + cH, cW, cH)
             CloneObj.PostAction(UnDo.ADD_SHAPE)
 

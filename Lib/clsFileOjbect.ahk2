@@ -54,9 +54,12 @@ Class FileObject {
          }
          ; Serialize embedded bitmaps
          If (Info.HasProp("FileName") and IsInteger(Info.FileName)) {
-            pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName, 0xE200B)   ; bitmap shapes are premultiplied
+            hCopy := Info.FileName   ; InstanceInfo's copy of the bitmap (also in Info.hBitmap)
+            pTemp := GDIp.CreateARGBBitmapFromHBITMAP(hCopy, 0xE200B)   ; bitmap shapes are premultiplied
             Info.FileName := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
             GDIp.DisposeImage(pTemp)
+            GDI.DeleteObject(hCopy)
+            Info.hBitmap := ""      ; don't store a dead handle in the file
          }
          ; Push each to front so they are restored in the proper Z-Order
          fileObj.Shapes.InsertAt(1, Info)
@@ -202,15 +205,23 @@ Class FileObject {
       Switch Info.Source {
          Case "File", "Clip":
             ; Bitmap has already been replaced in Info.FileName
+            hDecoded := 0
             If (StrLen(Info.FileName) > 500 OR NOT FileExist(Info.FileName)) {
                pTemp := BitMap.LoadBitmapFromBase64(Info.FileName)
                If (pTemp > 0) {
-                  Info.FileName := GDIp.CreateARGBHBITMAPFromBitmap(pTemp)
+                  Info.FileName := hDecoded := GDIp.CreateARGBHBITMAPFromBitmap(pTemp)
                   GDIp.DisposeImage(pTemp)
-               } else 
+               } else
                   MsgBox("Failed to Create Bitmap Shape:" pTemp, "Shape Error", 0x30)
             }
             CloneObj := Shapes.CreatePicFromSource(SnipObj, Info.FileName, Info.shapeCoord.X1, Info.shapeCoord.Y1)
+            ; The shape made its own copy of the decoded bitmap
+            If (hDecoded) {
+               GDI.DeleteObject(hDecoded)
+               Info.DeleteProp("FileName")
+            }
+            If (Info.HasProp("hBitmap"))
+               Info.DeleteProp("hBitmap")   ; a handle from the saving session, meaningless now
 
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             ; Other shapes
