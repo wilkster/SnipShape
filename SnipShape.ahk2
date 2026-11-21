@@ -319,6 +319,11 @@ HotIfWinActive
       }
    }
    ^P:: Shapes.AddPictureFromFile(WinExist("A"), "lButton", "P")
+   ; Select all shapes on the snip as a group (see ShapeGroup)
+   ^a:: {
+      If (SnipObj := Snips.GetGuiObj())
+         ShapeGroup.SelectAll(SnipObj)
+   }
    ^c:: {
       ; Copy active snip and shapes to the clipboard
       /** @type {GuiSnip} */

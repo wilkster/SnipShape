@@ -98,10 +98,32 @@ Class ShapeGroup {
     * @returns {Array}
     */
    Static ShapesInRect(SnipObj, rc) {
+      Return this._Filter(SnipObj, rc)
+   }
+
+   /**
+    * Ctrl-A: select every shape on the snip (clears the group if there are none)
+    * @returns {Integer} number of shapes selected
+    */
+   Static SelectAll(SnipObj) {
+      sel := this._Filter(SnipObj)
+      If (sel.Length)
+         this.Select(SnipObj, sel)
+      Else
+         this.Clear()
+      Return sel.Length
+   }
+
+   ; Selectable visible shapes, optionally only those fully inside rc
+   Static _Filter(SnipObj, rc?) {
       sel := []
       For shp in SnipObj.VisibleShapes {
          If NOT this._Selectable(shp)
             Continue
+         If NOT IsSet(rc) {
+            sel.Push(shp)
+            Continue
+         }
          C := shp.shapeCoord
          inside := (C.X >= rc.X AND C.Y >= rc.Y AND C.X + C.W <= rc.X + rc.W AND C.Y + C.H <= rc.Y + rc.H)
          If (inside AND shp.Source = "Text" AND shp.HasProp("Tip") AND IsObject(shp.Tip))
