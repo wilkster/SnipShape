@@ -1009,7 +1009,14 @@ Class Shapes {
          ;    ShapeObj.scaleFreeHand := GetKeyState("Shift","P")
          ; }
          ; Close to the corner, then resize
-         if ShapeObj.Source ~= "Shape" {
+         If (corner = 9 AND ShapeObj.Source = "Text") {
+            ;-----------------------------------------------------
+            ; Drag the callout tip of a text shape
+            ;-----------------------------------------------------
+            focusBorder.ShowFocus(ShapeObj.hWnd, true)
+            ShapeObj.DragTip(Key)
+            focusBorder.UnBlockMe()
+         } Else if ShapeObj.Source ~= "Shape" {
             ;-----------------------------------------------------
             ; If registered shape, then redraw it instead of resizing it
             ;-----------------------------------------------------
@@ -1140,6 +1147,10 @@ Class Shapes {
          C := ShapeObj.shapeCoord
          controlOffset.X := shapeStart.X - mouseStart.X
          controlOffset.Y := shapeStart.Y - mouseStart.Y
+         ; Grabbing a text callout's arrow/tail moves the whole thing (body and tip);
+         ; grabbing the text body moves only the body (the tip stays where it points)
+         moveTip  := (ShapeObj.Source = "Text" AND ShapeObj.IsOnCallout(mouseStart.X, mouseStart.Y))
+         tipStart := moveTip ? ShapeObj.Tip.Clone() : 0
 
          MouseGetPos(&mouseNew.X, &mouseNew.Y)
          mouseLast := mouseNew.Clone()
@@ -1152,9 +1163,12 @@ Class Shapes {
             MouseGetPos(&mouseNew.X, &mouseNew.Y)
             dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
             if ((abs(dx) + abs(dy)) > 0) {
-               ShapeObj.Move(mouseNew.X + controlOffset.X, mouseNew.Y + controlOffset.Y)
+               nX := mouseNew.X + controlOffset.X, nY := mouseNew.Y + controlOffset.Y
+               If (moveTip)
+                  ShapeObj.Tip := { X: tipStart.X + nX - shapeStart.X, Y: tipStart.Y + nY - shapeStart.Y }
+               ShapeObj.Move(nX, nY)
                focusBorder.Sync()
-            } 
+            }
             ;----------------------------------------------------------------------
             ; Handle color changes and redraw shape
             ;----------------------------------------------------------------------
@@ -1241,6 +1255,9 @@ Class Shapes {
                Try CloneObj.%pr% := v ; Can't set GUI (read only)
             }
             vShift  := Info.shapeCoord.H
+            ; Copy points its callout at the same offset from its body as the original
+            If (IsObject(Info.Tip ?? ""))
+               CloneObj.Tip := { X: Info.Tip.X, Y: Info.Tip.Y + vShift }
             If (CloneObj.DrawText(csX, csY + vShift)) {
                ShapeOnTop(CloneObj)
                ShapeObj.Gui.Dirty++

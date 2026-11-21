@@ -51,34 +51,33 @@ Class TextShape extends CommonShape {
     */
    Init(*) {
       Super.Init()
-      this.Source          := "Text"
-      this.sText           := ""
-      this.Corner          := 0
-      this._Text           := ""
-      this._fontName       := "Arial"
-      this.DPIFactor       := A_ScreenDPI / 96
-      this._fontSize       := 12 ; Round(12 * pOBJ.DPIFactor)
-      this._ogFontSize     := 0
-      this._Alignment      := "Left"  ; Left|Center|Right
-      this._fontColor      := Shapes.globalShapeColor
-      this.textOpacity     := TextShape.textOpacity
-
-      this.TCOpacity       := TextShape.TCOpacity
-
-      this.FTOpacity       := TextShape.FTOpacity
-      this.FillOutline     := TextShape.FillOutline
-      this.FTOLOpacity     := TextShape.FTOLOpacity
-
-      this.OLOpacity       := TextShape.OLOpacity
-      this.OLFillThickness := TextShape.OLFillThickness
-      this.OLBlur          := TextShape.OLBlur
-      
-      this._fontStyle      := "Bold"
-      this.FocusRecOn      := false
-      this._BGColor        := 0x000000
-      this.shapeCoord      := { X1: 0, Y1: 0, X2: 0, Y2: 0}
-      this.EditHeight      := unset
-      this.EditWidth       := unset
+      this.Source               := "Text"
+      this.sText                := ""
+      this.Corner               := 0
+      this._Text                := ""
+      this._fontName            := "Arial"
+      this.DPIFactor            := A_ScreenDPI / 96
+      this._fontSize            := 12 ; Round(12 * pOBJ.DPIFactor)
+      this._ogFontSize          := 0
+      this._Alignment           := "Left"  ; Left|Center|Right
+      this._calloutArrowDivisor := 6
+      this._fontColor           := Shapes.globalShapeColor
+      this.textOpacity          := TextShape.textOpacity
+      this.TCOpacity            := TextShape.TCOpacity
+      this.FTOpacity            := TextShape.FTOpacity
+      this.FillOutline          := TextShape.FillOutline
+      this.FTOLOpacity          := TextShape.FTOLOpacity
+      this.OLOpacity            := TextShape.OLOpacity
+      this.OLFillThickness      := TextShape.OLFillThickness
+      this.OLBlur               := TextShape.OLBlur
+      this._fontStyle           := "Bold"
+      this.FocusRecOn           := false
+      this._BGColor             := 0x000000
+      this.shapeCoord           := { X1: 0, Y1: 0, X2: 0, Y2: 0}
+      this.EditHeight           := unset
+      this.EditWidth            := unset
+      this.Tip                  := ""      ; callout tip {X, Y} in snip coordinates, "" = none
+      this._tailShown           := false
    }
    /**
     * Configure text and font properties prior to drawing.
@@ -169,11 +168,10 @@ Class TextShape extends CommonShape {
    }
 
    /**
-    * Render the text to a new bitmap and update the layered window.
-    * Measures required bounds, builds the appropriate GDI+ surface, and dispatches
-    * to the per-shape drawing routine (plain text, arrow, fill, outline, or tag).
-    * @param {Integer} [lX=0] - Left screen X coordinate for the layered window position
-    * @param {Integer} [lY=0] - Top screen Y coordinate for the layered window position
+    * Set any supplied text properties, then render the shape with its text body at lX/lY.
+    * Thin wrapper over Render() kept for the existing call sites.
+    * @param {Integer} [lX] - Snip X of the text body's left edge (default: current position)
+    * @param {Integer} [lY] - Snip Y of the text body's top edge (default: current position)
     * @param {Integer} [Size] - Font size in points; updates the stored value if provided
     * @param {String} [Text] - Text to render; updates the stored value if provided
     * @param {String} [FontName] - Font family name; updates the stored value if provided
@@ -182,11 +180,8 @@ Class TextShape extends CommonShape {
     * @param {Integer} [Color] - ARGB font color; updates the stored value if provided
     * @param {Integer} [BGColor] - RGB background fill color; updates the stored value if provided
     * @returns {Integer} 1 on success, 0 if the font is invalid or no text was found
-    * TODO - maybe don't pass in parameters but user sets properties prior to render?
-    * TODO - Call this Refresh and move into the Canvas class to be consistent
     */
-   DrawText(lX := 0, lY := 0, Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
-      Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
+   DrawText(lX?, lY?, Size?, Text?, FontName?, Alignment?, Style?, Color?, BGColor?) {
       If (IsSet(Size))
          this._fontSize := Size
       If (IsSet(Text))
@@ -201,6 +196,371 @@ Class TextShape extends CommonShape {
          this._fontStyle := Style
       If (IsSet(BGColor))
          this._BGColor := BGColor & 0xFFFFFF
+      Return this.Render(lX?, lY?)
+   }
+
+   /**
+    * Render the shape and update its layered window.
+    * The text "body" (the box the text and its border/fill occupy) is placed at bX/bY.
+    * shapeCoord is the body; sPad is how far the window extends beyond it (0 unless a
+    * callout tail sticks out), the same convention the drawn shapes use.
+    * @param {Integer} [bX] - Snip X of the body's left edge (default: current position)
+    * @param {Integer} [bY] - Snip Y of the body's top edge (default: current position)
+    * @returns {Integer} 1 on success, 0 if the font is invalid or no text was found
+    */
+   Render(bX?, bY?) {
+      bX := bX ?? this.sCoord.X
+      bY := bY ?? this.sCoord.Y
+      If !(L := this._Layout())
+         Return 0
+      ;----------------------------------------------------------------------
+      ; Window = body, plus any callout tail. off = body origin inside the window
+      ;----------------------------------------------------------------------
+      win := this._WindowBox(L, bX, bY)
+      mySurf := GDIp.DIBSurface(win.W, win.H, this.hWnd)
+      G := mySurf.G
+      ;--------------------------------------------------------------
+      ; Quality Settings Here
+      ;--------------------------------------------------------------
+      GDIp.SetSmoothingMode(G, 4)                ; Anti Aliased 4x4 (most difference for shapes)
+      GDIp.SetInterpolationMode(G, 7)            ; High Quality Bicubic
+      GDIp.SetCompositingQuality(G, 5)           ; Linear, not sRGB
+      GDIp.SetCompositingMode(G, 0)              ; Alpha blend, Source over
+      GDIpText.SetTextRenderingHint(G, L.Rendering) ; AntiAliasGridFit for Text
+      GDIpText.SetStringFormatAlign(L.hFormat, this._Alignment = "Left" ? 0 : (this._Alignment = "Center" ? 1 : 2))
+      GDIpText.GdipSetStringFormatLineAlign(L.hFormat, 1) ; Vertical alignment is center
+      GDIp.GraphicsClear(G, 0)
+      ; Draw in body coordinates
+      If (win.offX OR win.offY)
+         mySurf.Translate(win.offX, win.offY)
+      this._DrawBody(G, L, mySurf, win)
+      If (L.tail)
+         this._DrawTipGrab(G, L)
+      ; Update the window with the text (different than the underlying picture control)
+      mySurf.UpdateLayer(bX - win.offX, bY - win.offY)
+      ; Clean up
+      mySurf := ""
+      GDIpText.DeleteStringFormat(L.hFormat)
+      GDIpText.DeleteFont(L.hFont)
+      GDIpText.DeleteFontFamily(L.hFamily)
+      ; Body coordinates: window minus padding
+      this.sPad := { L: win.offX, T: win.offY, R: win.W - win.offX - L.bodyW, B: win.H - win.offY - L.bodyH }
+      this.UpdateCoord()
+      Return 1
+   }
+
+   /**
+    * Window placement for the current layout: the body, grown to include any callout.
+    * @param {Object} L - Layout from _Layout()
+    * @param {Number} bX - Snip X of the body
+    * @param {Number} bY - Snip Y of the body
+    * @returns {Object} {offX, offY, W, H}: body offset inside the window, and window size
+    */
+   _WindowBox(L, bX, bY) {
+      L.tail := this._TailPolygon(L, bX, bY)
+      If (NOT L.tail)
+         Return { offX: 0, offY: 0, W: L.bodyW, H: L.bodyH }
+      ; Only the tip can stick out (the tail base / arrow start is on or inside the body)
+      ; Margin covers the arrowhead (4 line widths wide) or tail anti-aliasing, and the
+      ; grab circle drawn at the tip
+      If (this._IsArrowCallout)
+         m := Max(this._ArrowWidth() * 3, this._ArrowGrabWidth() / 2) + 3
+      Else
+         m := this._HasFillOutline() ? L.outlineThickness + 3 : 3
+      m := Max(m, Cursor.ResizeBox + 2)
+      tip := L.tail[2]
+      x1 := Min(0, tip[1] - m), y1 := Min(0, tip[2] - m)
+      x2 := Max(L.bodyW, tip[1] + m), y2 := Max(L.bodyH, tip[2] + m)
+      ; Whole pixels in snip coordinates
+      wx1 := Floor(bX + x1), wy1 := Floor(bY + y1)
+      wx2 := Ceil(bX + x2),  wy2 := Ceil(bY + y2)
+      Return { offX: bX - wx1, offY: bY - wy1, W: wx2 - wx1, H: wy2 - wy1 }
+   }
+
+   ;======================================================================
+   ; Callouts: a tail from the shape to a tip point the user drags out.
+   ; this.Tip holds the tip in snip coordinates (it stays put when the body
+   ; moves) or "" for no callout. While the tip is inside the shape nothing
+   ; is drawn, so a text that never gets its tip dragged out has no callout.
+   ;======================================================================
+   /**
+    * True if this text type can have a callout
+    * @type {Integer}
+    */
+   CalloutCapable => (this.Shape = Shapes.SHAPE_TAG OR this.Shape = Shapes.SHAPE_FILLTEXT
+                   OR this.Shape = Shapes.SHAPE_TEXT OR this.Shape = Shapes.SHAPE_OLTEXT)
+
+   /**
+    * True for text types whose callout is a straight arrow: plain and outline text, and
+    * fill text with no border (its fill is sampled from the background, so a filled
+    * tail with no border would blend into whatever is behind it).
+    * Tags and bordered fill text get a filled triangular tail instead.
+    * @type {Integer}
+    */
+   _IsArrowCallout => (this.Shape = Shapes.SHAPE_TEXT OR this.Shape = Shapes.SHAPE_OLTEXT
+                    OR (this.Shape = Shapes.SHAPE_FILLTEXT AND NOT this._HasFillOutline()))
+
+   /**
+    * True for fill text drawn with a border
+    */
+   _HasFillOutline() => (this.Shape = Shapes.SHAPE_FILLTEXT AND this.FillOutline != "None")
+
+   /**
+    * Callout arrow line width: scales with the font (about a fifth of the text height).
+    * The arrowhead is sized relative to this, so it scales with it.
+    * @returns {Number} Width in pixels
+    */
+   _ArrowWidth() => Max(4, this._fontSize * A_ScreenDPI / 72 / this._calloutArrowDivisor )
+
+   /**
+    * Width of the near-invisible pen laid under the callout arrow so it is easy to grab
+    * @returns {Number} Width in pixels
+    */
+   _ArrowGrabWidth() => 15 * this.DPIFactor
+
+   /**
+    * Draw the callout arrow for plain/outline/fill text: a straight line from the body's
+    * outer edge (invisible for plain/outline text) to the tip, with the same arrowhead
+    * as the arrow shapes.
+    * Drawn last so the outline-text blur doesn't touch it.
+    * @param {Ptr} G - Graphics handle
+    * @param {Object} L - Layout (L.tail = [[edge X, Y], [tip X, Y]])
+    */
+   _DrawCalloutArrow(G, L) {
+      If (NOT L.tail OR NOT this._IsArrowCallout)
+         Return
+      s := L.tail[1], t := L.tail[2]
+      grabPen := GDIp.CreatePen(0x01000000, this._ArrowGrabWidth())
+      GDIp.DrawLine(G, grabPen, s[1], s[2], t[1], t[2])
+      GDIp.DeletePen(grabPen)
+      pen := GDIp.CreatePen(this._fontColor, this._ArrowWidth())
+      GDIp.CustomArrowCap(pen, 5, 4, 1, 1)
+      GDIp.SetPenStartCap(pen, 2) ; rounded start
+      GDIp.DrawLine(G, pen, s[1], s[2], t[1], t[2])
+      GDIp.DeletePen(pen)
+   }
+
+   /**
+    * True if the callout tail is currently drawn (tip set and outside the shape)
+    * @type {Integer}
+    */
+   HasCallout => (this.CalloutCapable AND IsObject(this.Tip) AND this.HasOwnProp("_tailShown") AND this._tailShown)
+
+   /**
+    * The shape the tail or arrow starts from, in body coordinates: the Tag's circle,
+    * otherwise the whole body box
+    * @param {Object} L - Layout from _Layout()
+    * @returns {Object} {Kind: "Ellipse"|"Rect", X, Y, W, H}
+    */
+   _CalloutBase(L) {
+      R := L.RCTextF
+      If (this.Shape = Shapes.SHAPE_TAG)
+         Return { Kind: "Ellipse", X: R.X1, Y: R.Y1, W: R.W, H: R.H }
+      Return { Kind: "Rect", X: 0, Y: 0, W: L.bodyW, H: L.bodyH }
+   }
+
+   /**
+    * Compute the tail triangle in body coordinates.
+    * The base sits across the shape's centre (hidden inside the shape) and is widened so
+    * the tail has a steady width where it leaves the shape, whatever the tip distance.
+    * @param {Object} L - Layout from _Layout()
+    * @param {Number} bX - Snip X of the body
+    * @param {Number} bY - Snip Y of the body
+    * @returns {Array|Integer} [[base1], [tip], [base2]] or 0 when no tail is drawn
+    */
+   _TailPolygon(L, bX, bY) {
+      this._tailShown := false
+      If (NOT this.CalloutCapable OR NOT IsObject(this.Tip))
+         Return 0
+      ; (AHK names are case-insensitive, so the base can't be "B" next to semi-axis "b")
+      base := this._CalloutBase(L)
+      a  := base.W / 2, b := base.H / 2
+      If (a <= 0 OR b <= 0)
+         Return 0
+      cx := base.X + a, cy := base.Y + b
+      tx := this.Tip.X - bX, ty := this.Tip.Y - bY
+      dx := tx - cx, dy := ty - cy
+      len := Sqrt(dx * dx + dy * dy)
+      If (len < 1)
+         Return 0
+      ux := dx / len, uy := dy / len
+      ; Distance from the centre to the shape edge along the tail
+      If (base.Kind = "Ellipse")
+         r := 1 / Sqrt((ux / a) ** 2 + (uy / b) ** 2)
+      Else
+         r := Min(ux ? a / Abs(ux) : 1e9, uy ? b / Abs(uy) : 1e9)
+      ; Tip still inside the shape: no callout
+      If (len <= r + 1)
+         Return 0
+      ; Plain/outline/fill text: an arrow from the body edge to the tip
+      If (this._IsArrowCallout) {
+         this._tailShown := true
+         Return [[cx + ux * r, cy + uy * r], [tx, ty]]
+      }
+      ; Half width where the tail leaves the shape (tags get a wider, pin-like tail)
+      hwEdge := Min(a, b) * (base.Kind = "Ellipse" ? 0.5 : 0.35)
+      hw     := Min(hwEdge * len / (len - r), Min(a, b) * 0.95)
+      nx := -uy, ny := ux
+      this._tailShown := true
+      Return [[cx + nx * hw, cy + ny * hw], [tx, ty], [cx - nx * hw, cy - ny * hw]]
+   }
+
+   /**
+    * Fill (and optionally outline) the body and tail as ONE shape: the union outline of
+    * the two, built as a single polygon. A single anti-aliased fill means a translucent
+    * fill is never doubled, and a single stroke gives real corners where the tail meets
+    * the body border (no gap, no clip seams).
+    * @param {Ptr} G - Graphics handle
+    * @param {Object} L - Layout (L.tail must be set)
+    * @param {GDIp.Path} bodyPath - Body outline (for a border: along the pen's centre line)
+    * @param {Ptr} fillBrush - Brush for body and tail
+    * @param {Ptr} [pen] - Border pen; omit for no border
+    */
+   _FillUnion(G, L, bodyPath, fillBrush, pen := 0) {
+      pts := this._UnionOutline(this._PathPolygon(bodyPath), L.tail)
+      U := GDIp.Path(G)
+      If (pts)
+         U.AddPathArray(pts, 1)
+      Else {                                   ; fallback: should not happen
+         DllCall("gdiplus\GdipAddPathPath", "Ptr", U.pPath, "Ptr", bodyPath.pPath, "Int", 0)
+         U.AddPathArray(L.tail, 1)
+      }
+      blankBrush := GDIp.BrushCreateSolid(0x01808080)  ; so the tail can be grabbed too
+      U.FillPath(blankBrush)
+      GDIp.DeleteBrush(blankBrush)
+      U.FillPath(fillBrush)
+      If (pen)
+         U.DrawPath(pen)
+   }
+
+   /**
+    * Flatten a closed path (curves become short lines) and return its points, in
+    * clockwise screen order (positive shoelace area with Y down).
+    * @param {GDIp.Path} P - Path; it is flattened in place
+    * @returns {Array} [[x, y], ...]
+    */
+   _PathPolygon(P) {
+      GDIp.FlattenPath(P.pPath, 0.25)
+      buf := P.GetPathPointbuffer(&count)
+      pts := []
+      Loop count
+         pts.Push([NumGet(buf, (A_Index - 1) * 8, "Float"), NumGet(buf, (A_Index - 1) * 8 + 4, "Float")])
+      ; Drop a closing point that repeats the first
+      If (pts.Length > 2 AND pts[1][1] = pts[-1][1] AND pts[1][2] = pts[-1][2])
+         pts.Pop()
+      If (this._SignedArea(pts) < 0)
+         this._Reverse(pts)
+      Return pts
+   }
+
+   _SignedArea(pts) {
+      s := 0, n := pts.Length
+      Loop n {
+         p := pts[A_Index], q := pts[Mod(A_Index, n) + 1]
+         s += p[1] * q[2] - q[1] * p[2]
+      }
+      Return s / 2
+   }
+
+   _Reverse(pts) {
+      i := 1, j := pts.Length
+      While (i < j) {
+         t := pts[i], pts[i] := pts[j], pts[j] := t
+         i++, j--
+      }
+   }
+
+   /**
+    * Union outline of a convex body polygon and the tail triangle whose base is inside
+    * the body and tip outside it: the body outline with the tail wedge spliced in where
+    * each tail side crosses it.
+    * @param {Array} poly - Body polygon, clockwise
+    * @param {Array} tail - [[base1], [tip], [base2]]
+    * @returns {Array|Integer} Union polygon points, or 0 if the crossings aren't found
+    */
+   _UnionOutline(poly, tail) {
+      n := poly.Length
+      If (n < 3)
+         Return 0
+      b1 := tail[1], tip := tail[2], b2 := tail[3]
+      ; Same (clockwise) orientation as the body, so the splice below runs the right way
+      If (this._SignedArea([b1, tip, b2]) < 0)
+         t := b1, b1 := b2, b2 := t
+      cA := this._LastCrossing(poly, b1, tip)   ; side b1 -> tip
+      cB := this._LastCrossing(poly, b2, tip)   ; side b2 -> tip
+      If (NOT cA OR NOT cB)
+         Return 0
+      ; A -> tip -> B, then forward round the body from B's edge back to A's edge
+      out := [cA.P, tip, cB.P]
+      steps := Mod(cA.i - cB.i + n, n)
+      If (steps = 0)
+         steps := n
+      i := cB.i
+      Loop steps {
+         i := Mod(i, n) + 1
+         out.Push(poly[i])
+      }
+      Return out
+   }
+
+   /**
+    * Where segment s0 -> s1 last crosses the polygon boundary (closest to s1)
+    * @returns {Object|Integer} {i: edge index (edge i runs poly[i] -> poly[i+1]), P: [x, y]} or 0
+    */
+   _LastCrossing(poly, s0, s1) {
+      n := poly.Length, best := 0, bestT := -1
+      dx := s1[1] - s0[1], dy := s1[2] - s0[2]
+      Loop n {
+         e0 := poly[A_Index], e1 := poly[Mod(A_Index, n) + 1]
+         ex := e1[1] - e0[1], ey := e1[2] - e0[2]
+         den := dx * ey - dy * ex
+         If (Abs(den) < 1e-9)
+            Continue
+         wx := e0[1] - s0[1], wy := e0[2] - s0[2]
+         t := (wx * ey - wy * ex) / den          ; along the tail side
+         u := (wx * dy - wy * dx) / den          ; along the body edge
+         If (t >= 0 AND t <= 1 AND u >= 0 AND u <= 1 AND t > bestT)
+            bestT := t, best := { i: A_Index, P: [s0[1] + t * dx, s0[2] + t * dy] }
+      }
+      Return best
+   }
+
+   /**
+    * Build a closed rounded-rectangle path matching GDIp.FillRoundedRectangle
+    * @returns {GDIp.Path}
+    */
+   _RoundRectPath(G, x, y, w, h, r) {
+      r := (w <= h) ? (r < w / 2) ? r : w / 2 : (r < h / 2) ? r : h / 2
+      r2 := r * 2
+      P := GDIp.Path(G)
+      GDIp.AddPathArc(P.pPath, x         , y         , r2, r2, 180, 90)
+      GDIp.AddPathArc(P.pPath, x + w - r2, y         , r2, r2, 270, 90)
+      GDIp.AddPathArc(P.pPath, x + w - r2, y + h - r2, r2, r2,   0, 90)
+      GDIp.AddPathArc(P.pPath, x         , y + h - r2, r2, r2,  90, 90)
+      GDIp.ClosePathFigure(P.pPath)
+      Return P
+   }
+
+   /**
+    * Lay a near-invisible circle over the callout tip, the size of the handle hit area,
+    * so the tip can be hovered and grabbed even where the arrowhead is thin.
+    * @param {Ptr} G - Graphics handle (body coordinates)
+    * @param {Object} L - Layout (L.tail set)
+    */
+   _DrawTipGrab(G, L) {
+      t := L.tail[2], r := Cursor.ResizeBox
+      grabBrush := GDIp.BrushCreateSolid(0x01000000)
+      GDIp.FillEllipse(G, grabBrush, t[1] - r, t[2] - r, r * 2, r * 2)
+      GDIp.DeleteBrush(grabBrush)
+   }
+
+   /**
+    * Create the font objects, measure the text and compute the body geometry.
+    * Caller must delete L.hFormat, L.hFont and L.hFamily.
+    * @returns {Object|Integer} Layout object, or 0 if the font is invalid or there is no text
+    */
+   _Layout() {
+      Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
       ; Make sure alpha is loaded
       If this._fontColor < 0xFF000000
          this._fontColor |= this.textOpacity << 24
@@ -220,9 +580,12 @@ Class TextShape extends CommonShape {
       ;-------------------------------------------------------------------
       hFamily := GDIpText.FontFamilyCreate(this._fontName) ; , IFC
       If ( NOT hFamily) {
+         GDIp.DeleteGraphics(G), GDI.ReleaseDC(isdc, this.GUI.hWnd)
          MsgBox("Invalid Font " this._fontName)
          Return 0
       } else If ( NOT IsNumber(this._fontSize)) {
+         GDIp.DeleteGraphics(G), GDI.ReleaseDC(isdc, this.GUI.hWnd)
+         GDIpText.DeleteFontFamily(hFamily)
          MsgBox("Invalid Font Size " this._fontSize)
          Return 0
       }
@@ -242,11 +605,11 @@ Class TextShape extends CommonShape {
       ; Don't specify alignment, use top/left
       RCTextF := GDIpText.MeasureString(G, this._Text, hFont, hFormat, RCWin, &Lines)
       GDIp.DeleteGraphics(G)
-      
+      GDI.ReleaseDC(isdc, this.GUI.hWnd)
+
       If (Lines == 0) {
          qTrayTip("No text found on clipboard")
          ; Unwind
-         GDI.ReleaseDC(isdc, this.GUI.hWnd)
          GDIpText.DeleteStringFormat(hFormat)
          GDIpText.DeleteFont(hFont)
          GDIpText.DeleteFontFamily(hFamily)
@@ -256,8 +619,9 @@ Class TextShape extends CommonShape {
       ; Get initial coordinates of the required rectangle for the text
       ;----------------------------------------------------------------------
       pad      := {}
-      shift    := {}
       ahFactor := {}
+      ahLen    := 0
+      Inset    := 0
       txt := {
          X: RCTextF.X1 ,
          Y: RCTextF.Y1 ,
@@ -318,32 +682,42 @@ Class TextShape extends CommonShape {
          this.EditWidth := txt.W / this.DPIFactor *1.03
       ; Always add an extra line for the editor
       this.EditHeight := (txt.H + txt.LH) / this.DPIFactor * 1.05
-      ;----------------------------------------------------------------------
-      ; We have rectangle based on screen info, create the DC/DIB and render
-      ; Add 1 pixels for width to cover slight left arrow cropping bug
-      ;----------------------------------------------------------------------
-      mySurf := GDIp.DIBSurface(txt.iW + pad.l + pad.r, txt.iH + pad.t + pad.b, this.hWnd)
-      G := mySurf.G
-      ;--------------------------------------------------------------
-      ; Quality Settings Here
-      ;--------------------------------------------------------------
-      GDIp.SetSmoothingMode(G, 4)                ; Anti Aliased 4x4 (most difference for shapes)
-      GDIp.SetInterpolationMode(G, 7)            ; High Quality Bicubic
-      GDIp.SetCompositingQuality(G, 5)           ; Linear, not sRGB
-      GDIp.SetCompositingMode(G, 0)              ; Alpha blend, Source over
-      GDIpText.SetTextRenderingHint(G, Rendering) ; AntiAliasGridFit for Text
-      GDIpText.SetStringFormatAlign(hFormat, this._Alignment = "Left" ? 0 : (this._Alignment = "Center" ? 1 : 2))
-      GDIpText.GdipSetStringFormatLineAlign(hFormat, 1) ; Vertical alignment is center
-      GDIp.GraphicsClear(G, 0)
+      Return {
+         hFamily: hFamily, hFont: hFont, hFormat: hFormat, StyleCode: StyleCode, Rendering: Rendering,
+         RCTextF: RCTextF, txt: txt, pad: pad, ahLen: ahLen, Inset: Inset,
+         outlineThickness: outlineThickness, outlineOpacity: outlineOpacity,
+         ; Body size: the text rectangle plus the shape's own padding
+         bodyW: txt.iW + pad.l + pad.r, bodyH: txt.iH + pad.t + pad.b
+      }
+   }
+
+   /**
+    * Draw the text body for the current shape type, with its top-left at 0,0 in G's
+    * (possibly translated) coordinates.
+    * @param {Ptr} G - Graphics handle of the render surface
+    * @param {Object} L - Layout from _Layout()
+    * @param {GDIp.DIBSurface} mySurf - Render surface (needed for the outline-text blur)
+    * @param {Object} win - Window box from _WindowBox()
+    */
+   _DrawBody(G, L, mySurf, win) {
+      RCTextF          := L.RCTextF
+      txt              := L.txt
+      hFormat          := L.hFormat
+      hFont            := L.hFont
+      outlineThickness := L.outlineThickness
+      outlineOpacity   := L.outlineOpacity
+      bodyW            := L.bodyW
+      bodyH            := L.bodyH
+      ahLen            := L.ahLen
+      inset            := L.Inset
       ;--------------------------------------------------------------
       ; Create the brushes and define the shape parameters
       ;--------------------------------------------------------------
       textBrush        := GDIp.BrushCreateSolid(this._fontColor)
       ; Minimial opaqueness so we can grap the shape anywhere
       blankBrush       := GDIp.BrushCreateSolid(0x01808080)  ; near blank
-      GDIp.FillRectangle(G, blankBrush, 0, 0, mySurf.Width, mySurf.Height)
+      GDIp.FillRectangle(G, blankBrush, 0, 0, bodyW, bodyH)
       GDIp.DeleteBrush(blankBrush)
-
 
       ;--------------------------------------------------------------
       ; Compute coordinates and draw each text type
@@ -355,31 +729,32 @@ Class TextShape extends CommonShape {
             ; StrPut(this._Text, utfBuf, , "UTF-8")
             ; GDIpText.DrawString(G, StrGet(utfBuf,,"UTF-8"), hFont, hFormat, textBrush, &RCText)
             GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
+            this._DrawCalloutArrow(G, L)
 
          Case Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
             ; IDEA - Up/Down arrows as well?
             ;----------------------------------------------------------------------
-            ; Compute and draw the arrow outline path based on the dib dimensions
+            ; Compute and draw the arrow outline path based on the body dimensions
             ; Create Arrow points for a left facing arrow
             ; The arrow coordinates all are scaled based on the text height (i.e. point size)
-            ; The DIB is the outer box around the arrowhead
-            ; The text box is contained within the DIB centered vert, but offset in X
+            ; The body is the outer box around the arrowhead
+            ; The text box is contained within the body centered vert, but offset in X
             ;----------------------------------------------------------------------
             pArray := [
-               [0            , mySurf.Height / 2],     ; left vertex (point), the middle Y position
+               [0            , bodyH / 2],             ; left vertex (point), the middle Y position
                [ahLen        , 0],                     ; top tip end
                [ahLen - inset, txt.Y],                 ; top tip base (where the inset ends)
-               [mySurf.Width , txt.Y],                 ; ur corner (far side of arrow)
-               [mySurf.Width , txt.Y + txt.H],         ; lr corner
+               [bodyW        , txt.Y],                 ; ur corner (far side of arrow)
+               [bodyW        , txt.Y + txt.H],         ; lr corner
                [ahLen - inset, txt.Y + txt.H],         ; bottom tip base (inset ends)
-               [ahLen        , mySurf.Height]          ; bottom tip end
+               [ahLen        , bodyH]                  ; bottom tip end
             ]
             oPath := GDIp.Path(G)
             oPath.AddPathArray(pArray, 1) ; close the polygon
             ; Flip the arrow 180 deg (L/R) needed
             If (this.Shape = Shapes.SHAPE_RIGHTARROWTEXT) {
                ; It rotates around top/left so shift it back by that amount so it maintains overall geometry
-               oPath.TranslateRotatePath(180, mySurf.Width, mySurf.Height)
+               oPath.TranslateRotatePath(180, bodyW, bodyH)
             }
             ; Fill shape opaque
             fillBrush := GDIp.BrushCreateSolid((this.FTOpacity << 24) | (this._BGColor & 0xFFFFFF))
@@ -401,30 +776,65 @@ Class TextShape extends CommonShape {
          Case Shapes.SHAPE_FILLTEXT:
             fillBrush := GDIp.BrushCreateSolid((this.FTOpacity << 24) | (this._BGColor & 0xFFFFFF))
             radius := outlineThickness * 3 ; Min(txt.W, txt.H) * 0.10
+            If (L.tail AND this._HasFillOutline()) {
+               ;----------------------------------------------------------------------
+               ; Bordered callout: triangle tail with the same fill, and one border
+               ; around the union of the box and the tail
+               ;----------------------------------------------------------------------
+               ; The union outline runs along the border's centre line, half a pen width
+               ; inside the body, so the border's outer edge lands where it does
+               ; without a callout (same geometry DrawRectangle inset / DrawRoundedRectangle use)
+               outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+               GDIp.SetPenAlignment(outlinePen, 0)
+               pw := outlineThickness / 2
+               If (this.FillOutline = "Rectangle") {
+                  bodyPath := GDIp.Path(G)
+                  bodyPath.AddPathRectangle(pw, pw, bodyW - pw * 2, bodyH - pw * 2)
+                  GDIp.SetPenLineJoin(outlinePen, 3)  ; sharp corners, clipped at the tail tip
+               } Else { ; Rounded Rectangle, radius clamped as in GDIp.DrawRoundedRectangle
+                  r := radius
+                  If (bodyW <= bodyH && (r + pw > bodyW / 2))
+                     r := (bodyW / 2 > pw) ? bodyW / 2 - pw : 0
+                  Else If (bodyH < bodyW && r + pw > bodyH / 2)
+                     r := (bodyH / 2 > pw) ? bodyH / 2 - pw : 0
+                  Else If (r < pw / 2)
+                     r := pw / 2
+                  bodyPath := this._RoundRectPath(G, pw, pw, bodyW - pw * 2, bodyH - pw * 2, r)
+                  GDIp.SetPenLineJoin(outlinePen, 2)  ; rounded, matches the corners
+               }
+               this._FillUnion(G, L, bodyPath, fillBrush, outlinePen)
+               GDIp.DeletePen(outlinePen)
+               bodyPath := ""
+               GDIp.DeleteBrush(fillBrush)
+               GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
+               GDIp.DeleteBrush(textBrush)
+               Return
+            }
             ; Account for padding
             Switch this.FillOutline {
                Case "Rectangle":
                   outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
                   GDIp.SetPenAlignment(outlinePen, 1)
-                  GDIp.FillRectangle(G,fillBrush, 0, 0, mySurf.Width, mySurf.Height)
-                  GDIp.DrawRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height)
+                  GDIp.FillRectangle(G,fillBrush, 0, 0, bodyW, bodyH)
+                  GDIp.DrawRectangle(G, outlinePen, 0, 0, bodyW, bodyH)
                   GDIp.DeletePen(outlinePen)
                Case "Rounded Rectangle":
                   of := radius/8
                   outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
                   GDIp.SetPenAlignment(outlinePen, 0)
-                  GDIp.FillRoundedRectangle(G, fillBrush, of, of, mySurf.Width - of * 2, mySurf.Height - of * 2, radius)
-                  GDIp.DrawRoundedRectangle(G, outlinePen, 0, 0, mySurf.Width, mySurf.Height, radius)
+                  GDIp.FillRoundedRectangle(G, fillBrush, of, of, bodyW - of * 2, bodyH - of * 2, radius)
+                  GDIp.DrawRoundedRectangle(G, outlinePen, 0, 0, bodyW, bodyH, radius)
                   GDIp.DeletePen(outlinePen)
                Default:
                   GDIp.FillRoundedRectangle(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H, radius)
             }
             GDIp.DeleteBrush(fillBrush)
             GDIpText.DrawString(G, this._Text, hFont, hFormat, textBrush, &RCTextF)
+            this._DrawCalloutArrow(G, L)
 
          Case Shapes.SHAPE_OLTEXT:
             ; outline text size, A_ScreenDPI keeps it consistent across monitors and computers
-            emVal := this._fontSize * A_ScreenDPI / 72 
+            emVal := this._fontSize * A_ScreenDPI / 72
             olThickness := emVal * this.OLFillThickness/100 ; IDEA - larger when blurring?
             ; background Just so it isn't transparent for click thru
             ; IDEA - should this be an option for B&W vs complementary outline?
@@ -433,7 +843,7 @@ Class TextShape extends CommonShape {
             GDIp.SetPenLineJoin(outlinePen, 2) ; Rounded, avoid spikes
             ; Write the outline text first
             Path := GDIp.CreatePath(0)
-            res  := GDIpText.AddPathString(Path, this._Text, -1, hFamily, StyleCode, emVal, &RCTextF, hFormat)
+            res  := GDIpText.AddPathString(Path, this._Text, -1, L.hFamily, L.StyleCode, emVal, &RCTextF, hFormat)
             res  := GDIp.DrawPath(G, outlinePen, Path)    ; outside
             ; We now have the outside shape in the G graphics
             ; If we want to blur it then shrink/expand the outline part
@@ -442,10 +852,13 @@ Class TextShape extends CommonShape {
                pFull := mySurf.getARGBpBitmap()
                ; blur it by setting amount, font size and DPI adjusted
                pBlur := BitMap.BlurBitmap(pFull, round(this.OLBlur * emVal/128))
-               ; write blur back into graphics
+               ; write blur back into graphics (whole surface, so draw untranslated)
                GDIp.GraphicsClear(G)   ; remove old outline
-               ; txt.W/H is slightly larger than mrSurf.Width/Height
+               If (win.offX OR win.offY)
+                  GDIp.ResetWorldTransform(G)
                GDIp.DrawImage(G, pBlur, 0, 0, mySurf.Width, mySurf.Height, 0, 0, mySurf.Width, mySurf.Height)
+               If (win.offX OR win.offY)
+                  mySurf.Translate(win.offX, win.offY)
                ; cleanup
                GDIp.DisposeImage(pBlur)
                ; Also look at gradient brushes (PathGradientBrush) where the outside color is the background color
@@ -453,11 +866,19 @@ Class TextShape extends CommonShape {
             res  := GDIp.FillPath(G, textBrush, Path) ; inside
             GDIp.DeletePen(outlinePen)
             GDIp.DeletePath(Path)
+            this._DrawCalloutArrow(G, L)
 
          Case Shapes.SHAPE_TAG:
             ; Simplier solid background with black/white text
             fillBrush := GDIp.BrushCreateSolid((this.TCOpacity << 24) | (this._fontColor & 0xFFFFFF))
-            GDIp.FillEllipse(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H)
+            If (L.tail) {
+               ; Callout: circle and tail filled as one shape (pin style)
+               bodyPath := GDIp.Path(G)
+               bodyPath.AddPathEllipse(RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H)
+               this._FillUnion(G, L, bodyPath, fillBrush)
+               bodyPath := ""
+            } Else
+               GDIp.FillEllipse(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H)
             cColor := BlackOrWhite(this._fontColor & 0xFFFFFF)
             textAltBrush := GDIp.BrushCreateSolid(0xFF000000 | cColor)
             GDIpText.DrawString(G, this._Text, hFont, hFormat, textAltBrush, &RCTextF)
@@ -466,18 +887,7 @@ Class TextShape extends CommonShape {
 
          Default:
       }
-      ; Update the window with the text (different than the underlying picture control)
-      mySurf.UpdateLayer(lX, lY)
-      ; Clean up
-      mySurf := ""
-      GDI.ReleaseDC(isdc, this.GUI.hWnd)
       GDIp.DeleteBrush(textBrush)
-      GDIpText.DeleteStringFormat(hFormat)
-      GDIpText.DeleteFont(hFont)
-      GDIpText.DeleteFontFamily(hFamily)
-
-      this.UpdateCoord()
-      Return 1
    }
    /**
     * Open the text input dialog to edit the shape's displayed text.
@@ -513,6 +923,7 @@ Class TextShape extends CommonShape {
     */
    Close(skipUndo?) {
       Super.Close(skipUndo?)
+      this.Tip := ""   ; undo info was captured above; don't draw a tail on the blanked window
       this.DrawText(0,0,2,".",,,,0x0)
       ; this.OnEvent("DoubleClick", this.bindDClick, false)
    }
@@ -537,13 +948,17 @@ Class TextShape extends CommonShape {
    /**
     * Move the shape to a new position and optionally redraw at a new font size.
     * For fill-text and arrow shapes, also resamples the background color under the shape.
-    * @param {Integer} [wX] - New window-relative X coordinate
-    * @param {Integer} [wY] - New window-relative Y coordinate
+    * @param {Integer} [wX] - New snip X of the text body (excluding any callout)
+    * @param {Integer} [wY] - New snip Y of the text body
     * @param {Integer} [fontSize] - If provided, forces a redraw at this font size
     */
    Move(wX?, wY?, fontSize?) {
       ; 1st move to where we want to be
-      willRefresh := IsSet(fontSize)
+      ; A callout tip stays where it points, so the tail has to be redrawn on any move.
+      ; Test for a tip, not a visible tail: when the body is dragged over the tip the
+      ; tail hides, and it must come back (and the window cover the tip handle again)
+      ; once the body moves off it.
+      willRefresh := IsSet(fontSize) OR (this.CalloutCapable AND IsObject(this.Tip))
       Switch this.Shape {
          ; Recompute the background color in real time
          Case Shapes.SHAPE_FILLTEXT, Shapes.SHAPE_LEFTARROWTEXT, Shapes.SHAPE_RIGHTARROWTEXT:
@@ -569,32 +984,19 @@ Class TextShape extends CommonShape {
     */
    Scale(amount) {
       sc := this.shapeCoord
+      If (IsObject(this.Tip))
+         this.Tip := { X: this.Tip.X * amount, Y: this.Tip.Y * amount }
       this.Move(sc.X * amount, sc.Y * amount, this._fontSize * amount)
    }
    /**
-    * Padding not used for Text
-    * @param {Integer} L - Left padding (ignored)
-    * @param {Integer} T - Top padding (ignored)
-    * @param {Integer} R - Right padding (ignored)
-    * @param {Integer} B - Bottom padding (ignored)
-    */
-   savePadding(L, T, R, B) {
-      this.sPad := { L: 0, T: 0, R: 0, B: 0 }
-   }
-
-   /**
     * Redraw the text shape at its current position and sync the focus border.
     * Called when the shape needs to be redrawn in place, e.g. after a property change.
+    * shapeCoord is the text body, so redraw at the body position (Render works out the
+    * window position and padding).
     */
    Refresh(*) {
-      ; this.GetPos(&_X, &_Y)
-      ; ; NOTE - if we are changing size it would be nice to adhere to text justification, as of now we are locked to left coordinates
-      ; this.DrawText(_X, _Y)
-      ; this.UpdateCoord()
-
       C := this.shapeCoord
-      P := this.sPad
-      this.DrawText(C.X1 - P.L, C.Y1 - P.T)
+      this.DrawText(C.X1, C.Y1)
       focusBorder.Sync(this) ;Size may have changed
    }
    /**
@@ -627,9 +1029,64 @@ Class TextShape extends CommonShape {
     */
    FocusPoints() {
       C := this.shapeCoord
-      return [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
-              { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h }, 
+      pts := [{ C: 1, X: 0, Y: 0 },         { C: 2, X: C.w, Y: 0 },
+              { C: 3, X: C.w, Y: C.h / 2 }, { C: 4, X: C.w, Y: C.h },
               { C: 7, x: 0, Y: C.h/2 },     { C: 6, x: 0, Y: C.h }]
+      ; Callout tip (C 9, round handle). Checked first so it wins over a corner it overlaps.
+      If (this.CalloutCapable) {
+         tip := this.TipPoint()
+         pts.InsertAt(1, { C: 9, X: tip.X - C.X, Y: tip.Y - C.Y, Round: true })
+      }
+      return pts
+   }
+   /**
+    * Where the callout tip handle sits, in snip coordinates. With no callout it rests
+    * inside the body near the bottom centre (clear of the corner handles and the middle,
+    * where the shape is usually grabbed to move it).
+    * @returns {Object} {X, Y}
+    */
+   TipPoint() {
+      If (IsObject(this.Tip))
+         Return { X: this.Tip.X, Y: this.Tip.Y }
+      C := this.shapeCoord
+      Return { X: C.X + C.W / 2, Y: C.Y + C.H - Min(C.H / 4, Cursor.ResizeBox) }
+   }
+   /**
+    * True if a snip point is on the callout's tail/arrow rather than the text body.
+    * The window only extends past the body for the callout, so a click there is on it.
+    * @param {Number} mX - Snip X
+    * @param {Number} mY - Snip Y
+    * @returns {Integer}
+    */
+   IsOnCallout(mX, mY) {
+      If (NOT this.HasCallout)
+         Return false
+      C := this.shapeCoord
+      Return NOT (mX >= C.X AND mX <= C.X + C.W AND mY >= C.Y AND mY <= C.Y + C.H)
+   }
+   /**
+    * Drag the callout tip while the mouse button is held, redrawing the tail live.
+    * Releasing the tip inside the shape removes the callout.
+    * Caller posts the undo action and manages the focus border block.
+    * @param {String} Key - Mouse button being held (e.g. "lButton")
+    */
+   DragTip(Key) {
+      CoordMode('Mouse', 'Window')
+      MouseGetPos(&lastX, &lastY)
+      Loop {
+         Sleep(10)
+         MouseGetPos(&mX, &mY)
+         If (mX != lastX OR mY != lastY) {
+            this.Tip := { X: mX, Y: mY }
+            this.Refresh()           ; redraws and syncs the focus border
+            lastX := mX, lastY := mY
+         }
+      } Until !GetKeyState(Key, 'p')
+      ; Dropped back inside the shape: no callout
+      If (NOT this._tailShown AND IsObject(this.Tip)) {
+         this.Tip := ""
+         this.Refresh()
+      }
    }
    /**
     * InstanceInfo
@@ -644,18 +1101,30 @@ Class TextShape extends CommonShape {
       infoObj._fontSize         := this._fontSize
       infoObj._Alignment        := this._Alignment
       infoObj._BGColor          := this._BGColor
+      infoObj.Tip               := IsObject(this.Tip) ? this.Tip.Clone() : ""
       Return infoObj
    }
    /**
-    * Resize Info for Text Boxes
-    * @returns {Object} 
+    * Move info for undo/redo: also the callout tip, which moves with the body when the
+    * callout itself is dragged
+    * @returns {Object}
+    */
+   MoveInfo() {
+      info := super.MoveInfo()
+      info.Tip := IsObject(this.Tip) ? this.Tip.Clone() : ""
+      Return info
+   }
+   /**
+    * Resize Info for Text Boxes (also covers dragging the callout tip)
+    * @returns {Object}
     */
    ResizeInfo() {
       Return {
          sCoord        : this.sCoord.clone(),
          sPad          : this.sPad.clone(),
          _fontSize     : this._fontSize,
-         _ogFontSize   : this._ogFontSize 
+         _ogFontSize   : this._ogFontSize,
+         Tip           : IsObject(this.Tip) ? this.Tip.Clone() : ""
       }
    }
    /**

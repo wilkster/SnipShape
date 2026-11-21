@@ -29,7 +29,8 @@ Class Cursor {
    Static MoveResizeCursor := 0
    Static ResizeBox        := 9 * A_ScreenDPI / 96
    ; The index ties to the potential resize points 9/10 are for lines leaning backwards
-   Static ResizeCursors := Array("SizeNWSE","SizeNESW","SizeEW","SizeNWSE","SizeNS","SizeNESW","SizeEW","SizeNS")
+   ; Index = corner number from FocusPoints(); 9 = text callout tip
+   Static ResizeCursors := Array("SizeNWSE","SizeNESW","SizeEW","SizeNWSE","SizeNS","SizeNESW","SizeEW","SizeNS","SizeAll")
    Static CL := Map("Starting" , 32650, "Pointer" , 32512, "Cross" , 32515, "Hand",  32649, "Help", 32651, "IBeam", 32513, "No", 32648
                   , "SizeAll", 32646, "SizeNESW", 32643, "SizeNS", 32645, "SizeNWSE", 32642, "SizeEW", 32644, "SizeUpArrow", 32516
                   , "Wait", 32514, "HandPin", 32671)
@@ -402,8 +403,17 @@ Class focusBorder {
       ; Cleamp W/H so we alwaays show something
       W := Max(W, 1)
       H := Max(H, 1)
-      dW := Round(W + RW * 2)
-      dH := Round(H + RW * 2)
+      ; Handles can sit outside the shape box (e.g. a text callout tip), so the
+      ; layered window covers the box and every handle. oX/oY = box origin in the DIB.
+      FPs := this.ShapeObj.FocusPoints()
+      minX := 0, minY := 0, maxX := W, maxY := H
+      For objFP in FPs {
+         minX := Min(minX, objFP.X), maxX := Max(maxX, objFP.X)
+         minY := Min(minY, objFP.Y), maxY := Max(maxY, objFP.Y)
+      }
+      oX := RW - minX, oY := RW - minY
+      dW := Round(maxX - minX + RW * 2)
+      dH := Round(maxY - minY + RW * 2)
       ; NOTE - Update layered window will need the DIBSection so can't just use only GDI+
       ihdc := GDI.CreateCompatibleDC()
       ihbm := GDI.CreateDIBSection(dW, dH, ihdc)
@@ -422,13 +432,13 @@ Class focusBorder {
          GDIp.SetPenAlignment(dashPen, 0)
          ; Solid black
          GDIp.SetPenDashStyle(dashPen, 0)
-         GDIp.DrawRectangle(G, dashPen, RW, RW, W, H)
+         GDIp.DrawRectangle(G, dashPen, oX, oY, W, H)
          ; Solid White overlay
          GDIp.SetPenColor(dashPen, 0xFFFFFFFF)
          ; Even spaced dash line on top of solid line so it shows on any background
          GDIp.SetPenDashArray(dashPen,[RW2 / 2, RW2 / 2])
          ; DllCall("gdiplus\GdipSetPenDashArray", "Ptr", dashPen, "Ptr", PointsF, "int", 2)
-         GDIp.DrawRectangle(G, dashPen, RW, RW, W, H)
+         GDIp.DrawRectangle(G, dashPen, oX, oY, W, H)
          ; Put appropriate resize points
          compBrush := GDIp.BrushCreateSolid(0xC4000000 | cColor)
          colorPen  := GDIp.CreatePen(0xFF000000 | this.ShapeObj.Color, this.BW)
@@ -440,14 +450,16 @@ Class focusBorder {
          ; Ignore if we are outside the shape Rect
          ;----------------------------------------------------------------------
          Rect.Init(this.wX, this.wY, this.wX + this.wW, this.wY + this.wH)
-         fn := this.ShapeObj.FocusSquare ? resizeSquare : resizeCircle
-         For objFP in this.ShapeObj.FocusPoints() {
+         fnShape := this.ShapeObj.FocusSquare ? resizeSquare : resizeCircle
+         For objFP in FPs {
+            ; A handle can ask to be round regardless of the shape's style
+            fn := objFP.HasOwnProp("Round") ? resizeCircle : fnShape
             ; Don't draw the grap points if they are off the shape, only the rectangle
-            If (PtInRect(Rect, (Round(Y + objFP.Y) << 32 | Round(X + objFP.X)))) 
-               fn(objFP.X, objFP.Y)
+            If (PtInRect(Rect, (Round(Y + objFP.Y) << 32 | Round(X + objFP.X))))
+               fn(objFP.X + oX - RW, objFP.Y + oY - RW)
          }
          ; Show the updates, may be offset if we clamped
-         GDI.UpdateLayeredWindow(this.focusBorderGui.hWnd, ihdc, Round(X - RW), Round(Y - RW), dW, dH)
+         GDI.UpdateLayeredWindow(this.focusBorderGui.hWnd, ihdc, Round(X - oX), Round(Y - oY), dW, dH)
          ; Save the latest width for move functions
          this.W := W
          this.H := H

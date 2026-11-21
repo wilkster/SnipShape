@@ -3376,7 +3376,7 @@ Class GDIp {
     * @returns {Integer} GDI+ status code
     */
    Static SetClipPath(pGraphics, pPath, CombineMode := 0) =>
-      DllCall("gdiplus\GdipSetClipPath", "Ptr", pGraphics, "Ptr", pPath, "int", CombineMode := 0)
+      DllCall("gdiplus\GdipSetClipPath", "Ptr", pGraphics, "Ptr", pPath, "int", CombineMode)
    /**
     * Create a GraphicsPath from raw point and type arrays
     * @param pPoints Pointer to the array of integer point coordinates
