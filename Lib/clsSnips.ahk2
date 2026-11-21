@@ -213,6 +213,16 @@ Class Snips {
     */
    Static WM_LBUTTONDOWN(wParam, lParam, msg, hWnd) {
       Static WM_NCLBUTTONDOWN := 0xA1
+      ; Shape group box: drag moves the group. A click on a snip or on a shape
+      ; (a child of a snip) clears the group. Nothing else does: menus, the color
+      ; fly-out and the button bar are this script's windows too, and their clicks
+      ; arrive here before the menu item/color callback runs.
+      If (hWnd = ShapeGroup.hWnd) {
+         ShapeGroup.DragMove()
+         Return
+      }
+      If (ShapeGroup.Active AND (this.IsValid(hWnd) OR this.IsValid(DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr"))))   ; GA_ROOT
+         ShapeGroup.Clear()
       If (SnipObj := this.IsValid(hWnd)) {
          Shapes.InitateDrawHandler(SnipObj)
       } else if (hWnd = this.guiSSR.hWnd) {
@@ -511,6 +521,7 @@ Class Snips {
          Cleanup()
          ;----------------------------------------------------------------------
          ; If we have a viable area, then snip it
+         ; TODO - if TempCap is available then we can bitblt from that
          ;----------------------------------------------------------------------
          Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }
          If (W > 15 and H > 15) {

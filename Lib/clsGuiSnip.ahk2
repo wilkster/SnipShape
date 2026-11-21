@@ -86,6 +86,9 @@ Class GuiSnip extends Gui {
     * Called by Snips.Close()
     */
    Destroy(*) {
+      ; A shape group on this snip goes with it (its box is owned by this window)
+      If (ShapeGroup.SnipObj = this)
+         ShapeGroup.Clear()
       Try {
          ; title := this.Title
          this.ClearAllShapes(true)  ; in case we have built in GC
@@ -471,6 +474,55 @@ Class GuiSnip extends Gui {
       GDI.DeleteDC(hdcDst)
       GDI.DeleteObject(hFull)
       Return hOut
+   }
+
+   /**
+    * Render some of this snip's shapes into a new 32bpp DIB (caller owns) covering
+    * a rectangle of the snip window. Used to copy a shape group (ShapeGroup).
+    * @param {Array} shapeList - shapes to draw (painted in Z-order, bottom first)
+    * @param {Object} rc - {X, Y, W, H} in snip window coordinates
+    * @param {Integer} withPicture - true: over the snip picture/border as shown;
+    *                                false: on a transparent background
+    * @returns {Integer} hBitmap
+    */
+   RenderShapes(shapeList, rc, withPicture := true) {
+      Static AC_SRC_OVER_ALPHA := 0x01FF0000
+      If (withPicture) {
+         hFull := this._ComposeSnip(this.myHandle, this._alpha)
+      } Else {
+         this.GetPos(, , &wW, &wH)
+         hdcT  := GDI.CreateCompatibleDC(0)
+         hFull := GDI.CreateDIBSection(wW, wH, hdcT)   ; zero filled = transparent
+         GDI.DeleteDC(hdcT)
+      }
+      want := Map()
+      For shp in shapeList
+         want[shp.hWnd] := true
+      hdcDst := GDI.CreateCompatibleDC(0)
+      obmDst := GDI.SelectObject(hdcDst, hFull)
+      list := this.VisibleShapes   ; top of the Z-order first
+      i := list.Length
+      While (i >= 1) {
+         ShapeObj := list[i--]
+         If NOT want.Has(ShapeObj.hWnd)
+            Continue
+         Try {
+            If NOT (r := ShapeObj.RenderSurface())
+               Continue
+         } Catch as e {
+            elog(e, "RenderShapes: shape " ShapeObj.ShapeName " failed to render")
+            Continue
+         }
+         DllCall("Msimg32\AlphaBlend"
+            , "Ptr", hdcDst, "Int", r.X, "Int", r.Y, "Int", r.Surf.W, "Int", r.Surf.H
+            , "Ptr", r.Surf.hdc, "Int", 0, "Int", 0, "Int", r.Surf.W, "Int", r.Surf.H
+            , "UInt", AC_SRC_OVER_ALPHA)
+         r := ""
+      }
+      GDI.SelectObject(hdcDst, obmDst)
+      GDI.DeleteDC(hdcDst)
+      ; CropHBITMAP deletes hFull
+      Return BitMap.CropHBITMAP(hFull, rc.X, rc.Y, Max(1, rc.W), Max(1, rc.H))
    }
 
    /**

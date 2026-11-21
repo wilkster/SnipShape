@@ -82,6 +82,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsSnips.ahk2
 #include clsClipboard.ahk2
 #include clsCursor.ahk2
+#include clsShapeGroup.ahk2
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
 #include undo.ahk2
@@ -291,6 +292,17 @@ HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
       }
    }
 HotIfWinActive   
+; Shape group selected (Shift-drag on the snip). Defined before the general snip
+; hotkeys: when several #HotIf variants match, the one created first fires.
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ShapeGroup.Active
+   Del:: ShapeGroup.Delete()
+   ^c:: ShapeGroup.CopyToClipboard(true)
+   Esc:: ShapeGroup.Clear()
+   $Up:: ShapeGroup.Thicken(+0.03)
+   $Down:: ShapeGroup.Thicken(-0.03)
+   $Wheelup:: ShapeGroup.Thicken(+0.02)
+   $Wheeldown:: ShapeGroup.Thicken(-0.02)
+#HotIf
 ; Spare bar has multiple uses, constrain it for active mode to cancel action
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND NOT Shapes.DrawActive
    Space:: Snips.SetDrawMode(0)

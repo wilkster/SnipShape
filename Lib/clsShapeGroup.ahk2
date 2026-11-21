@@ -1,0 +1,456 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description Group selection of shapes on a snip
+ *
+ * Shift-drag on the snip background (select mode, or Ctrl+Shift-drag in a draw
+ * mode) draws a selection rectangle; the shapes fully inside it become a group,
+ * shown with a dashed box. While the group is up:
+ *   - drag inside the box moves every shape (one undo step)
+ *   - right-click the box: copy, color (fly-out), size, delete
+ *   - Up/Down and the mouse wheel change each shape's size/thickness (as for a
+ *     single focused shape); Del deletes; Ctrl-C copies; Esc or a click
+ *     anywhere else on the snip clears the group; 1-9 color keys recolor it
+ *
+ * The box is a layered popup owned by the snip, filled with a faint tint so it
+ * catches clicks over its whole area (Snips.WM_LBUTTONDOWN routes them here).
+ * It never activates (WS_EX_NOACTIVATE), so the snip keeps its hotkeys.
+ * A timer keeps it in step with the shapes (snip moved/scaled, undo, close).
+ ***********************************************************************/
+Class ShapeGroup {
+   Static List     := []      ; selected shapes (commonShape)
+   Static SnipObj  := 0       ; snip that owns them
+   Static snipHwnd := 0
+   Static Margin   := 4       ; box margin around the shapes (px)
+
+   Static __New() {
+      this._timer   := this.Sync.Bind(this)
+      this._lastKey := ""
+      this._resizePosted := false
+      this._MakeGui()
+   }
+   /**
+    * Create the box window: layered, no caption, tool window, never activated.
+    * It is owned by the snip while a group is up, and Windows destroys owned
+    * windows with their owner, so it is recreated if a snip took it down.
+    */
+   Static _MakeGui() {
+      If (this.HasOwnProp("gui") AND DllCall("IsWindow", "Ptr", this.hWnd))
+         Return
+      ; AlwaysOnTop: snips are topmost, and an owned window that isn't stays behind them
+      this.gui  := Gui("-Caption +E0x80000 +E0x08000000 +ToolWindow +AlwaysOnTop -DPIScale")
+      this.hWnd := this.gui.hWnd
+      this.gui.OnEvent("ContextMenu", (*) => this.ShowMenu())
+      ; WS_EX_NOACTIVATE alone doesn't stop a click activating it (tested), and the
+      ; snip's hotkeys (keys, wheel) need the snip to stay active: MA_NOACTIVATE
+      this.gui.OnMessage(0x21, (*) => 3)   ; WM_MOUSEACTIVATE
+   }
+
+   /**
+    * True while a group is selected and shown
+    * @type {Integer}
+    */
+   Static Active => (this.List.Length > 0 AND this.SnipObj != 0)
+
+   /**
+    * Shift-drag on the snip: draw the selection rectangle until the button is
+    * released, then select the shapes fully inside it. Esc cancels.
+    * @param {GuiSnip} SnipObj - Snip that was clicked
+    * @returns {Integer} number of shapes selected
+    */
+   Static SelectDrag(SnipObj) {
+      this.Clear()
+      CoordMode("Mouse", "Screen")
+      MouseGetPos(&sX, &sY)
+      SnipObj.GetPos(&wX, &wY, &wW, &wH)
+      this._MakeGui()
+      this.gui.Opt("+Owner" SnipObj.hWnd)
+      focusBorder.HideFocus(true)
+      rc := 0, lastX := "", lastY := ""
+      While GetKeyState("LButton", "P") {
+         If GetKeyState("Esc", "P") {
+            this._Hide()
+            Return 0
+         }
+         MouseGetPos(&mX, &mY)
+         If (mX != lastX OR mY != lastY) {
+            ; snip window coordinates, kept inside the snip
+            x1 := Constrain(0, wW, Min(sX, mX) - wX), x2 := Constrain(0, wW, Max(sX, mX) - wX)
+            y1 := Constrain(0, wH, Min(sY, mY) - wY), y2 := Constrain(0, wH, Max(sY, mY) - wY)
+            rc := { X: x1, Y: y1, W: x2 - x1, H: y2 - y1 }
+            this._Render(wX, wY, rc)
+            lastX := mX, lastY := mY
+         }
+         Sleep(10)
+      }
+      this._Hide()
+      If (NOT rc OR (rc.W < 3 AND rc.H < 3))
+         Return 0
+      sel := this.ShapesInRect(SnipObj, rc)
+      If (sel.Length)
+         this.Select(SnipObj, sel)
+      Return sel.Length
+   }
+
+   /**
+    * Shapes fully inside a rectangle: the shape box (line end points, text body)
+    * and, for a text callout, its tip
+    * @param {Object} rc - {X, Y, W, H} in snip window coordinates
+    * @returns {Array}
+    */
+   Static ShapesInRect(SnipObj, rc) {
+      sel := []
+      For shp in SnipObj.VisibleShapes {
+         If NOT this._Selectable(shp)
+            Continue
+         C := shp.shapeCoord
+         inside := (C.X >= rc.X AND C.Y >= rc.Y AND C.X + C.W <= rc.X + rc.W AND C.Y + C.H <= rc.Y + rc.H)
+         If (inside AND shp.Source = "Text" AND shp.HasProp("Tip") AND IsObject(shp.Tip))
+            inside := (shp.Tip.X >= rc.X AND shp.Tip.Y >= rc.Y AND shp.Tip.X <= rc.X + rc.W AND shp.Tip.Y <= rc.Y + rc.H)
+         If (inside)
+            sel.Push(shp)
+      }
+      Return sel
+   }
+
+   /**
+    * Make a group from a list of shapes and show its box
+    */
+   Static Select(SnipObj, shapeList) {
+      this.Clear()
+      this.SnipObj := SnipObj
+      this.snipHwnd := SnipObj.hWnd   ; reading hWnd of a destroyed snip throws
+      this.List    := shapeList
+      this._resizePosted := false
+      this._MakeGui()
+      this.gui.Opt("+Owner" SnipObj.hWnd)
+      focusBorder.HideFocus(true)
+      this.Sync()
+      SetTimer(this._timer, 200)
+   }
+
+   /**
+    * Drop the group and hide its box
+    */
+   Static Clear() {
+      SetTimer(this._timer, 0)
+      this.List    := []
+      this.SnipObj := 0
+      this._lastKey := ""
+      this._Hide()
+   }
+   ; Hide the box and let go of the snip (an owned window dies with its owner)
+   Static _Hide() {
+      If NOT DllCall("IsWindow", "Ptr", this.hWnd)
+         Return
+      this.gui.Hide()
+      this.gui.Opt("-Owner")
+   }
+
+   /**
+    * Keep the box on the shapes: drops shapes that were closed (delete, undo),
+    * clears the group when the snip is gone or minimized, and redraws the box
+    * when the snip or any shape moved or changed size.
+    */
+   Static Sync() {
+      If NOT this.Active
+         Return
+      snip := this.SnipObj
+      If (NOT DllCall("IsWindow", "Ptr", this.snipHwnd) OR DllCall("IsIconic", "Ptr", this.snipHwnd)) {
+         this.Clear()
+         Return
+      }
+      keep := []
+      For shp in this.List {
+         Try {
+            If (shp.Visible)
+               keep.Push(shp)
+         }
+      }
+      this.List := keep
+      If NOT keep.Length {
+         this.Clear()
+         Return
+      }
+      snip.GetPos(&wX, &wY)
+      If NOT (rc := this.Bounds(this.Margin))
+         Return
+      key := wX "," wY "," rc.X "," rc.Y "," rc.W "," rc.H
+      If (key != this._lastKey) {
+         this._Render(wX, wY, rc, true)
+         this._lastKey := key
+      }
+   }
+
+   /**
+    * Union of the shapes' window rectangles (what they draw, padding included),
+    * in snip window coordinates, grown by a margin and clipped to the snip.
+    * @returns {Object|Integer} {X, Y, W, H} or 0
+    */
+   Static Bounds(margin := 0) {
+      snip := this.SnipObj
+      snip.GetPos(&wX, &wY, &wW, &wH)
+      x1 := y1 := 1e9, x2 := y2 := -1e9
+      For shp in this.List {
+         WinGetRect(&sx, &sy, &sw, &sh, shp.hWnd)
+         x1 := Min(x1, sx - wX), y1 := Min(y1, sy - wY)
+         x2 := Max(x2, sx - wX + sw), y2 := Max(y2, sy - wY + sh)
+      }
+      x1 := Max(0, x1 - margin), y1 := Max(0, y1 - margin)
+      x2 := Min(wW, x2 + margin), y2 := Min(wH, y2 + margin)
+      If (x2 <= x1 OR y2 <= y1)
+         Return 0
+      Return { X: Round(x1), Y: Round(y1), W: Round(x2 - x1), H: Round(y2 - y1) }
+   }
+
+   /**
+    * Drag inside the box: move every shape with the mouse. Text callout tips move
+    * with their text. One undo step; nothing is posted if the mouse didn't move.
+    */
+   Static DragMove() {
+      If NOT this.Active
+         Return
+      snip := this.SnipObj
+      tag  := A_TickCount "GroupMove"
+      For shp in this.List
+         shp.PostAction(UnDo.MOVE_SHAPE, tag)
+      this._resizePosted := false
+      CoordMode("Mouse", "Screen")
+      MouseGetPos(&sX, &sY)
+      starts := this._Starts()
+      Cursor.SetCursorMode("Move")
+      focusBorder.HideFocus(true)
+      lastX := sX, lastY := sY, moved := false
+      While GetKeyState("LButton", "P") {
+         Sleep(10)
+         MouseGetPos(&mX, &mY)
+         If (mX = lastX AND mY = lastY)
+            Continue
+         this._MoveTo(starts, mX - sX, mY - sY)
+         this.Sync()
+         lastX := mX, lastY := mY, moved := true
+      }
+      Cursor.MoveResizeCursor := 0
+      Cursor.SetCursor("Select")
+      ; keep the snip active so its hotkeys (color keys, wheel, Del) still reach the group
+      If (NOT WinActive(this.snipHwnd) AND DllCall("IsWindow", "Ptr", this.snipHwnd))
+         WinActivate(this.snipHwnd)
+      If NOT moved {
+         ; a click without a drag: take back the undo entries
+         Loop this.List.Length
+            snip.UnDo.PopAction()
+         Return
+      }
+      this._Changed()
+   }
+
+   /**
+    * Delete every shape in the group (one undo step) and clear the group
+    */
+   Static Delete() {
+      If NOT this.Active
+         Return
+      snip := this.SnipObj
+      tag  := A_TickCount "GroupDelete"
+      For shp in this.List {
+         shp.PostAction(UnDo.DELETE_SHAPE, tag)
+         shp.Close(true)
+      }
+      this.Clear()
+      If (Snips.UpdateClipboard) {
+         snip.Snip2Clipboard(Snips.borderWithCopy)
+         snip.flashBorder()
+      }
+   }
+
+   /**
+    * Color every shape that has a color (not pictures or blur/pixelate), one undo step
+    * @param {Integer} color - RGB
+    */
+   Static SetColor(color) {
+      If NOT this.Active
+         Return
+      tag := A_TickCount "GroupColor"
+      For shp in this.List {
+         If NOT this._HasColor(shp)
+            Continue
+         shp.PostAction(UnDo.SHAPE_COLOR, tag)
+         shp.Color := color
+         shp.Refresh()
+      }
+      this._resizePosted := false
+      this._Changed()
+   }
+
+   /**
+    * Up/Down/wheel: change each shape's thickness/size, as for a single focused
+    * shape (line width, text font size, blur amount). The first change after a
+    * selection or another group action posts one undo step for the whole run.
+    * @param {Float} amt - fractional change (+0.02 = 2% bigger)
+    */
+   Static Thicken(amt) {
+      If NOT this.Active
+         Return
+      If NOT this._resizePosted {
+         tag := A_TickCount "GroupSize"
+         For shp in this.List
+            shp.PostAction(UnDo.RESIZE_SHAPE, tag)
+         this._resizePosted := true
+      }
+      For shp in this.List {
+         shp.ChangeThickness(amt)
+         shp.Refresh()
+      }
+      this.Sync()
+      this.SnipObj.Dirty++
+   }
+
+   /**
+    * Copy the group to the clipboard
+    * @param {Integer} withPicture - true: the shapes over the snip picture under them
+    *                                (as seen); false: only the shapes, transparent
+    */
+   Static CopyToClipboard(withPicture := true) {
+      If NOT this.Active
+         Return
+      If NOT (rc := this.Bounds(0))
+         Return
+      hBitmap := this.SnipObj.RenderShapes(this.List, rc, withPicture)
+      If ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+         MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
+      Else
+         this.SnipObj.flashBorder()
+   }
+
+   /**
+    * Right-click on the box
+    */
+   Static ShowMenu() {
+      Static grpMenu := Menu()
+      If NOT this.Active
+         Return
+      grpMenu.Delete()
+      n := this.List.Length
+      title := n " Shape" (n = 1 ? "" : "s")
+      grpMenu.Add("Copy " title " to Clipboard (Ctrl-C)", (*) => this.CopyToClipboard(true))
+      grpMenu.SetIcon("Copy " title " to Clipboard (Ctrl-C)", SETTINGS.CursorPath "Clipboard.ico")
+      grpMenu.Add("Copy " title " Only (Transparent)", (*) => this.CopyToClipboard(false))
+      grpMenu.SetIcon("Copy " title " Only (Transparent)", SETTINGS.CursorPath "Clipboard.ico")
+      grpMenu.Add()
+      ; Color fly-out (ColorPopDown shows it for an item with "Color" in its text)
+      defColor := -1
+      For shp in this.List {
+         If this._HasColor(shp) {
+            defColor := RGBval(shp.Color)
+            Break
+         }
+      }
+      If (defColor >= 0) {
+         grpMenu.Add("Shape Color`t❯", (*) => {})
+         grpMenu.SetIcon("Shape Color`t❯", SETTINGS.CursorPath "colors.ico")
+      }
+      grpMenu.Add("Increase Size (Up/Wheel)", (*) => this.Thicken(+0.1))
+      grpMenu.SetIcon("Increase Size (Up/Wheel)", SETTINGS.CursorPath "Plus.ico")
+      grpMenu.Add("Decrease Size (Down/Wheel)", (*) => this.Thicken(-0.1))
+      grpMenu.SetIcon("Decrease Size (Down/Wheel)", SETTINGS.CursorPath "Minimize.ico")
+      grpMenu.Add()
+      grpMenu.Add("Delete " title " (Del)", (*) => this.Delete())
+      grpMenu.SetIcon("Delete " title " (Del)", SETTINGS.CursorPath "Close.ico")
+      If (defColor >= 0)
+         ColorPopDown.RegisterFlyOutColorSelect(this._ColorPicked.Bind(this), defColor)
+      ; Blocks here
+      grpMenu.Show()
+      ColorPopDown.RegisterFlyOutColorSelect()
+      grpMenu.Delete()
+   }
+   ; ColorPopDown calls this.callback(color), so the first parameter is ColorPopDown
+   Static _ColorPicked(cb, colorCode, *) {
+      snip := this.SnipObj
+      this.SetColor(colorCode)
+      If (snip)
+         WinActivate(snip.hWnd)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Helpers
+   ;----------------------------------------------------------------------
+   ; Start positions for a move (text callout tips move with their text)
+   Static _Starts() {
+      starts := []
+      For shp in this.List {
+         shp.GetPos(&X, &Y)
+         tip := (shp.Source = "Text" AND shp.HasProp("Tip") AND IsObject(shp.Tip)) ? shp.Tip.Clone() : 0
+         starts.Push({ X: X, Y: Y, Tip: tip })
+      }
+      Return starts
+   }
+   ; Place every shape at its start position plus dX, dY
+   Static _MoveTo(starts, dX, dY) {
+      For idx, shp in this.List {
+         st := starts[idx]
+         If (st.Tip)
+            shp.Tip := { X: st.Tip.X + dX, Y: st.Tip.Y + dY }
+         shp.Move(st.X + dX, st.Y + dY)
+      }
+   }
+   Static _Selectable(shp) {
+      Switch shp.Source {
+         Case "File", "Clip", "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+            Return true
+      }
+      Return false
+   }
+   ; Same rule as the single shape menu: pictures and blur/pixelate have no color
+   Static _HasColor(shp) {
+      Switch shp.Source {
+         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
+            Switch shp.Shape {
+               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
+                  Return false
+            }
+            Return true
+      }
+      Return false
+   }
+   ; After a move/color change: redraw the box, mark the snip, auto clipboard
+   Static _Changed() {
+      snip := this.SnipObj
+      this.Sync()
+      snip.Dirty++
+      If (Snips.UpdateClipboard) {
+         snip.Snip2Clipboard(Snips.borderWithCopy)
+         snip.flashBorder()
+      }
+   }
+
+   /**
+    * Draw the box (dashed black/white like the focus rectangle) over a faint tint.
+    * The tint is what makes the box catch clicks (fully transparent pixels of a
+    * layered window are click-through).
+    * @param {Number} wX - snip window screen X
+    * @param {Number} wY - snip window screen Y
+    * @param {Object} rc - {X, Y, W, H} in snip window coordinates
+    */
+   Static _Render(wX, wY, rc, isGroup := false) {
+      bw := focusBorder.BW
+      dW := Max(Round(rc.W), 2), dH := Max(Round(rc.H), 2)
+      Surf := GDIp.DIBSurface(dW, dH, this.hWnd)
+      Surf.GraphicsClear(isGroup ? 0x283C78D8 : 0x203C78D8)
+      pen := GDIp.CreatePen(0xFF000000, bw)
+      GDIp.DrawRectangle(Surf.G, pen, bw / 2, bw / 2, dW - bw, dH - bw)
+      GDIp.SetPenColor(pen, 0xFFFFFFFF)
+      dash := Cursor.ResizeBox / 4
+      GDIp.SetPenDashArray(pen, [dash, dash])
+      GDIp.DrawRectangle(Surf.G, pen, bw / 2, bw / 2, dW - bw, dH - bw)
+      GDIp.DeletePen(pen)
+      sX := Round(wX + rc.X), sY := Round(wY + rc.Y)
+      ; The first Show sizes and centres the window itself, so give it the box first
+      If NOT IsWindowVisible(this.hWnd) {
+         this.gui.Show(Format("NA x{} y{} w{} h{}", sX, sY, dW, dH))
+         ; above the (topmost) snip: HWND_TOPMOST, SWP_NOMOVE|NOSIZE|NOACTIVATE
+         DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+      }
+      Surf.UpdateLayer(sX, sY)
+      Surf := ""
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

@@ -122,6 +122,11 @@ Class Cursor {
          ; ctrl := GuiCtrlFromHwnd(wParam)
          ; (Change) returning 0 (default cursor) if we are not over a shape
          Return this.SetCursor(this.MoveResizeCursor, Snips.GetGuiObj(hWnd).DrawMode, (wParam = hWnd ? 0 : wParam))
+      } Else If (hWnd = ShapeGroup.hWnd AND ShapeGroup.Active) {
+         ; Over a shape group box: it moves as one
+         focusBorder.HideFocus()
+         DllCall(this.SetCur, "Ptr", this.Cursors["Move"])
+         Return 1
       } Else If (hwnd = ButtonBar.bbGUI.hWnd) {
          ; Button Bar, get the control hWnd
          ; Show a tooltip for the button if we have one

@@ -432,6 +432,11 @@ Class Shapes {
          DrawMode := 0
       Switch DrawMode {
          Case 0:
+            ; Shift-drag selects a group of shapes (Ctrl+Shift-drag in a draw mode)
+            If (GetKeyState("Shift", "P")) {
+               ShapeGroup.SelectDrag(SnipObj)
+               Return
+            }
             ; Make it seem the caption was clicked so dragging will work.
             Cursor.SetCursor("SizeAll") ; (Changed: was Move)
             DllCall("ReleaseCapture")
@@ -1381,7 +1386,11 @@ Class Shapes {
     */
    Static setShapeColor(val,*) {
       nc := RGBval(val)
-      this.ColorQueue.push(nc)
+      ; A selected shape group takes the color directly
+      If (ShapeGroup.Active)
+         ShapeGroup.SetColor(nc)
+      Else
+         this.ColorQueue.push(nc)
       If (nc != this.globalShapeColor) {
          this.globalShapeColor := nc
          Snips.SetSnipBorderColor(val)
