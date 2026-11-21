@@ -138,22 +138,33 @@ Class LineShape extends commonShape {
 
          Case Shapes.SHAPE_TAPARROW:
             ; Start point is tiny, hard to grab
-            GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
+            If (bend)
+               this._DrawCurve(G, this.pGrab, bend)
+            Else
+               GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
             ; Create the arrow left to right on the 0 X centerline then rotate/translate into the graphics space
             T := GDIp.GetPenWidth(this.pPrime) ; Everything scales off the primary thickness
             W := T * 2 ; width of tip (Y dimension)
             H := T * 2 ; length of tip (X dimension)
             I := T * 0.25 ; Inset of tip from length (X dimension)
             L := Sqrt((X1 - X2) ** 2 + (Y1 - Y2) ** 2)
-            ; Coordinates of the tapered arrow
-            pArray := [[0, 0], [L - H + I, T / 2], [L - H, W / 2], [L, 0], [L - H, -W / 2], [L - H + I, -T / 2]]
+            ; Bent: the same outline built along the curve, already in place
+            pArray := bend ? this._TaperCurvePolygon(bend, T, W, H, I) : 0
             oPath := GDIp.Path(G)
-            oPath.AddPathArray(pArray, 1)
-            oPath.ClosePathFigure()
-            ; Compute the rotation angle and rotate the arrow (around graphics origin), then translate to the start point
-            ; 2.1 has proper Atan2
-            Ang := myAngle(Y2 - Y1, X2 - X1)
-            oPath.TranslateRotatePath(Ang, X1, Y1)
+            If (pArray) {
+               oPath.SetPathFillMode(1)   ; winding: a tight bend folds the inner side over itself
+               oPath.AddPathArray(pArray, 1)
+               oPath.ClosePathFigure()
+            } Else {
+               ; Coordinates of the tapered arrow
+               pArray := [[0, 0], [L - H + I, T / 2], [L - H, W / 2], [L, 0], [L - H, -W / 2], [L - H + I, -T / 2]]
+               oPath.AddPathArray(pArray, 1)
+               oPath.ClosePathFigure()
+               ; Compute the rotation angle and rotate the arrow (around graphics origin), then translate to the start point
+               ; 2.1 has proper Atan2
+               Ang := myAngle(Y2 - Y1, X2 - X1)
+               oPath.TranslateRotatePath(Ang, X1, Y1)
+            }
             ; HACK - we center on the path, so we overlap it by half. Which is ok for opacity=255, but we get blending otherwise
             If (this.shapeOpacity < 255)
                 GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
@@ -333,7 +344,7 @@ Class LineShape extends commonShape {
       Switch this.Shape {
          Case Shapes.SHAPE_CONNECT: props := ["MidPos"]
          Case Shapes.SHAPE_BRACKET: props := ["BrPos", "BrDepth"]
-         Case Shapes.SHAPE_LINE, Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
+         Case Shapes.SHAPE_LINE, Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_TAPARROW:
             props := ["BendT", "BendD"]
          Default: Return
       }
@@ -408,7 +419,8 @@ Class LineShape extends commonShape {
     * @type {Integer}
     */
    Bendable => (this.Shape = Shapes.SHAPE_LINE OR this.Shape = Shapes.SHAPE_ARROW
-             OR this.Shape = Shapes.SHAPE_OARROW OR this.Shape = Shapes.SHAPE_ODARROW)
+             OR this.Shape = Shapes.SHAPE_OARROW OR this.Shape = Shapes.SHAPE_ODARROW
+             OR this.Shape = Shapes.SHAPE_TAPARROW)
 
    /**
     * Snip position of the "Bend" control point for a line from X1,Y1 to X2,Y2.
@@ -435,6 +447,81 @@ Class LineShape extends commonShape {
          Return 0
       M := this.BendPoint(X1, Y1, X2, Y2)
       Return [[X1, Y1], [M.X, M.Y], [X2, Y2]]
+   }
+
+   /**
+    * Outline of a bent tapered arrow: the straight version's shape laid along the
+    * cardinal curve through start, control point and end. The shaft widens from 0 at
+    * the start to T where it meets the head; the head (base width W, length H, shaft
+    * joins I in front of the base) points from the curve point H before the end to the end.
+    * The curve is the same one GDI+ draws for AddPathCurve2 at tension 0.5 (cubic
+    * Beziers with control points tension/3 along the neighbouring chords).
+    * @param {Array} pts - [[start], [control point], [end]]
+    * @returns {Array|Integer} polygon points, or 0 if the curve is too short for a head
+    */
+   _TaperCurvePolygon(pts, T, W, H, I) {
+      k := 0.5 / 3
+      P0 := pts[1], P1 := pts[2], P2 := pts[3]
+      ; (AHK names are case-insensitive: no t/n/i locals, they would be T/N/I)
+      ; Two cubic segments: P0 -> P1 -> P2
+      segs := [[P0, [P0[1] + k * (P1[1] - P0[1]), P0[2] + k * (P1[2] - P0[2])]
+                  , [P1[1] - k * (P2[1] - P0[1]), P1[2] - k * (P2[2] - P0[2])], P1]
+             , [P1, [P1[1] + k * (P2[1] - P0[1]), P1[2] + k * (P2[2] - P0[2])]
+                  , [P2[1] + k * (P1[1] - P2[1]), P2[2] + k * (P1[2] - P2[2])], P2]]
+      ; Sample the curve with cumulative arc length
+      segN := 32
+      sx := [P0[1]], sy := [P0[2]], sl := [0]
+      For sg in segs {
+         Loop segN {
+            tt := A_Index / segN, u := 1 - tt
+            a := u * u * u, b := 3 * u * u * tt, c := 3 * u * tt * tt, d := tt * tt * tt
+            x := a * sg[1][1] + b * sg[2][1] + c * sg[3][1] + d * sg[4][1]
+            y := a * sg[1][2] + b * sg[2][2] + c * sg[3][2] + d * sg[4][2]
+            sl.Push(sl[sl.Length] + Sqrt((x - sx[sx.Length]) ** 2 + (y - sy[sy.Length]) ** 2))
+            sx.Push(x), sy.Push(y)
+         }
+      }
+      cnt := sx.Length, S := sl[cnt]
+      If (S <= H + 1)
+         Return 0
+      ; Head base: the curve point H before the end; head axis from there to the tip
+      sb := S - H
+      Loop cnt - 1 {
+         j := A_Index
+         If (sl[j + 1] >= sb)
+            Break
+      }
+      f  := (sb - sl[j]) / Max(sl[j + 1] - sl[j], 1e-9)
+      bx := sx[j] + (sx[j + 1] - sx[j]) * f, by := sy[j] + (sy[j + 1] - sy[j]) * f
+      hl := Sqrt((P2[1] - bx) ** 2 + (P2[2] - by) ** 2)
+      If (hl < 1)
+         Return 0
+      ux := (P2[1] - bx) / hl, uy := (P2[2] - by) / hl
+      ; Shaft half width grows linearly to T/2 where it meets the head
+      span := sb + I
+      left := [], right := []
+      Loop j {
+         ix := A_Index
+         ; Direction at the sample (central difference)
+         dx := sx[Min(ix + 1, cnt)] - sx[Max(ix - 1, 1)], dy := sy[Min(ix + 1, cnt)] - sy[Max(ix - 1, 1)]
+         dl := Sqrt(dx * dx + dy * dy)
+         If (dl < 1e-9)
+            Continue
+         hw := (T / 2) * sl[ix] / span
+         nx := -dy / dl * hw, ny := dx / dl * hw
+         left.Push([sx[ix] + nx, sy[ix] + ny])
+         right.Push([sx[ix] - nx, sy[ix] - ny])
+      }
+      vx := -uy, vy := ux   ; head normal (same side as "left")
+      pArray := left
+      pArray.Push([bx + ux * I + vx * T / 2, by + uy * I + vy * T / 2])
+      pArray.Push([bx + vx * W / 2, by + vy * W / 2])
+      pArray.Push([P2[1], P2[2]])
+      pArray.Push([bx - vx * W / 2, by - vy * W / 2])
+      pArray.Push([bx + ux * I - vx * T / 2, by + uy * I - vy * T / 2])
+      Loop right.Length
+         pArray.Push(right[right.Length + 1 - A_Index])
+      Return pArray
    }
 
    /**
