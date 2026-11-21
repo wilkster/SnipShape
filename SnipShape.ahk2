@@ -312,7 +312,7 @@ HotIfWinActive
       /** @type {GuiSnip} */
       If (SnipObj := Snips.GetGuiObj()) {
          SnipObj.Snip2Clipboard(Snips.borderWithCopy)
-         ; SnipObj.Minimize()
+         SnipObj.flashBorder()
       }
    }
    ^x:: {

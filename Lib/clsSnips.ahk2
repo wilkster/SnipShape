@@ -577,6 +577,8 @@ Class Snips {
 
          ; hBitmap will be the responsibility for the clipboard/gui to clean up
          hBitmap := BitMap.HBitmapFromScreen(Area)
+         ; Opaque premultiplied picture (a capture with no alpha is made opaque)
+         BitMap.NormalizePictureAlpha(hBitmap)
          ; NOTE : If PrintWindow worked on non DPI aware apps, it would be preferred
          ;        so we would get parts of the window that is off screen or covered.
          If CreateSnip {
@@ -636,7 +638,7 @@ Class Snips {
       lastFolder := IniReadValue("Snips", "Last Export Folder", "")
       FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png" 
       If (FileName := FileSelect("S", FileName, "Save Snip","Image (*.png; *.bmp; *.jpg;*.tif)")) {
-         pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)
+         pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
          ; New filename
          If (FileExist(FileName)) {
             Switch MsgBox("The File Exists, do you want to replace it (Yes), Or skip (No)?", FileName, 0x1034) {
@@ -674,7 +676,7 @@ Class Snips {
     */
    Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
       try {
-         pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap)
+         pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
          If IsSet(SnipObj) {
             hook := PreDialog(SnipObj)
             baseName := SnipObj.BaseName
@@ -753,6 +755,8 @@ Class Snips {
    Static Clipboard2Snip(hWnd :=0, BorderColor := 0xff00FF00) {
       If (Clipboard.hasImage()) {
          If (hBitmap := Clipboard.HBITMAPFromClipboard(&W := 0, &H := 0)) {
+            ; Clipboard alpha is straight (or absent): premultiply / make opaque once here
+            BitMap.NormalizePictureAlpha(hBitmap)
             If (WinExist(hWnd)) {
                WinGetPosEx(&X, &Y, &W, &H, hWnd)
                Area := { X: X, Y: Y, W: W, H: H, X2: X + W, Y2: Y + H }

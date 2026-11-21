@@ -821,10 +821,30 @@ Class BitMap {
       Return Round(base * MonDPIunderWindow(hWnd) / 96)
    }
    /**
-    * Replace one color with another in a bitmap (in place)
-    * @param uBitmap Pointer to bits in a bitmap hBitmap or pBitmap
-    * @param NewAlpha Alpha replacement value (e.g 0xFF), -1 means using existing alpha channel per pixel
-    * @returns {Integer} number of replaced pixels
+    * Make a picture entering a snip ready for layered display: if it has no alpha at
+    * all (every A = 0, e.g. a plain BitBlt copy or some clipboard sources) make it
+    * opaque; otherwise premultiply its straight alpha. Only 32bpp DIB sections are
+    * touched; other bit depths are left as they are.
+    * Call ONCE where a new picture enters (screen capture, clipboard, file), never on
+    * a picture that is already premultiplied.
+    * @param {Integer} hBitmap DIB section, modified in place
+    * @returns {Integer} Pixels changed, 0 if not a 32bpp DIB section
+    */
+   Static NormalizePictureAlpha(hBitmap) {
+      ds := tagDIBSECTION()
+      If (!hBitmap || !GDI.GetObject(hBitmap, ds.size, ds.ptr) || !ds.dsBm.bmBits || ds.dsBm.bmBitsPixel != 32)
+         Return 0
+      Return BitMap.PreMultiplyBitmap(hBitmap, -2)
+   }
+   /**
+    * Alpha handling for a 32bpp bitmap, in place (MCode/ARGBtoPARGB.cpp)
+    * @param uBitmap hBitmap (DIB section) or pBitmap
+    * @param NewAlpha
+    *   -1 (default) or 0: straight ARGB -> premultiplied, using each pixel's own alpha
+    *   1..255: apply a window transparency to PREMULTIPLIED pixels (all channels scaled
+    *           by NewAlpha/255; transparent pixels stay transparent; 255 = no change)
+    *   -2: normalize a new picture (see NormalizePictureAlpha)
+    * @returns {Integer} number of pixels changed
     */
    Static PreMultiplyBitmap(uBitmap, NewAlpha:=-1) {
       Static mCodeFunc := 0
@@ -833,10 +853,15 @@ Class BitMap {
          If (A_PtrSize = 8) {
             x64 := "
             (
-            QVdBVkFVQVRFicRVV1ZTRItEJGiF0g+OvgAAAEWF5A+OtQAAAEiJz4nTTWPpMe1FMdtEicZBuoGAgIAPH0QAAEiJ+kUxyWYuDx+E
-            AAAAAACJ8UWFwH8ED7ZKA4D5/3ROD7YCRA+2+UQPtnIBiEoDQYPDAUEPr8dFD6/3g8B/SQ+vwkGDxn9ND6/ySMHoJ4gCD7ZCAknB
-            7idEiHIBQQ+vx4PAf0kPr8JIwegniEICQYPBAUiDwgREOct/lYPFAUwB70E57A+Pdv///1tEidheX11BXEFdQV5BX8NFMdtbXkSJ
-            2F9dQVxBXUFeQV/DkJCQ
+            SIPsIIXSQYnSSYnLD57ARYXASIl0JAiLTCRID57CCNAPheoAAABNhdsPhOEAAACNQf9IiRwkRInDPf4AAAAPh9wAAACB+f8AAAAP
+            hLcAAABIiXwkEDH2SWP5QbmBgICASIlsJBgx7WYPH4QAAAAAAEyJ2EUxwGYuDx+EAAAAAAAPthBBg8ABSIPABA+v0YPCf0kPr9FI
+            weoniFD8D7ZQ/Q+v0YPCf0kPr9FIweoniFD9D7ZQ/g+v0YPCf0kPr9FIweoniFD+D7ZQ/w+v0YPCf0kPr9FIweoniFD/RTnCf6CD
+            xQFEAdZJAfs563+DSIscJEiLfCQQSItsJBiJ8EiLdCQISIPEIMNIixwkDx9EAAAx9onwSIt0JAhIg8Qgw2aQSIl8JBBJY/lIiWwk
+            GIP5/g+EjQAAADHtMfZBuYGAgIBMidhFMcBmLg8fhAAAAAAAD7ZQA4D6/3RAD7YIg8YBD6/Kg8F/SQ+vyUjB6SeICA+2SAEPr8qD
+            wX9JD6/JSMHpJ4hIAQ+2SAIPr9GDwn9JD6/RSMHqJ4hQAkGDwAFIg8AERTnCf6qDxQFJAfs563+QSIscJEiLfCQQSItsJBjpOP//
+            /0yJ2jHJDx+EAAAAAAAxwA8fAGZmLg8fhAAAAAAAgHyCAwAPhUv///9Ig8ABQTnCf+yDwQFIAfo5y3/SMdJBxkMD/0GNSv+4AQAA
+            AEGD+gF+QYPhAXQnQcZDB/+4AgAAAEGD+gJ+LJBmZi4PH4QAAAAAAGZmLg8fhAAAAAAAQcZEgwP/QcZEgwf/SIPAAkE5wn/rg8IB
+            SQH7OdN/oUSJ1kiLfCQQSItsJBgPr/NIixwk6Zr+//+QkJCQkJCQkA==
             )"
             mCodeFunc := Bitmap.GetMcodePtr(x64)
          } Else {

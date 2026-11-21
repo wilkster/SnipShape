@@ -231,6 +231,29 @@ Class ObscureShape extends commonShape {
     * Refill the face with the current brush
     */
    RefillFace() {
+      r := this._DrawSurface()
+      ; FIX for flickering on move, DWM vsync/flush just before update
+      r.Surf.vSync() ; works better before here
+      r.Surf.UpdateLayer(r.X, r.Y)
+      r := ""
+   }
+   /**
+    * Draw the obscure shape onto a new surface for export, without touching its window
+    * (see commonShape.RenderSurface)
+    * @returns {Object|Integer} {Surf, X, Y} or 0
+    */
+   RenderSurface() {
+      C := this.sCoord
+      If (C.W <= 0 OR C.H <= 0)
+         Return 0
+      Return this._DrawSurface()
+   }
+   /**
+    * Fill the shape's face with its current brush onto a new surface.
+    * Shared by RefillFace (screen) and RenderSurface (export).
+    * @returns {Object} {Surf, X, Y}: surface and its snip position
+    */
+   _DrawSurface() {
       C := this.sCoord
       ; imageBrush will be 0 if not used
       If (this.imageBrush) {
@@ -245,10 +268,7 @@ Class ObscureShape extends commonShape {
       Surf := GDIp.DIBSurface(C.W, C.H, this.hwnd)
       ; This can take 5-10ms, probably due to the texture brush
       GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
-      ; FIX for flickering on move, DWM vsync/flush just before update
-      Surf.vSync() ; works better before here
-      Surf.UpdateLayer(C.X1, C.Y1)
-      Surf := ""
+      Return { Surf: Surf, X: C.X1, Y: C.Y1 }
    }
    /**
     * Adjust the shape factoru dynamically while drawing

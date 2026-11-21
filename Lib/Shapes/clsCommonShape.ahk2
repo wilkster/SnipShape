@@ -479,6 +479,25 @@ Class commonShape extends Gui.Pic {
               { C: 7, X: 0, Y: C.h/2 },     { C: 8, x: C.W/2, Y: 0 }]
    }
    ;----------------------------------------------------------------------
+   ; Rendering for export (GuiSnip.RenderBitmap)
+   ; A layered window's pixels can't be read back, so to build an image of a
+   ; snip each shape draws itself again on demand. Each shape class splits its
+   ; redraw (Refresh/Render/RefillFace) into "draw onto a surface" (shared) and
+   ; "push to the window + save state" (screen only), so the screen and the
+   ; export always run the same drawing code.
+   ;----------------------------------------------------------------------
+   /**
+    * Draw the shape, as it currently appears on screen, onto a new surface without
+    * touching its window or its saved state (padding, coordinates).
+    * Override in each shape class; the default has nothing to render.
+    * @returns {Object|Integer} {Surf: GDIp.DIBSurface, X, Y} with X/Y the surface's
+    *          position in snip window coordinates, or 0 if there is nothing to draw
+    */
+   RenderSurface() {
+      Return 0
+   }
+
+   ;----------------------------------------------------------------------
    ; Control points
    ; A FocusPoints() entry can carry Ctrl: "<name>" to make it a control point
    ; that reshapes the shape (moves a section of it) instead of resizing it.

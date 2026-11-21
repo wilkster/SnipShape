@@ -97,25 +97,66 @@ Class BodyShape extends commonShape {
             this.Startup()
             Started := true
          }
-         ; internal shape boundaries and padding
-         P := this.sPad
-         ; Location of shape on surface (with padding)
-         shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-         ; Create DIB with padding
-         Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-         ; Draw shape (translate by snip position)
-         Surf.Translate(-shapeX, -shapeY)
-         this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
+         ;----------------------------------------------------------------------
+         ; The window is placed using the padding the surface was drawn with, so
+         ; sPad must equal that padding afterwards, or GetPos/Move, the focus box
+         ; and RenderBitmap disagree with what's on screen (and a grown border is
+         ; clipped). If the measured extent needs different padding (thickness
+         ; change), redraw once with it before placing the window.
+         ;----------------------------------------------------------------------
+         Loop 2 {
+            P := this.sPad
+            r := this._DrawSurface(C, P)
+            If (A_Index = 2)
+               Break
+            ext := r.Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+            If (ext.L = P.L AND ext.T = P.T AND ext.R = P.R AND ext.B = P.B)
+               Break
+            this.savePadding(ext.L, ext.T, ext.R, ext.B)
+            r := ""
+         }
          ; Locate shape on surface
-         Surf.UpdateLayer(shapeX, shapeY)
-         ; Compute new padding for next time (for size/thickness changes)
-         ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
-         this.savePadding(ext.L, ext.T, ext.R, ext.B)
-         Surf := ""
+         r.Surf.UpdateLayer(r.X, r.Y)
+         r := ""
 
          If (IsSet(Started)) {
             this.CleanUp()
          }
       }
+   }
+
+   /**
+    * Draw the body shape onto a new surface for export, with its current padding and
+    * without touching its window or saved state (see commonShape.RenderSurface)
+    * @returns {Object|Integer} {Surf, X, Y} or 0
+    */
+   RenderSurface() {
+      C := this.shapeCoord
+      If NOT (C.W > 0 OR C.H > 0)
+         Return 0
+      If (NOT this.Started) {
+         Started := true
+         this.Startup()
+      }
+      r := this._DrawSurface(C, this.sPad)
+      If (IsSet(Started))
+         this.CleanUp()
+      Return r
+   }
+
+   /**
+    * Draw the shape onto a new surface sized by coordinates C plus padding P.
+    * Shared by Refresh (screen) and RenderSurface (export).
+    * @returns {Object} {Surf, X, Y}: surface and its snip position
+    */
+   _DrawSurface(C, P) {
+      ; Location of shape on surface (with padding)
+      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+      ; Create DIB with padding
+      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      ; Draw shape (translate by snip position)
+      Surf.Translate(-shapeX, -shapeY)
+      this.Draw(Surf.G, C.X1, C.Y1, C.W, C.H)
+      Return { Surf: Surf, X: shapeX, Y: shapeY }
    }
 }

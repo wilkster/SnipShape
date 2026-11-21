@@ -211,6 +211,35 @@ Class TextShape extends CommonShape {
    Render(bX?, bY?) {
       bX := bX ?? this.sCoord.X
       bY := bY ?? this.sCoord.Y
+      If !(r := this._RenderSurface(bX, bY))
+         Return 0
+      ; Update the window with the text (different than the underlying picture control)
+      r.Surf.UpdateLayer(r.X, r.Y)
+      r.Surf := ""
+      ; Body coordinates: window minus padding
+      win := r.win
+      this.sPad := { L: win.offX, T: win.offY, R: win.W - win.offX - r.bodyW, B: win.H - win.offY - r.bodyH }
+      this.UpdateCoord()
+      Return 1
+   }
+
+   /**
+    * Draw the text shape onto a new surface for export, without touching its window or
+    * saved padding/coordinates (see commonShape.RenderSurface)
+    * @returns {Object|Integer} {Surf, X, Y} or 0
+    */
+   RenderSurface() {
+      C := this.shapeCoord
+      Return this._RenderSurface(C.X1, C.Y1)
+   }
+
+   /**
+    * Lay out and draw the shape with its body at bX/bY onto a new surface.
+    * Shared by Render (screen) and RenderSurface (export).
+    * @returns {Object|Integer} {Surf, X, Y (window position), win, bodyW, bodyH}, or 0
+    *          if the font is invalid or there is no text
+    */
+   _RenderSurface(bX, bY) {
       If !(L := this._Layout())
          Return 0
       ;----------------------------------------------------------------------
@@ -236,17 +265,11 @@ Class TextShape extends CommonShape {
       this._DrawBody(G, L, mySurf, win)
       If (L.tail)
          this._DrawTipGrab(G, L)
-      ; Update the window with the text (different than the underlying picture control)
-      mySurf.UpdateLayer(bX - win.offX, bY - win.offY)
-      ; Clean up
-      mySurf := ""
+      ; Clean up the font objects
       GDIpText.DeleteStringFormat(L.hFormat)
       GDIpText.DeleteFont(L.hFont)
       GDIpText.DeleteFontFamily(L.hFamily)
-      ; Body coordinates: window minus padding
-      this.sPad := { L: win.offX, T: win.offY, R: win.W - win.offX - L.bodyW, B: win.H - win.offY - L.bodyH }
-      this.UpdateCoord()
-      Return 1
+      Return { Surf: mySurf, X: bX - win.offX, Y: bY - win.offY, win: win, bodyW: L.bodyW, bodyH: L.bodyH }
    }
 
    /**

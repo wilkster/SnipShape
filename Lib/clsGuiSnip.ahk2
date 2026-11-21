@@ -254,8 +254,9 @@ Class GuiSnip extends Gui {
          ; Don't allow fully transparent otherwise it disappears
          newAlpha := Constrain(0xF, 0xFF, Value)
          If (newAlpha != this._alpha) {
-            this._renderSnip(this.myHandle)
+            ; Store first: _renderSnip draws with this._alpha
             this._alpha := newAlpha
+            this._renderSnip(this.myHandle)
          }
       }
    }
@@ -317,16 +318,41 @@ Class GuiSnip extends Gui {
     * @param {Integer} X/Y, optional location to place the gui
     */
    _renderSnip(hBitmap, x?, y?) {
-      GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-      BW   := Settings.BorderWidth
-      SBW  := Settings.SnippingBorderWidth
-      newW := W + BW * 2
-      newH := H + BW * 2
       ; keep this.hWnd's current top-left; only the size grows (per spec)
       this.GetPos(&winX, &winY)
       x ??= winX
       y ??= winY
       ; NOTE If we want to adjust transparency do it here so border is always correct
+      hDIB := this._ComposeSnip(hBitmap, this._alpha, &newW, &newH)
+
+      hdcScreen := GDI.GetDC(0)
+      hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
+      obm       := GDI.SelectObject(hdcMem, hDIB)
+      ; Update the GUI with the snip and border
+      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, newW, newH)
+
+      ; clean up
+      GDI.SelectObject(hdcMem, obm)
+      GDI.DeleteObject(hDIB)
+      GDI.DeleteDC(hdcMem)
+      GDI.ReleaseDC(hdcScreen)
+      Return
+   }
+
+   /**
+    * Build the snip image with its border (what _renderSnip shows), as a new 32bpp DIB.
+    * @param {Integer} hBitmap - Snip picture
+    * @param {Integer} alpha - Snip transparency (255 = opaque)
+    * @param {VarRef} newW - Returns the width (picture + 2 borders)
+    * @param {VarRef} newH - Returns the height
+    * @returns {Integer} hDIB, caller owns it
+    */
+   _ComposeSnip(hBitmap, alpha, &newW?, &newH?) {
+      GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+      BW   := Settings.BorderWidth
+      SBW  := Settings.SnippingBorderWidth
+      newW := W + BW * 2
+      newH := H + BW * 2
 
       hdcScreen := GDI.GetDC(0)
       hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
@@ -338,7 +364,7 @@ Class GuiSnip extends Gui {
       obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
       GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
       ; Premultiply if we have some transparency to show
-      BitMap.PreMultiplyBitmap(hDIB, this._alpha)
+      BitMap.PreMultiplyBitmap(hDIB, alpha)
       If (BW > 0) {
          iG := GDIp.GraphicsFromHDC(hdcMem)
          ; Paint the border fully opaque
@@ -371,17 +397,74 @@ Class GuiSnip extends Gui {
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
 
-      ; Update the GUI with the snip and border
-      GDI.UpdateLayeredWindow(this.hWnd, hdcMem, x, y, newW, newH)
-
-      ; clean up
+      ; clean up (deleting the graphics flushes any pending GDI+ drawing)
       if (IsSet(iG))
          GDIp.DeleteGraphics(iG)
       GDI.SelectObject(hdcMem, obm)
-      GDI.DeleteObject(hDIB)
       GDI.DeleteDC(hdcMem)
       GDI.ReleaseDC(hdcScreen)
-      Return
+      Return hDIB
+   }
+
+   /**
+    * Used by Snip2Clipboard and Snip2File.
+    * Render the snip and all of its visible shapes onto a new hBitmap, without a screen
+    * capture: nothing on top of the snip (other windows, the focus box, the button bar)
+    * can get into it, and the snip doesn't need to be visible.
+    * Each shape draws itself again on demand (commonShape.RenderSurface), bottom to
+    * top, at its current position, with the same drawing code as the screen.
+    * The snip's transparency (Alpha) is applied to the picture as on screen; the
+    * border and the shapes stay opaque, as they do on screen.
+    * Shapes that extend past the picture are clipped to it (or to the border when
+    * Borders is true), as on screen.
+    * @param {Integer} [Borders=false] - Include the snip border (as drawn on screen)
+    * @returns {Integer} 32bpp hBitmap (DIB section, premultiplied ARGB); caller owns it,
+    *                    e.g. pass it to Clipboard.SetHBITMAPToClipboard or delete it
+    */
+   RenderBitmap(Borders := false) {
+      Static AC_SRC_OVER_ALPHA := 0x01FF0000   ; BLENDFUNCTION: SrcOver, const alpha 255, AC_SRC_ALPHA
+      BW := Settings.BorderWidth
+      ; Start from exactly what the snip window shows (picture + border), so pixels,
+      ; alpha and rounded corners match the screen; shape window coords are canvas coords
+      hFull := this._ComposeSnip(this.myHandle, this._alpha)
+      hdcDst := GDI.CreateCompatibleDC(0)
+      obmDst := GDI.SelectObject(hdcDst, hFull)
+      hdcSrc := GDI.CreateCompatibleDC(0)
+      ; VisibleShapes is top of the Z-order first: paint from the bottom up
+      ; Each shape draws itself again onto its own surface (commonShape.RenderSurface)
+      list := this.VisibleShapes
+      i := list.Length
+      While (i >= 1) {
+         ShapeObj := list[i--]
+         Try {
+            If NOT (r := ShapeObj.RenderSurface())
+               Continue
+         } Catch as e {
+            elog(e, "RenderBitmap: shape " ShapeObj.ShapeName " failed to render")
+            Continue
+         }
+         DllCall("Msimg32\AlphaBlend"
+            , "Ptr", hdcDst, "Int", r.X, "Int", r.Y, "Int", r.Surf.W, "Int", r.Surf.H
+            , "Ptr", r.Surf.hdc, "Int", 0, "Int", 0, "Int", r.Surf.W, "Int", r.Surf.H
+            , "UInt", AC_SRC_OVER_ALPHA)
+         r := ""
+      }
+      If (Borders) {
+         GDI.SelectObject(hdcDst, obmDst)
+         GDI.DeleteDC(hdcDst), GDI.DeleteDC(hdcSrc)
+         Return hFull
+      }
+      ; No border: copy out the picture area (shapes past the picture are clipped here)
+      GDI.GetHBitmapDimensions(this.myHandle, &W, &H)
+      hOut   := GDI.CreateDIBSection(W, H, hdcSrc)
+      obmOut := GDI.SelectObject(hdcSrc, hOut)
+      GDI.BitBlt(hdcSrc, 0, 0, W, H, hdcDst, BW, BW)
+      GDI.SelectObject(hdcSrc, obmOut)
+      GDI.DeleteDC(hdcSrc)
+      GDI.SelectObject(hdcDst, obmDst)
+      GDI.DeleteDC(hdcDst)
+      GDI.DeleteObject(hFull)
+      Return hOut
    }
 
    /**
@@ -1049,7 +1132,7 @@ Class GuiSnip extends Gui {
          ; GUI may close during the sleeps
          bc := this.BackColor
          Sleep(flash)
-         this.BackColor := Settings.ActiveSnipBorderColor
+         this.BackColor := 0xFFFF ; Settings.ActiveSnipBorderColor
          Sleep(flash)
          this.BackColor := bc
       }
@@ -1088,35 +1171,14 @@ Class GuiSnip extends Gui {
     * @param {Integer} [Borders=false] - Include the snip border in the copied image
     */
    Snip2Clipboard(Borders := false) {
-      bb := ButtonBar.Enabled
-      if (bb)
-         ButtonBar.Hide()
-
-      this.GetPos(&X, &Y, &W, &H)
-      pinned := WinGetAlwaysOnTop(this.hWnd)
-      if (! pinned)
-         this.Opt("+AlwaysOnTop")
-      focusBorder.PauseResumeFocus(true)
-      ToolTip() ; turn them off
-      if (! pinned)
-         this.Opt("-AlwaysOnTop")
-      ; If there is some transparency, put a black background behind it, must be pinned
-      if (this._alpha < 255)
-         (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
-
-      hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
-      If (IsSet(g))
-         g.Destroy()
-      ; Restore rounded cutoff if there is one
-      If (this.Radius > 0)
-         BitMap.RoundWindowCorners(hBitmap, this.Radius)
-
+      ; Rounded corners cut when the snip was created are already transparent in its
+      ; picture, and RenderBitmap keeps them (no RoundWindowCorners needed)
+      hBitmap := this.RenderBitmap(Borders)
       this.Dirty := 0
-      if (bb)
-         ButtonBar.Show()
       ; clipboard owns hBitmap now
-      if ((res := Clipboard.SetHBitmapToClipboard(hBitMap)) < 0)
+      if ((res := Clipboard.SetHBitmapToClipboard(hBitmap)) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
+      Return
    }
 
    /**
@@ -1129,26 +1191,15 @@ Class GuiSnip extends Gui {
       Try {
          If (SavePath AND !FileExist(SavePath))
             DirCreate(SavePath)
-         this.GetPos(&X, &Y, &W, &H)
-         ; TODO - hide the toolbar if active
-         focusBorder.PauseResumeFocus(true)
-         bb := ButtonBar.Enabled
-         if (bb)
-            ButtonBar.Hide()
-         ToolTip() ; turn them off
-         (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
-         hBitmap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
-
-         g.Destroy()
+         ; TEST SWITCH: 1 = render the snip and its shapes (RenderBitmap), 0 = screen capture
+         hBitmap := this.RenderBitmap(Borders)
          if (savePath)
             FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          else
             FileName := Snips.ExportHBitMapFile(hBitmap)
-
          GDI.DeleteObject(hBitmap)
-         if (bb)
-            ButtonBar.Show()
          this.Dirty := 0
+         Return FileName
       } Catch as E {
          FileName := ""
          elog(E)

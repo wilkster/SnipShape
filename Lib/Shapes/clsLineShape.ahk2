@@ -247,30 +247,59 @@ Class LineShape extends commonShape {
          ;----------------------------------------------------------------------
          Loop 2 {
             P := this.sPad
-            ; Location of shape on surface (with padding)
-            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-            ; Create DIB with padding
-            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-            ; Draw shape (translate by snip position)
-            Surf.Translate(-shapeX, -shapeY)
-            this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
+            r := this._DrawSurface(C, P)
             If (A_Index = 2)
                Break
             ; Padding the drawn extent needs
             ; NOTE - if we jumped our pen thickness too much this won't be enough padding
-            ext := Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
+            ext := r.Surf.FindExtent(P.L, P.T, C.W, C.H, Shapes.shapePad)
             If (ext.L = P.L AND ext.T = P.T AND ext.R = P.R AND ext.B = P.B)
                Break
             this.savePadding(ext.L, ext.T, ext.R, ext.B)
-            Surf := ""
+            r := ""
          }
          ; Locate shape on surface
-         Surf.UpdateLayer(shapeX, shapeY)
-         Surf := ""
+         r.Surf.UpdateLayer(r.X, r.Y)
+         r := ""
          If (IsSet(started)) {
             this.CleanUp()
          }
       }
+   }
+
+   /**
+    * Draw the line shape onto a new surface for export, with its current padding and
+    * without touching its window or saved state (see commonShape.RenderSurface)
+    * @returns {Object|Integer} {Surf, X, Y} or 0
+    */
+   RenderSurface() {
+      C := this.shapeCoord
+      If NOT (C.W > 0 OR C.H > 0)
+         Return 0
+      If (NOT this.Started) {
+         started := true
+         this.Startup()
+      }
+      r := this._DrawSurface(C, this.sPad)
+      If (IsSet(started))
+         this.CleanUp()
+      Return r
+   }
+
+   /**
+    * Draw the shape onto a new surface sized by coordinates C plus padding P.
+    * Shared by Refresh (screen) and RenderSurface (export).
+    * @returns {Object} {Surf, X, Y}: surface and its snip position
+    */
+   _DrawSurface(C, P) {
+      ; Location of shape on surface (with padding)
+      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+      ; Create DIB with padding
+      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      ; Draw shape (translate by snip position)
+      Surf.Translate(-shapeX, -shapeY)
+      this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)
+      Return { Surf: Surf, X: shapeX, Y: shapeY }
    }
       /**
     * InstanceInfo

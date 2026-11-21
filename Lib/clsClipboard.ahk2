@@ -250,7 +250,8 @@ Class Clipboard {
          warning("Failed to allocate pStream:" res " " A_LastError)
          return 0
       }
-      If !(pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap)) {
+      ; Our hBitmaps are premultiplied: read them as PARGB (0xE200B) so the PNG gets straight alpha
+      If !(pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)) {
          warning("Failed to create GDI+ bitmap for PNG")
          ObjRelease(pStream)
          return 0

@@ -25,7 +25,12 @@ Class FileObject {
       fileObj := {}
       ; Save the shape bitmap
       fileObj.Snip := SnipObj.SnipInfo()
-      pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle)
+      ; SnipInfo returns a copy of the picture handle (undo needs it); here it is
+      ; replaced by the base64 text below, so free it
+      GDI.DeleteObject(fileObj.Snip.hBitmap)
+      ; Display transparency, restored when the snip is opened
+      fileObj.Snip.Alpha := SnipObj.Alpha
+      pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle, 0xE200B)   ; picture is premultiplied
 
       ; TODO - look into saving binary chunk here vs base64 to save space
       ; Base snip bitmap gets a base64 encoded stream to save to the file
@@ -49,7 +54,7 @@ Class FileObject {
          }
          ; Serialize embedded bitmaps
          If (Info.HasProp("FileName") and IsInteger(Info.FileName)) {
-            pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName)
+            pTemp := GDIp.CreateARGBBitmapFromHBITMAP(Info.FileName, 0xE200B)   ; bitmap shapes are premultiplied
             Info.FileName := BitMap.SaveBitmapToFile(pTemp, "dummy.png", , 1)
             GDIp.DisposeImage(pTemp)
          }
@@ -137,6 +142,8 @@ Class FileObject {
          ; Need an hBitmap for the picture, hand if off
          hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
          GDIp.DisposeImage(pBitmap)
+         ; GDI+ ARGB is straight alpha: premultiply once (or make opaque) for the snip
+         BitMap.NormalizePictureAlpha(hBitmap)
          SnipObj := Snips.CreateSnipFromHBitmap(hBitmap)
          Return SnipObj
       } Else {
@@ -165,7 +172,12 @@ Class FileObject {
             hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pTemp)
             fileObj.Snip.hBitmap := ""
             GDIp.DisposeImage(pTemp)
+            ; GDI+ ARGB is straight alpha: premultiply once (or make opaque) for the snip
+            BitMap.NormalizePictureAlpha(hBitmap)
             If (SnipObj := Snips.CreateSnipFromHBitmap(hBitmap, fileObj.Snip.Area)) {
+               ; Restore the display transparency (files saved before it was stored open opaque)
+               If (fileObj.Snip.HasProp("Alpha") AND IsNumber(fileObj.Snip.Alpha))
+                  SnipObj.Alpha := fileObj.Snip.Alpha
                ; If allow edits is true, use the original name and title
                ; We have the data for the snip and the shapes, so recreate them here
                For ShapeInfo in fileObj.Shapes {

@@ -277,60 +277,13 @@ Class FreeHandShape extends commonShape {
                Started := true
                this.Startup()
             }
-            P   := this.sPad
-            ; The dib is sized to the enlarged surface
-            shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-            Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
-            ; We draw in snip coordinates
-            Surf.Translate(-shapeX, -shapeY)
-
-            ; Scale from OG space to the new space
-            ; We ALWAYS write into the OG sized space and the transform will
-            ; do the scaling for us.
-            ogSize := this.OG
-            ; If we aren't changing dimensions then just redraw
-            If (ogSize.W != C.W OR ogSize.H != C.H) {
-               ; Scale pen size as well
-               If (this.scaleFreeHand) {
-                  pWidth := (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness
-                  GDIp.SetPenWidth(this.pPrime, pWidth)
-                  if (this.pOutline)
-                     GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
-               }
-               WS := Min(C.W / ogSize.W, 500)
-               HS := Min(C.H / ogSize.H, 500)
-               ; Scale  points for the resize
-               pm := GDIp.Matrix(, , , WS, HS)
-            } Else {
-               pm := GDIp.Matrix()
-            }
-            ; Translate points into the translated DIB
-            pm.Translate(C.X, C.Y)
-            cpts := CloneBuffer(this.Points)
-            pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
-            pm := ""
-
-            ; If a highlighter, then fill the pen with the image vs a solid color
-            If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
-               ; Replace the pen contents with the highlighted//blured background under the shape
-               GDIp.ResetTextureTransform(this.imageBrush)
-               GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
-               GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
-            }
-            ; Draw the outline and fill it in blank (Arc Arrow)
-            this.OutlinePoints(Surf.G, this.useLines, cpts)
-            ; draw the inside line
-            this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
-            ; Grabber
-            GDIp.DrawRectangle(Surf.G, this.pGrab, C.X, C.Y, C.W, C.H)
+            r := this._DrawSurface(C)
             ; Update the control window surface
-            Surf.UpdateLayer(shapeX, shapeY)
+            r.Surf.UpdateLayer(r.X, r.Y)
             ; Get recommended new padding for next time
-            bbox := this.GetPathInfo(cpts, this.pPrime).bnd
+            bbox := this.GetPathInfo(r.cpts, this.pPrime).bnd
             this.savePadding(bbox.L, bbox.T, bbox.R, bbox.B)
-
-            cpts := ""
-            Surf := ""
+            r := ""
             If (IsSet(Started)) {
                this.CleanUp()
             }
@@ -338,6 +291,80 @@ Class FreeHandShape extends commonShape {
       } Else {
          warning("Expected to have Points property but did not!")
       }
+   }
+   /**
+    * Draw the freehand shape onto a new surface for export, with its current padding
+    * and without touching its window or saved state (see commonShape.RenderSurface)
+    * @returns {Object|Integer} {Surf, X, Y} or 0
+    */
+   RenderSurface() {
+      If (type(this._Points) != "Buffer")
+         Return 0
+      C := this.shapeCoord
+      If NOT (C.H > 0 OR C.W > 0)
+         Return 0
+      If (NOT this.Started) {
+         Started := true
+         this.Startup()
+      }
+      r := this._DrawSurface(C)
+      If (IsSet(Started))
+         this.CleanUp()
+      Return r
+   }
+   /**
+    * Draw the points onto a new surface sized by coordinates C plus the current padding.
+    * Shared by RefillFace (screen) and RenderSurface (export).
+    * @returns {Object} {Surf, X, Y, cpts}: surface, its snip position, transformed points
+    */
+   _DrawSurface(C) {
+      P   := this.sPad
+      ; The dib is sized to the enlarged surface
+      shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
+      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      ; We draw in snip coordinates
+      Surf.Translate(-shapeX, -shapeY)
+
+      ; Scale from OG space to the new space
+      ; We ALWAYS write into the OG sized space and the transform will
+      ; do the scaling for us.
+      ogSize := this.OG
+      ; If we aren't changing dimensions then just redraw
+      If (ogSize.W != C.W OR ogSize.H != C.H) {
+         ; Scale pen size as well
+         If (this.scaleFreeHand) {
+            pWidth := (C.W * C.H) / (ogSize.W * ogSize.H) * this.shapeThickness
+            GDIp.SetPenWidth(this.pPrime, pWidth)
+            if (this.pOutline)
+               GDIp.SetPenWidth(this.pOutline, pWidth * this.outlineThickFactor / 3)
+         }
+         WS := Min(C.W / ogSize.W, 500)
+         HS := Min(C.H / ogSize.H, 500)
+         ; Scale  points for the resize
+         pm := GDIp.Matrix(, , , WS, HS)
+      } Else {
+         pm := GDIp.Matrix()
+      }
+      ; Translate points into the translated DIB
+      pm.Translate(C.X, C.Y)
+      cpts := CloneBuffer(this.Points)
+      pm.TransformPoints(cpts.Ptr, cpts.Size // 8)
+      pm := ""
+
+      ; If a highlighter, then fill the pen with the image vs a solid color
+      If (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_SMUDGE) {
+         ; Replace the pen contents with the highlighted//blured background under the shape
+         GDIp.ResetTextureTransform(this.imageBrush)
+         GDIp.TranslateTextureBrush(this.imageBrush, Settings.BorderWidth, Settings.BorderWidth) ;Settings.BorderWidth
+         GDIp.SetPenBrushFill(this.pPrime, this.imageBrush)
+      }
+      ; Draw the outline and fill it in blank (Arc Arrow)
+      this.OutlinePoints(Surf.G, this.useLines, cpts)
+      ; draw the inside line
+      this.DrawFunction(Surf.G, this.pPrime, cpts.Ptr, cpts.Size // 8)
+      ; Grabber
+      GDIp.DrawRectangle(Surf.G, this.pGrab, C.X, C.Y, C.W, C.H)
+      Return { Surf: Surf, X: shapeX, Y: shapeY, cpts: cpts }
    }
    /**
     * Reset the shape to its original recorded dimensions
