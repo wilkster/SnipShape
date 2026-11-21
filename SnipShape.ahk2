@@ -129,6 +129,8 @@ ClipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       ; BUG PrintWindow not working for some legacy apps, need to account for the invisble shadow borders
       hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
+      ; Make the area outside Windows 11's rounded corners transparent
+      BitMap.RoundWindowCorners(hBitmap, BitMap.WindowCornerRadius(hWnd))
       if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
@@ -146,8 +148,12 @@ Hotkey(IniReadValue("HotKey", "ClipActiveWindow", "+PrintScreen"), ClipActiveWin
 SnipActiveWindow(*) {
    if( hWnd := WinExist("A") ) {
       Area := getWindowArea(hWnd)
-      Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)
-      qTrayTip("Captured Active Window")
+      If (SnipObj := Snips.SnipArea(Area, Snips.UpdateClipboard, Snips.autoSaveToFile, true)) {
+         SnipObj.RoundSnipCorners(BitMap.WindowCornerRadius(hWnd))
+         qTrayTip("Captured Active Window")
+      } Else {
+         qTrayTip("Now Window found")
+      }
    } else {
       qTrayTip("Did not find an active window")
    }
@@ -161,8 +167,11 @@ Hotkey(IniReadValue("HotKey", "SnipActiveWindow", "!PrintScreen"), SnipActiveWin
  */
 SnipActiveMonitor(*) {
    Area := activeMonArea()
-   Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)
-   qTrayTip("Captured Active Monitor")
+   If (SnipObj := Snips.SnipArea(Area, false, Snips.autoSaveToFile, true)) {
+      qTrayTip("Captured Active Monitor")
+   } Else {
+      qTrayTip("Snip Failed")
+   }
 }
 Hotkey(IniReadValue("HotKey", "SnipActiveMonitor", "^PrintScreen"), SnipActiveMonitor.Bind())
 

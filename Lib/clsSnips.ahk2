@@ -620,7 +620,9 @@ Class Snips {
 
             qTrayTip(msg, 4, "Click Here to Edit", 6000)
          }
+         Return SnipObj
       }
+      Return 0
    }
    /**
     * Export an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.

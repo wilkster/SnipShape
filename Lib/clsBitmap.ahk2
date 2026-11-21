@@ -397,8 +397,9 @@ Class BitMap {
 
       hWndDpi := WinDPI(hWnd)
       monDpi := MonDPIunderWindow(hWnd)
-      ; BUG - Legacy windows use the clunkly HBitmapFromScreen method
-      ;       Since PrintWindow and PW_RENDERFULLCONTENT won't support transform scaling
+      ; Windows that DWM stretches (DPI-unaware, or system-aware on another monitor)
+      ; render at their own smaller DPI under PrintWindow, so copy them from the
+      ; screen instead: that is what the user sees. Anything on top is captured too.
       WinGetPosEx(&X, &Y, &W, &H, hWnd)
       If (hWndDpi != monDpi) {
          If (W > 0 AND H > 0) {
@@ -410,26 +411,34 @@ Class BitMap {
             Return 0
          }
       }
-      ; Try Printwindow Method
-      ; WinGetPosEx(&X, &Y, &W, &H, hWnd)
-      ; WinGetPos(&X, &Y, &W, &H, hWnd)
+      ; PrintWindow draws the full window rect (GetWindowRect), which includes the
+      ; invisible resize borders (about 7 px at 100%, 9 px at 150%). Print the full
+      ; rect, then crop to the visible frame (X/Y/W/H from WinGetPosEx). The script
+      ; is per-monitor-v2 aware, so both rects are in physical pixels.
+      If !WinGetRect(&wX, &wY, &wW, &wH, hWnd) || wW <= 0 || wH <= 0 || W <= 0 || H <= 0 {
+         warning("Failed to retrive window position for " hex(hWnd))
+         Return 0
+      }
       hdc     := GDI.GetDC(hWnd)
       hdcMem  := GDI.CreateCompatibleDC(hdc) ; or 0 both fail
-      hBitmap := GDI.CreateDIBSection(W, H, hdcMem)
-      obm     := GDI.SelectObject(hdcMem, hBitmap)
-      DllCall("PatBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", W, "Int", H, "UInt", 0x00F00021) ; PATCOPY (white)
+      hFull   := GDI.CreateDIBSection(wW, wH, hdcMem)
+      obm     := GDI.SelectObject(hdcMem, hFull)
+      DllCall("PatBlt", "Ptr", hdcMem, "Int", 0, "Int", 0, "Int", wW, "Int", wH, "UInt", 0x00F00021) ; PATCOPY (white)
 
-      ; If the flag  = 0x1 it seems the picture but not the shapes get copied
-      ; success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT | (skipBorders & 0x1))
-      ; PW_CLIENTONLY = 1, excludes the caption
-      ; BUG - Legacy apps are shift to the right by 11 pixels and down by a 1/2 pixels
+      ; PW_CLIENTONLY (0x1) would exclude the caption; we want the whole window
       success := this.PrintWindow(hWnd, hdcMem, PW_RENDERFULLCONTENT)
       GDI.SelectObject(hdcMem, obm)
       GDI.DeleteDC(hdcMem)
       GDI.ReleaseDC(hdc, hWnd)   ; must pass the hWnd used with GetDC
       If ( NOT success) {
-         GDI.DeleteObject(hBitmap)
+         GDI.DeleteObject(hFull)
          MsgBox("Failed to Print Window Properly")
+         Return 0
+      }
+      ; Crop off the invisible borders (frees hFull)
+      hBitmap := this.CropHBITMAP(hFull, X - wX, Y - wY, W, H)
+      If (!hBitmap) {
+         warning("Failed to crop window capture for " hex(hWnd))
          Return 0
       }
       Return hBitmap
@@ -700,6 +709,116 @@ Class BitMap {
          elog("Failed to compile MCode")
          Return uBitmap
       }
+   }
+   /**
+    * Make a captured window bitmap match the Windows 11 rounded window shape.
+    * Pixels outside the rounded corners become transparent, the corner edge is
+    * anti-aliased, and every other pixel is made opaque (PrintWindow's alpha is
+    * unreliable). Output is premultiplied ARGB, which the PNG clipboard format
+    * and layered windows expect. Apps that only read CF_DIB/CF_BITMAP ignore
+    * alpha and show the corners as black.
+    * Source: MCode/RoundWindowCorners.cpp (no imports)
+    * @param {Integer} hBitmap 32bpp DIB section (e.g. from HBitmapFromHWNDPW), modified in place
+    * @param {Integer} radius Corner radius in pixels, see WindowCornerRadius(); 0 = leave unchanged
+    * @returns {Integer} Number of corner pixels changed, 0 if nothing to do, -1 on error
+    */
+   Static RoundWindowCorners(hBitmap, radius) {
+      Static mCodeFunc := 0
+      If (!hBitmap || radius <= 0)
+         Return 0
+      If (!mCodeFunc) {
+         ; gcc -O3 -fno-toplevel-reorder -fno-tree-loop-distribute-patterns -fno-stack-protector
+         ;     -fno-asynchronous-unwind-tables -fno-pic (-m64 / -m32)
+         x64 := "
+            (
+            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
+            )"
+         x86 := "
+            (
+            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
+            )"
+         mCodeFunc := BitMap.GetMcodePtr(x64, x86)
+      }
+      info := BitMap.GetDIBSectionInfo(hBitmap)
+      If (!info.ptr)
+         Return -1
+      Return DllCall(mCodeFunc, "Ptr", info.ptr, "Int", info.w, "Int", Abs(info.h)
+         , "Int", info.stride, "Int", radius, "Int")
+   }
+   /**
+    * Corner radius in pixels that DWM uses for a top-level window on Windows 11:
+    * 8 px (4 px for DWMWCP_ROUNDSMALL) at 96 DPI, scaled to the window's monitor.
+    * Returns 0 (square) on Windows 10, for maximized windows, and for
+    * DWMWCP_DONOTROUND. Snapped windows are also square but are not detected.
+    * @param {Integer} hWnd Window handle
+    * @returns {Integer} Radius in physical pixels
+    */
+   Static WindowCornerRadius(hWnd) {
+      Static DWMWA_WINDOW_CORNER_PREFERENCE := 33
+      If (StrSplit(A_OSVersion, ".")[3] < 22000)
+         Return 0
+      Try {
+         If (WinGetMinMax(hWnd) = 1)
+            Return 0
+      } Catch
+         Return 0
+      pref := 0 ; DWMWCP_DEFAULT if the query fails
+      DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hWnd, "UInt", DWMWA_WINDOW_CORNER_PREFERENCE
+         , "Int*", &pref, "UInt", 4)
+      Switch pref {
+         Case 1:  Return 0      ; DWMWCP_DONOTROUND
+         Case 3:  base := 4     ; DWMWCP_ROUNDSMALL
+         Default: base := 8     ; DWMWCP_DEFAULT / DWMWCP_ROUND
+      }
+      Return Round(base * MonDPIunderWindow(hWnd) / 96)
    }
    /**
     * Replace one color with another in a bitmap (in place)

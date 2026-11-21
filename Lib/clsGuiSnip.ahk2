@@ -45,7 +45,8 @@ Class GuiSnip extends Gui {
       Snips.guiSnips[this.hWnd] := this
       this.UnDo                 := UnDo()
       this._OGHandle            := 0
-      this._alpha                := 0xFF
+      this._alpha               := 0xFF
+      this.ogRadius             := 0
       super.MarginX := super.MarginY := this.BW
       ; logGDI("+Create Snip:" this.Title)
       ; RMB menu is on the screenshot picture control
@@ -127,6 +128,11 @@ Class GuiSnip extends Gui {
             return 1.0
       }
    }
+   Radius {
+      get {
+         Return round(this.ogRadius * this.ScaleFactor)
+      }
+   }
    /**
     * Put a snip and border for the background of the GUI
     * @param hBitmap Handle to bitmap to use as the snip background
@@ -187,6 +193,26 @@ Class GuiSnip extends Gui {
          this._renderSnip(hBitmap, x?, y?)
          GDI.DeleteObject(this.MyHandle)
          this.MyHandle := hBitmap
+      }
+   }
+   /**
+    * Make the corners of some snips transparent if it has a radius
+    * Generally called when first capturing the window
+    * @param radius Radius to use, based on original snip
+    */
+   RoundSnipCorners(radius?) {
+      If (IsSet(radius)) {
+         this.ogRadius := radius
+      } Else {
+         radius := this.ogRadius
+      }
+      If (radius) {
+         if (this._OGHandle)
+            BitMap.RoundWindowCorners(this._OGHandle, radius)
+         If (this.myHandle) {
+            BitMap.RoundWindowCorners(this.myHandle, Round(radius * this.ScaleFactor))
+            this._renderSnip(this.myHandle)
+         }
       }
    }
   /**
@@ -1067,21 +1093,28 @@ Class GuiSnip extends Gui {
          ButtonBar.Hide()
 
       this.GetPos(&X, &Y, &W, &H)
-      ; If there is some transparency, put a black background behind it, must be pinned
       pinned := WinGetAlwaysOnTop(this.hWnd)
       if (! pinned)
          this.Opt("+AlwaysOnTop")
       focusBorder.PauseResumeFocus(true)
       ToolTip() ; turn them off
-      (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
       if (! pinned)
          this.Opt("-AlwaysOnTop")
+      ; If there is some transparency, put a black background behind it, must be pinned
+      if (this._alpha < 255)
+         (g := Gui("-Caption -DPIScale")).BackColor := "000000", g.Show("X" X "Y" Y "W" W "H" H)
 
       hBitMap := BitMap.HBitmapFromHWND(this.hWnd, 1, Borders ? 0 : Settings.BorderWidth)
-      g.Destroy()
+      If (IsSet(g))
+         g.Destroy()
+      ; Restore rounded cutoff if there is one
+      If (this.Radius > 0)
+         BitMap.RoundWindowCorners(hBitmap, this.Radius)
+
       this.Dirty := 0
       if (bb)
          ButtonBar.Show()
+      ; clipboard owns hBitmap now
       if ((res := Clipboard.SetHBitmapToClipboard(hBitMap)) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
    }
