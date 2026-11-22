@@ -20,6 +20,11 @@
  * A timer keeps it in step with the shapes (snip moved/scaled, undo, close).
  ***********************************************************************/
 #include Settings.ahk2
+#include libMisc.ahk2
+#include clsCursor.ahk2
+#include undo.ahk2
+#include clsSnips.ahk2
+#include ColorPopDown.ahk2
 Class ShapeGroup {
    Static List     := []      ; selected shapes (commonShape)
    Static SnipObj  := 0       ; snip that owns them
@@ -121,22 +126,25 @@ Class ShapeGroup {
    ; Selectable visible shapes, optionally only those fully inside rc
    Static _Filter(SnipObj, rc?) {
       sel := []
-      For shp in SnipObj.VisibleShapes {
-         If NOT this._Selectable(shp)
+      For ShapeObj in SnipObj.VisibleShapes {
+         If NOT this._Selectable(ShapeObj)
             Continue
          If NOT IsSet(rc) {
-            sel.Push(shp)
+            sel.Push(ShapeObj)
             Continue
          }
-         C := shp.shapeCoord
-         inside := (C.X >= rc.X AND C.Y >= rc.Y AND C.X + C.W <= rc.X + rc.W AND C.Y + C.H <= rc.Y + rc.H)
-         If (inside AND shp.Source = "Text" AND shp.HasProp("Tip") AND IsObject(shp.Tip))
-            inside := (shp.Tip.X >= rc.X AND shp.Tip.Y >= rc.Y AND shp.Tip.X <= rc.X + rc.W AND shp.Tip.Y <= rc.Y + rc.H)
+         C := ShapeObj.shapeCoord
+         inside := this._InRect(C.X, C.Y, C.X + C.W, C.Y + C.H, rc)
+         If (inside AND ShapeObj.Source = "Text" AND ShapeObj.HasProp("Tip") AND IsObject(ShapeObj.Tip))
+            inside := this._InRect(ShapeObj.Tip.X, ShapeObj.Tip.Y, ShapeObj.Tip.X, ShapeObj.Tip.Y, rc)
          If (inside)
-            sel.Push(shp)
+            sel.Push(ShapeObj)
       }
       Return sel
    }
+   ; True if the box x1,y1 - x2,y2 lies fully inside rc {X, Y, W, H}, edges included.
+   ; A zero-size box (straight line, callout tip point) works, unlike Win32 IntersectRect.
+   Static _InRect(x1, y1, x2, y2, rc) => (x1 >= rc.X AND y1 >= rc.Y AND x2 <= rc.X + rc.W AND y2 <= rc.Y + rc.H)
 
    /**
     * Make a group from a list of shapes and show its box
@@ -159,17 +167,17 @@ Class ShapeGroup {
     * none, or replacing one on another snip), or take it out if it is already in.
     * Taking out the last shape clears the group.
     * @param {GuiSnip} SnipObj - Snip the shape is on
-    * @param {commonShape} shp - Shape that was clicked
+    * @param {commonShape} ShapeObj - Shape that was clicked
     */
-   Static Toggle(SnipObj, shp) {
-      If NOT this._Selectable(shp)
+   Static Toggle(SnipObj, ShapeObj) {
+      If NOT this._Selectable(ShapeObj)
          Return
       If (NOT this.Active OR this.SnipObj != SnipObj) {
-         this.Select(SnipObj, [shp])
+         this.Select(SnipObj, [ShapeObj])
          Return
       }
       For idx, s in this.List {
-         If (s = shp) {
+         If (s = ShapeObj) {
             this.List.RemoveAt(idx)
             If (this.List.Length)
                this._Redraw()
@@ -178,7 +186,7 @@ Class ShapeGroup {
             Return
          }
       }
-      this.List.Push(shp)
+      this.List.Push(ShapeObj)
       this._Redraw()
    }
    ; The group's shapes changed: redraw the box now
@@ -203,8 +211,8 @@ Class ShapeGroup {
       h := DllCall("WindowFromPoint", "Int64", (y << 32) | (x & 0xFFFFFFFF), "Ptr")
       If NOT (ex & 0x20)
          WinSetExStyle("-0x20", this.hWnd)
-      shp := GuiCtrlFromHwnd(h) ?? 0
-      Return (shp AND shp.HasProp("Shape") AND shp.Gui = this.SnipObj) ? shp : 0
+      ShapeObj := GuiCtrlFromHwnd(h) ?? 0
+      Return (ShapeObj AND ShapeObj.HasProp("Shape") AND ShapeObj.Gui = this.SnipObj) ? ShapeObj : 0
    }
 
    /**
@@ -239,10 +247,10 @@ Class ShapeGroup {
          Return
       }
       keep := []
-      For shp in this.List {
+      For ShapeObj in this.List {
          Try {
-            If (shp.Visible)
-               keep.Push(shp)
+            If (ShapeObj.Visible)
+               keep.Push(ShapeObj)
          }
       }
       this.List := keep
@@ -269,8 +277,8 @@ Class ShapeGroup {
       snip := this.SnipObj
       snip.GetPos(&wX, &wY, &wW, &wH)
       x1 := y1 := 1e9, x2 := y2 := -1e9
-      For shp in this.List {
-         WinGetRect(&sx, &sy, &sw, &sh, shp.hWnd)
+      For ShapeObj in this.List {
+         WinGetRect(&sx, &sy, &sw, &sh, ShapeObj.hWnd)
          x1 := Min(x1, sx - wX), y1 := Min(y1, sy - wY)
          x2 := Max(x2, sx - wX + sw), y2 := Max(y2, sy - wY + sh)
       }
@@ -290,8 +298,8 @@ Class ShapeGroup {
          Return
       snip := this.SnipObj
       tag  := UnDo.NewTag("GroupMove")
-      For shp in this.List
-         shp.PostAction(UnDo.MOVE_SHAPE, tag)
+      For ShapeObj in this.List
+         ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
       this._resizePosted := false
       CoordMode("Mouse", "Screen")
       MouseGetPos(&sX, &sY)
@@ -330,9 +338,9 @@ Class ShapeGroup {
          Return
       snip := this.SnipObj
       tag  := UnDo.NewTag("GroupDelete")
-      For shp in this.List {
-         shp.PostAction(UnDo.DELETE_SHAPE, tag)
-         shp.Close(true)
+      For ShapeObj in this.List {
+         ShapeObj.PostAction(UnDo.DELETE_SHAPE, tag)
+         ShapeObj.Close(true)
       }
       this.Clear()
       If (Snips.UpdateClipboard) {
@@ -349,12 +357,12 @@ Class ShapeGroup {
       If NOT this.Active
          Return
       tag := UnDo.NewTag("GroupColor")
-      For shp in this.List {
-         If NOT this._HasColor(shp)
+      For ShapeObj in this.List {
+         If NOT this._HasColor(ShapeObj)
             Continue
-         shp.PostAction(UnDo.SHAPE_COLOR, tag)
-         shp.Color := color
-         shp.Refresh()
+         ShapeObj.PostAction(UnDo.SHAPE_COLOR, tag)
+         ShapeObj.Color := color
+         ShapeObj.Refresh()
       }
       this._resizePosted := false
       this._Changed()
@@ -371,13 +379,13 @@ Class ShapeGroup {
          Return
       If NOT this._resizePosted {
          tag := UnDo.NewTag("GroupSize")
-         For shp in this.List
-            shp.PostAction(UnDo.RESIZE_SHAPE, tag)
+         For ShapeObj in this.List
+            ShapeObj.PostAction(UnDo.RESIZE_SHAPE, tag)
          this._resizePosted := true
       }
-      For shp in this.List {
-         shp.ChangeThickness(amt)
-         shp.Refresh()
+      For ShapeObj in this.List {
+         ShapeObj.ChangeThickness(amt)
+         ShapeObj.Refresh()
       }
       this.Sync()
       this.SnipObj.Dirty++
@@ -417,9 +425,9 @@ Class ShapeGroup {
       grpMenu.Add()
       ; Color fly-out (ColorPopDown shows it for an item with "Color" in its text)
       defColor := -1
-      For shp in this.List {
-         If this._HasColor(shp) {
-            defColor := RGBval(shp.Color)
+      For ShapeObj in this.List {
+         If this._HasColor(ShapeObj) {
+            defColor := RGBval(ShapeObj.Color)
             Break
          }
       }
@@ -455,34 +463,34 @@ Class ShapeGroup {
    ; Start positions for a move (text callout tips move with their text)
    Static _Starts() {
       starts := []
-      For shp in this.List {
-         shp.GetPos(&X, &Y)
-         tip := (shp.Source = "Text" AND shp.HasProp("Tip") AND IsObject(shp.Tip)) ? shp.Tip.Clone() : 0
+      For ShapeObj in this.List {
+         ShapeObj.GetPos(&X, &Y)
+         tip := (ShapeObj.Source = "Text" AND ShapeObj.HasProp("Tip") AND IsObject(ShapeObj.Tip)) ? ShapeObj.Tip.Clone() : 0
          starts.Push({ X: X, Y: Y, Tip: tip })
       }
       Return starts
    }
    ; Place every shape at its start position plus dX, dY
    Static _MoveTo(starts, dX, dY) {
-      For idx, shp in this.List {
+      For idx, ShapeObj in this.List {
          st := starts[idx]
          If (st.Tip)
-            shp.Tip := { X: st.Tip.X + dX, Y: st.Tip.Y + dY }
-         shp.Move(st.X + dX, st.Y + dY)
+            ShapeObj.Tip := { X: st.Tip.X + dX, Y: st.Tip.Y + dY }
+         ShapeObj.Move(st.X + dX, st.Y + dY)
       }
    }
-   Static _Selectable(shp) {
-      Switch shp.Source {
+   Static _Selectable(ShapeObj) {
+      Switch ShapeObj.Source {
          Case "File", "Clip", "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             Return true
       }
       Return false
    }
    ; Same rule as the single shape menu: pictures and blur/pixelate have no color
-   Static _HasColor(shp) {
-      Switch shp.Source {
+   Static _HasColor(ShapeObj) {
+      Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
-            Switch shp.Shape {
+            Switch ShapeObj.Shape {
                Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
                   Return false
             }
