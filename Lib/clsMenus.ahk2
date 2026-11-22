@@ -423,7 +423,7 @@ Class ShapeMenus {
             If (PC > 2)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards", "MoveBack.ico")
          Case "Text":
-            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Shift-Click)","Edit.ico")
+            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Alt-Click)","Edit.ico")
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Font Size","Reset.ico")
             ; Numbered tags: close gaps in the sequence (e.g. after deleting one)
             If (ShapeObj.Shape = Shapes.SHAPE_TAG)

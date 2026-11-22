@@ -968,17 +968,16 @@ Class Shapes {
       Static controlOffset := {X:0, Y:0}
       this.ColorQueue.Length := 0
       If (GetKeyState("Alt", "P")) {
-         ; Hide the shape, it will be recycled if needed
-         ; ShapeObj.Close()
-         ; Push the shape down one
-         ShapeObj.PushDown()
+         ; Alt-click: edit a text shape, push any other shape down one
+         ; (Shift-click is group add/remove, handled in Snips.WM_LBUTTONDOWN)
+         If (ShapeObj.Source = "Text")
+            ShapeObj.EditDispText()
+         Else
+            ShapeObj.PushDown()
          Return
       } Else If (GetKeyState("Ctrl", "P")) {
          ; Duplicate the shape
          Shapes.Duplicate(Key, ShapeObj)
-         Return
-      } Else If (GetKeyState("Shift", "P") AND ShapeObj.Source = "Text") {
-         ShapeObj.EditDispText()
          Return
       }
 

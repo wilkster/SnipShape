@@ -211,12 +211,42 @@ Class Snips {
     * @param {Integer} msg - Message identifier (0x201)
     * @param {Integer} hWnd - Handle of the window that received the click
     */
+   /**
+    * The shape a Shift-click should add to / take out of the group, or 0.
+    * The clicked window is a shape control, or the group box (then the shape is
+    * found under the box). Not in a drawing mode (Shift constrains the new shape
+    * there), and not on a resize handle (Shift keeps the aspect ratio).
+    * @param {Integer} hWnd - Window that received the click
+    * @returns {commonShape|Integer}
+    */
+   Static _ShiftClickShape(hWnd) {
+      CoordMode("Mouse", "Screen")
+      MouseGetPos(&mX, &mY)
+      inBox := (hWnd = ShapeGroup.hWnd)
+      shp := inBox ? ShapeGroup.ShapeAt(mX, mY) : (GuiCtrlFromHwnd(hWnd) ?? 0)
+      If NOT (shp AND shp.HasProp("Shape") AND this.IsValid(shp.Gui.hWnd))
+         Return 0
+      If (shp.Gui.DrawMode)
+         Return 0
+      WinGetPos(&wX, &wY, , , shp.Gui.hWnd)
+      If (NOT inBox AND shp.CornerInfo(mX - wX, mY - wY).C)
+         Return 0
+      Return shp
+   }
+
    Static WM_LBUTTONDOWN(wParam, lParam, msg, hWnd) {
       Static WM_NCLBUTTONDOWN := 0xA1
       ; Shape group box: drag moves the group. A click on a snip or on a shape
       ; (a child of a snip) clears the group. Nothing else does: menus, the color
       ; fly-out and the button bar are this script's windows too, and their clicks
       ; arrive here before the menu item/color callback runs.
+      ; Shift-click on a shape adds it to the group or takes it out. Returning a
+      ; value stops the click reaching the shape (no move/resize).
+      If (GetKeyState("Shift", "P") AND NOT GetKeyState("Ctrl", "P") AND NOT GetKeyState("Alt", "P")
+          AND (shp := this._ShiftClickShape(hWnd))) {
+         ShapeGroup.Toggle(shp.Gui, shp)
+         Return 0
+      }
       If (hWnd = ShapeGroup.hWnd) {
          ShapeGroup.DragMove()
          Return

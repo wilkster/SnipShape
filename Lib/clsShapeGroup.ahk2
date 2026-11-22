@@ -4,7 +4,10 @@
  *
  * Shift-drag on the snip background (select mode, or Ctrl+Shift-drag in a draw
  * mode) draws a selection rectangle; the shapes fully inside it become a group,
- * shown with a dashed box. While the group is up:
+ * shown with a dashed box. Shift-click on a shape (select mode) adds it to the
+ * group, starting one if needed, or takes it out if it is already in; inside the
+ * box the click looks through it to the shape underneath. Shift-click on a
+ * resize handle still resizes (Shift keeps the aspect ratio). While the group is up:
  *   - drag inside the box moves every shape (one undo step)
  *   - right-click the box: copy, color (fly-out), size, delete
  *   - Up/Down and the mouse wheel change each shape's size/thickness (as for a
@@ -149,6 +152,59 @@ Class ShapeGroup {
       focusBorder.HideFocus(true)
       this.Sync()
       SetTimer(this._timer, 200)
+   }
+
+   /**
+    * Shift-click on a shape: add it to the group (starting a group if there is
+    * none, or replacing one on another snip), or take it out if it is already in.
+    * Taking out the last shape clears the group.
+    * @param {GuiSnip} SnipObj - Snip the shape is on
+    * @param {commonShape} shp - Shape that was clicked
+    */
+   Static Toggle(SnipObj, shp) {
+      If NOT this._Selectable(shp)
+         Return
+      If (NOT this.Active OR this.SnipObj != SnipObj) {
+         this.Select(SnipObj, [shp])
+         Return
+      }
+      For idx, s in this.List {
+         If (s = shp) {
+            this.List.RemoveAt(idx)
+            If (this.List.Length)
+               this._Redraw()
+            Else
+               this.Clear()
+            Return
+         }
+      }
+      this.List.Push(shp)
+      this._Redraw()
+   }
+   ; The group's shapes changed: redraw the box now
+   Static _Redraw() {
+      this._resizePosted := false
+      this._lastKey := ""
+      focusBorder.HideFocus(true)
+      this.Sync()
+   }
+
+   /**
+    * The shape of the group's snip at a screen point, looking through the box.
+    * The box is made click-through (WS_EX_TRANSPARENT) for the hit test, so a
+    * shape's transparent padding is skipped just as for a normal click.
+    * @returns {commonShape|Integer} the shape, or 0
+    */
+   Static ShapeAt(x, y) {
+      If NOT this.Active
+         Return 0
+      ex := WinGetExStyle(this.hWnd)
+      WinSetExStyle("+0x20", this.hWnd)
+      h := DllCall("WindowFromPoint", "Int64", (y << 32) | (x & 0xFFFFFFFF), "Ptr")
+      If NOT (ex & 0x20)
+         WinSetExStyle("-0x20", this.hWnd)
+      shp := GuiCtrlFromHwnd(h) ?? 0
+      Return (shp AND shp.HasProp("Shape") AND shp.Gui = this.SnipObj) ? shp : 0
    }
 
    /**

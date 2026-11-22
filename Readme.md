@@ -168,6 +168,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Shift-Del                | will remove all the shapes on a Snip                                                                                     |
 | Ctrl-A                   | Select all the shapes on the snip as a group, see [Selecting a group of shapes](#selecting-a-group-of-shapes)            |
 | Shift-Drag               | Select the shapes inside the dragged rectangle as a group (Ctrl+Shift-Drag in a drawing mode)                            |
+| Shift-Click on a shape   | Add the shape to the group, or take it out if it is already in                                                           |
 | Ctrl-O                   | OCR the text to lines of text                                                                                            |
 | Ctrl-T                   | OCR the text to html table                                                                                               |
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
@@ -428,6 +429,8 @@ While hovering over a shape, you can also use the hotkeys listed below to perfor
 | **Shape HotKey**     | **Action**                               |
 | -------------------- | ---------------------------------------- |
 | Ctrl-Click<br>Ctrl-D | Duplicate the shape.                     |
+| Shift-Click          | Add the shape to the group selection, or take it out if it is already in. |
+| Alt-Click            | Edit a text shape; on other shapes, push the shape down one level. |
 | Del                  | Remove the shape.                        |
 | 1 to 9               | Apply the associated color to the shape. |
 | Scroll up/down       | Adjust thickness or obfuscation amount.  |
@@ -456,6 +459,8 @@ r- Shift-Del will remove all shapes on a ship
   gaps left by deleted tags. Tags whose text is not a plain number are left alone, each tag stays where it is, the next
   tag you add continues the sequence, and a single undo restores the old numbers.
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
+- Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
+- Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)
 - Click on a shape and the up/down arrow key will adjust border thickness, blur amount
 - OCR - Uses Descolada's OCR engine to read text from snip
   - Read lines of text, with line breaks as shown
@@ -470,6 +475,11 @@ r- Shift-Del will remove all shapes on a ship
 Shift-drag on an empty part of the snip to draw a selection rectangle (in a drawing mode, use Ctrl+Shift-drag, since
 Shift alone squares the shape you draw). Every shape fully inside the rectangle is selected, and a dashed box is drawn
 around the group. For a callout, its tip has to be inside the rectangle too. Ctrl-A selects every shape on the snip.
+
+Shift-click a shape to add it to the group (this starts a group if there isn't one), and Shift-click a shape in the
+group to take it out; taking out the last one clears the group. This works on shapes under the group box too. It only
+applies in select mode (no drawing mode), and a Shift-click on a shape's resize handle still resizes it, keeping the
+aspect ratio.
 
 | Action                     | Result                                                                                       |
 |----------------------------|----------------------------------------------------------------------------------------------|

@@ -533,6 +533,5 @@ Class ColorPopDown {
          DllCall("GetMenuItemRect", "ptr", hOwnerWnd, "ptr", hMenu, "uint", itemPos, "ptr", rc)
          Return rc
       }
-      Return 0
    }
 }
