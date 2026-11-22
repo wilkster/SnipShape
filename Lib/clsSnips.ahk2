@@ -829,6 +829,16 @@ Class Snips {
          qTrayTip("Did not find a valid snip file to load", 2)
    }
    /**
+    * DropFiles handler for snip windows: each dropped image file opens as a new snip.
+    * The snip it was dropped on is not changed. Other file types are ignored.
+    * Deferred with a timer so the drag source (Explorer) isn't kept waiting on the load.
+    */
+   Static DropFiles(GuiObj, GuiCtrlObj, FileArray, X, Y) {
+      For sFile in FileArray
+         If (sFile ~= "i)\.(png|jpe?g|bmp|gif|ico|wmf|tiff?)$")
+            SetTimer(Snips.CreateSnipFromFile.Bind(Snips, sFile), -1)
+   }
+   /**
     * Create a new snip window from an existing HBITMAP, centered on the active monitor
     * @param {Integer} hBitmap - GDI HBITMAP handle to display in the new snip
     * @param {Object} [useArea] - Optional area object override; if omitted, the snip is centered on the active monitor

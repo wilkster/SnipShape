@@ -56,6 +56,8 @@ Class GuiSnip extends Gui {
       ; RMB menu is on the screenshot picture control
       super.OnEvent("Close", this.Destroy.Bind(this))
       super.OnEvent("Escape", Snips.Close.Bind(Snips, this))
+      ; Image files dropped on the snip (or any of its shapes) open as new snips
+      super.OnEvent("DropFiles", Snips.DropFiles.Bind(Snips))
       super.OnMessage(0x0216, this.WM_SIZEEMOVE_GUI.Bind(this))
       super.OnMessage(0x0231, this.WM_SIZEEMOVE_GUI.Bind(this))
       super.OnMessage(0x006, this.WM_ACTIVATE_GUI.Bind(this))

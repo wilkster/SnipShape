@@ -16,6 +16,7 @@
  * It never activates (WS_EX_NOACTIVATE), so the snip keeps its hotkeys.
  * A timer keeps it in step with the shapes (snip moved/scaled, undo, close).
  ***********************************************************************/
+#include Settings.ahk2
 Class ShapeGroup {
    Static List     := []      ; selected shapes (commonShape)
    Static SnipObj  := 0       ; snip that owns them
