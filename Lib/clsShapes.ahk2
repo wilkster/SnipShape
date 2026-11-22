@@ -617,7 +617,7 @@ Class Shapes {
       ; Create a drawing surface for the temp GUI
       ; Draw onto a separate GUI slightly larger than the snip to allow shape overflow
       ;-----------------------------------------------------------------------
-      surfSource := GDIp.DIBSurface(winW, winH, canvasGui.hWnd, this.DIBPad)
+      surfSource := DIBSurface(winW, winH, canvasGui.hWnd, this.DIBPad)
       ; Needed for complex shape opacity
       ; Gdip.SetCompositingMode(surfSource.G,1)
 

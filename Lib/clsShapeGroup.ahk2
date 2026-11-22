@@ -512,7 +512,7 @@ Class ShapeGroup {
    Static _Render(wX, wY, rc, isGroup := false) {
       bw := focusBorder.BW
       dW := Max(Round(rc.W), 2), dH := Max(Round(rc.H), 2)
-      Surf := GDIp.DIBSurface(dW, dH, this.hWnd)
+      Surf := DIBSurface(dW, dH, this.hWnd)
       Surf.GraphicsClear(isGroup ? 0x283C78D8 : 0x203C78D8)
       pen := GDIp.CreatePen(0xFF000000, bw)
       GDIp.DrawRectangle(Surf.G, pen, bw / 2, bw / 2, dW - bw, dH - bw)

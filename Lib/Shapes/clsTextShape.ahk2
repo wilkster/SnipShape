@@ -246,7 +246,7 @@ Class TextShape extends CommonShape {
       ; Window = body, plus any callout tail. off = body origin inside the window
       ;----------------------------------------------------------------------
       win := this._WindowBox(L, bX, bY)
-      mySurf := GDIp.DIBSurface(win.W, win.H, this.hWnd)
+      mySurf := DIBSurface(win.W, win.H, this.hWnd)
       G := mySurf.G
       ;--------------------------------------------------------------
       ; Quality Settings Here
@@ -719,7 +719,7 @@ Class TextShape extends CommonShape {
     * (possibly translated) coordinates.
     * @param {Ptr} G - Graphics handle of the render surface
     * @param {Object} L - Layout from _Layout()
-    * @param {GDIp.DIBSurface} mySurf - Render surface (needed for the outline-text blur)
+    * @param {DIBSurface} mySurf - Render surface (needed for the outline-text blur)
     * @param {Object} win - Window box from _WindowBox()
     */
    _DrawBody(G, L, mySurf, win) {

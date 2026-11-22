@@ -236,7 +236,7 @@ Class BMShape extends commonShape {
       hShow := (w = bw AND h = bh) ? this.myHandle : BitMap.ResizeHBITMAP(this.myHandle, w, h, 7)
       If (NOT hShow)
          Return 0
-      Surf   := GDIp.DIBSurface(w, h)
+      Surf   := DIBSurface(w, h)
       hdcSrc := GDI.CreateCompatibleDC(0)
       obm    := GDI.SelectObject(hdcSrc, hShow)
       GDI.BitBlt(Surf.hdc, 0, 0, w, h, hdcSrc, 0, 0)

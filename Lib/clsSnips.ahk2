@@ -416,7 +416,7 @@ Class Snips {
          ; Prepare GDIP stuff and fill the surface
          ; NOTE - dimming and guides force us to use the full monitor space
          ;        which can be slow to updatelayer on slower computers
-         selSurf := GDIp.DIBSurface(winW, winH, this.guiSSR.hWnd)
+         selSurf := DIBSurface(winW, winH, this.guiSSR.hWnd)
          ; decrease quality for speed (quality not needed here)
          GDIp.SetSmoothingMode(selSurf.G, 1)
          GDIp.SetInterpolationMode(selSurf.G, 1)

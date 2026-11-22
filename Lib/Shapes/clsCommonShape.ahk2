@@ -386,7 +386,7 @@ Class commonShape extends Gui.Pic {
       ; If layered window we want to blank it also
       this.getPos(&iX, &iY, &iW, &iH)
       If (iW > 0 AND iH > 0) {
-         Surf := GDIp.DIBSurface(iW, iH, this.hWnd)
+         Surf := DIBSurface(iW, iH, this.hWnd)
          Surf.UpdateLayer(iX, iY)
          Surf := ""
       }
@@ -490,7 +490,7 @@ Class commonShape extends Gui.Pic {
     * Draw the shape, as it currently appears on screen, onto a new surface without
     * touching its window or its saved state (padding, coordinates).
     * Override in each shape class; the default has nothing to render.
-    * @returns {Object|Integer} {Surf: GDIp.DIBSurface, X, Y} with X/Y the surface's
+    * @returns {Object|Integer} {Surf: DIBSurface, X, Y} with X/Y the surface's
     *          position in snip window coordinates, or 0 if there is nothing to draw
     */
    RenderSurface() {

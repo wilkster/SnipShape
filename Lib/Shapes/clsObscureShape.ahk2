@@ -265,7 +265,7 @@ Class ObscureShape extends commonShape {
          brush := this.redactBrush
       }
       ; Stuff the aligned image/brush into a rectangle 7-20 ms this block
-      Surf := GDIp.DIBSurface(C.W, C.H, this.hwnd)
+      Surf := DIBSurface(C.W, C.H, this.hwnd)
       ; This can take 5-10ms, probably due to the texture brush
       GDIp.FillRoundedRectangle(Surf.G, brush, 0, 0, C.W, C.H, 5 * this.DPIFactor)
       Return { Surf: Surf, X: C.X1, Y: C.Y1 }

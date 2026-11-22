@@ -306,7 +306,7 @@ Class LineShape extends commonShape {
       ; Location of shape on surface (with padding)
       shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
       ; Create DIB with padding
-      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      Surf := DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
       ; Draw shape (translate by snip position)
       Surf.Translate(-shapeX, -shapeY)
       this.Draw(Surf.G, C.X1, C.Y1, C.X2, C.Y2)

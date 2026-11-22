@@ -321,7 +321,7 @@ Class FreeHandShape extends commonShape {
       P   := this.sPad
       ; The dib is sized to the enlarged surface
       shapeX := (C.X - P.L), shapeY := (C.Y - P.T)
-      Surf := GDIp.DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
+      Surf := DIBSurface(P.L + P.R + C.W, P.T + P.B + C.H, this.Hwnd)
       ; We draw in snip coordinates
       Surf.Translate(-shapeX, -shapeY)
 

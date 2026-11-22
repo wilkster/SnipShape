@@ -1948,5 +1948,309 @@ Class BitMap {
       Return hResult
    }     
 }
+/* https://learn.microsoft.com/en-us/troubleshoot/windows/win32/mix-gdi-and-gdi-plus-drawing
+Using GDI+ on a GDI memory HBITMAP The GDI+ Bitmap constructor that takes an
+HBITMAP as a parameter doesn't use the actual source HBITMAP as the backing
+image for the bitmap. Rather, a copy of the image is made in the constructor,
+and changes aren't written back to the original bitmap, even during execution
+of the destructor. The new bitmap can be thought of as copy on creation, so
+to get GDI+ to draw on a memory HBITMAP from GDI and have the changes apply
+to the HBITMAP, an approach like the following is needed instead:
+
+Create a DIBSection. Select the DIBSection into a memory HDC. To use GDI+ to
+draw to the DIBSection, wrap a Graphics object around the HDC. To use GDI to
+draw to/from the DIBSection, destroy the Graphics object, and use the HDC.
+
+Destroy the Graphics objects, and then clear the DIBSection selection from
+the HDC. Later, a bitmap can be constructed from the DIBSection and used as a
+source image in Graphics::DrawImage() if needed.
+*/
+;----------------------------------------------------------------------
+; Class to provide a drawing surface compatible with layered windows and other
+;----------------------------------------------------------------------
+; Width, Height, optional GUI Handle
+/**
+ * Create a DIBSection and provide methods to use it
+ * @param {Integer} W Width in pixels
+ * @param {Integer} H Height in pixels
+ * @param {Integer} _hWnd Handle to associated window (if desired)
+ * @param {Integer} DIBPadding Padding around the W/H specified
+ */
+Class DIBSurface {
+   __New(W, H, _hWnd:=0, DIBPadding:=0) {
+      this.hWnd := _hWnd
+      W += 2 * DIBPadding
+      H += 2 * DIBPadding
+      this.padding := DIBPadding
+      ; Get the screen DC (I think this is optional)
+      this.W := Round(W), this.H := Round(H)
+      this.isdc := GDI.GetDC(_hWnd) ; 0 or hwnd, doesn't seem to matter
+      ; Get a device context compatible with the screen
+      this.ihdc := GDI.CreateCompatibleDC(this.isdc) ; this.isdc
+      ; Create a gdi bitmap with width and height of the work area
+      ; NOTE - Negative height allows for Pixel to be top/down vs bottom up, otherwise works the same
+      ;        Not working for text though
+      this.ihbm := GDI.CreateDIBSection(W, H, this.ihdc, 32, &_ppBits := 0)
+      this._ppBits := _ppBits
+      ; Select the bitmap into the device context
+      this.iobm := GDI.SelectObject(this.ihdc, this.ihbm)
+      ; Get a pointer to the graphics of the bitmap, for use with drawing functions
+      this.iG := GDIp.GraphicsFromHDC(this.ihdc)
+      ; GraphicsFromHDC(hDC, hDevice , InterpolationMode := "", SmoothingMode := "", PageUnit := "", CompositingQuality := "") {
+      ; Set the smoothing mode to antialias = 4 to make shapes appear smoother (only used for vector drawing and filling)
+      GDIp.SetSmoothingMode(this.iG)
+      ; Set the interpolation mode when drawing on different scalings/rotation
+      GDIp.SetInterpolationMode(this.iG)
+      ; this.Stride := ((W * 32 + 31) // 32) * 4 ; bytes ((W * 32 + 3) & ~3)
+      ; this.Stride := W * 4 ; 32 BPP is already aligned
+
+      ; Proper method to get the stride, used by GetPixel
+      buf := Buffer(24 + A_PtrSize) ; BITMAP
+      GDI.GetObject(this.ihbm, buf.Size, buf.Ptr)
+      this.Stride := NumGet(buf, 12, "Uint")
+      ; debug(this.Stride " " this.H)
+   }
+   /**
+    * Return a pBitmap from this DIB Surface
+    */
+   GetBitmap() {
+      return Gdip.CreateBitmapFromHBITMAP(this.ihbm)
+   }
+   /**
+    * Fill the dib with a area on the screen
+    * @param X Screen X
+    * @param Y Screen Y
+    */
+   SnipScreen(X, Y) {
+      GDI.BitBlt(this.ihdc, 0, 0, this.W, this.H, this.isdc, X, Y, 0x40000000|0x00CC0020)
+   }
+   ; NOTE - these bitmaps are bottom up, so we reverse Y access, GetObject height to confirm (+height is buttom up)
+   ; Also, alpha channel is preserved vs pBitmap. No memory checking is done here for speed
+   ; GetDIBBits may be cleaner, but this avoids a copy of the bitmap
+
+   /**
+    * Return a pixel at some location x,y within the dibsection, address top/down, buffer is bottom up
+    * @param x 
+    * @param y 
+    * @returns {Float | Integer} 
+    */
+   Pixel(x, y) =>   NumGet(this._ppBits, (x * 4) + (this.H - y - 1) * this.Stride, "Uint") ; bottom up
+   hBitmap     =>   this.ihbm
+   Bits        =>   this._ppBits
+   Width       =>   this.W
+   Height      =>   this.H
+   /**
+    * Deselect and release all GDI/GDI+ resources owned by this DIBSurface
+    */
+   __delete() {
+      Try {
+         GDI.SelectObject(this.ihdc, this.iobm)
+         GDI.DeleteObject(this.ihbm)
+         ; This seems to be GC by the picture control
+         ; The control seems to reuse this handle
+         ; User should have consumed bitmap by now
+
+         GDIp.DeleteGraphics(this.iG)
+         GDI.DeleteDC(this.ihdc)
+         GDI.ReleaseDC(this.isdc, this.hWnd)
+
+      } Catch Error As e {
+         elog(e, "While clearing GDI+ Objects")
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Pass in coordinates and find the true extent
+   ; Account for any border padding
+   ; Takes just a couple ms to do this (5-20)
+   ;----------------------------------------------------------------------
+   /* Search these areas in this order
+      ___________________________________________
+      |              |     3     |              |
+      |     ignore   |     ^     |   ignore     |
+      |              |     |     |              |
+      |______________xxxxxxxxxxxxx_____________ |
+      |              x  Shape    x              |
+      |     <-1      x  Area     x      2->     |
+      |--------------xxxxxxxxxxxxx--------------|
+      |              |    \/     |              |
+      |      ignore  |     4     |   ignore     |
+      |______________|___________|______________|
+   */
+   /**
+    * The values must be in integer units
+    * Same goals as GetPathWorldBoundsI but doesn't require a path drawn
+    * @param hX1 Starting col 
+    * @param hY1 Starting Row
+    * @param hW  Right side col
+    * @param hH  Bottom Row
+    * @param {Integer} boxPad Optiona, additional padding to add to bounding box
+    * @returns {Object} 
+    */
+   FindExtent(hX1, hY1, hW, hH ,boxPad := 0) {
+      Return BitMap.FindExtent(this.ihbm, hX1, hY1, hW, hH, boxPad, this.padding)
+   }
+   ;----------------------------------------------------------------------
+   ; Resize the DIB, leave everything else the same
+   ; This is pretty much instantaneous (0 ms) while drawing
+   ;----------------------------------------------------------------------
+   /**
+    * Resize the DIBSection to new dimensions, recreating the backing bitmap and graphics object
+    * @param nW New width in pixels
+    * @param nH New height in pixels
+    * @returns {Object} Object with W and H properties reflecting the new size, or empty if unchanged
+    */
+   Resize(nW, nH) {
+      If (nW != this.W OR nH != this.H) {
+         ; Remove existing DIBSection and Graphics Object
+         GDI.SelectObject(this.ihdc, this.iobm)
+         GDI.DeleteObject(this.ihbm)
+         GDIp.DeleteGraphics(this.iG)
+         ; Recreate the DIBSection at new size
+         this.ihbm := GDI.CreateDIBSection(nW, nH, this.ihdc)
+         this.iobm := GDI.SelectObject(this.ihdc, this.ihbm)
+         ; Recreate Graphics Handle
+         this.iG := GDIp.GraphicsFromHDC(this.ihdc)
+         GDIp.SetSmoothingMode(this.iG)
+         GDIp.SetInterpolationMode(this.iG)
+         this.W := nW
+         this.H := nH
+         Return { W: this.W, H: this.H }
+      }
+   }
+   /**
+    * Clear the graphics surface to the specified ARGB color
+    * @param val ARGB fill color (default: 0xFF000000 = opaque black)
+    */
+   GraphicsClear(val:=0xFF000000) => GDIp.GraphicsClear(this.G, val)
+
+   /**
+    * Update the associated layered window with the current DIB contents
+    * @param X Window X position (default: 0)
+    * @param Y Window Y position (default: 0)
+    * @param alpha Overall window alpha 0-255 (default: 255)
+    */
+   UpdateLayer(X := 0, Y := 0, alpha := 255) {
+      GDI.UpdateLayeredWindow(this.hWnd, this.ihdc, X, Y, this.W, this.H, alpha, this.isdc)
+   }
+   /**
+    * Select a GDI object into the DIBSurface's device context
+    * @param obj Handle to the GDI object to select
+    */
+   selectObject(obj) {
+      GDI.SelectObject(this.ihdc, obj)
+   }
+   ;----------------------------------------------------------------------
+   ; Wait for all updates to finish and sync with vertical sync to prevent tearing
+   ;----------------------------------------------------------------------
+   /**
+    * Flush all pending DWM rendering and wait for vertical sync to prevent tearing
+    */
+   vSync() {
+      DllCall("Dwmapi\DwmFlush", "Int")
+   }
+   ;----------------------------------------------------------------------
+   ; Adjust the 0,0 point in the DIB/Graphics Object to allow padding and offsets
+   ;----------------------------------------------------------------------
+   /**
+    * Apply a translation transform to the DIBSurface's graphics object
+    * @param x X offset to apply
+    * @param y Y offset to apply
+    * @param MatrixOrder 0=prepend (default), 1=append
+    * @returns {Integer} GDI+ status code
+    */
+   Translate(x, y, MatrixOrder := 0) {
+      GDIp.ResetWorldTransform(this.iG)
+      if (res:= DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.iG, "float", x, "float", y, "int", MatrixOrder))
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      return res
+   }
+
+   /*
+   DECLARE FUNCTION GdipDrawImage ( _
+      BYVAL graphics AS DWORD, _
+      BYVAL pImage AS DWORD, _
+      BYVAL x AS SINGLE, _
+      BYVAL y AS SINGLE _
+      ) AS LONG
+   */
+   /**
+    * Draw a pBitmap onto the DIBSurface at position 0,0
+    * @param pBitmap Source GDI+ bitmap to draw
+    * @returns {Integer} GDI+ status code
+    */
+   DrawImage(pBitmap) {
+      if (res:=  DllCall("gdiplus\GdipDrawImage", "Ptr", this.IG, "Ptr", pBitmap, "float", 0, "float", 0))
+         Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      return res
+   }
+   hdc => this.ihdc  ; used for UpdateLayeredWindow
+   G => this.iG    ; Graphics handle
+   hbm => this.ihbm  ; hBitmap handle
+   ;----------------------------------------------------------------------
+   ; Update a different (smaller shape) window with a portion of this DIB
+   ;----------------------------------------------------------------------
+   /**
+    * Update a separate layered window with a clipped region of this DIBSurface
+    * @param hWnd Handle to the target layered window to update
+    * @param X Left edge of the source region within this DIB
+    * @param Y Top edge of the source region within this DIB
+    * @param W Width of the region to copy
+    * @param H Height of the region to copy
+    * @param Pad Optional additional padding offset (default: 0)
+    * @param Alpha Overall window alpha 0-255 (default: 255)
+    * @returns {Integer} UpdateLayeredWindow result, or empty if rectangles don't intersect
+    */
+   UpdateShapeWindow(hWnd, X, Y, W, H, Pad := 0, Alpha := 255) {
+      Static ULW_ALPHA := 2, AC_SRC_ALPHA := 1 << 24
+      Static pptDst    := stPointI()
+      Static psize     := stPointI()
+      Static pptSrc    := stPointI()
+      Static RCanvas   := stRECTI()
+      Static RShape    := stRECTI()
+      ; Canvas dims
+      RCanvas.Init(0, 0, this.W, this.H)
+      ;Shape dims
+      RShape.Init(X + Pad, Y + Pad, X + Pad + W, Y + Pad + H)
+      ; Intersect the two for the updated window
+      If DllCall("user32\IntersectRect", stRECTI.Ptr, &ROut, "Ptr", RCanvas, "Ptr", RShape) {
+         ; Constrain where to copy from to be in the canvas
+         pptSrc.Init(Max(X + Pad, 0),Max((Y + Pad), 0))
+         pptDst.Init(ROut.X1 - Pad, ROut.Y1 - Pad)
+         psize.Init(ROut.W, ROut.H)
+         res := DllCall("User32\UpdateLayeredWindow"
+            , "Ptr", hWnd                           ; layered window hwnd
+            , "Ptr", 0                              ; hdcDst (screen) - usually 0 for default palette matching
+            , "Ptr", pptDst.ptr                     ; pptDst POINT x,y of layered window, can be null if position not changing
+            , "Ptr", psize.Ptr                      ; psize SIZE w,h of layered window, must be NULL iff hdcSrc is null (no size change)
+            , "Ptr", this.ihdc                      ; hdcSrc - source bitmap to be drawn on to layered window - NULL if not changing
+            , "Ptr", pptSrc.ptr                     ; x,y offset of bitmap to be drawn, A pointer to a structure that specifies the location of the layer in the device contex
+            , "uint", 0                             ; crKey - bgcolor to use?  meaningless when using full alpha
+            , "UInt*", Alpha << 16 | AC_SRC_ALPHA   ; pblend
+            , "uint", ULW_ALPHA, "Int")                    ; ULW_ALPHA, use pbland
+         If (res = 0)
+            warning("UpdateLayeredWindow Fail " GetLastError())
+         Return res
+      } Else {
+         warning("Failed to intersect the canvas and the shape")
+      }
+   }
+   /**
+    * Create a full ARGB pBitmap from the current DIBSection
+    */
+   getARGBpBitmap() {
+      GDI.SelectObject(this.ihdc, this.iobm)
+      pFull := GDIp.CreateARGBBitmapFromHBITMAP(this.ihbm)
+      GDI.SelectObject(this.ihdc, this.ihbm)
+      Return pFull
+   }
+
+   /**
+    * Set the compositing mode on the DIBSurface's graphics object
+    * @param how 0=SourceOver (blend), 1=SourceCopy (overwrite)
+    */
+   CompositingMode(how) => GDIp.SetCompositingMode(this.iG, how)
+}
+
 
 logGDI(BFN(Error("", -1).File) " loaded...")
