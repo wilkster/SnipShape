@@ -232,7 +232,7 @@ Class ShapeGroup {
       If NOT this.Active
          Return
       snip := this.SnipObj
-      tag  := A_TickCount "GroupMove"
+      tag  := UnDo.NewTag("GroupMove")
       For shp in this.List
          shp.PostAction(UnDo.MOVE_SHAPE, tag)
       this._resizePosted := false
@@ -272,7 +272,7 @@ Class ShapeGroup {
       If NOT this.Active
          Return
       snip := this.SnipObj
-      tag  := A_TickCount "GroupDelete"
+      tag  := UnDo.NewTag("GroupDelete")
       For shp in this.List {
          shp.PostAction(UnDo.DELETE_SHAPE, tag)
          shp.Close(true)
@@ -291,7 +291,7 @@ Class ShapeGroup {
    Static SetColor(color) {
       If NOT this.Active
          Return
-      tag := A_TickCount "GroupColor"
+      tag := UnDo.NewTag("GroupColor")
       For shp in this.List {
          If NOT this._HasColor(shp)
             Continue
@@ -313,7 +313,7 @@ Class ShapeGroup {
       If NOT this.Active
          Return
       If NOT this._resizePosted {
-         tag := A_TickCount "GroupSize"
+         tag := UnDo.NewTag("GroupSize")
          For shp in this.List
             shp.PostAction(UnDo.RESIZE_SHAPE, tag)
          this._resizePosted := true

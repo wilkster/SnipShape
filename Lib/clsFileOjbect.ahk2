@@ -30,7 +30,9 @@ Class FileObject {
       GDI.DeleteObject(fileObj.Snip.hBitmap)
       ; Display transparency, restored when the snip is opened
       fileObj.Snip.Alpha := SnipObj.Alpha
-      pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.Handle, 0xE200B)   ; picture is premultiplied
+      ; Save the master picture (100%) and the zoom (SnipInfo().Zoom): reopening shows
+      ; it at the same zoom and it can still zoom back to full quality
+      pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.BaseBitmap, 0xE200B)   ; picture is premultiplied
 
       ; TODO - look into saving binary chunk here vs base64 to save space
       ; Base snip bitmap gets a base64 encoded stream to save to the file
@@ -181,6 +183,11 @@ Class FileObject {
                ; Restore the display transparency (files saved before it was stored open opaque)
                If (fileObj.Snip.HasProp("Alpha") AND IsNumber(fileObj.Snip.Alpha))
                   SnipObj.Alpha := fileObj.Snip.Alpha
+               ; The saved picture is the master; show it at the saved zoom before the
+               ; shapes (saved in display coordinates) are recreated. Older files have
+               ; no zoom: their picture is what was displayed, so 100% is right
+               If (fileObj.Snip.HasProp("Zoom") AND IsNumber(fileObj.Snip.Zoom) AND fileObj.Snip.Zoom > 0 AND fileObj.Snip.Zoom != 1)
+                  SnipObj.SetZoom(fileObj.Snip.Zoom + 0)
                ; If allow edits is true, use the original name and title
                ; We have the data for the snip and the shapes, so recreate them here
                For ShapeInfo in fileObj.Shapes {

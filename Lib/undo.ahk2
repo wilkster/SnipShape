@@ -26,8 +26,17 @@ Class UnDo {
    Static BITMAP_CHANGE :=  7
    Static CHANGE_SNIP   :=  8
    Static MOVE_SNIP     :=  9
+   Static ZOOM_SNIP     := 10   ; zoom only: stores the zoom and window position, no picture
    ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
    Static MAX_DEPTH := 100  ; cap stack depth, oldest entries dropped first
+   Static _tagSeq   := 0
+   /**
+    * A new tag for entries that undo as one step. Unique even within one
+    * A_TickCount tick (about 16 ms): two quick zoom steps used to share a tag
+    * and undo together.
+    * @param {String} name - readable suffix
+    */
+   Static NewTag(name := "") => A_TickCount "-" (++UnDo._tagSeq) name
 
    __New() {
       this.undoStack := Array()
@@ -168,6 +177,7 @@ Class UnDo {
          Case UnDo.RESIZE_SHAPE : return obj.ResizeInfo()
          Case UnDo.CHANGE_SNIP  : return obj.SnipInfo()
          Case UnDo.MOVE_SNIP    : return obj.MoveInfo()
+         Case UnDo.ZOOM_SNIP    : return obj.ZoomInfo()
               Default           : Return Object()
       }
    }
@@ -309,18 +319,27 @@ Class UnDo {
                   reverseData := this._CaptureData(item.action, snipObj)
                   targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
                   If (hbitmap := item.data.hBitmap ?? 0) {
-                     snipObj.ReplaceSnip(hbitmap)
-                     ; snipObj.ReplaceSnip(hbitmap, Area.X, Area.Y) ; for undo, don't move position
+                     ; The master picture (now owned by the snip) and the zoom it was
+                     ; shown at; the display picture is rebuilt from them. Position is
+                     ; kept (the shapes' MOVE entries in the same tag put them back)
+                     snipObj.RestoreBase(hbitmap, item.data.HasProp("Zoom") ? item.data.Zoom : snipObj.ScaleFactor)
+                     item.data.hBitmap := 0   ; handed over: not freed with this entry
                      ButtonBar.Show(snipObj.hWnd)
                      snipObj.RefreshTextures()
-                     ; If we undo all they way back, then reset the OGHandle to 0 if it is use
-                     If (UnDo AND sourceStack.Length == 0) {
-                        If (snipObj._OGHandle) {
-                           GDI.DeleteObject(snipObj._OGHandle)
-                           snipObj._OGHandle := 0
-                        }
-                     }
                   }
+               } else
+                  warning("Expected Snip but did not get it for Action " item.action)
+
+            Case UnDo.ZOOM_SNIP:
+               ; Zoom step: rebuild the display at the saved zoom and put the window
+               ; back (the shapes' MOVE entries in the same tag restore them)
+               If (item.obj is GuiSnip) {
+                  snipObj := item.obj
+                  reverseData := this._CaptureData(item.action, snipObj)
+                  targetStack.Push({ obj: snipObj, action: item.action, Tag: item.tag, data: reverseData })
+                  snipObj.SetZoom(item.data.Zoom, item.data.Area.X, item.data.Area.Y)
+                  ButtonBar.Show(snipObj.hWnd)
+                  snipObj.RefreshTextures()
                } else
                   warning("Expected Snip but did not get it for Action " item.action)
             Default:

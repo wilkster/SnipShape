@@ -13,6 +13,7 @@
 #include clsBitmap.ahk2 
 #include clsShapes.ahk2
 #include clsMenus.ahk2
+#include clsShapeGroup.ahk2
 #include ColorPopDown.ahk2
 /**
  * Extended GUI class that stores snip-specific metadata, brush caches, and bitmap state
@@ -44,7 +45,10 @@ Class GuiSnip extends Gui {
       this.BW                   := Settings.BorderWidth
       Snips.guiSnips[this.hWnd] := this
       this.UnDo                 := UnDo()
-      this._OGHandle            := 0
+      ; Picture model: _base is the master picture at 100%; every edit is made to it.
+      ; myHandle is only the display picture, always rebuilt from _base at _zoom.
+      this._base                := 0
+      this._zoom                := 1.0
       this._alpha               := 0xFF
       this.ogRadius             := 0
       super.MarginX := super.MarginY := this.BW
@@ -101,8 +105,8 @@ Class GuiSnip extends Gui {
          hwnd := this.hWnd
          super.Destroy()
          GDI.DeleteObject(this.myHandle)
-         if (this._OGHandle)
-            GDI.DeleteObject(this._OGHandle)
+         if (this._base)
+            GDI.DeleteObject(this._base)
             
          Snips.guiSnips.Delete(hwnd) ; remove from known snips
          ; logGDI("-Close  Snip:" Title ", " GetProcessMemoryInfo("K") ",")
@@ -121,22 +125,7 @@ Class GuiSnip extends Gui {
    /*
    * Return the current scale factor for this snip
    */
-   ScaleFactor {
-      get {
-         If (this._OGHandle) {
-            GDI.GetHBitmapDimensions(this._OGHandle, &ogW, &ogH)
-            GDI.GetHBitmapDimensions(this.myHandle, &aW, &aH)
-            ; Use a fresh OG handle incase something changed on the snip (color, trim...)
-            ; Note, we modifed more than one dimension then don't save OGHandle again
-            If (ogW == aW OR ogH == aH) {
-               GDI.DeleteObject(this._OGHandle)
-               this._OGHandle := GDI.CopyImage(this.myHandle)
-            }
-            Return aW / ogW
-         } else
-            return 1.0
-      }
-   }
+   ScaleFactor => this._zoom
    Radius {
       get {
          Return round(this.ogRadius * this.ScaleFactor)
@@ -152,6 +141,11 @@ Class GuiSnip extends Gui {
       this.OnEvent("ContextMenu", SnipMenus.Post.bind(SnipMenus))
       this._renderSnip(hBitmap, x?, y?)
       this.MyHandle := hBitmap
+      ; The master picture starts as a copy at 100%
+      If (this._base)
+         GDI.DeleteObject(this._base)
+      this._base := GDI.CopyImage(hBitmap)
+      this._zoom := 1.0
       Return hBitmap
    }
    /**
@@ -215,13 +209,11 @@ Class GuiSnip extends Gui {
       } Else {
          radius := this.ogRadius
       }
-      If (radius) {
-         if (this._OGHandle)
-            BitMap.RoundWindowCorners(this._OGHandle, radius)
-         If (this.myHandle) {
-            BitMap.RoundWindowCorners(this.myHandle, Round(radius * this.ScaleFactor))
-            this._renderSnip(this.myHandle)
-         }
+      ; Round the master picture; the display picture is rebuilt from it (scaling
+      ; keeps the transparent corners)
+      If (radius AND this._base) {
+         BitMap.RoundWindowCorners(this._base, radius)
+         this.SetZoom(this._zoom)
       }
    }
   /**
@@ -248,15 +240,7 @@ Class GuiSnip extends Gui {
     * It will resize the window to match the new bitmap dimensions.
     * @type {Integer}
     */
-   Handle {
-      get => this.myHandle
-      set {
-         this._renderSnip(value)
-         oldhBitmap := this.myHandle
-         this.myHandle := value
-         GDI.DeleteObject(oldhBitmap)
-      }
-   }  
+   Handle => this.myHandle   ; display picture (read only: edit the picture with SetBase)
    Alpha {
       get => this._alpha
       set {
@@ -297,20 +281,84 @@ Class GuiSnip extends Gui {
     * It will resize the window to match the new bitmap dimensions.
     * @type {Integer}
     */
-   OGHandle {
-      get {
-         If (not this._OGHandle) {
-            this._OGHandle := GDI.CopyImage(this.myHandle)
-         }
-         return this._OGHandle
-      }
-      set {
-         this._renderSnip(value)
-         oldhBitmap := this.myHandle
-         this.myHandle := value
-         GDI.DeleteObject(oldhBitmap)
-      }
-   }  
+   ;----------------------------------------------------------------------
+   ; Picture model
+   ;  _base    master picture at 100%; all picture edits are made to it
+   ;  _zoom    display zoom (ScaleFactor)
+   ;  myHandle display picture (Handle), always _base scaled by _zoom
+   ; Shapes and the window are in display coordinates; RectToBase/_Ratios map a
+   ; window rectangle to master pixels.
+   ;----------------------------------------------------------------------
+   /**
+    * Master picture at 100% (owned by the snip; copy it before changing it)
+    * @type {Integer}
+    */
+   BaseBitmap => this._base
+   /**
+    * Scale a master picture to the display zoom
+    * @param {Integer} [hBase] - master picture (default: the snip's)
+    * @param {Float} [zoom] - zoom (default: the snip's)
+    * @returns {Integer} new display hBitmap (caller owns)
+    */
+   _ScaledBase(hBase?, zoom?) {
+      hBase ??= this._base
+      zoom  ??= this._zoom
+      If (zoom = 1.0)
+         Return GDI.CopyImage(hBase)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBase)
+      pScaled := BitMap.BitmapScale(pBitmap, zoom)   ; disposes pBitmap when it scales
+      hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pScaled)
+      GDIp.DisposeImage(pScaled)
+      Return hBitmap
+   }
+   /**
+    * Install a new master picture and its display picture (both now owned by the snip)
+    * @param {Integer} hBase - new master picture
+    * @param {Integer} hDisp - display picture made from it (_ScaledBase)
+    * @param {Integer} [x] - new window X (screen)
+    * @param {Integer} [y] - new window Y (screen)
+    */
+   _SetPicture(hBase, hDisp, x?, y?) {
+      If (this._base AND this._base != hBase)
+         GDI.DeleteObject(this._base)
+      this._base := hBase
+      this.ReplaceSnip(hDisp, x?, y?)
+   }
+   /**
+    * Replace the master picture (an edited copy) and redraw it at the current zoom
+    * @param {Integer} hBase - new master picture, now owned by the snip
+    */
+   SetBase(hBase, x?, y?) => this._SetPicture(hBase, this._ScaledBase(hBase), x?, y?)
+   /**
+    * Show the master picture at a zoom (no undo, shapes untouched)
+    * @param {Float} zoom - zoom factor (1.0 = 100%)
+    */
+   SetZoom(zoom, x?, y?) {
+      this._zoom := zoom
+      this.ReplaceSnip(this._ScaledBase(), x?, y?)
+   }
+   /**
+    * Exact display/master size ratios (the display is Ceil(base * zoom))
+    */
+   _Ratios(&rX, &rY) {
+      GDI.GetHBitmapDimensions(this._base, &baseW, &baseH)
+      GDI.GetHBitmapDimensions(this.myHandle, &dW, &dH)
+      rX := dW / baseW, rY := dH / baseH
+   }
+   /**
+    * Map a rectangle in snip window coordinates to master picture pixels
+    * (edges rounded to the nearest master pixel, clamped to the picture)
+    * @returns {Object} {X, Y, W, H} in master pixels
+    */
+   RectToBase(l, t, r, b) {
+      BW := Settings.BorderWidth
+      this._Ratios(&rX, &rY)
+      ; (not bW/bH: AHK names are case-insensitive, bW would be BW)
+      GDI.GetHBitmapDimensions(this._base, &baseW, &baseH)
+      x1 := Constrain(0, baseW, Round((l - BW) / rX)), x2 := Constrain(0, baseW, Round((r - BW) / rX))
+      y1 := Constrain(0, baseH, Round((t - BW) / rY)), y2 := Constrain(0, baseH, Round((b - BW) / rY))
+      Return { X: x1, Y: y1, W: x2 - x1, H: y2 - y1 }
+   }
    /**
     * Iterate all visible non-screen shapes and call their Refresh method
     * to redraw texture brushes after a bitmap change
@@ -658,7 +706,7 @@ Class GuiSnip extends Gui {
     * @param {Integer} hWnd 
     */
    PostClearAllShapes() {
-      tag := A_TickCount . "ClearAll"
+      tag := UnDo.NewTag("ClearAll")
       For ShapeObj in this.VisibleShapes {
          ShapeObj.PostAction(UnDo.DELETE_SHAPE, tag)
       }
@@ -703,7 +751,24 @@ Class GuiSnip extends Gui {
     */
    SnipInfo() {
       this.GetPos(&X, &Y, &W, &H)
-      Return { hBitmap: GDI.CopyImage(this.Handle), Area: { X: X, Y: Y, W: W, H: H } }
+      ; The master picture and the zoom: restoring rebuilds the display from them
+      Return { hBitmap: GDI.CopyImage(this._base), Zoom: this._zoom, Area: { X: X, Y: Y, W: W, H: H } }
+   }
+   /**
+    * Zoom info for undo/redo of a zoom step (no picture copy)
+    * @returns {Object}
+    */
+   ZoomInfo() {
+      this.GetPos(&X, &Y, &W, &H)
+      Return { Zoom: this._zoom, Area: { X: X, Y: Y, W: W, H: H } }
+   }
+   /**
+    * Undo/redo of a picture change: restore a master picture (owned by the snip
+    * from now on) and the zoom it was shown at
+    */
+   RestoreBase(hBase, zoom) {
+      this._zoom := zoom
+      this.SetBase(hBase)
    }
       /**
     * Position info for undo/redo
@@ -782,7 +847,7 @@ Class GuiSnip extends Gui {
     * @param {Integer} radius - Radius to search for color
     */
    ReplaceSnipBGColor(X, Y, how:="dialog", radius := 8) {
-      hBitmap := GDI.CopyImage(this.Handle)
+      hBitmap := GDI.CopyImage(this._base)
       ; We are launched from a menu, so the coordinates are where the menu was launched
       fromRGB := this.BackgroundPICColorFromXY(X, Y, radius)
       Switch how {
@@ -800,7 +865,7 @@ Class GuiSnip extends Gui {
          hits := BitMap.ReplaceBitmapColor(hBitmap, 0xFF000000 | fromRGB, toRGB, 0, 25)
          If (hits > 0) {
             ; Replace the picture
-            this.Handle := hBitmap ; destroys og hBitmap
+            this.SetBase(hBitmap) ; destroys the old master
             this.RefreshTextures()
             this.Dirty++
          } Else {
@@ -819,7 +884,7 @@ Class GuiSnip extends Gui {
     */
    RotateFlipSnip(Angle := 0, FlipHow := 0) {
       this.PostAction(UnDo.CHANGE_SNIP)
-      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle) ; WrapARGBBitmapFromHBITMAP
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this._base) ; WrapARGBBitmapFromHBITMAP
       ; Transform in place
       If (Angle)
          pBitmap := BitMap.Rotate(pBitmap, Angle)
@@ -827,7 +892,7 @@ Class GuiSnip extends Gui {
          pBitmap := BitMap.Flip(pBitmap, FlipHow)
       ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
       ; Replace the picture
-      this.ReplaceSnip(ihBitmap)
+      this.SetBase(ihBitmap)
       ; Cleanup
       GDIp.DisposeImage(pBitmap) ;
       ; Recompute textures
@@ -840,10 +905,10 @@ Class GuiSnip extends Gui {
     * Shapes are not impacted.
     */
    StretchSnip(*) {
-      hBitmap := GDI.CopyImage(this.Handle)
+      hBitmap := GDI.CopyImage(this._base)
       this.PostAction(UnDo.CHANGE_SNIP)
       If (BitMap.ContrastStretch(hBitmap)) {
-         this.Handle := hBitmap ; destroys og hBitmap
+         this.SetBase(hBitmap) ; destroys the old master
          ; Recompute textures
          this.RefreshTextures()
          this.Dirty++
@@ -860,12 +925,12 @@ Class GuiSnip extends Gui {
     */
    TransformSnip(numEffect := 1) {
       this.PostAction(UnDo.CHANGE_SNIP)
-      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this.Handle)
+      pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(this._base)
       ; Transform in place
       BitMap.TransformBitmap(pBitmap, numEffect)
       ihBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
       ; Replace the picture
-      this.Handle := ihBitmap ; destroys og hBitmap
+      this.SetBase(ihBitmap) ; destroys the old master
       ; Cleanup
       GDIp.DisposeImage(pBitmap) ;
       ; Recompute textures
@@ -881,31 +946,40 @@ Class GuiSnip extends Gui {
    CloneAndScaleSnip(ScaleFactor := 1.0, IncludeShapes := 0) {
          ; Use the raw picture without any shapes
       srcSnip := this
-      hBitmap := srcSnip.Handle
-      if (IncludeShapes)
-         pBitMap := BitMap.pBitmapCropFromHWND(this.hWnd, 1, Settings.BorderWidth)
-      else
-         pBitmap := gdip.WrapARGBBitmapFromHBITMAP(hBitmap)
       this.GetPos(&X, &Y)
-      ; Scale to a new bitmap
-      if (ScaleFactor != 1.0)
-         pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
-      if (ScaleFactor > 1.0) ; ScaleFactor => radius
-         pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
-      GDIp.GetImageDimensions(pBitmap, &W, &H)
-      ; Need an hBitmap for the picture
-      hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-      GDIp.DisposeImage(pBitmap)
+      ; A plain duplicate copies the master picture and its zoom, so it can still
+      ; zoom back to full quality
+      useBase := (NOT IncludeShapes AND ScaleFactor = 1.0)
+      If (useBase) {
+         hBitmap := GDI.CopyImage(this._base)
+         GDI.GetHBitmapDimensions(this.myHandle, &W, &H)
+      } Else {
+         if (IncludeShapes)
+            pBitMap := BitMap.pBitmapCropFromHWND(this.hWnd, 1, Settings.BorderWidth)
+         else
+            pBitmap := gdip.WrapARGBBitmapFromHBITMAP(this.myHandle)
+         ; Scale to a new bitmap
+         if (ScaleFactor != 1.0)
+            pBitmap := BitMap.BitmapScale(pBitMap, ScaleFactor)
+         if (ScaleFactor > 1.0) ; ScaleFactor => radius
+            pBitMap := BitMap.Sharpen(pBitMap, ScaleFactor, 80.0) ; NOTE - Amount is hard coded
+         GDIp.GetImageDimensions(pBitmap, &W, &H)
+         ; Need an hBitmap for the picture
+         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
+         GDIp.DisposeImage(pBitmap)
+      }
       BW := Settings.BorderWidth
       ; Setup the new Snip information
       Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
       SnipObj         := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
       ; SnipObj.MarginX := BW, SnipObj.MarginY := BW
       SnipObj.AddSnipPic(hBitmap)
+      If (useBase AND this._zoom != 1.0)
+         SnipObj.SetZoom(this._zoom)
       ;-------------------------------------
       ; Recreate any shapes on the new Snip
       ;-------------------------------------
-      tag := A_TickCount . "AddShapes"
+      tag := UnDo.NewTag("AddShapes")
       For ShapeObj in srcSnip.VisibleShapes {
          ; When repooling, clear out the old shape data and properties
          Info := ShapeObj.InstanceInfo()
@@ -948,52 +1022,45 @@ Class GuiSnip extends Gui {
    }
 
    /**
-    * Scale the picture in the snip (vs just resizing it)
-    * NOTE - OGHandle is saved the first scalefactor so any subsequent snip changes may be replaced if you scale again.
-    * @param {Float} ScaleFactor , + for relative scale, - for aboslute scape
+    * Zoom the snip: the display picture is rebuilt from the master picture at the
+    * new zoom (no quality loss over repeated zooms, and edits made at any zoom are
+    * kept). Shapes are scaled with it. Undo records only the zoom (ZOOM_SNIP).
+    * @param {Float} ScaleFactor , + for relative scale, - for absolute scale
     */
    ScaleSnip(ScaleFactor := 1.0) {
-      if (ScaleFactor != 1.0) {
-         ; Use the raw picture without any shapes
-         if (ScaleFactor > 0)
-            ScaleFactor *= this.ScaleFactor
-         else
-            ScaleFactor *= -1
-         ScaleFactor := Round(ScaleFactor, (ScaleFactor < 0.4 ? 2 : 1))
-         tag := A_TickCount "ScaleSnip"
-         this.PostAction(UnDo.CHANGE_SNIP, tag)
-         ; Always scale the base image so we don't lose quality after multiple passes
-         hBitmap := this.OGHandle
-         ; Scale factor is applies against current scale
-         pBitmap := GDIp.WrapARGBBitmapFromHBITMAP(hBitmap)
-         this.GetPos(&X, &Y, &wW, &wH)
-         GDI.GetHBitmapDimensions(this.Handle, &ogWidth, &ogHeight)
-         ; Scale to a new bitmap, most of the time is here
-         pBitmap := BitMap.BitmapScale(pBitmap, ScaleFactor)
-         GetCursorPos(&mX, &mY)
-         CoordMode("ToolTip", "Screen")
-         ToolTip("     Zoom at " Round(ScaleFactor * 100) "%", mX, mY)
-         SetTimer(ToolTip, -2000)
-         GDIp.GetImageDimensions(pBitmap, &W, &H)
-         ; Need an hBitmap for the picture
-         hBitmap := GDIp.CreateARGBHBITMAPFromBitmap(pBitmap)
-         GDIp.DisposeImage(pBitmap)
-         ; Recenter bitmap
-         X := (X + wW / 2) - W / 2
-         Y := (Y + wH / 2) - H / 2
-         focusBorder.HideFocus()
-         this.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
-         ; Relocate and scale all of the shapes on this snip
-         relativeScaleFactor := W/ogWidth
-         For objShape in this.VisibleShapes {
-            objShape.PostAction(UnDo.MOVE_SHAPE, tag)
-            objShape.Scale(relativeScaleFactor)
-         }
-         this.RefreshTextures()
-         this.Dirty++
-         ButtonBar.Show()
+      if (ScaleFactor = 1.0)
+         Return
+      newZoom := (ScaleFactor > 0) ? ScaleFactor * this._zoom : -ScaleFactor
+      newZoom := Round(newZoom, (newZoom < 0.4 ? 2 : 1))
+      If (newZoom <= 0 OR newZoom = this._zoom)
+         Return
+      tag := UnDo.NewTag("ScaleSnip")
+      this.PostAction(UnDo.ZOOM_SNIP, tag)
+      this.GetPos(&X, &Y, &wW, &wH)
+      GDI.GetHBitmapDimensions(this.myHandle, &oldW, &oldH)
+      this._zoom := newZoom
+      ; Most of the time is here
+      hBitmap := this._ScaledBase()
+      GetCursorPos(&mX, &mY)
+      CoordMode("ToolTip", "Screen")
+      ToolTip("     Zoom at " Round(newZoom * 100) "%", mX, mY)
+      SetTimer(ToolTip, -2000)
+      GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+      ; Recenter bitmap
+      X := (X + wW / 2) - W / 2
+      Y := (Y + wH / 2) - H / 2
+      focusBorder.HideFocus()
+      this.ReplaceSnip(hBitmap, X - Settings.BorderWidth, Y - Settings.BorderWidth)
+      ; Relocate and scale all of the shapes on this snip
+      relativeScaleFactor := W / oldW
+      For objShape in this.VisibleShapes {
+         objShape.PostAction(UnDo.MOVE_SHAPE, tag)
+         objShape.Scale(relativeScaleFactor)
       }
-   }   
+      this.RefreshTextures()
+      this.Dirty++
+      ButtonBar.Show()
+   }
    /**
     * Crop the image to one of the drawn shapes/pictures
     * @param CropObj Is the crop rectangle just drawn
@@ -1001,41 +1068,36 @@ Class GuiSnip extends Gui {
     * @returns Nothing 
     */
    Crop(CropObj, Clipboard := false) {
-      If (hBitmap := this.handle) {
-         tag := A_TickCount . "Crop"
-         this.PostAction(UnDo.CHANGE_SNIP, tag)
-         BW := Settings.BorderWidth
-         ; Get various dimensions
-         this.GetPos(&gX1, &gY1) ; includes the Border 
-         ; Crop tool
-         C := CropObj.shapeCoord
-         ; Get the raw picture dimensions
-         this.GetPicPos(&pX1, &pY1, &pW, &pH) ; includes left/top border
-         ; Intersection to handle off picture crop tool
-         iR := IntersectRect(
-            C.X1, C.Y1, C.X2, C.Y2, 
-            pX1, pY1, pX1 + pW, pY1 + pH
-         )
-
-         If (IR AND iR.w < 25 AND iR.h < 25)
-            Return
-         ; This destroys the existing snip bitmap and creates a new one
-         hBitmap := BitMap.CropHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h, 1)
-         ; Replace bitmap shoving it into the upper left of the gui with empty space right/belw
-         this.ReplaceSnip(hBitmap, gX1 + iR.l - BW, gY1 + iR.t - BW)
-
-         ; Shift all of the controls so they stay in same place
-         For ShapeObj in this.VisibleShapes {
-            ShapeObj.GetPos(&X, &Y, &W, &H)
-            ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-            ShapeObj.Move(X - C.X1, Y - C.Y1)
-         }
-         this.RefreshTextures()
-         this.Dirty++
-         ButtonBar.Show()
-         if Clipboard {
-            this.Snip2Clipboard(Snips.borderWithCopy)
-         }
+      If NOT (this.myHandle AND this._base)
+         Return
+      this.GetPos(&gX1, &gY1) ; window, includes the border
+      C := CropObj.shapeCoord
+      this.GetPicPos(&pX1, &pY1, &pW, &pH) ; picture, window coordinates
+      ; Intersection to handle an off-picture crop tool
+      iR := IntersectRect(C.X1, C.Y1, C.X2, C.Y2, pX1, pY1, pX1 + pW, pY1 + pH)
+      If (NOT iR OR (iR.w < 25 AND iR.h < 25))
+         Return
+      ; Crop the master picture
+      bR := this.RectToBase(iR.l, iR.t, iR.l + iR.w, iR.t + iR.h)
+      If (bR.W < 1 OR bR.H < 1)
+         Return
+      tag := UnDo.NewTag("Crop")
+      this.PostAction(UnDo.CHANGE_SNIP, tag)
+      ; Where the new top-left is in the current display picture: the window moves
+      ; there, and the shapes move back by the same amount so they stay put
+      this._Ratios(&rX, &rY)
+      dX := Round(bR.X * rX), dY := Round(bR.Y * rY)
+      this.SetBase(BitMap.CropHBITMAP(this._base, bR.X, bR.Y, bR.W, bR.H, 1), gX1 + dX, gY1 + dY)
+      For ShapeObj in this.VisibleShapes {
+         ShapeObj.GetPos(&X, &Y)
+         ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+         ShapeObj.Move(X - dX, Y - dY)
+      }
+      this.RefreshTextures()
+      this.Dirty++
+      ButtonBar.Show()
+      if Clipboard {
+         this.Snip2Clipboard(Snips.borderWithCopy)
       }
    }
 
@@ -1046,40 +1108,59 @@ Class GuiSnip extends Gui {
     * @returns Nothing 
     */
    Slice(SliceObj, Clipboard := false) {
-      If (hBitmap := this.handle) {
-         tag := A_TickCount . "Slice"
-         this.PostAction(UnDo.CHANGE_SNIP, tag)
-         BW  := Settings.BorderWidth
-         C   := SliceObj.shapeCoord ; includes picture border offset, snip relative
-         this.GetPos(&gX, &gY)     ; screen relative
-         this.GetPicPos(&pX1, &pY1, &pW, &pH) ; Snip picture only, snip relative
-         iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
-         ; Offset by borderwidth (0 based)
-         hBitmap := BitMap.SliceHBITMAP(hBitmap, iR.l - BW, iR.t - BW, iR.w, iR.h,1)
-         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         deltaW := pW - W, deltaH := pH - H
-         ; If we cut off the left or top, recenter to keep rest in same place
-         if (c.x1 < pX1)
-            gX += deltaW
-         else if (c.y1 < pY1)
-            gY += deltaH
-
-         this.ReplaceSnip(hBitmap, gX, gY)
-         ; Shift all of the controls so they stay in same place
-         For ShapeObj in this.VisibleShapes {
-            ShapeObj.GetPos(&X, &Y, &W, &H)
-            ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-            If (pW = iR.W) ; Horz section
-               ShapeObj.Move(X, Y - (Y > iR.t ? iR.h : 0)) ; if top of shape below top of selection, then move it up by selection height
-            Else if (pH = iR.H) ; Vert section
-               ShapeObj.Move(X - (X > iR.L ? iR.w :0) , Y)
-         }
-         this.RefreshTextures()
-         this.Dirty++
-         ButtonBar.Show()
-         if Clipboard {
-            this.Snip2Clipboard(Snips.borderWithCopy)
-         }
+      If NOT (this.myHandle AND this._base)
+         Return
+      BW  := Settings.BorderWidth
+      C   := SliceObj.shapeCoord ; includes picture border offset, snip relative
+      this.GetPos(&gX, &gY)     ; screen relative
+      this.GetPicPos(&pX1, &pY1, &pW, &pH) ; Snip picture only, snip relative
+      iR := IntersectRect(pX1, pY1, pX1 + pW, pY1 + pH, C.X1, C.Y1, C.X2, C.Y2)
+      If NOT iR
+         Return
+      ; A band across the whole width removes rows, down the whole height removes columns
+      vert := (iR.h = pH)
+      bR := this.RectToBase(iR.l, iR.t, iR.l + iR.w, iR.t + iR.h)
+      GDI.GetHBitmapDimensions(this._base, &baseW, &baseH)   ; not bW: that is BW
+      If (vert)
+         bR.Y := 0, bR.H := baseH
+      Else
+         bR.X := 0, bR.W := baseW
+      If ((vert AND (bR.W < 1 OR bR.W >= baseW)) OR (NOT vert AND (bR.H < 1 OR bR.H >= baseH)))
+         Return
+      tag := UnDo.NewTag("Slice")
+      this.PostAction(UnDo.CHANGE_SNIP, tag)
+      ; Band start in the current display picture
+      this._Ratios(&rX, &rY)
+      bandX := BW + Round(bR.X * rX), bandY := BW + Round(bR.Y * rY)
+      hBase := BitMap.SliceHBITMAP(this._base, bR.X, bR.Y, bR.W, bR.H, 1)
+      hDisp := this._ScaledBase(hBase)
+      GDI.GetHBitmapDimensions(hDisp, &W, &H)
+      ; How much the display picture lost
+      deltaW := pW - W, deltaH := pH - H
+      ; If we cut off the left or top, move the window to keep the rest in place
+      if (vert AND C.X1 < pX1)
+         gX += deltaW
+      else if (NOT vert AND C.Y1 < pY1)
+         gY += deltaH
+      this._SetPicture(hBase, hDisp, gX, gY)
+      ; Shapes past the band move back by the band size so they stay on their pixels
+      ; (the window moved instead when the band started at the left/top edge)
+      edge := (vert AND C.X1 < pX1) OR (NOT vert AND C.Y1 < pY1)
+      For ShapeObj in this.VisibleShapes {
+         ShapeObj.GetPos(&X, &Y)
+         ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+         If (edge)
+            ShapeObj.Move(X - (vert ? deltaW : 0), Y - (vert ? 0 : deltaH))
+         Else If (vert)
+            ShapeObj.Move(X - (X > bandX ? deltaW : 0), Y)
+         Else
+            ShapeObj.Move(X, Y - (Y > bandY ? deltaH : 0))
+      }
+      this.RefreshTextures()
+      this.Dirty++
+      ButtonBar.Show()
+      if Clipboard {
+         this.Snip2Clipboard(Snips.borderWithCopy)
       }
    }
 
@@ -1090,8 +1171,8 @@ Class GuiSnip extends Gui {
     * @returns Nothing 
     */
    Extend(ExtendObj, Clipboard := false) {
-      If (hBitmap := this.handle) {
-         tag := A_TickCount . "Extend"
+      If (this.myHandle AND this._base) {
+         tag := UnDo.NewTag("Extend")
          this.PostAction(UnDo.CHANGE_SNIP, tag)
          ; NOTE - Rather then background of extend shape, get closer to start of drag
          ; bgColor := ExtendObj.ShapeBackgroundColor()
@@ -1136,38 +1217,70 @@ Class GuiSnip extends Gui {
                Warning("Internal Selection Only")
                Return 0
          }
-         ; Extend in the appropriate direction
+         ; Work on the master picture: amounts/positions above are display pixels
+         ; in window coordinates (the border included for Expand positions)
+         BW := Settings.BorderWidth
+         this._Ratios(&rX, &rY)
+         this.GetPos(&gX1, &gY1) ; includes the Border
          Switch eType {
             Case "Extend": ; enlarge outside
-               hBitmap := BitMap.ExtendBITMAP(hBitmap, bgColor, l, t, r, b, 1)
+               lb := Round(l / rX), tb := Round(t / rY), rb := Round(r / rX), bb := Round(b / rY)
+               If (lb + tb + rb + bb = 0)
+                  Return
+               hBase := BitMap.ExtendBITMAP(this._base, bgColor, lb, tb, rb, bb, 1)
             Case "Expand": ; enlarge inside
-               hBitmap := BitMap.ExpandBITMAP(hBitmap, bgColor, l, t, r, b, 1)
+               If (t = 0 AND b = 0) {   ; vertical strip
+                  lb := Round((l - BW) / rX), wb := Round((r - l) / rX)
+                  If (wb < 1)
+                     Return
+                  hBase := BitMap.ExpandBITMAP(this._base, bgColor, lb, 0, lb + wb, 0, 1)
+               } Else {
+                  tb := Round((t - BW) / rY), hb := Round((b - t) / rY)
+                  If (hb < 1)
+                     Return
+                  hBase := BitMap.ExpandBITMAP(this._base, bgColor, 0, tb, 0, tb + hb, 1)
+               }
             Default:
                Return
          }
-         ; Get new dimensions
-         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
-         this.GetPos(&gX1, &gY1) ; includes the Border 
-         ; Resize GUI to contain the new crop coordinates
+         hDisp := this._ScaledBase(hBase)
+         GDI.GetHBitmapDimensions(hDisp, &W, &H)
+         ; Exact ratios of the new picture, for where the change landed on screen
+         GDI.GetHBitmapDimensions(hBase, &nbW, &nbH)
+         nrX := W / nbW, nrY := H / nbH
          Switch eType {
             Case "Expand": ; enlarge inside, don't move window
-               this.ReplaceSnip(hBitmap)
-               ; Shift all of the controls so they stay in same place (has to be after the resize)
+               this._SetPicture(hBase, hDisp)
+               ; Shapes past the insert point move by the inserted amount
+               If (t = 0 AND b = 0) {
+                  at := BW + Round(lb * nrX), amt := W - pW
                   For ShapeObj in this.VisibleShapes {
-                     ShapeObj.GetPos(&X, &Y, &W, &H)
-                     If (l > 0 AND X > l OR (t > 0 and Y > t)) {
+                     ShapeObj.GetPos(&X, &Y)
+                     If (X > at) {
                         ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-                        ShapeObj.Move(X + (r - l), Y + (b - t))
+                        ShapeObj.Move(X + amt, Y)
                      }
                   }
+               } Else {
+                  at := BW + Round(tb * nrY), amt := H - pH
+                  For ShapeObj in this.VisibleShapes {
+                     ShapeObj.GetPos(&X, &Y)
+                     If (Y > at) {
+                        ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
+                        ShapeObj.Move(X, Y + amt)
+                     }
+                  }
+               }
             Case "Extend": ; enlarge outside
-               this.ReplaceSnip(hBitmap, gX1 - l, gY1 - t)
+               ; Added left/top margin as shown at this zoom
+               dl := Round(lb * nrX), dt := Round(tb * nrY)
+               this._SetPicture(hBase, hDisp, gX1 - dl, gY1 - dt)
                ; Shift all of the controls so they stay in same place (has to be after the resize)
-               If (l > 0 OR t > 0) {
+               If (dl > 0 OR dt > 0) {
                   For ShapeObj in this.VisibleShapes {
                      ShapeObj.PostAction(UnDo.MOVE_SHAPE, tag)
-                     ShapeObj.GetPos(&X, &Y, &W, &H)
-                     ShapeObj.Move(X + l, Y + t)
+                     ShapeObj.GetPos(&X, &Y)
+                     ShapeObj.Move(X + dl, Y + dt)
                   }
                }
          }

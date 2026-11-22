@@ -1462,7 +1462,7 @@ Class Shapes {
          }
          tags[j] := cur
       }
-      undoTag := A_TickCount "RenumberTags"
+      undoTag := UnDo.NewTag("RenumberTags")
       changed := 0
       For idx, t in tags {
          If (t.n = idx)

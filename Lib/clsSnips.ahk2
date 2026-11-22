@@ -869,7 +869,7 @@ Class Snips {
       If (IsObject(hWndOrArea)) {
          Result := OCR.FromRect(hWndOrArea.X, hWndOrArea.Y, hWndOrArea.W, hWndOrArea.H)
       } else If this.IsValid(hWndOrArea) {
-         hBitmap := this.GetGuiObj(hWndOrArea).Handle
+         hBitmap := this.GetGuiObj(hWndOrArea).BaseBitmap   ; full resolution, whatever the zoom
          ; Dynamic scale factor? {lang:"en-us", grayscale:1}
          Result := OCR.FromBitmap(hBitmap, , { scale: 1, grayscale: 1, invertcolors: 0 })
       } Else {
