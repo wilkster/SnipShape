@@ -29,6 +29,7 @@ markup the snip.
     - [While dragging the mouse to create a snip](#while-dragging-the-mouse-to-create-a-snip)
     - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
+      - [Copying and saving](#copying-and-saving)
   - [Toolbar - F1 to toggle while snip active](#toolbar---f1-to-toggle-while-snip-active)
     - [Show or hide the toolbar](#show-or-hide-the-toolbar)
     - [Use toolbar buttons](#use-toolbar-buttons)
@@ -41,6 +42,7 @@ markup the snip.
   - [Highlighters](#highlighters)
   - [Redaction and obscuring](#redaction-and-obscuring)
   - [Text tools - Text is entered via a dialog box allowing you set text options](#text-tools---text-is-entered-via-a-dialog-box-allowing-you-set-text-options)
+    - [Callouts](#callouts)
   - [Colors](#colors)
   - [Snip Tools](#snip-tools)
     - [Toolbar Menus to create shapes](#toolbar-menus-to-create-shapes)
@@ -53,11 +55,13 @@ markup the snip.
       - [Tool menu](#tool-menu)
       - [Color menu, LMB to select color, RMB to customize color](#color-menu-lmb-to-select-color-rmb-to-customize-color)
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
+    - [Reshaping shapes (control points)](#reshaping-shapes-control-points)
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
     - [Deleting Shapes](#deleting-shapes)
     - [Clicking on Shapes](#clicking-on-shapes)
+    - [Selecting a group of shapes](#selecting-a-group-of-shapes)
   - [Tray Menu options](#tray-menu-options)
   - [Configuration Files](#configuration-files)
   - [Limitations/Future](#limitationsfuture)
@@ -102,6 +106,7 @@ Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options
 ## Snipping Overview
 
 ### Snip Annotation Examples
+![alt text](Snips/Example1.png)
 
 |![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)|
 |![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
@@ -139,7 +144,7 @@ Current key assignments for screen selection (can be modified in the `SnipShape.
 
 | **Global HotKey** | **Action**                                                                            |
 | ----------------- | ------------------------------------------------------------------------------------- |
-| Shift-PrtScn      | To capture current window to the clipboard                                            |
+| Shift-PrtScn      | To capture current window to the clipboard (Windows 11 rounded corners are transparent) |
 | Alt-PrtScn        | To create a snip of the current window                                                |
 | Ctrl-PrtScn       | To create a snip of the current monitor screen                                        |
 | Shift-Win-e       | To create a snip of the current clipboard (if it has a bitmap)                        |
@@ -153,7 +158,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 
 | **Snip HotKey**          | **Snip Action**                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Ctrl-C                   | Copy the snip and shapes to the clipboard (minimizing snip)                                                              |
+| Ctrl-C                   | Copy the snip and shapes to the clipboard (minimizing snip), see [Copying and saving](#copying-and-saving)              |
 | Ctrl-X                   | Cut the snip and shapes to the clipboard (closing snip)                                                                  |
 | Ctrl-S                   | Save the snip and shapes to a file in the Screenshot folder                                                              |
 | Ctrl-J                   | Save the snip to both the clipboard and Screenshot folder                                                                |
@@ -161,6 +166,8 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-P                   | Open a dialog box to add a picture from a file as a new shape                                                            |
 | Ctrl-D                   | Clone the current snip and shapes if on snip background, if focus is on a shape, it will duplicate the shape             |
 | Shift-Del                | will remove all the shapes on a Snip                                                                                     |
+| Ctrl-A                   | Select all the shapes on the snip as a group, see [Selecting a group of shapes](#selecting-a-group-of-shapes)            |
+| Shift-Drag               | Select the shapes inside the dragged rectangle as a group (Ctrl+Shift-Drag in a drawing mode)                            |
 | Ctrl-O                   | OCR the text to lines of text                                                                                            |
 | Ctrl-T                   | OCR the text to html table                                                                                               |
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
@@ -173,8 +180,19 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | **Snip HotKey**          | **Scaling Action**                                                                                                       |
 | = / -                    | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | Ctrl-Scroll Wheel        | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
-| Alt-Scroll Wheel         | Adjust the transparency (Alpha) of the visible snip bitmap                                                               |
+| Alt-Scroll Wheel         | Adjust the transparency (Alpha) of the visible snip bitmap. It is kept when copying/saving and restored when a saved snip is reopened |
 | RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
+
+#### Copying and saving
+
+Copying (Ctrl-C, Ctrl-X, Ctrl-J) and saving (Ctrl-S) build the image from the snip and its shapes directly rather than
+taking a screen capture, so:
+
+- Other windows, tooltips, the toolbar or the focus rectangle covering the snip never end up in the image.
+- The snip's transparency (Alt-Scroll) is kept: a 50% transparent snip copies/saves as 50% transparent. Shapes and the
+  border stay opaque, as they appear on screen.
+- Transparent rounded corners (e.g. from a Windows 11 window capture) stay transparent.
+- Saved snips remember their transparency and restore it when reopened for editing.
 
 ## Toolbar - F1 to toggle while snip active
 
@@ -265,12 +283,34 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
-| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size  |
+| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size. RMB on a tag > **Renumber Tags** closes gaps after deleting one |
 | T          | Add Text to cursor location                                                              |
 | U          | Add Outline Text to cursor location                                                      |
 | F          | Add Text with adaptive translucent background to stand out from busy backgrounds         |
 | <          | Text inside a left point arrow                                                           |
 | >          | Text inside a right point arrow                                                          |
+
+### Callouts
+
+<!-- Screenshot: a Tag, a bordered fill text and a plain text, each with a callout pointing at something -->
+
+Text shapes (Tag, Text, Outline Text and Fill Text) can point at something with a callout. Arrow text does not
+have one, since it already points.
+
+- Each of these shows a small round handle inside its box (near the bottom centre) when it has focus.
+  Drag that handle out of the box and a callout follows it to where you release. Drag it back inside the box to
+  remove the callout.
+- The callout style depends on the text type:
+  - **Tag**: the circle and its tail form a filled pin.
+  - **Fill Text with a border** (Rectangle / Rounded Rectangle): a triangular tail with the same fill, and one border
+    running around both the box and the tail.
+  - **Text, Outline Text and Fill Text without a border**: a straight arrow in the text colour, from the edge of the
+    box to the tip.
+- Moving a callout:
+  - Drag the **text box** to move just the text; the tip stays where it points.
+  - Drag the **tip handle** to move just the tip.
+  - Drag the **arrow/tail** itself to move the whole callout (text and tip together).
+- Resizing the text, undo/redo, duplicating (Ctrl-click) and saving/reopening all keep the callout.
 
 ## Colors
 
@@ -338,6 +378,20 @@ While drawing, the cursor changes to the selected shape and the snip border indi
     by pausing at each corner, releasing Shift, then pressing it again before continuing.
   - If you end the path near its starting point, the path will automatically close itself.
 
+### Reshaping shapes (control points)
+
+<!-- Screenshot: a bent arrow, a bracket with a moved notch, and a connector with a moved middle segment -->
+
+Some shapes have an extra round handle (a control point) in addition to the resize handles. Dragging it reshapes the
+shape instead of resizing it. Undo/redo, duplicating and saving keep the new shape.
+
+| Shape                                   | Control point                    | Dragging it                                                                                     |
+| --------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Line, Arrow, Outline Arrow, Double Arrow, Tapered Arrow | Middle of the line | Bends the line into a smooth curve through that point. Drag it back near the straight line to straighten it again. Arrowheads follow the curve. |
+| Bracket                                 | Tip of the centre triangle       | Along the bracket moves the triangle; away from or towards the bracket makes it deeper or shallower. |
+| Connector                               | Middle of the centre segment     | Slides the middle segment left/right (or up/down), between the two ends.                        |
+| Text shapes                             | Callout tip                      | See [Callouts](#callouts).                                                                       |
+
 ## Hovering and Focus Rectangle
 
 <table>
@@ -398,6 +452,9 @@ r- Shift-Del will remove all shapes on a ship
 ### Clicking on Shapes
 
 - Right Mouse Button on shape will bring up a shape specific menu with additional functions.
+- On a numbered Tag, **Renumber Tags** renumbers the snip's numbered tags 1, 2, 3... in their current order, closing any
+  gaps left by deleted tags. Tags whose text is not a plain number are left alone, each tag stays where it is, the next
+  tag you add continues the sequence, and a single undo restores the old numbers.
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
 - Click on a shape and the up/down arrow key will adjust border thickness, blur amount
 - OCR - Uses Descolada's OCR engine to read text from snip
@@ -405,6 +462,27 @@ r- Shift-Del will remove all shapes on a ship
   - Read words of text, that only have line breaks at paragraph breaks, good of pasting
   - Read table text attempting to create an HTML table that represents each cell (with limitations)
   - Press O (or button-bar icon) to select a region of a snip to put the OCR on the clipboard
+
+### Selecting a group of shapes
+
+<!-- Screenshot: a dashed group box around several shapes, with its right-click menu -->
+
+Shift-drag on an empty part of the snip to draw a selection rectangle (in a drawing mode, use Ctrl+Shift-drag, since
+Shift alone squares the shape you draw). Every shape fully inside the rectangle is selected, and a dashed box is drawn
+around the group. For a callout, its tip has to be inside the rectangle too. Ctrl-A selects every shape on the snip.
+
+| Action                     | Result                                                                                       |
+|----------------------------|----------------------------------------------------------------------------------------------|
+| Drag inside the box        | Moves all the shapes together (callout tips move with their text)                            |
+| Up/Down or the mouse wheel | Changes each shape's size the way it does for a single shape: line width, font size, blur amount |
+| 1-9 color keys             | Recolors the group                                                                           |
+| Del                        | Deletes the group                                                                            |
+| Ctrl-C                     | Copies the group, with the snip picture under it, to the clipboard                           |
+| RMB on the box             | Menu: copy (with the picture, or the shapes only on a transparent background), shape color fly-out, size up/down, delete |
+| Esc, or click outside the box | Clears the selection                                                                      |
+
+Each of these is a single undo step. Pictures and blur/pixelate shapes are moved, sized and deleted with the group but
+keep their own colors.
 
 ## Tray Menu options
 
@@ -464,4 +542,3 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 ## Limitations/Future
 
 - Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes). Working on a solution to this.
-- Align drawing text shapes and other shapes such that callouts for text shapes will be possible.
