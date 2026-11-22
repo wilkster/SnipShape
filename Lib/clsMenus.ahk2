@@ -265,7 +265,7 @@ Class SnipMenus {
     * @param {Integer} Y - Window-relative Y coordinate where the picture will be inserted
     */
    Static populatePicMenu(pictMenu, hWnd, X, Y) {
-      static iconObj := ImageList()
+      iconObj  := ImageList()
       DPI      := WinDPI(hWnd)
       butSize  := Round(20 * DPI / 96) ; Pixel size of 20
       MonInfo  := activeMonArea(1)
