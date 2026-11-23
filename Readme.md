@@ -461,6 +461,9 @@ r- Shift-Del will remove all shapes on a ship
 - On a numbered Tag, **Renumber Tags** renumbers the snip's numbered tags 1, 2, 3... in their current order, closing any
   gaps left by deleted tags. Tags whose text is not a plain number are left alone, each tag stays where it is, the next
   tag you add continues the sequence, and a single undo restores the old numbers.
+- On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
+  Left/Right Arrow Text). The text, font and color are kept, the shape stays centred where it was, and a single undo
+  changes it back. On Fill Text, **Change Fill Text Outline** picks Rectangle, Rounded Rectangle, Ellipse or None.
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
 - Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
 - Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)

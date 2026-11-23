@@ -391,6 +391,7 @@ Class ShapeMenus {
       Static subMenu1    := Menu()
       Static subMenu2    := Menu()
       Static outlineMenu := Menu()
+      Static typeMenu    := Menu()
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()
@@ -428,6 +429,16 @@ Class ShapeMenus {
             ; Numbered tags: close gaps in the sequence (e.g. after deleting one)
             If (ShapeObj.Shape = Shapes.SHAPE_TAG)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Renumber Tags", "Tag.cur")
+            ; Change to another text type
+            shapeMenu.Add("Change Type", typeMenu)
+            shapeMenu.SetIcon("Change Type", SETTINGS.CursorPath . "Text.cur")
+            For tType in TextShape.Types {
+               tName := TextShape.TypeName(tType)
+               typeMenu.Add(tName, TextType.Bind(tType))
+               Try typeMenu.SetIcon(tName, SETTINGS.CursorPath . tName . ".cur")
+               If (ShapeObj.Shape = tType)
+                  typeMenu.Check(tName)
+            }
             ; Special case for fill text
             If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
                shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
@@ -495,6 +506,7 @@ Class ShapeMenus {
       subMenu1.Delete()
       subMenu2.Delete()
       outlineMenu.Delete()
+      typeMenu.Delete()
 
       Return
 
@@ -509,8 +521,17 @@ Class ShapeMenus {
          ShapeObj.Refresh()
       }
       OutlineType(OLType,*) {
+         If (ShapeObj.FillOutline = OLType)
+            Return
+         ShapeObj.PostAction(UnDo.SHAPE_STYLE)  ; StyleInfo includes FillOutline
          ShapeObj.FillOutline := OLType
          ShapeObj.Refresh()
+         ShapeObj.Gui.Dirty++
+         focusBorder.Sync(ShapeObj)
+      }
+      TextType(tType,*) {
+         ShapeObj.ChangeType(tType)
+         focusBorder.Sync(ShapeObj)
       }
    }
    /**
