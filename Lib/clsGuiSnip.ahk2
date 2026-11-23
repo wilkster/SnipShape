@@ -424,6 +424,7 @@ Class GuiSnip extends Gui {
       GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
       ; Premultiply if we have some transparency to show
       BitMap.PreMultiplyBitmap(hDIB, alpha)
+      ; Draw a thicker border with a series of fading rectangles, kinda kludgey
       If (BW > 0) {
          iG := GDIp.GraphicsFromHDC(hdcMem)
          ; Paint the border fully opaque
@@ -481,7 +482,6 @@ Class GuiSnip extends Gui {
     *                    e.g. pass it to Clipboard.SetHBITMAPToClipboard or delete it
     */
    RenderBitmap(Borders := false) {
-      Static AC_SRC_OVER_ALPHA := 0x01FF0000   ; BLENDFUNCTION: SrcOver, const alpha 255, AC_SRC_ALPHA
       BW := Settings.BorderWidth
       ; Start from exactly what the snip window shows (picture + border), so pixels,
       ; alpha and rounded corners match the screen; shape window coords are canvas coords
@@ -502,10 +502,7 @@ Class GuiSnip extends Gui {
             elog(e, "RenderBitmap: shape " ShapeObj.ShapeName " failed to render")
             Continue
          }
-         DllCall("Msimg32\AlphaBlend"
-            , "Ptr", hdcDst, "Int", r.X, "Int", r.Y, "Int", r.Surf.W, "Int", r.Surf.H
-            , "Ptr", r.Surf.hdc, "Int", 0, "Int", 0, "Int", r.Surf.W, "Int", r.Surf.H
-            , "UInt", AC_SRC_OVER_ALPHA)
+         GDI.AlphaBlend(hdcDst, r.X, r.Y, r.Surf.W, r.Surf.H, r.Surf.hdc)
          r := ""
       }
       If (Borders) {
@@ -536,7 +533,6 @@ Class GuiSnip extends Gui {
     * @returns {Integer} hBitmap
     */
    RenderShapes(shapeList, rc, withPicture := true) {
-      Static AC_SRC_OVER_ALPHA := 0x01FF0000
       If (withPicture) {
          hFull := this._ComposeSnip(this.myHandle, this._alpha)
       } Else {
@@ -563,10 +559,7 @@ Class GuiSnip extends Gui {
             elog(e, "RenderShapes: shape " ShapeObj.ShapeName " failed to render")
             Continue
          }
-         DllCall("Msimg32\AlphaBlend"
-            , "Ptr", hdcDst, "Int", r.X, "Int", r.Y, "Int", r.Surf.W, "Int", r.Surf.H
-            , "Ptr", r.Surf.hdc, "Int", 0, "Int", 0, "Int", r.Surf.W, "Int", r.Surf.H
-            , "UInt", AC_SRC_OVER_ALPHA)
+         GDI.AlphaBlend(hdcDst, r.X, r.Y, r.Surf.W, r.Surf.H, r.Surf.hdc)
          r := ""
       }
       GDI.SelectObject(hdcDst, obmDst)
