@@ -173,26 +173,26 @@ Class Shapes {
       this.shapeBBMenu := Menu()
       this.hlColorMenu := Menu()
       ; NOTE - Not currently used, migrate so each shape type has its own opacity
-      this.MshapeOpacity := this.valMenu([128, 200, 250, 255], &Shapes.shapeOpacity)
-      this.MpenOpacity   := this.valMenu([128, 200, 250, 255], &Shapes.penOpacity)
-      this.MarrowOpacity := this.valMenu([128, 200, 250, 255], &Shapes.arrowOpacity)
-      this.MtextOpacity  := this.valMenu([128, 200, 250, 255], &TextShape.textOpacity)
+      this.MshapeOpacity := this.valMenu([128, 200, 250, 255], &Shapes.shapeOpacity, "shapeOpacity")
+      this.MpenOpacity   := this.valMenu([128, 200, 250, 255], &Shapes.penOpacity, "penOpacity")
+      this.MarrowOpacity := this.valMenu([128, 200, 250, 255], &Shapes.arrowOpacity, "arrowOpacity")
+      this.MtextOpacity  := this.valMenu([128, 200, 250, 255], &TextShape.textOpacity, "textOpacity")
 
       ; Build up the sub menus here
-      this.MrawLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.rawLineThickness)
-      this.MpenLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.penLineThickness)
-      this.MarrowLineThickness    := this.valMenu([2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20],   &Shapes.arrowLineThickness)
-      this.MwidePenThickness      := this.valMenu([2, 4, 6, 8, 10, 12, 14, 18, 24,30],  &Shapes.widePenThickness)
-      this.MhighlightThickness    := this.valMenu([10, 12, 14, 16, 18, 20, 24, 28, 32, 36],  &Shapes.highLightThickness)
-      this.MoutlineThickFactor    := this.valMenu([1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6],       &Shapes.outlineThickFactor)
-      this.MfillOpacity           := this.valMenu([0, 1, 4, 8, 16, 32, 48, 64, 96, 128],   &Shapes.fillOpacity)
-      this.MhighlightOpacity      := this.valMenu([8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], &Shapes.highlightOpacity)
-      this.MoutlineOpacity        := this.valMenu([0, 16, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&Shapes.outlineOpacity)
+      this.MrawLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.rawLineThickness, "rawLineThickness")
+      this.MpenLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.penLineThickness, "penLineThickness")
+      this.MarrowLineThickness    := this.valMenu([2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20],   &Shapes.arrowLineThickness, "arrowLineThickness")
+      this.MwidePenThickness      := this.valMenu([2, 4, 6, 8, 10, 12, 14, 18, 24,30],  &Shapes.widePenThickness, "widePenThickness")
+      this.MhighlightThickness    := this.valMenu([10, 12, 14, 16, 18, 20, 24, 28, 32, 36],  &Shapes.highLightThickness, "highLightThickness")
+      this.MoutlineThickFactor    := this.valMenu([1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6],       &Shapes.outlineThickFactor, "outlineThickFactor")
+      this.MfillOpacity           := this.valMenu([0, 1, 4, 8, 16, 32, 48, 64, 96, 128],   &Shapes.fillOpacity, "fillOpacity")
+      this.MhighlightOpacity      := this.valMenu([8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], &Shapes.highlightOpacity, "highlightOpacity")
+      this.MoutlineOpacity        := this.valMenu([0, 16, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&Shapes.outlineOpacity, "outlineOpacity")
       this.MArrowSmoothFactor     := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"], &Shapes.ArrowSmoothFactor)
       this.MPenSmoothFactor       := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.PenSmoothFactor)
       this.MHighlightSmoothFactor := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.HighlightSmoothFactor)
-      this.MPixelateBlockSize     := this.valMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], &Shapes.PixelateBlockSize)
-      this.MBlurDivisor           := this.valMenu([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 30, 40], &Shapes.BlurDivisor)
+      this.MPixelateBlockSize     := this.valMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], &Shapes.PixelateBlockSize, "PixelateBlockSize")
+      this.MBlurDivisor           := this.valMenu([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 30, 40], &Shapes.BlurDivisor, "BlurDivisor")
       ; Not currently used
       this.MfontSize           := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32], &Shapes.fontSize)
       this.MfontName           := this.valMenu(this.FontNames, &Shapes.fontName)
@@ -201,17 +201,17 @@ Class Shapes {
       this.MTagfontName        := this.valMenu(this.FontNames, &TextShape.TagFontName)
       this.MTagfontStyle       := this.valMenu(this.FontStyles, &TextShape.TagFontStyle)
       this.MTagFontSize        := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.TagFontSize)
-      this.MTCOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.TCOpacity)
+      this.MTCOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.TCOpacity, "TCOpacity")
       ;Not currently used
       this.MFillfontName       := this.valMenu(this.FontNames, &TextShape.FillFontName)
       this.MFillfontStyle      := this.valMenu(this.FontStyles, &TextShape.FillFontStyle)
 
       this.MFillAlignment      := this.valMenu(this.Alignments, &TextShape.FillAlignment)
       this.MFillFontSize       := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.FillFontSize)
-      this.MFTOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOpacity)
-      this.MFTOLOpacity        := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOLOpacity)
+      this.MFTOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOpacity, "FTOpacity")
+      this.MFTOLOpacity        := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOLOpacity, "FTOLOpacity")
 
-      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle","None"], &TextShape.FillOutline)
+      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle","None"], &TextShape.FillOutline, "FillOutline")
 
       this.MOLFontName         := this.valMenu(this.FontNames, &TextShape.OLFontName)
       ;Not currently used
@@ -219,9 +219,9 @@ Class Shapes {
       
       this.MOLAlignment        := this.valMenu(this.Alignments, &TextShape.OLAlignment)
       this.MOLFontSize         := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.OLFontSize)
-      this.MOLOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.OLOpacity)
-      this.MOLBlur             := this.valMenu([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25],&TextShape.OLBlur)
-      this.MOLFillThickness    := this.valMenu([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],&TextShape.OLFillThickness)
+      this.MOLOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.OLOpacity, "OLOpacity")
+      this.MOLBlur             := this.valMenu([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25],&TextShape.OLBlur, "OLBlur")
+      this.MOLFillThickness    := this.valMenu([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],&TextShape.OLFillThickness, "OLFillThickness")
    }
 
    /**
@@ -229,12 +229,14 @@ Class Shapes {
     *   ButtonMenu_Handler to assign the selected value back to the referenced variable.
     * @param {Array} Values - Array of values to add as menu items.
     * @param {VarRef} GlobName - Reference to the variable that will receive the chosen value.
+    * @param {String} [key] - Style key: when set, a change is also applied to the
+    *   selected shape group (ShapeGroup.ApplyDefault, each shape's StyleTarget).
     * @returns {Menu} The constructed Menu object.
     */
-   Static valMenu(Values, &GlobName) {
+   Static valMenu(Values, &GlobName, key := "") {
       M := Menu()
       For Val in Values {
-         M.Add(val, this.ButtonMenu_Handler.bind(this, &GlobName))
+         M.Add(val, this.ButtonMenu_Handler.bind(this, &GlobName, key))
       }
       Return M
    }
@@ -368,12 +370,17 @@ Class Shapes {
     * @description Common menu item callback shared across all value sub-menus.
     *   Assigns the selected item name back to the referenced global variable.
     * @param {VarRef} GlobVal - Reference to the variable to update.
+    * @param {String} key - Style key from valMenu ("" = new shapes only)
     * @param {String} ItemName - The menu item text, used as the new value.
     * @param {Integer} ItemPos - Position of the selected item in the menu.
     * @param {Menu} MyMenu - The menu object that triggered this callback.
     */
-   Static ButtonMenu_Handler(&GlobVal, ItemName, ItemPos, MyMenu) {
+   Static ButtonMenu_Handler(&GlobVal, key, ItemName, ItemPos, MyMenu) {
+      old     := GlobVal
       GlobVal := ItemName
+      ; Also apply it to a selected shape group
+      If (key != "" AND ShapeGroup.Active)
+         ShapeGroup.ApplyDefault(key, old, ItemName)
    }
 
    /**
@@ -659,7 +666,8 @@ Class Shapes {
          ; Bug in alpha ~23+ where phyiscal state is missed when click is released
          ;----------------------------------------------------------------------
          While GetKeyState(pressedKey) { ; ,"p"
-            If GetKeyState("Esc", "P") {
+            ; Logical state: the hook's "P" state can stick down after a session unlock
+            If GetKeyState("Esc") {
                AddedPoints := W := H := 0
                focusBorder.HideFocus(true)
                Break

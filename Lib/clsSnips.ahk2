@@ -35,6 +35,7 @@ logGDI(BFN(Error("", -1).File) " loading...")
 Class Snips {
    Static guiSSR      := 0
    Static SnipMode    := 0
+   Static escCancel   := false   ; Esc pressed during a screen selection (closeSelect)
    ; guiSnips Database Related
    /**
     * Read in the settings and add some tray menu run-time settings
@@ -199,7 +200,11 @@ Class Snips {
     * @param {Object} [objSel] - Optional selection state object (unused; present for callback compatibility)
     */
    Static closeSelect(objSel?) {
-      ; make sure we clean up, but Esc will also be deteched in the select loop
+      ; The stage 2 select loop checks this flag: this hotkey suppresses Esc, so its
+      ; logical state stays up, and the hook's physical ("P") state can be stale
+      ; after a session lock/unlock (reads down until Esc is pressed again), which
+      ; cancelled every selection immediately
+      this.escCancel := true
       this.SelectScreenRegion(4, 'lbutton')
    }
    /**
@@ -437,6 +442,7 @@ Class Snips {
       ;----------------------------------------------------------------------
       X := Y := W := H := 0
       If (mode & 0x2 AND IsObject(selSurf)) {
+         this.escCancel := false
          dpi := MonDPIunderWindow(this.guiSSR.hWnd)
          ActiveState := mode
          myPens      := GDIp.Pens()
@@ -478,7 +484,7 @@ Class Snips {
          */
          Loop {
             now := A_TickCount
-            If GetKeyState("Esc","P") {
+            If (this.escCancel) {   ; set by the Escape hotkey (closeSelect)
                X := Y := W := H := 0
                ActiveState := 0
                dLog("Escape key detected, cancelling select")

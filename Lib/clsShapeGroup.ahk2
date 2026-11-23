@@ -76,7 +76,8 @@ Class ShapeGroup {
       focusBorder.HideFocus(true)
       rc := 0, lastX := "", lastY := ""
       While GetKeyState("LButton", "P") {
-         If GetKeyState("Esc", "P") {
+         ; Logical state: the hook's "P" state can stick down after a session unlock
+         If GetKeyState("Esc") {
             this._Hide()
             Return 0
          }
@@ -366,6 +367,40 @@ Class ShapeGroup {
       }
       this._resizePosted := false
       this._Changed()
+   }
+
+   /**
+    * A button bar default changed (Shapes.ButtonMenu_Handler): apply it to the
+    * shapes in the group it belongs to, one undo step. Opacities, outline type etc.
+    * are set to the new value; thickness and blur/pixelate amounts are scaled by
+    * new/old so sizes changed on a shape are kept. Other shapes are left alone.
+    * @param {String} key - default name (Shapes.valMenu key)
+    * @param {Any} old - previous default
+    * @param {Any} new - new default
+    * @returns {Integer} number of shapes changed
+    */
+   Static ApplyDefault(key, old, new) {
+      If NOT this.Active
+         Return 0
+      old := IsNumber(old) ? Number(old) : old
+      new := IsNumber(new) ? Number(new) : new
+      tag := UnDo.NewTag("GroupStyle")
+      n   := 0
+      For ShapeObj in this.List {
+         If NOT (t := ShapeObj.StyleTarget(key))
+            Continue
+         If NOT ShapeObj.StyleValue(t, old, new, &value)
+            Continue
+         ShapeObj.PostAction(UnDo.SHAPE_STYLE, tag)
+         ShapeObj.SetStyle(t.Prop, value)
+         ShapeObj.Refresh()
+         n++
+      }
+      If (n) {
+         this._resizePosted := false
+         this._Changed()
+      }
+      Return n
    }
 
    /**
