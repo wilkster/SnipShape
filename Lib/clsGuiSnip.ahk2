@@ -404,66 +404,113 @@ Class GuiSnip extends Gui {
     * @param {Integer} alpha - Snip transparency (255 = opaque)
     * @param {VarRef} newW - Returns the width (picture + 2 borders)
     * @param {VarRef} newH - Returns the height
+    * @param {Integer} drawBorder - false: leave the border area transparent (same size)
     * @returns {Integer} hDIB, caller owns it
     */
-   _ComposeSnip(hBitmap, alpha, &newW?, &newH?) {
+   _ComposeSnip(hBitmap, alpha, &newW?, &newH?, drawBorder := true) {
       GDI.GetHBitmapDimensions(hBitmap, &W, &H)
       BW   := Settings.BorderWidth
-      SBW  := Settings.SnippingBorderWidth
       newW := W + BW * 2
       newH := H + BW * 2
 
       hdcScreen := GDI.GetDC(0)
       hdcMem    := GDI.CreateCompatibleDC(hdcScreen)
-      hDIB      := GDI.CreateDIBSection(newW, newH, hdcMem)
+      hDIB      := GDI.CreateDIBSection(newW, newH, hdcMem)   ; zero filled = transparent
       obm       := GDI.SelectObject(hdcMem, hDIB)
 
-      ; blit the caller's bitmap into the middle, inset by bw on each side
+      If (BW > 0 AND drawBorder) {
+         ; Opaque border: outer edge rounded at the picture's rounded corners (concentric,
+         ; radius + BW), inner edge the picture rectangle. It goes in first so the picture,
+         ; blended over it, shows it in its transparent corners with its own anti-aliased curve
+         maxR := Min(newW, newH) / 2
+         R := []   ; outer radii (NB: AHK names are case-insensitive, so no 'r' here)
+         picR := this._CornerRadii(hBitmap)
+         For pr in picR
+            R.Push(pr ? Min(pr + BW, maxR) : 0)
+         iG := GDIp.GraphicsFromHDC(hdcMem)
+         GDIp.SetSmoothingMode(iG, 4)
+         GDIp.SetPixelOffsetMode(iG, 2)   ; pixel i covers i..i+1: straight edges stay crisp
+         path := GDIp.CreatePath(0)       ; alternate fill: outer outline minus the picture
+         If (R[1])
+            GDIp.AddPathArc(path, 0, 0, R[1] * 2, R[1] * 2, 180, 90)
+         Else
+            GDIp.AddPathLine(path, 0, 0, 0, 0)
+         If (R[2])
+            GDIp.AddPathArc(path, newW - R[2] * 2, 0, R[2] * 2, R[2] * 2, 270, 90)
+         Else
+            GDIp.AddPathLine(path, newW, 0, newW, 0)
+         If (R[3])
+            GDIp.AddPathArc(path, newW - R[3] * 2, newH - R[3] * 2, R[3] * 2, R[3] * 2, 0, 90)
+         Else
+            GDIp.AddPathLine(path, newW, newH, newW, newH)
+         If (R[4])
+            GDIp.AddPathArc(path, 0, newH - R[4] * 2, R[4] * 2, R[4] * 2, 90, 90)
+         Else
+            GDIp.AddPathLine(path, 0, newH, 0, newH)
+         GDIp.ClosePathFigure(path)
+         ; Inner edge: the picture rectangle, except at a rounded corner, where it follows a
+         ; quarter circle a little inside the picture's curve (the transparent corner notch
+         ; is then filled, opaque under the picture's anti-aliased edge). Being one path with
+         ; the outer edge, nothing can stick out past the outer curve (a separate notch fill
+         ; did, when the picture's square corner reached past it: radius * 0.41 > BW)
+         GDIp.StartPathFigure(path)
+         ; [corner x, y, direction to the circle centre x, y, arc start angle]
+         geo := [[BW, BW, 1, 1, 180], [BW + W, BW, -1, 1, 270]
+               , [BW + W, BW + H, -1, -1, 0], [BW, BW + H, 1, -1, 90]]
+         For i, g in geo {
+            px := g[1], py := g[2]
+            pr := Min(picR[i], Min(W, H) / 2)
+            ; Zooming widens the picture's soft edge, so the inset grows with it
+            ri := pr - 1 - Ceil(this._zoom)
+            If (ri <= 0) {
+               GDIp.AddPathLine(path, px, py, px, py)   ; square corner
+               Continue
+            }
+            cx := px + g[3] * pr, cy := py + g[4] * pr
+            ; From the picture edge to the arc and back out to the next edge (GDI+ joins
+            ; the segments); TL/BR come in from the side, TR/BL from the top/bottom
+            side := Mod(i, 2)
+            GDIp.AddPathLine(path, side ? px : cx, side ? cy : py, side ? px : cx, side ? cy : py)
+            GDIp.AddPathArc(path, cx - ri, cy - ri, ri * 2, ri * 2, g[5], 90)
+            GDIp.AddPathLine(path, side ? cx : px, side ? py : cy, side ? cx : px, side ? py : cy)
+         }
+         GDIp.ClosePathFigure(path)
+         brush := GDIp.BrushCreateSolid(0xFF000000 | RGBval(this.BackColor))
+         GDIp.FillPath(iG, brush, path)
+         GDIp.DeletePath(path)
+         GDIp.DeleteBrush(brush)
+         GDIp.DeleteGraphics(iG)          ; flushes the GDI+ drawing before the GDI blend
+      }
+      ; The picture (premultiplied) over it, inset by BW; the snip Alpha scales only the picture
       hdcSrc := GDI.CreateCompatibleDC(hdcScreen)
       obmSrc := GDI.SelectObject(hdcSrc, hBitmap)
-      GDI.BitBlt(hdcMem, BW, BW, W, H, hdcSrc, 0, 0)
-      ; Premultiply if we have some transparency to show
-      BitMap.PreMultiplyBitmap(hDIB, alpha)
-      ; Draw a thicker border with a series of fading rectangles, kinda kludgey
-      If (BW > 0) {
-         iG := GDIp.GraphicsFromHDC(hdcMem)
-         ; Paint the border fully opaque
-         bc := RGBval(this.BackColor)
-         pen := GDIp.CreatePen(0xFF000000 | bc, BW)
-         GDIp.SetPenAlignment(pen, 1)
-         GDIp.SetPenLineJoin(pen, 2)  ;1=bevel, 2=rounded
-         ; Shadow, fade the border color outside to in to fill the gap
-         ; between snip border width and the live snipper border width.
-         GDIp.DrawRectangle(iG, pen, 0, 0, newW, newH)
-         If (SBW < BW) {
-            GDIp.SetCompositingMode(iG, 1)
-            maxAlpha := 200
-            n := BW - SBW                          ; number of 1px fade rings
-            i := 0
-            shadowRGB := DeSaturate(RGBval(this.BackColor), 0.7)
-            GDIp.SetPenWidth(pen, 1)
-            i := 0
-            Loop n {
-               t := (i + 1) / n
-               opacity := Round(maxAlpha * t * t)
-               GDIp.SetPenColor(pen, opacity << 24 | shadowRGB)
-               GDIp.DrawRectangle(iG, pen, i, i, newW - i * 2, newH - i * 2)
-               i += 1
-            }
-         }
-         GDIp.DeletePen(pen)
-      }
-      ; Restore obm and delete DC we created
+      GDI.AlphaBlend(hdcMem, BW, BW, W, H, hdcSrc, 0, 0, alpha)
       GDI.SelectObject(hdcSrc, obmSrc)
       GDI.DeleteDC(hdcSrc)
 
-      ; clean up (deleting the graphics flushes any pending GDI+ drawing)
-      if (IsSet(iG))
-         GDIp.DeleteGraphics(iG)
       GDI.SelectObject(hdcMem, obm)
       GDI.DeleteDC(hdcMem)
       GDI.ReleaseDC(hdcScreen)
       Return hDIB
+   }
+
+   /**
+    * Corner radii for the border, [TL, TR, BR, BL] in display pixels: the snip's
+    * Radius where that corner pixel of the picture is transparent (cut by
+    * RoundSnipCorners and still there after a slice), else 0 (e.g. cropped away)
+    * @param {Integer} hBitmap - display picture (32bpp DIB section)
+    */
+   _CornerRadii(hBitmap) {
+      If ((r := this.Radius) <= 0)
+         Return [0, 0, 0, 0]
+      ds := tagDIBSECTION()
+      If (!GDI.GetObject(hBitmap, ds.Size, ds.Ptr) || !(p := ds.dsBm.bmBits) || ds.dsBm.bmBitsPixel != 32)
+         Return [0, 0, 0, 0]
+      w := ds.dsBm.bmWidth, h := ds.dsBm.bmHeight, s := ds.dsBm.bmWidthBytes
+      top := (ds.dsBmih.biHeight < 0) ? 0 : h - 1   ; memory row of the top line
+      bot := h - 1 - top
+      A(x, y) => NumGet(p, y * s + x * 4 + 3, "UChar") < 16 ? r : 0
+      Return [A(0, top), A(w - 1, top), A(w - 1, bot), A(0, bot)]
    }
 
    /**
@@ -484,8 +531,9 @@ Class GuiSnip extends Gui {
    RenderBitmap(Borders := false) {
       BW := Settings.BorderWidth
       ; Start from exactly what the snip window shows (picture + border), so pixels,
-      ; alpha and rounded corners match the screen; shape window coords are canvas coords
-      hFull := this._ComposeSnip(this.myHandle, this._alpha)
+      ; alpha and rounded corners match the screen; shape window coords are canvas coords.
+      ; Without borders the border area stays empty, so rounded corners stay transparent
+      hFull := this._ComposeSnip(this.myHandle, this._alpha, , , Borders)
       hdcDst := GDI.CreateCompatibleDC(0)
       obmDst := GDI.SelectObject(hdcDst, hFull)
       hdcSrc := GDI.CreateCompatibleDC(0)
@@ -968,6 +1016,8 @@ Class GuiSnip extends Gui {
       Area            := { X: X+50, Y: Y+50, W: W, H: H, X2: X + W, Y2: Y + H }
       SnipObj         := GuiSnip(Area)   ;-' FormatTime(,"HH:mm:ss"
       ; SnipObj.MarginX := BW, SnipObj.MarginY := BW
+      ; Corner radius of the new master: the same picture, or the display one scaled
+      SnipObj.ogRadius := useBase ? this.ogRadius : this.ogRadius * this._zoom * ScaleFactor
       SnipObj.AddSnipPic(hBitmap)
       If (useBase AND this._zoom != 1.0)
          SnipObj.SetZoom(this._zoom)

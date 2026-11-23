@@ -30,6 +30,8 @@ Class FileObject {
       GDI.DeleteObject(fileObj.Snip.hBitmap)
       ; Display transparency, restored when the snip is opened
       fileObj.Snip.Alpha := SnipObj.Alpha
+      ; Window corner radius (100%), so the border is drawn rounded again when opened
+      fileObj.Snip.Radius := SnipObj.ogRadius
       ; Save the master picture (100%) and the zoom (SnipInfo().Zoom): reopening shows
       ; it at the same zoom and it can still zoom back to full quality
       pTemp        := GDIp.CreateARGBBitmapFromHBITMAP(SnipObj.BaseBitmap, 0xE200B)   ; picture is premultiplied
@@ -183,11 +185,18 @@ Class FileObject {
                ; Restore the display transparency (files saved before it was stored open opaque)
                If (fileObj.Snip.HasProp("Alpha") AND IsNumber(fileObj.Snip.Alpha))
                   SnipObj.Alpha := fileObj.Snip.Alpha
+               ; Corner radius for the border; the picture's corners are already cut
+               ; (not cut again). Older files have none: square border
+               If (fileObj.Snip.HasProp("Radius") AND IsNumber(fileObj.Snip.Radius))
+                  SnipObj.ogRadius := fileObj.Snip.Radius + 0
                ; The saved picture is the master; show it at the saved zoom before the
                ; shapes (saved in display coordinates) are recreated. Older files have
-               ; no zoom: their picture is what was displayed, so 100% is right
+               ; no zoom: their picture is what was displayed, so 100% is right.
+               ; SetZoom also redraws the border with the radius
                If (fileObj.Snip.HasProp("Zoom") AND IsNumber(fileObj.Snip.Zoom) AND fileObj.Snip.Zoom > 0 AND fileObj.Snip.Zoom != 1)
                   SnipObj.SetZoom(fileObj.Snip.Zoom + 0)
+               Else If (SnipObj.ogRadius)
+                  SnipObj.SetZoom(1)
                ; If allow edits is true, use the original name and title
                ; We have the data for the snip and the shapes, so recreate them here
                For ShapeInfo in fileObj.Shapes {
