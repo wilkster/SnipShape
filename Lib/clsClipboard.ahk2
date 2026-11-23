@@ -128,6 +128,23 @@ Class Clipboard {
          Return -2
       }
       ;--------------------------------------------------------------------
+      ; Registered PNG first (the usual convention: many apps take the first
+      ; image format they understand). PNG keeps the alpha (straight). Our
+      ; DIB/BITMAP are premultiplied and most readers ignore their alpha:
+      ; OneNote Desktop reads CF_DIB only, so transparent corners paste black
+      ; and translucent pictures darker. Our own CF_DIBV5 with an alpha mask
+      ; was tried and didn't help OneNote, so it was dropped.
+      ;--------------------------------------------------------------------
+      ; Optional format: on failure warn and continue with BITMAP/DIB.
+      ; Never pass a NULL handle, that requests delayed rendering we don't service.
+      If (hPng := this.ToPNG(hBitmap)) {
+         If not this.SetClipboardData(Clipboard.png, hPng) {
+            warning("Clipboard: Failed to set PNG Format")
+            this.GlobalFree(hPng) ; only free if failed
+         }
+      } Else
+         warning("Clipboard: PNG conversion failed, PNG format skipped")
+      ;--------------------------------------------------------------------
       ; DDB Format for failsafe
       ;--------------------------------------------------------------------
       hBmpCopy := GDI.CopyImage(hBitmap)
@@ -168,18 +185,6 @@ Class Clipboard {
          Return -4
       }
 
-      ;--------------------------------------------------------------------
-      ; Registered PNG -- what new Outlook/WebView2 paste targets look for
-      ;--------------------------------------------------------------------
-      ; Optional format: on failure warn and continue, BITMAP/DIB are already set.
-      ; Never pass a NULL handle, that requests delayed rendering we don't service.
-      If (hPng := this.ToPNG(hBitmap)) {
-         If not this.SetClipboardData(Clipboard.png, hPng) {
-            warning("Clipboard: Failed to set PNG Format")
-            this.GlobalFree(hPng) ; only free if failed
-         }
-      } Else
-         warning("Clipboard: PNG conversion failed, PNG format skipped")
       ; ------------------------------------------------------------------
       ; Optionally post CF_TEXT
       ; CF_TEXT expects a null-terminated ANSI string in a GMEM_MOVEABLE
