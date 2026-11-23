@@ -178,13 +178,20 @@ Hotkey(IniReadValue("HotKey", "SnipActiveMonitor", "^PrintScreen"), SnipActiveMo
 
 /**
  * Opens the current clipboard image (if any) in a SnipShape editing window.
- * Displays a tray tip if no valid image is found on the clipboard.
+ * If there is no image but image files were copied (e.g. Ctrl-C in Explorer),
+ * each file opens as a snip (as File Open does, so saved shapes are restored).
+ * Displays a tray tip if neither is found on the clipboard.
  * @param {*} * - Unused hotkey parameter.
  */
 EditClipboard(*) {
-   If ( NOT Snips.Clipboard2Snip()) {
-      qTrayTip("No image on the clipboard to edit",2)
+   If (Snips.Clipboard2Snip())
+      Return
+   If (files := Clipboard.ImageFileNames()).Length {
+      For sFile in files
+         Snips.CreateSnipFromFile(sFile)
+      Return
    }
+   qTrayTip("No image on the clipboard to edit",2)
 }
 Hotkey(IniReadValue("HotKey", "EditClipboard", "+#e"), EditClipboard.Bind())
 
@@ -200,8 +207,13 @@ SnipAndEditClipboard(*) {
    SendInput("^c")	; Copy to clipboard
    Sleep(100)
    If ClipWait(0.2, 1) {
-      If ( NOT Snips.Clipboard2Snip()) {
-         qTrayTip("No image on the clipboard to edit:" A_Clipboard,2)
+      If (Snips.Clipboard2Snip()) {
+         ; image opened
+      } Else If (files := Clipboard.ImageFileNames()).Length {
+         For sFile in files
+            Snips.CreateSnipFromFile(sFile)
+      } Else {
+         qTrayTip("No image or file available to edit",2)
       }
    } Else {
       qTrayTip("Nothing on the clipboard to edit",2)

@@ -142,13 +142,16 @@ Current key assignments for screen selection (can be modified in the `SnipShape.
 
 ### Other snipping actions that don't use the mouse
 
-| **Global HotKey** | **Action**                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| Shift-PrtScn      | To capture current window to the clipboard (Windows 11 rounded corners are transparent) |
-| Alt-PrtScn        | To create a snip of the current window                                                |
-| Ctrl-PrtScn       | To create a snip of the current monitor screen                                        |
-| Shift-Win-e       | To create a snip of the current clipboard (if it has a bitmap)                        |
-| Shift-Win-c       | To copy the selection to the clipboard and create a snip of it (if it has a  bitmap). |
+| **Global HotKey** | **Action**                                                                                                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shift-PrtScn      | To capture current window to the clipboard (Windows 11 rounded corners are transparent)                                                                                                          |
+| Alt-PrtScn        | To create a snip of the current window (Windows 11 rounded corners are kept and the snip border follows them)                                                                                    |
+| Ctrl-PrtScn       | To create a snip of the current monitor screen                                                                                                                                                   |
+| Shift-Win-e       | To create a snip of the current clipboard: its image, or if there is none, each image file copied to the clipboard (e.g. Ctrl-C on picture files in Explorer)                                    |
+| Shift-Win-c       | To copy the selection to the clipboard and create a snip of it: an image, or the selected image files (e.g. in Explorer). The original clipboard is restored unless Auto Update Clipboard is on. |
+
+Image files opened this way (png, jpg, bmp, gif, ico, wmf, tif) load like File Open: a snip saved by SnipShape
+reopens with its shapes still editable.
 
 ### Hotkeys on Snip Surface
 
@@ -540,8 +543,8 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 | `ClipActiveWindow=+PrintScreen`  | Copy the active window to the clipboard.                                                            |
 | `SnipActiveWindow=!PrintScreen`  | Create a snip of the active window.                                                                 |
 | `SnipActiveMonitor=^PrintScreen` | Create a snip of the active screen                                                                  |
-| `EditClipboard=+#e`              | Create a snip of the clipboard image (if one exists)                                                |
-| `SnipAndEditClipboard=+#c`       | If there is an active selection, copy it to the clipboard and create a snip of it (graphics only)   |
+| `EditClipboard=+#e`              | Create a snip of the clipboard image, or of each image file copied to the clipboard                 |
+| `SnipAndEditClipboard=+#c`       | If there is an active selection, copy it and create a snip of it (an image or selected image files) |
 | `ShowHideAllSnips=!F12`          | Toggle view state of any active snip windows (minimize/restore)                                     |
 | `SnipArea2Step1=<#S`             | Start the snip an area of the screen using two step method                                          |
 | `ClipArea2Step=<#Z`              | Start the clipboard capture of an area of the screen using the two step method                      |

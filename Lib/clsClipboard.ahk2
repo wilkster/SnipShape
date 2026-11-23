@@ -513,6 +513,37 @@ Class Clipboard {
             Return true
       Return false
    }
+   ; Image file extensions a snip can be opened from (file drops, copied files)
+   Static ImageFileRegEx := "i)\.(png|jpe?g|bmp|gif|ico|wmf|tiff?)$"
+   /**
+    * Image files on the clipboard as a copied file list (CF_HDROP, e.g. Ctrl-C in Explorer)
+    * @returns {Array} full paths of existing image files (empty if none)
+    */
+   Static ImageFileNames() {
+      files := []
+      If NOT this.IsClipboardFormatAvailable(CF_HDROP := 15)
+         Return files
+      If NOT this.OpenClipboard(A_ScriptHwnd)
+         Return files
+      If (hDrop := this.GetClipboardData(CF_HDROP)) {
+         n := DllCall("shell32\DragQueryFileW", "Ptr", hDrop, "UInt", 0xFFFFFFFF, "Ptr", 0, "UInt", 0, "UInt")
+         Loop n {
+            len := DllCall("shell32\DragQueryFileW", "Ptr", hDrop, "UInt", A_Index - 1, "Ptr", 0, "UInt", 0, "UInt")
+            buf := Buffer((len + 1) * 2)
+            DllCall("shell32\DragQueryFileW", "Ptr", hDrop, "UInt", A_Index - 1, "Ptr", buf, "UInt", len + 1, "UInt")
+            sFile := StrGet(buf, "UTF-16")
+            If ((sFile ~= this.ImageFileRegEx) AND (attr := FileExist(sFile)) AND NOT InStr(attr, "D"))
+               files.Push(sFile)
+         }
+      }
+      this.CloseClipboard()
+      Return files
+   }
+   /**
+    * Checks whether the clipboard holds copied image files (see ImageFileNames)
+    * @returns {Integer} true if at least one image file is on the clipboard
+    */
+   Static hasImageName() => this.ImageFileNames().Length > 0
    /**
     * Add a file to the clipboard such that it can pasted it somewhere.
     * @param files one or more files to add to the clipboard

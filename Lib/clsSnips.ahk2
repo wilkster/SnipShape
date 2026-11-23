@@ -871,7 +871,7 @@ Class Snips {
     */
    Static DropFiles(GuiObj, GuiCtrlObj, FileArray, X, Y) {
       For sFile in FileArray
-         If (sFile ~= "i)\.(png|jpe?g|bmp|gif|ico|wmf|tiff?)$")
+         If (sFile ~= Clipboard.ImageFileRegEx)
             SetTimer(Snips.CreateSnipFromFile.Bind(Snips, sFile), -1)
    }
    /**
