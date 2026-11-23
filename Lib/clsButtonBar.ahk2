@@ -119,13 +119,16 @@ Class ButtonBar {
    }
 
       /**
-    * Handle a color circle click: queue the color, tint the bar, hide the popup
+    * Handle a color circle click: queue the color, tint the bar, hide the popup.
+    * A selected shape group is recolored too (as the 1-9 keys do).
     * @param {Integer} clr - RGB color value chosen
     */
    Static colorPicked(cb, clr, *) {
       ; debug("colorPicked " hex(clr))
       this.colorQueue := clr
       this.BackColor  := clr
+      If (ShapeGroup.Active)
+         ShapeGroup.SetColor(RGBval(clr))
       if (this.SnipObj)
          WinActivate(this.SnipObj.hWnd)
    } 

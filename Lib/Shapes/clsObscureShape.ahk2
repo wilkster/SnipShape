@@ -42,6 +42,22 @@ Class ObscureShape extends commonShape {
       }
    }
    /**
+    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
+    * Blur and pixelate amounts live in Factor (default x the Alt factor), so they scale.
+    */
+   StyleTarget(key) {
+      S := this.Shape
+      Switch key, false {
+         Case "highlightOpacity":
+            Return (S = Shapes.SHAPE_HILITE) ? { Prop: "shapeOpacity", Scale: false } : 0
+         Case "PixelateBlockSize":
+            Return (S = Shapes.SHAPE_PIXELATE) ? { Prop: "Factor", Scale: true } : 0
+         Case "BlurDivisor":
+            Return (S = Shapes.SHAPE_BLUR OR S = Shapes.SHAPE_GAUS_BLUR) ? { Prop: "Factor", Scale: true } : 0
+      }
+      Return 0
+   }
+   /**
     * Shape unique startup actions, detect if this is the first startup to create
     * the brushes
     */

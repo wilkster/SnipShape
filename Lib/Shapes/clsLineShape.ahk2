@@ -41,6 +41,30 @@ Class LineShape extends commonShape {
    }
 
    /**
+    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
+    * Arrows take the arrow defaults, plain lines/brackets/connectors the shape ones;
+    * only the outlined arrows have an outline.
+    */
+   StyleTarget(key) {
+      Switch this.Shape {
+         Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW, Shapes.SHAPE_TAPARROW:
+            isArrow := true
+         Default:
+            isArrow := false
+      }
+      hasOutline := (this.Shape = Shapes.SHAPE_OARROW OR this.Shape = Shapes.SHAPE_ODARROW OR this.Shape = Shapes.SHAPE_TAPARROW)
+      Switch key, false {
+         Case "arrowOpacity":       Return isArrow     ? { Prop: "shapeOpacity",   Scale: false } : 0
+         Case "shapeOpacity":       Return NOT isArrow ? { Prop: "shapeOpacity",   Scale: false } : 0
+         Case "arrowLineThickness": Return isArrow     ? { Prop: "shapeThickness", Scale: true }  : 0
+         Case "rawLineThickness":   Return NOT isArrow ? { Prop: "shapeThickness", Scale: true }  : 0
+         Case "outlineOpacity":     Return hasOutline  ? { Prop: "outlineOpacity", Scale: false } : 0
+         Case "outlineThickFactor": Return hasOutline  ? { Prop: "outlineThickFactor", Scale: false } : 0
+      }
+      Return 0
+   }
+
+   /**
     * Configures GDI+ pens, brushes, and caps prior to drawing or refreshing the shape
     */
    Startup() {

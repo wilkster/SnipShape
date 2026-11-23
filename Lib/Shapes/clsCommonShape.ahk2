@@ -797,14 +797,90 @@ Class commonShape extends Gui.Pic {
       infoObj.shapeCoord     := this.shapeCoord.clone()
       infoObj.sPad           := this.sPad.clone()
       infoObj.FileName       := this.FileName
+      ; Per-shape style (opacities, outline, text styles): without these a duplicate,
+      ; saved snip or undone delete came back with the current defaults
+      For pr in commonShape.StyleProps
+         If this.HasOwnProp(pr)
+            infoObj.%pr% := this.%pr%
       Return infoObj
    }
    /**
     * Color info for undo/redo
-    * @returns {Object} 
+    * @returns {Object}
     */
    ColorInfo() {
       Return { Color: this.Color }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Style defaults applied to existing shapes
+   ; A button bar default (Shapes.valMenu key) changed while a shape group is
+   ; selected is applied to the group (ShapeGroup.ApplyDefault). Each class maps
+   ; the key to the property it copied the default into at Init (StyleTarget);
+   ; shapes the key doesn't apply to return 0 and are left alone.
+   ;----------------------------------------------------------------------
+   ; Instance properties that hold a shape's style (SHAPE_STYLE undo, InstanceInfo)
+   Static StyleProps := ["Factor", "shapeThickness", "shapeOpacity", "outlineOpacity",
+      "fillOpacity", "outlineThickFactor", "textOpacity", "TCOpacity", "FTOpacity",
+      "FTOLOpacity", "FillOutline", "OLOpacity", "OLBlur", "OLFillThickness"]
+   /**
+    * Style info for undo/redo (SHAPE_STYLE): the style props this shape has, and its
+    * padding (a thicker line was drawn with more)
+    * @returns {Object}
+    */
+   StyleInfo() {
+      info := { sPad: this.sPad.Clone() }
+      For pr in commonShape.StyleProps
+         If this.HasOwnProp(pr)
+            info.%pr% := this.%pr%
+      Return info
+   }
+   /**
+    * Which property of this shape a button bar default sets, if any.
+    * Override per class.
+    * @param {String} key - default name (Shapes.valMenu key, e.g. "arrowOpacity")
+    * @returns {Object|Integer} {Prop, Scale} or 0 when the default doesn't apply.
+    *   Scale: true scales the property by new/old default (thickness, blur amount),
+    *   keeping any size change made to the shape; false sets it to the new value.
+    */
+   StyleTarget(key) => 0
+   /**
+    * Work out the new value of a style property for a changed default
+    * @param {Object} t - StyleTarget() result
+    * @param {Any} old - previous default
+    * @param {Any} new - new default
+    * @param {VarRef} value - receives the new property value
+    * @returns {Integer} true if the property would change
+    */
+   StyleValue(t, old, new, &value) {
+      prop := t.Prop
+      cur  := this.%prop%
+      If (t.Scale) {
+         If NOT (IsNumber(old) AND IsNumber(new) AND old > 0 AND new != old)
+            Return false
+         value := cur * new / old
+         Return true
+      }
+      If (cur = new)
+         Return false
+      value := new
+      Return true
+   }
+   /**
+    * Set a style property. A thicker line or outline needs more padding first, or the
+    * redraw clips it (Refresh then shrinks the padding to fit)
+    * @param {String} prop - property name
+    * @param {Any} value - new value
+    */
+   SetStyle(prop, value) {
+      cur := this.%prop%
+      If ((prop = "shapeThickness" OR prop = "outlineThickFactor")
+         AND IsNumber(cur) AND cur > 0 AND value > cur) {
+         r := value / cur
+         P := this.sPad
+         this.sPad := { L: Ceil(P.L * r), T: Ceil(P.T * r), R: Ceil(P.R * r), B: Ceil(P.B * r) }
+      }
+      this.%prop% := value
    }
    /**
     * Position info for undo/redo

@@ -80,6 +80,30 @@ Class TextShape extends CommonShape {
       this._tailShown           := false
    }
    /**
+    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
+    * The text properties have the same names as the TextShape defaults. Fonts, sizes
+    * and alignment are not applied.
+    */
+   StyleTarget(key) {
+      S := this.Shape
+      isFill := (S = Shapes.SHAPE_FILLTEXT OR S = Shapes.SHAPE_LEFTARROWTEXT OR S = Shapes.SHAPE_RIGHTARROWTEXT)
+      Switch key, false {
+         Case "textOpacity":
+            ok := true
+         Case "TCOpacity":
+            ok := (S = Shapes.SHAPE_TAG)
+         Case "FTOpacity", "FTOLOpacity":
+            ok := isFill
+         Case "FillOutline":
+            ok := (S = Shapes.SHAPE_FILLTEXT)
+         Case "OLOpacity", "OLBlur", "OLFillThickness":
+            ok := (S = Shapes.SHAPE_OLTEXT)
+         Default:
+            ok := false
+      }
+      Return ok ? { Prop: key, Scale: false } : 0
+   }
+   /**
     * Configure text and font properties prior to drawing.
     * Font size, colors, and other characteristics may also be updated dynamically during resize events.
     * @param {Integer} [Size] - Font size in points
@@ -584,9 +608,10 @@ Class TextShape extends CommonShape {
     */
    _Layout() {
       Static StyleIndex := Map("Normal", 0, "Bold", 1, "Italic", 2, "BoldItalic", 3, "Underline", 4, "Strikeout", 8)
-      ; Make sure alpha is loaded
-      If this._fontColor < 0xFF000000
-         this._fontColor |= this.textOpacity << 24
+      ; Text alpha always comes from textOpacity. It used to be OR'd in only while
+      ; _fontColor had no alpha, and the Color setter forces 0xFF, so a recolor
+      ; (1-9 keys, group color, color undo, duplicate) made the text opaque
+      this._fontColor := (this._fontColor & 0xFFFFFF) | ((this.textOpacity & 0xFF) << 24)
       ; Startup
       If (this._ogFontSize = 0)
          this._ogFontSize := this._fontSize
