@@ -390,12 +390,13 @@ Class ShapeMenus {
       Static colorMenu   := Menu()
       Static subMenu1    := Menu()
       Static subMenu2    := Menu()
-      Static outlineMenu := Menu()
+      Static propMenu    := Menu()
       Static typeMenu    := Menu()
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()
-      outlineMenu.Delete()
+      propMenu.Delete()
+      typeMenu.Delete()
       PC := PeerCount(ShapeObj)
       ; Shape specific
 ; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
@@ -439,16 +440,6 @@ Class ShapeMenus {
                If (ShapeObj.Shape = tType)
                   typeMenu.Check(tName)
             }
-            ; Special case for fill text
-            If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
-               shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
-               shapeMenu.SetIcon("Change " ShapeObj.ShapeName " Outline", SETTINGS.CursorPath . "Outline.ico" ) 
-               for idx, menName in ["Rectangle", "Rounded Rectangle", "Ellipse", "None"] {
-                  outlineMenu.Add(menName, OutlineType.bind(menName))
-                  if (ShapeObj.FillOutline = menName)
-                     outlineMenu.Check(menName)
-               }
-            }
             ShapeMenu.Add()
             If (PC > 1)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
@@ -476,9 +467,14 @@ Class ShapeMenus {
                Default:
                   ShapeMenu.Add()
                   shapeMenu.Add("Shape Color`t❯", (*)=>{})
-                  shapeMenu.SetIcon("Shape Color`t❯", SETTINGS.CursorPath . "colors.ico") ; 
+                  shapeMenu.SetIcon("Shape Color`t❯", SETTINGS.CursorPath . "colors.ico") ;
             }
          Default:
+      }
+      ; Opacities and outline style of this shape (same values as the button bar defaults)
+      If (ShapeMenus.AddStyleMenus(propMenu, ShapeObj)) {
+         shapeMenu.Add(ShapeObj.ShapeName " Properties", propMenu)
+         shapeMenu.SetIcon(ShapeObj.ShapeName " Properties", SETTINGS.CursorPath . "Outline.ico")
       }
       ; Thickness
       Switch ShapeObj.Source {
@@ -505,7 +501,7 @@ Class ShapeMenus {
       colorMenu.Delete()
       subMenu1.Delete()
       subMenu2.Delete()
-      outlineMenu.Delete()
+      propMenu.Delete()
       typeMenu.Delete()
 
       Return
@@ -520,19 +516,55 @@ Class ShapeMenus {
          ShapeObj.Factor         *= (1+amt) ; blur/pixelate
          ShapeObj.Refresh()
       }
-      OutlineType(OLType,*) {
-         If (ShapeObj.FillOutline = OLType)
-            Return
-         ShapeObj.PostAction(UnDo.SHAPE_STYLE)  ; StyleInfo includes FillOutline
-         ShapeObj.FillOutline := OLType
-         ShapeObj.Refresh()
-         ShapeObj.Gui.Dirty++
-         focusBorder.Sync(ShapeObj)
-      }
       TextType(tType,*) {
          ShapeObj.ChangeType(tType)
          focusBorder.Sync(ShapeObj)
       }
+   }
+   /**
+    * Fill a Properties menu with one sub-menu per style property the shape has
+    * (Shapes.ShapeStyleItems), built from the button bar's value lists, with the
+    * shape's current value checked. Only plain-value properties (StyleTarget Scale:
+    * false) are offered; thickness and blur keep their Increase/Decrease entries.
+    * The sub-menus are new Menu objects each time, owned by propMenu until it is cleared.
+    * @param {Menu} propMenu - Menu to fill (emptied first)
+    * @param {Object} ShapeObj - Shape the values apply to
+    * @returns {Integer} Number of properties added
+    */
+   Static AddStyleMenus(propMenu, ShapeObj) {
+      propMenu.Delete()
+      n := 0
+      For item in Shapes.ShapeStyleItems {
+         key := item[1], title := item[2]
+         If NOT (Shapes.StyleValues.Has(key) AND (t := ShapeObj.StyleTarget(key)) AND NOT t.Scale)
+            Continue
+         cur := ShapeObj.%t.Prop%
+         sub := Menu()
+         For val in Shapes.StyleValues[key] {
+            sub.Add(val, ShapeMenus.SetShapeStyle.Bind(ShapeMenus, ShapeObj, t.Prop))
+            If (val = cur)
+               sub.Check(val)
+         }
+         propMenu.Add(title, sub)
+         n++
+      }
+      Return n
+   }
+   /**
+    * Properties menu callback: set one style property on a shape, with undo
+    * @param {Object} ShapeObj - Shape to change
+    * @param {String} prop - Property name (StyleTarget Prop)
+    * @param {String} ItemName - Menu item text, the new value
+    */
+   Static SetShapeStyle(ShapeObj, prop, ItemName, *) {
+      value := IsNumber(ItemName) ? Number(ItemName) : ItemName
+      If (ShapeObj.%prop% = value)
+         Return
+      ShapeObj.PostAction(UnDo.SHAPE_STYLE)
+      ShapeObj.SetStyle(prop, value)
+      ShapeObj.Refresh()
+      ShapeObj.Gui.Dirty++
+      focusBorder.Sync(ShapeObj)
    }
    /**
     * Add a menu entry with an optional icon to a shape context menu

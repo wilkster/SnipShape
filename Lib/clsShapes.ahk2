@@ -238,8 +238,33 @@ Class Shapes {
       For Val in Values {
          M.Add(val, this.ButtonMenu_Handler.bind(this, &GlobName, key))
       }
+      ; Same values for the shape's own Properties menu (ShapeMenus.AddStyleMenus)
+      If (key != "")
+         this.StyleValues[key] := Values
       Return M
    }
+
+   ; Value lists of the keyed button bar defaults (filled by valMenu)
+   Static StyleValues := Map()
+   ; Properties a shape's right-click Properties menu offers, in menu order: [key, title].
+   ; Only keys a shape maps to a plain value (StyleTarget Scale: false) are shown;
+   ; line thickness and blur stay with Increase/Decrease and Up/Down. The outline
+   ; thickness factor is a plain multiplier of the line thickness, so it is here.
+   Static ShapeStyleItems := [
+      ["shapeOpacity",     "Opacity"],
+      ["arrowOpacity",     "Opacity"],
+      ["penOpacity",       "Opacity"],
+      ["highlightOpacity", "Opacity"],
+      ["fillOpacity",      "Fill Opacity"],
+      ["outlineOpacity",   "Outline Opacity"],
+      ["outlineThickFactor", "Outline Thickness Factor"],
+      ["textOpacity",     "Text Opacity"],
+      ["TCOpacity",        "Tag Center Opacity"],
+      ["FTOpacity",        "Fill Opacity"],
+      ["FTOLOpacity",      "Border Opacity"],
+      ["FillOutline",      "Fill Text Outline"],
+      ["OLOpacity",        "Outline Edge Opacity"]
+   ]
 
    /**
     * @description Right-mouse-button handler for the shape button bar. Rebuilds and

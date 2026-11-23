@@ -463,7 +463,14 @@ r- Shift-Del will remove all shapes on a ship
   tag you add continues the sequence, and a single undo restores the old numbers.
 - On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
   Left/Right Arrow Text). The text, font and color are kept, the shape stays centred where it was, and a single undo
-  changes it back. On Fill Text, **Change Fill Text Outline** picks Rectangle, Rounded Rectangle, Ellipse or None.
+  changes it back.
+- **&lt;Shape&gt; Properties** sets that shape's own opacities and outline style, with the same choices as the
+  button bar defaults (right-click a button bar category), and the shape's current value checked. For example:
+  opacity, fill and outline opacity (shapes, arrows, pens, highlighters), the outline thickness factor (rectangles,
+  ellipses and outlined arrows), text, tag centre and outline edge opacity
+  (text shapes), and for Fill Text its border opacity and outline (Rectangle, Rounded Rectangle, Ellipse or None).
+  Each change can be undone. Thickness and blur amount are not here: use the thickness/amount entries, the Up/Down
+  keys or the mouse wheel.
 - Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
 - Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
 - Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)
