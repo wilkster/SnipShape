@@ -306,7 +306,7 @@ have one, since it already points.
   remove the callout.
 - The callout style depends on the text type:
   - **Tag**: the circle and its tail form a filled pin.
-  - **Fill Text with a border** (Rectangle / Rounded Rectangle): a triangular tail with the same fill, and one border
+  - **Fill Text with a border** (Rectangle / Rounded Rectangle / Ellipse): a triangular tail with the same fill, and one border
     running around both the box and the tail.
   - **Text, Outline Text and Fill Text without a border**: a straight arrow in the text colour, from the edge of the
     box to the tip.

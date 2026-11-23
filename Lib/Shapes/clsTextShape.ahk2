@@ -395,7 +395,7 @@ Class TextShape extends CommonShape {
 
    /**
     * The shape the tail or arrow starts from, in body coordinates: the Tag's circle,
-    * otherwise the whole body box
+    * the ellipse of fill text with an Ellipse border, otherwise the whole body box
     * @param {Object} L - Layout from _Layout()
     * @returns {Object} {Kind: "Ellipse"|"Rect", X, Y, W, H}
     */
@@ -403,6 +403,8 @@ Class TextShape extends CommonShape {
       R := L.RCTextF
       If (this.Shape = Shapes.SHAPE_TAG)
          Return { Kind: "Ellipse", X: R.X1, Y: R.Y1, W: R.W, H: R.H }
+      If (this._HasFillOutline() AND this.FillOutline = "Ellipse")
+         Return { Kind: "Ellipse", X: 0, Y: 0, W: L.bodyW, H: L.bodyH }
       Return { Kind: "Rect", X: 0, Y: 0, W: L.bodyW, H: L.bodyH }
    }
 
@@ -445,7 +447,7 @@ Class TextShape extends CommonShape {
          Return [[cx + ux * r, cy + uy * r], [tx, ty]]
       }
       ; Half width where the tail leaves the shape (tags get a wider, pin-like tail)
-      hwEdge := Min(a, b) * (base.Kind = "Ellipse" ? 0.5 : 0.35)
+      hwEdge := Min(a, b) * (this.Shape = Shapes.SHAPE_TAG ? 0.5 : 0.35)
       hw     := Min(hwEdge * len / (len - r), Min(a, b) * 0.95)
       nx := -uy, ny := ux
       this._tailShown := true
@@ -712,8 +714,14 @@ Class TextShape extends CommonShape {
             ; Slight offset so text is somewhat in the arrowhead
          Case Shapes.SHAPE_FILLTEXT:
             ; right now it draws it at the txt locations
-            pad.l := pad.r := pad.t := pad.b := (this.FillOutline = "None") ? 0 : outlineThickness * 3
-            txt.x += pad.r, txt.y += pad.t
+            If (this.FillOutline = "Ellipse") {
+               ; Smallest ellipse around the text box: the box scaled by Sqrt(2), so its
+               ; corners touch the ellipse. Then the same border + gap as the rectangle.
+               pad.l := pad.r := Ceil((Sqrt(2) - 1) / 2 * txt.W + outlineThickness * 3)
+               pad.t := pad.b := Ceil((Sqrt(2) - 1) / 2 * txt.H + outlineThickness * 3)
+            } Else
+               pad.l := pad.r := pad.t := pad.b := (this.FillOutline = "None") ? 0 : outlineThickness * 3
+            txt.x += pad.l, txt.y += pad.t
          Default:
             ; Enlarge draw rectangle by a bit for outline text to prevent clipping
             ; Needed for some fonts, probably a bug
@@ -839,6 +847,10 @@ Class TextShape extends CommonShape {
                   bodyPath := GDIp.Path(G)
                   bodyPath.AddPathRectangle(pw, pw, bodyW - pw * 2, bodyH - pw * 2)
                   GDIp.SetPenLineJoin(outlinePen, 3)  ; sharp corners, clipped at the tail tip
+               } Else If (this.FillOutline = "Ellipse") {
+                  bodyPath := GDIp.Path(G)
+                  bodyPath.AddPathEllipse(pw, pw, bodyW - pw * 2, bodyH - pw * 2)
+                  GDIp.SetPenLineJoin(outlinePen, 3)  ; clipped at the tail tip
                } Else { ; Rounded Rectangle, radius clamped as in GDIp.DrawRoundedRectangle
                   r := radius
                   If (bodyW <= bodyH && (r + pw > bodyW / 2))
@@ -872,6 +884,13 @@ Class TextShape extends CommonShape {
                   GDIp.SetPenAlignment(outlinePen, 0)
                   GDIp.FillRoundedRectangle(G, fillBrush, of, of, bodyW - of * 2, bodyH - of * 2, radius)
                   GDIp.DrawRoundedRectangle(G, outlinePen, 0, 0, bodyW, bodyH, radius)
+                  GDIp.DeletePen(outlinePen)
+               Case "Ellipse":
+                  ; Pen centred half a width inside the body, so the border's outer edge is the body edge
+                  outlinePen := GDIp.CreatePen(outlineOpacity | this.Color, outlineThickness)
+                  pw := outlineThickness / 2
+                  GDIp.FillEllipse(G, fillBrush, pw, pw, bodyW - pw * 2, bodyH - pw * 2)
+                  GDIp.DrawEllipse(G, outlinePen, pw, pw, bodyW - pw * 2, bodyH - pw * 2)
                   GDIp.DeletePen(outlinePen)
                Default:
                   GDIp.FillRoundedRectangle(G, fillBrush, RCTextF.X1, RCTextF.Y1, RCTextF.W, RCTextF.H, radius)

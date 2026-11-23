@@ -211,7 +211,7 @@ Class Shapes {
       this.MFTOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOpacity, "FTOpacity")
       this.MFTOLOpacity        := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOLOpacity, "FTOLOpacity")
 
-      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle","None"], &TextShape.FillOutline, "FillOutline")
+      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle", "Ellipse", "None"], &TextShape.FillOutline, "FillOutline")
 
       this.MOLFontName         := this.valMenu(this.FontNames, &TextShape.OLFontName)
       ;Not currently used

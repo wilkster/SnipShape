@@ -432,7 +432,7 @@ Class ShapeMenus {
             If (ShapeObj.Shape = Shapes.SHAPE_FILLTEXT) {
                shapeMenu.Add("Change " ShapeObj.ShapeName " Outline", outlineMenu)
                shapeMenu.SetIcon("Change " ShapeObj.ShapeName " Outline", SETTINGS.CursorPath . "Outline.ico" ) 
-               for idx, menName in ["Rectangle", "Rounded Rectangle", "None"] {
+               for idx, menName in ["Rectangle", "Rounded Rectangle", "Ellipse", "None"] {
                   outlineMenu.Add(menName, OutlineType.bind(menName))
                   if (ShapeObj.FillOutline = menName)
                      outlineMenu.Check(menName)
