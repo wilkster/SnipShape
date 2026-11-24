@@ -81,57 +81,66 @@ class ColorPicker {
       this.isDirty         := false
       this.lastRGB         := this.lastX := this.lastY := 0
       this.viewMode        := viewMode
-      this.SetSysCursor("cross")
 
-      ; Read prior values if they exist
-      this.captureSize    := IniRead(this.iniFile, this.viewMode, "captureSize", this.captureSize)
-      this.baseZoomFactor := IniRead(this.iniFile, this.viewMode, "baseZoomFactor", this.baseZoomFactor)
+      ; The system cursors and mouse speed are changed for the whole desktop while the
+      ; picker runs: Finally restores them even if something below throws, or they
+      ; would stay a crosshair at quarter speed until logoff
+      ms := 0
+      Try {
+         this.SetSysCursor("cross")
 
-      ; Make sure this GUI is not part of the screen capture (Windows 10+)
-      this.gui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale", this.title)
-      If NOT DllCall("User32\SetWindowDisplayAffinity", "Ptr", this.gui.hWnd, "Int", 0x00000011, "Int") ; WDA_EXCLUDEFROMCAPTURE
-         OutputDebug("Failed to set affinity:" A_LastError)
-      ; Some Windows 10 versions: SetWindowDisplayAffinity & +E0x80000 clash
-      this.gui.Opt("+E0x80000")
-      this.gui.Show("NA x0 y0 w0 h0")
-      this.OnTop(this.gui.Hwnd)
+         ; Read prior values if they exist
+         this.captureSize    := IniRead(this.iniFile, this.viewMode, "captureSize", this.captureSize)
+         this.baseZoomFactor := IniRead(this.iniFile, this.viewMode, "baseZoomFactor", this.baseZoomFactor)
 
-      ; Hotkeys are created once and are active only while the main loop runs (IsActive).
-      ; B0 prevents passing the key to other windows
-      If (!this.hotReady) {
-         this.hotCtx := this.IsActive.Bind(this)
-         handler := this.HotKeyHandler.Bind(this)
-         HotIf(this.hotCtx)
-         For key in this.hotkeyNames
-            Hotkey(key, handler, "B0")
-         HotIf()
-         this.hotReady := true
+         ; Make sure this GUI is not part of the screen capture (Windows 10+)
+         this.gui := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale", this.title)
+         If NOT DllCall("User32\SetWindowDisplayAffinity", "Ptr", this.gui.hWnd, "Int", 0x00000011, "Int") ; WDA_EXCLUDEFROMCAPTURE
+            OutputDebug("Failed to set affinity:" A_LastError)
+         ; Some Windows 10 versions: SetWindowDisplayAffinity & +E0x80000 clash
+         this.gui.Opt("+E0x80000")
+         this.gui.Show("NA x0 y0 w0 h0")
+         this.OnTop(this.gui.Hwnd)
+
+         ; Hotkeys are created once and are active only while the main loop runs (IsActive).
+         ; B0 prevents passing the key to other windows
+         If (!this.hotReady) {
+            this.hotCtx := this.IsActive.Bind(this)
+            handler := this.HotKeyHandler.Bind(this)
+            HotIf(this.hotCtx)
+            For key in this.hotkeyNames
+               Hotkey(key, handler, "B0")
+            HotIf()
+            this.hotReady := true
+         }
+
+         ;-------------------------------------------------------------------
+         ; Main loop to block until complete, bound keys will stop the loop
+         ;-------------------------------------------------------------------
+         ms := this.MouseSpeed()
+         this.MouseSpeed(ms / 4)
+         this.block := true
+         While (this.block) {
+            now := A_TickCount
+            If NOT WinExist(this.gui.Hwnd)
+               this.block := false
+            If GetKeyState("Shift", "P") ; dynamic colors under the picker
+               this.isDirty := true
+            this.CaptureAndPreview()
+            dur := A_TickCount - now
+            Sleep(Max(0, this.updateInterval - dur))
+         }
+      } Finally {
+         ;-------------------------------------------------------------------
+         ; Cleanup (also after an error)
+         ;-------------------------------------------------------------------
+         this.block := false   ; turns the picker hotkeys off
+         this.SetSysCursor("reset")
+         If (ms)
+            this.MouseSpeed(ms)
+         Try this.gui.Destroy()
+         DllCall("SetThreadDpiAwarenessContext", "Ptr", dpiCtx, "Ptr")
       }
-
-      ;-------------------------------------------------------------------
-      ; Main loop to block until complete, bound keys will stop the loop
-      ;-------------------------------------------------------------------
-      ms := this.MouseSpeed()
-      this.MouseSpeed(ms / 4)
-      this.block := true
-      While (this.block) {
-         now := A_TickCount
-         If NOT WinExist(this.gui.Hwnd)
-            this.block := false
-         If GetKeyState("Shift", "P") ; dynamic colors under the picker
-            this.isDirty := true
-         this.CaptureAndPreview()
-         dur := A_TickCount - now
-         Sleep(Max(0, this.updateInterval - dur))
-      }
-
-      ;-------------------------------------------------------------------
-      ; Cleanup
-      ;-------------------------------------------------------------------
-      this.SetSysCursor("reset")
-      this.MouseSpeed(ms)
-      this.gui.Destroy()
-      DllCall("SetThreadDpiAwarenessContext", "Ptr", dpiCtx, "Ptr")
       IniWrite(this.captureSize, this.iniFile, this.viewMode, "captureSize")
       IniWrite(this.baseZoomFactor, this.iniFile, this.viewMode, "baseZoomFactor")
       IniWrite(this.stretchMode, this.iniFile, this.viewMode, "stretchMode")

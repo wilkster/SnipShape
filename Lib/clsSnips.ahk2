@@ -677,41 +677,46 @@ Class Snips {
    /**
     * Export an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.
     * Prompts before overwriting an existing file.
-    * @param {Integer} hBitmap - GDI HBITMAP handle to save
-    * @param {String} SavePath - Directory path where the file should be written
+    * Errors are passed on to the caller (Snip2File reports them); the GDI+ bitmap
+    * and the dialog hook are released either way.
+    * @param {Integer} hBitmap - GDI HBITMAP handle to save (not deleted here)
     * @returns {String} Full path of the saved file, or empty string on failure
     */
    Static ExportHBitMapFile(hBitmap) {
       hook := FileDialogHook()
-      lastFolder := IniReadValue("Snips", "Last Export Folder", "")
-      FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png" 
-      If (FileName := FileSelect("S", FileName, "Save Snip","Image (*.png; *.bmp; *.jpg;*.tif)")) {
-         pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
-         ; New filename
-         If (FileExist(FileName)) {
-            Switch MsgBox("The File Exists, do you want to replace it (Yes), Or skip (No)?", FileName, 0x1034) {
-               Case "Yes":
-                  Try {
-                     FileDelete(FileName)
-                  } Catch as E {
-                     MsgBox("Error Removing or Saving File", FileName, 0x30)
+      pBitmap := 0
+      Try {
+         lastFolder := IniReadValue("Snips", "Last Export Folder", "")
+         FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png"
+         If (FileName := FileSelect("S", FileName, "Save Snip","Image (*.png; *.bmp; *.jpg;*.tif)")) {
+            pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
+            ; New filename
+            If (FileExist(FileName)) {
+               Switch MsgBox("The File Exists, do you want to replace it (Yes), Or skip (No)?", FileName, 0x1034) {
+                  Case "Yes":
+                     Try {
+                        FileDelete(FileName)
+                     } Catch as E {
+                        MsgBox("Error Removing or Saving File", FileName, 0x30)
+                        FileName := ""
+                     }
+                  Case "No":
                      FileName := ""
-                  }
-               Case "No":
-                  FileName := ""
+               }
             }
-         }
-         If (FileName) {
-            BitMap.SaveBitmapToFile(pBitmap, FileName)
-            SplitPath(FileName, , &exportFolder)
-            IniWriteValue(exportFolder, "Snips", "Last Export Folder")
-         }
-      } else
-         FileName := ""
-      if (IsSet(pBitmap))
-         GDIp.DisposeImage(pBitmap)
-      hook := unset
-      Return FileName
+            If (FileName) {
+               BitMap.SaveBitmapToFile(pBitmap, FileName)
+               SplitPath(FileName, , &exportFolder)
+               IniWriteValue(exportFolder, "Snips", "Last Export Folder")
+            }
+         } else
+            FileName := ""
+         Return FileName
+      } Finally {
+         If (pBitmap)
+            GDIp.DisposeImage(pBitmap)
+         hook := unset
+      }
    }
    /**
     * Convert an HBITMAP to a GDI+ bitmap and write it to a file in the configured image format.

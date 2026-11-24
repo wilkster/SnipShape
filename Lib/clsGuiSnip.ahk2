@@ -1411,6 +1411,7 @@ Class GuiSnip extends Gui {
     * @returns {String} Full path of the saved file, or empty string on failure
     */
    Snip2File(SavePath, Borders := false) {
+      hBitmap := 0
       Try {
          If (SavePath AND !FileExist(SavePath))
             DirCreate(SavePath)
@@ -1420,13 +1421,16 @@ Class GuiSnip extends Gui {
             FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          else
             FileName := Snips.ExportHBitMapFile(hBitmap)
-         GDI.DeleteObject(hBitmap)
          this.Dirty := 0
          Return FileName
       } Catch as E {
          FileName := ""
          elog(E)
          MsgBox("Failed to Save Snip to file: " SavePath, "Save", 0x10)
+      } Finally {
+         ; Free the render on every path (a failed save used to leak it)
+         If (hBitmap)
+            GDI.DeleteObject(hBitmap)
       }
       ; Draw a black window under the snip in case it is partially transparent so we don't bleed thru
       Return FileName
