@@ -8,6 +8,7 @@
 
 #Requires AutoHotkey v2.1-
 #include clsGDIp.ahk2
+#include clsBitmap.ahk2
 #include libMisc.ahk2
 ;----------------------------------------------------------------------
 ; Clipboard related functions
@@ -253,6 +254,47 @@ Class Clipboard {
       NumPut("Int", ppm, "Int", ppm, pDIB, 24)                            ; biX/biYPelsPerMeter
       this.GlobalUnlock(hDIB)
       Return hDIB
+   }
+   /**
+    * Pack a DIB section as a CF_DIBV5 block with a real alpha channel: BITMAPV5HEADER
+    * (BI_BITFIELDS, alpha mask, sRGB) + bottom-up 32bpp pixels with STRAIGHT alpha
+    * (our pictures are premultiplied; GDI+ converts on LockBits). Used by the snip drag
+    * (SnipDrag.DoDrag) in place of CF_DIB: Office reads the alpha from this, not from CF_DIB.
+    * @param hBitmap DIB section (not changed)
+    * @param {Number} [dpi] Resolution to record in the header (0 = system DPI)
+    * @returns {Ptr} HGLOBAL (receiver owns it), or 0 on failure
+    */
+   Static ToDIBV5(hBitmap, dpi := 0) {
+      Static HDR := 124, BI_BITFIELDS := 3, LCS_sRGB := 0x73524742, LCS_GM_IMAGES := 4
+      If !(pB := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B))   ; read as premultiplied
+         Return 0
+      hDIB := 0
+      Try {
+         GDIp.GetImageDimensions(pB, &W, &H)
+         ; Lock as straight ARGB (0x26200A): GDI+ un-premultiplies, top-down rows
+         If GDIp.LockBits(pB, 0, 0, W, H, &Stride, &Scan0, &bmd, 1, 0x26200A)
+            Return 0
+         rowBytes := W * 4
+         If (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, HDR + rowBytes * H)) {
+            p := this.GlobalLock(hDIB)
+            DllCall("RtlZeroMemory", "Ptr", p, "UPtr", HDR)
+            ppm := Round((dpi || A_ScreenDPI) / 0.0254)
+            NumPut("UInt", HDR, "Int", W, "Int", H, "UShort", 1, "UShort", 32   ; size, w, h (+ = bottom-up), planes, bpp
+                 , "UInt", BI_BITFIELDS, "UInt", rowBytes * H, "Int", ppm, "Int", ppm, p)
+            NumPut("UInt", 0x00FF0000, "UInt", 0x0000FF00, "UInt", 0x000000FF, "UInt", 0xFF000000   ; R G B A masks
+                 , "UInt", LCS_sRGB, p, 40)
+            NumPut("UInt", LCS_GM_IMAGES, p, 108)                                ; bV5Intent
+            ; Bottom-up: last source row first
+            Loop H
+               DllCall("RtlMoveMemory", "Ptr", p + HDR + (A_Index - 1) * rowBytes
+                     , "Ptr", Scan0 + (H - A_Index) * Stride, "UPtr", rowBytes)
+            this.GlobalUnlock(hDIB)
+         }
+         GDIp.UnlockBits(pB, &bmd)
+         Return hDIB
+      } Finally {
+         GDIp.DisposeImage(pB)
+      }
    }
    /**
     * Convert an hBitmap to PNG format for the clipboard
