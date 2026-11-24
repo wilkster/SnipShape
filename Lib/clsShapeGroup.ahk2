@@ -26,6 +26,7 @@
 #include clsSnips.ahk2
 #include ColorPopDown.ahk2
 #include clsShapeBar.ahk2
+#include clsShapeSelect.ahk2
 Class ShapeGroup {
    Static List     := []      ; selected shapes (commonShape)
    Static SnipObj  := 0       ; snip that owns them
@@ -152,6 +153,7 @@ Class ShapeGroup {
     * Make a group from a list of shapes and show its box
     */
    Static Select(SnipObj, shapeList) {
+      ShapeSelect.Drop()   ; a group replaces the single selected shape
       this.Clear()
       this.SnipObj := SnipObj
       this.snipHwnd := SnipObj.hWnd   ; reading hWnd of a destroyed snip throws
@@ -176,7 +178,9 @@ Class ShapeGroup {
       If NOT this._Selectable(ShapeObj)
          Return
       If (NOT this.Active OR this.SnipObj != SnipObj) {
-         this.Select(SnipObj, [ShapeObj])
+         ; together with the selected shape, if there is one
+         sel := ShapeSelect.Current
+         this.Select(SnipObj, (sel AND sel.Gui = SnipObj AND sel != ShapeObj AND this._Selectable(sel)) ? [sel, ShapeObj] : [ShapeObj])
          Return
       }
       For idx, s in this.List {
@@ -281,13 +285,15 @@ Class ShapeGroup {
    /**
     * Union of the shapes' window rectangles (what they draw, padding included),
     * in snip window coordinates, grown by a margin and clipped to the snip.
+    * @param {Integer} margin
+    * @param {Array} list - shapes, default the group
+    * @param {GuiSnip} snip - their snip
     * @returns {Object|Integer} {X, Y, W, H} or 0
     */
-   Static Bounds(margin := 0) {
-      snip := this.SnipObj
+   Static Bounds(margin := 0, list := this.List, snip := this.SnipObj) {
       snip.GetPos(&wX, &wY, &wW, &wH)
       x1 := y1 := 1e9, x2 := y2 := -1e9
-      For ShapeObj in this.List {
+      For ShapeObj in list {
          WinGetRect(&sx, &sy, &sw, &sh, ShapeObj.hWnd)
          x1 := Min(x1, sx - wX), y1 := Min(y1, sy - wY)
          x2 := Max(x2, sx - wX + sw), y2 := Max(y2, sy - wY + sh)
@@ -441,15 +447,23 @@ Class ShapeGroup {
     *                                (as seen); false: only the shapes, transparent
     */
    Static CopyToClipboard(withPicture := true) {
-      If NOT this.Active
+      If this.Active
+         this.CopyShapes(this.SnipObj, this.List, withPicture)
+   }
+   /**
+    * Copy shapes to the clipboard
+    * @param {GuiSnip} snip
+    * @param {Array} list - shapes on it
+    * @param {Integer} withPicture - as for CopyToClipboard
+    */
+   Static CopyShapes(snip, list, withPicture := true) {
+      If NOT (rc := this.Bounds(0, list, snip))
          Return
-      If NOT (rc := this.Bounds(0))
-         Return
-      hBitmap := this.SnipObj.RenderShapes(this.List, rc, withPicture)
-      If ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(this.snipHwnd))) < 0)
+      hBitmap := snip.RenderShapes(list, rc, withPicture)
+      If ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(snip.hWnd))) < 0)
          MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
       Else
-         this.SnipObj.flashBorder()
+         snip.flashBorder()
    }
 
    /**

@@ -20,6 +20,7 @@
 #include undo.ahk2
 #include clsSnipDrag.ahk2
 #include clsShapeStyles.ahk2
+#include clsShapeSelect.ahk2
 #include ColorPopDown.ahk2
 #include Shapes\clsCommonShape.ahk2
 #include Shapes\clsTextShape.ahk2
@@ -258,6 +259,9 @@ Class Shapes {
          If (ShapeObj.GUI.DrawMode and NOT GetKeyState("Ctrl","P")) {
             this.InitateDrawHandler(ShapeObj.Gui)
          } Else {
+            ; A plain press (move or resize) selects the shape; Ctrl duplicates, Alt pushes down
+            If NOT (ShapeObj.GUI.DrawMode OR GetKeyState("Ctrl", "P") OR GetKeyState("Alt", "P"))
+               ShapeSelect.Select(ShapeObj)
             this.MoveSize(Key, ShapeObj)
          }
       }

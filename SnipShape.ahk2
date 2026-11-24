@@ -88,6 +88,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
 #include clsShapeBar.ahk2
+#include clsShapeSelect.ahk2
 #include undo.ahk2
 #include OCR.ahk2
 
@@ -328,6 +329,10 @@ HotIfWinActive
    $Wheelup:: ShapeGroup.Thicken(+0.02)
    $Wheeldown:: ShapeGroup.Thicken(-0.02)
 #HotIf
+; A shape is selected: the first Esc deselects it
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ShapeSelect.Active
+   Esc:: ShapeSelect.Clear()
+#HotIf
 ; Spare bar has multiple uses, constrain it for active mode to cancel action
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND NOT Shapes.DrawActive
    Space:: Snips.SetDrawMode(0)
@@ -510,12 +515,17 @@ HotIfWinActive
       ; Grid to the Shape sX/sY values
       dx := sX = 0 ? 0 : sX - Mod(C.X + sX, sX)
       dy := sY = 0 ? 0 : sY - Mod(C.Y + sY, sY)
-      MouseMove(dx, dy, 0, "R")
+      ; Take the mouse along if it is over the shape (not for a selected one elsewhere)
+      If (focusBorder.Hover)
+         MouseMove(dx, dy, 0, "R")
       focusBorder.ShapeObj.Move(X + dx, Y + dy)
       focusBorder.Sync()
       Critical("Off")
    }
 
+#HotIf
+; The wheel only changes a shape under the mouse
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ( NOT GetKeyState("lbutton", "P") AND focusBorder.IsShown AND focusBorder.Hover AND focusBorder.ShapeObj)
    $Wheelup::ThickenShape(+0.02)
    $Wheeldown::ThickenShape(-0.02)
    /**

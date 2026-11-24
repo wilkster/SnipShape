@@ -1,0 +1,137 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description The single selected shape
+ *
+ * A press on a shape (or one of its handles) in select mode selects it
+ * (Shapes.ShapeClickHandler). Its focus border and handles stay on when the mouse
+ * leaves it (focusBorder.HideFocus shows the selected shape instead of hiding), and
+ * the shape bar shows its properties. Hovering another shape still moves the border
+ * there, so that shape can be resized etc. without a click; it returns afterwards.
+ * Keys (Del, arrows, Ctrl-D) act on the shape with the border.
+ *
+ * Deselected by: a click on the snip background, Esc, a draw mode, a shape group,
+ * another window or snip, deleting the shape. Selecting another shape replaces it.
+ ***********************************************************************/
+#include Settings.ahk2
+#include libMisc.ahk2
+#include clsCursor.ahk2
+#include clsSnips.ahk2
+#include clsShapeGroup.ahk2
+#include clsShapeBar.ahk2
+Class ShapeSelect {
+   Static ShapeObj := 0       ; selected shape
+   Static SnipObj  := 0       ; its snip
+   Static snipHwnd := 0
+   Static Id       := 0       ; number of this selection
+   Static _lastKey := ""      ; where the border was last drawn
+
+   Static __New() {
+      this._timer := this.Sync.Bind(this)
+   }
+   /**
+    * True if a shape is selected
+    * @type {Integer}
+    */
+   Static Active => this.ShapeObj != 0
+   /**
+    * The selected shape if it is still there. Shape controls are recycled after a
+    * delete or undo, so the shape carries the selection's number.
+    * @type {commonShape|Integer}
+    */
+   Static Current {
+      get {
+         s := this.ShapeObj
+         Try {
+            If (s AND s.Visible AND s.HasOwnProp("selId") AND s.selId = this.Id)
+               Return s
+         }
+         Return 0
+      }
+   }
+   /**
+    * Select a shape (replaces the selected one)
+    * @param {commonShape} ShapeObj
+    */
+   Static Select(ShapeObj) {
+      If (this.Current = ShapeObj)
+         Return
+      this.Drop()
+      this.Id++
+      ShapeObj.selId := this.Id
+      this.ShapeObj  := ShapeObj
+      this.SnipObj   := ShapeObj.Gui
+      this.snipHwnd  := ShapeObj.Gui.hWnd   ; reading hWnd of a destroyed snip throws
+      this._lastKey  := ""
+      SetTimer(this._timer, 200)
+      ShapeBar.Update(this.SnipObj)
+   }
+   /**
+    * Deselect: the border goes (unless the mouse is over a shape), the bar too
+    */
+   Static Clear() {
+      If NOT this.ShapeObj
+         Return
+      snip := this.SnipObj, hwnd := this.snipHwnd
+      this.Drop()
+      If NOT focusBorder.Hover
+         focusBorder.HideFocus()
+      If DllCall("IsWindow", "Ptr", hwnd)
+         ShapeBar.Update(snip)
+   }
+   ; Forget the selection without touching the border or the bar
+   Static Drop() {
+      SetTimer(this._timer, 0)
+      this.ShapeObj := 0
+      this.SnipObj  := 0
+      this.snipHwnd := 0
+   }
+   /**
+    * Delete the selected shape
+    */
+   Static Delete() {
+      If (s := this.Current)
+         s.Close()
+      this.Clear()
+   }
+   /**
+    * Timer: deselect when the shape or the snip's turn is gone, keep the border on the
+    * shape (undo, zoom, font size...), keep the bar's values current
+    */
+   Static Sync() {
+      ; A drag or resize is running (the shape can be hidden meanwhile)
+      If (NOT this.ShapeObj OR GetKeyState("LButton", "P"))
+         Return
+      hwnd := this.snipHwnd
+      If (NOT DllCall("IsWindow", "Ptr", hwnd) OR DllCall("IsIconic", "Ptr", hwnd) OR NOT this.Current OR this._Left(hwnd)) {
+         this.Clear()
+         Return
+      }
+      this.SyncBorder()
+      ShapeBar.SyncGroup()
+   }
+   ; Another program or another snip is active. This script's own windows (menus, button
+   ; bar, color popup, text dialog) don't deselect.
+   Static _Left(hwnd) {
+      fg := DllCall("GetForegroundWindow", "Ptr")
+      If (fg = 0 OR fg = hwnd)
+         Return false
+      Try
+         Return WinGetPID(fg) != DllCall("GetCurrentProcessId") OR Snips.IsValid(fg) != 0
+      Return false
+   }
+   /**
+    * Redraw the border if the shape or snip moved, or the border is on another shape
+    */
+   Static SyncBorder() {
+      If (focusBorder.Hover OR focusBorder.Block OR NOT (s := this.Current) OR NOT WinActive(this.snipHwnd))
+         Return
+      this.SnipObj.GetPos(&wX, &wY)
+      C   := s.shapeCoord
+      key := wX "," wY "," C.X "," C.Y "," C.W "," C.H
+      If (key != this._lastKey OR focusBorder.IsNotShown OR focusBorder.ShapeObj != s) {
+         this._lastKey := key
+         focusBorder.ShowSelected(true)
+      }
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

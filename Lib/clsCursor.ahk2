@@ -13,6 +13,7 @@
 #include clsSnips.ahk2
 #include clsButtonBar.ahk2
 #include clsShapeBar.ahk2
+#include clsShapeSelect.ahk2
 ;----------------------------------------------------------------------
 ; Cursor Class
 ;----------------------------------------------------------------------
@@ -131,8 +132,10 @@ Class Cursor {
       } Else If (hWnd = ShapeBar.hWnd) {
          ; Shape bar: highlight the property under the mouse, tooltips
          ShapeBar.Hover()
+         focusBorder.HideFocus()   ; off any shape: back to the selected one
          Return this.SetCursor("Pointer")
       } Else If (hwnd = ButtonBar.bbGUI.hWnd) {
+         focusBorder.HideFocus()
          ; Button Bar, get the control hWnd
          ; Show a tooltip for the button if we have one
          If (wParam = lastControl) {
@@ -193,6 +196,7 @@ Class Cursor {
          Return 1 
       } else If (shapehWnd and drawModeCursor = 0) {
          ; Hovering over shape, set the cursor depending on where we are over the shape
+         focusBorder.Hover := true
          focusBorder.ShowFocus(shapehWnd)
          DllCall(this.SetCur, "Ptr", this.MouseOnEdge(shapehWnd))
          Return 1
@@ -282,6 +286,7 @@ Class focusBorder {
       this.wW            := 0
       this.wH            := 0
       this.ShapeObj      := 0 ; Save the last know shapeObj
+      this.Hover         := false ; mouse is over the shape with the border (else it is the selected one)
       if (Settings.focusRectangle)
          this.focusBorderGui.Show('NA')
 
@@ -317,15 +322,31 @@ Class focusBorder {
    }
 
    /**
-    * @description Closes the currently focused shape and hides the focus border,
-    *   but only if the focus border is currently visible.
+    * @description Closes the shape with the focus border (hovered, else selected), or
+    *   the selected shape if the border is turned off.
     */
    Static RemoveShapeIfFocused() {
-      If this.IsShown {
-         This.ShapeObj.Close()
+      If (shp := this.IsShown ? this.ShapeObj : ShapeSelect.Current) {
+         shp.Close()
          this.ShapeObj := 0
          this.HideFocus()
+         If (ShapeSelect.Active AND NOT ShapeSelect.Current)
+            ShapeSelect.Clear()
       }
+   }
+   /**
+    * @description Put the border on the selected shape (ShapeSelect), if there is one.
+    * @param {Integer} Redraw - redraw it even if it is already there
+    * @returns {Integer} true if the border is now on the selected shape
+    */
+   Static ShowSelected(Redraw := false) {
+      If NOT (shp := ShapeSelect.Current)
+         Return false
+      ; ShowFocus skips a shape it thinks already has the border
+      If (Redraw OR this.ShapeObj != shp)
+         this.lastHwnd := 0
+      this.ShowFocus(shp.hWnd)
+      Return (this.IsShown AND this.lastHwnd = shp.hWnd)
    }
 
    /**
@@ -360,12 +381,16 @@ Class focusBorder {
     * @param {Integer} Force - If 1, hides unconditionally and clears the Block flag. Defaults to 0.
     */
    Static HideFocus(Force := false) {
-      If (Settings.focusRectangle and this.IsShown) {
+      If (Force OR NOT this.Block)
+         this.Hover := false
+      If (Settings.focusRectangle) {
          If (Force) {
             this.focusBorderGui.Hide()
             this.Block := false
          } else if (NOT this.Block) {
-            this.focusBorderGui.Hide()
+            ; the selected shape keeps it
+            If (NOT this.ShowSelected() AND this.IsShown)
+               this.focusBorderGui.Hide()
          }
       }
    }

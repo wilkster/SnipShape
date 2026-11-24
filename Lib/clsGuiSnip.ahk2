@@ -15,6 +15,7 @@
 #include clsMenus.ahk2
 #include clsShapeGroup.ahk2
 #include clsShapeBar.ahk2
+#include clsShapeSelect.ahk2
 #include ColorPopDown.ahk2
 /**
  * Extended GUI class that stores snip-specific metadata, brush caches, and bitmap state
@@ -97,6 +98,8 @@ Class GuiSnip extends Gui {
       ; A shape group on this snip goes with it (its box is owned by this window)
       If (ShapeGroup.SnipObj = this)
          ShapeGroup.Clear()
+      If (ShapeSelect.SnipObj = this)
+         ShapeSelect.Clear()
       Try {
          ; title := this.Title
          this.ClearAllShapes(true)  ; in case we have built in GC
@@ -884,6 +887,8 @@ Class GuiSnip extends Gui {
                   Sleep(50) ; let it restore first so we know where it is
                ButtonBar.SyncPin(hWnd)
                ButtonBar.Show(hWnd)
+               If (ShapeSelect.SnipObj = SnipObj)   ; back from a menu or dialog
+                  focusBorder.ShowSelected()
             } Else {
                debug("Expected snip")
             }

@@ -65,6 +65,7 @@ mark up the snip.
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
     - [Reshaping shapes (control points)](#reshaping-shapes-control-points)
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
+  - [Selecting a shape](#selecting-a-shape)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
     - [Moving Shapes](#moving-shapes)
@@ -272,10 +273,11 @@ shows the properties that apply: color, thickness, opacity, outline, blur amount
 - **Drawing tool**: the properties of the shape you are about to draw. Changes apply to new shapes and are remembered, like
   the defaults in the toolbar's right-click menus. They also change the shape you just drew (with undo), as long as its
   tool is still selected.
+- **Selected shape** (click it in select mode): that shape's own properties, with undo. The defaults for new shapes do not
+  change. See [Selecting a shape](#selecting-a-shape).
 - **Selected shapes** (Shift-drag, Shift-click or Ctrl-A): the properties that all the selected shapes share. A change sets
   every shape to the same value, can be undone in one step, and does not change the defaults for new shapes. *Mixed* means
   the shapes have different values. Shapes with nothing in common show only the color, copy and delete buttons.
-  Shift-click a single shape to edit just that one.
 
 Using it:
 
@@ -489,6 +491,21 @@ with options specific to that shape. You can also use keyboard shortcuts to
 perform operations on the shape. Available options vary by shape type.
 
 While hovering over a shape, you can also use the hotkeys listed below to perform additional actions.
+
+### Selecting a shape
+
+Clicking, moving or resizing a shape in select mode also selects it. Its focus rectangle and handles then stay on when the
+mouse moves away, and the [shape bar](#shape-bar) shows its properties.
+
+- You can still hover over any other shape to move or resize it without selecting it first. The focus rectangle goes to
+  the shape under the mouse and returns to the selected shape afterwards; pressing the mouse on a shape selects that one.
+- With the mouse away from any shape, Del, the arrow keys and Ctrl-D act on the selected shape. The mouse wheel only
+  changes a shape under the mouse.
+- Shift-click another shape to make a group of both.
+- Deselect with Esc (a second Esc closes the snip), a click on the snip background, a drawing tool, or by switching to
+  another snip or program.
+
+The hotkeys while hovering over a shape, or with one selected:
 
 ### Hotkeys on Shapes
 

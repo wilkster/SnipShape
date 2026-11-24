@@ -4,10 +4,11 @@
  * properties (color, thickness, opacity, fonts...) of the shape about to be drawn, or
  * of the selected shapes
  *
- * Shown while the snip is in a draw mode or has a shape group, whenever the button bar
+ * Shown while the snip is in a draw mode or has shapes selected, whenever the button bar
  * is enabled (F1). The properties come from ShapeStyles.
  *   - draw mode: changes set the defaults for new shapes, and change the shape just
  *     drawn (GuiSnip.lastDrawn, until the draw mode changes)
+ *   - selected shape (ShapeSelect): its own properties, and copy and delete
  *   - group: shows the properties all its shapes share (ShapeStyles.Common); a change
  *     sets every shape to the same value (one undo step) and leaves the defaults alone.
  *     Also copy and delete. Shapes with nothing in common show only these and the color
@@ -28,14 +29,16 @@
 #include clsButtonBar.ahk2
 #include clsShapeStyles.ahk2
 #include clsShapeGroup.ahk2
+#include clsShapeSelect.ahk2
 #include ColorPopDown.ahk2
 #include undo.ahk2
 Class ShapeBar {
    Static SnipObj  := 0       ; snip the bar is shown for
    Static snipHwnd := 0
-   Static Group    := false   ; true: the selected shapes, false: defaults of the draw mode
+   Static Group    := false   ; true: the selected shape(s), false: defaults of the draw mode
+   Static Single   := 0       ; the selected shape, 0 for a group
    Static Shape    := 0       ; shape type shown, 0 for a group of different types
-   Static Count    := 0       ; shapes in the group
+   Static Count    := 0       ; shapes in the group, 0 for a single selected shape
    Static Items    := []      ; cells: {Kind, Def, X, Y, W, H}. Kind: Icon, Color, Slider,
                               ; List or Button (with Action, File, Tip)
    Static BarW     := 0
@@ -101,7 +104,7 @@ Class ShapeBar {
    }
    /**
     * What the bar shows for a snip
-    * @returns {Object|Integer} {Group, Shape, Count, Defs, Color, Sig}, 0 = nothing
+    * @returns {Object|Integer} {Group, Single, Shape, Count, Defs, Color, Sig}, 0 = nothing
     */
    Static _Content(SnipObj) {
       If (ShapeGroup.Active AND ShapeGroup.SnipObj = SnipObj) {
@@ -114,13 +117,17 @@ Class ShapeBar {
                sig .= "," ShapeObj.Shape
             }
          }
-         Return { Group: true, Shape: types.Length = 1 ? types[1] : 0, Count: ShapeGroup.List.Length
+         Return { Group: true, Single: 0, Shape: types.Length = 1 ? types[1] : 0, Count: ShapeGroup.List.Length
             , Defs: this._GroupDefs(types), Color: color, Sig: sig }
+      }
+      If (ShapeSelect.SnipObj = SnipObj AND (s := ShapeSelect.Current)) {
+         Return { Group: true, Single: s, Shape: s.Shape, Count: 0, Defs: this._GroupDefs([s.Shape])
+            , Color: ShapeGroup._HasColor(s), Sig: "S" ShapeSelect.Id "," s.Shape }
       }
       If (mode := SnipObj.DrawMode) {
          defs := ShapeStyles.DefsFor(mode)
          If (defs.Length)
-            Return { Group: false, Shape: mode, Count: 0, Defs: defs, Color: this._DrawHasColor(mode), Sig: "D" mode }
+            Return { Group: false, Single: 0, Shape: mode, Count: 0, Defs: defs, Color: this._DrawHasColor(mode), Sig: "D" mode }
       }
       Return 0
    }
@@ -170,6 +177,7 @@ Class ShapeBar {
       If (this._sig != content.Sig OR this.Scale != zoom OR this._maxW != maxW) {
          this._sig  := content.Sig
          this.Group := content.Group
+         this.Single := content.Single
          this.Shape := content.Shape
          this.Count := content.Count
          this.Scale := zoom
@@ -187,11 +195,11 @@ Class ShapeBar {
       this._Render(pos.X, pos.Y)
    }
    /**
-    * The group may have changed (ShapeGroup.Sync, every 200 ms): shapes dropped or their
+    * The selection may have changed (ShapeGroup/ShapeSelect.Sync, every 200 ms): shapes dropped or their
     * type changed, or values changed by other means (undo, wheel, menus, color keys)
     */
    Static SyncGroup() {
-      If (NOT this.Group OR NOT this.snipHwnd OR this.Dragging OR ShapeGroup.SnipObj != this.SnipObj)
+      If (NOT this.Group OR NOT this.snipHwnd OR this.Dragging)
          Return
       If (NOT (content := this._Content(this.SnipObj)) OR content.Sig != this._sig)
          this.Update(this.SnipObj)
@@ -206,6 +214,7 @@ Class ShapeBar {
       this.SnipObj  := 0
       this.snipHwnd := 0
       this.Group    := false
+      this.Single   := 0
       this._sig     := ""
       this._hover   := 0
       this._wheel   := 0
@@ -253,12 +262,15 @@ Class ShapeBar {
       icoW := this._Px(34)
       cells := []
       If (content.Color)
-         cells.Push({ Kind: "Color", Def: 0, W: this._Px(42), Tip: content.Group ? "Color of the selected shapes" : "Color for new shapes" })
+         cells.Push({ Kind: "Color", Def: 0, W: this._Px(42), Tip: content.Single ? "Color of the selected shape" : content.Group ? "Color of the selected shapes" : "Color for new shapes" })
       For d in content.Defs {
          isSlider := IsObject(d.Range)
          cells.Push({ Kind: isSlider ? "Slider" : "List", Def: d, W: this._Px(isSlider ? 128 : this.ListWidths.Get(d.Param, 86)) })
       }
-      If (content.Group) {
+      If (shp := content.Single) {
+         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
+         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
+      } Else If (content.Group) {
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shapes (Ctrl-C)", Action: (*) => ShapeGroup.CopyToClipboard(true) })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shapes (Del)", Action: (*) => ShapeGroup.Delete() })
       }
@@ -533,7 +545,7 @@ Class ShapeBar {
       If NOT this.Group
          Return [RGBval(this._DrawHighlight() ? Shapes.highlightColor : Shapes.globalShapeColor)]
       list := [], seen := Map()
-      For ShapeObj in ShapeGroup.List {
+      For ShapeObj in this._List() {
          If (ShapeGroup._HasColor(ShapeObj) AND NOT seen.Has(clr := RGBval(ShapeObj.Color)))
             seen[clr] := 1, list.Push(clr)
       }
@@ -573,7 +585,14 @@ Class ShapeBar {
    }
    Static _ColorPicked(clr) {
       snip := this.SnipObj
-      If (this.Group) {
+      If (this.Single) {
+         If (RGBval(this.Single.Color) != clr) {
+            this.Single.PostAction(UnDo.SHAPE_COLOR)
+            this.Single.Color := clr
+            this.Single.Refresh()
+            this._Finish()
+         }
+      } Else If (this.Group) {
          ShapeGroup.SetColor(clr)
       } Else If (this._DrawHighlight()) {
          Shapes.highlightColor := clr
@@ -620,7 +639,7 @@ Class ShapeBar {
       If NOT this.Group
          Return [ShapeStyles.GetDefault(d.Key)]
       list := []
-      For ShapeObj in ShapeGroup.List
+      For ShapeObj in this._List()
          If (key := d.Keys.Get(ShapeObj.Shape, ""))
             list.Push(ShapeStyles.GetValue(ShapeObj, key))
       Return list
@@ -638,10 +657,12 @@ Class ShapeBar {
       }
       Return 0
    }
-   ; Shapes a change of a property is applied to: the group, or the shape just drawn
+   ; The selected shapes
+   Static _List() => this.Single ? [this.Single] : ShapeGroup.List
+   ; Shapes a change of a property is applied to: the selected ones, or the one just drawn
    Static _Targets(d) {
       If this.Group
-         Return ShapeGroup.List
+         Return this._List()
       Return (d.Apply != "" AND (ShapeObj := this._LastDrawn())) ? [ShapeObj] : []
    }
    ; Key of a property for a shape, "" if it doesn't have it
@@ -697,7 +718,7 @@ Class ShapeBar {
    }
    ; Shapes were changed: mark the snip, auto clipboard
    Static _Finish() {
-      If (this.Group) {
+      If (this.Group AND NOT this.Single) {
          ShapeGroup._Changed()
          Return
       }
@@ -716,7 +737,7 @@ Class ShapeBar {
          this._SetShape(d, ShapeObj, value)
       If (this.Group) {
          this.SnipObj.Dirty++
-         ShapeGroup.Sync()
+         this._SyncBox()
       }
       this.Redraw()
    }
@@ -744,8 +765,15 @@ Class ShapeBar {
          If (i <= saved.Vals.Length)
             this._SetShape(d, ShapeObj, saved.Vals[i])
       If (this.Group)
-         ShapeGroup.Sync()
+         this._SyncBox()
       this.Redraw()
+   }
+   ; The shapes may have changed size: group box or focus border
+   Static _SyncBox() {
+      If (this.Single)
+         ShapeSelect.SyncBorder()
+      Else
+         ShapeGroup.Sync()
    }
    ; Values and colors as a string, to notice changes made elsewhere
    Static _ValueSig() {
@@ -853,7 +881,15 @@ Class ShapeBar {
                If (this.Shape > 0)
                   this._DrawShapeIcon(Surf, item)
                If (this.Group) {
-                  ; number of shapes: under the icon, or alone for different types
+                  ; number of shapes: under the icon, or alone for different types.
+                  ; A single selected shape has just the icon (pictures have none)
+                  If (this.Single) {
+                     If (this.Shape <= 0) {
+                        GDIp.CreateRectF(&rc, item.X - this._Px(4), item.Y + this._Px(11), item.W + this._Px(10), this._Px(17))
+                        GDIpText.DrawString(G, "Picture", fTitle, fmtC, bTitle, &rc)
+                     }
+                     Continue
+                  }
                   alone := (this.Shape <= 0)
                   GDIp.CreateRectF(&rc, item.X, item.Y + this._Px(alone ? 4 : 23), item.W, this._Px(17))
                   GDIpText.DrawString(G, String(this.Count), alone ? fList : fValue, fmtC, bValue, &rc)
@@ -912,8 +948,8 @@ Class ShapeBar {
       icon := ButtonBar.shapeIconsObj[sna[1] " (" sna[2] ")"]
       If NOT icon
          Return
-      sz := this._Px(this.Group ? 20 : 26)
-      this._DrawIcon(Surf, icon, item.X + (item.W - sz) // 2, item.Y + (this.Group ? this._Px(3) : (item.H - sz) // 2), sz)
+      sz := this._Px(this.Count ? 20 : 26)
+      this._DrawIcon(Surf, icon, item.X + (item.W - sz) // 2, item.Y + (this.Count ? this._Px(3) : (item.H - sz) // 2), sz)
       GDI.DestroyIcon(icon)
    }
    Static _DrawButton(Surf, item) {

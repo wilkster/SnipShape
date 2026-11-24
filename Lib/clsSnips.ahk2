@@ -18,6 +18,7 @@
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
 #include clsShapeBar.ahk2
+#include clsShapeSelect.ahk2
 #include undo.ahk2
 #include OCR.ahk2
 #include clsFileOjbect.ahk2
@@ -177,6 +178,8 @@ Class Snips {
             SnipObj.BackColor := Shapes.globalShapeColor
          else
             SnipObj.BackColor := Settings.ActiveSnipBorderColor
+         If (val AND ShapeSelect.SnipObj = SnipObj)
+            ShapeSelect.Clear()
          ; Properties of the shape to draw, above the snip
          ShapeBar.Update(SnipObj)
          return hWnd
@@ -267,6 +270,7 @@ Class Snips {
       If (ShapeGroup.Active AND (this.IsValid(hWnd) OR this.IsValid(DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr"))))   ; GA_ROOT
          ShapeGroup.Clear()
       If (SnipObj := this.IsValid(hWnd)) {
+         ShapeSelect.Clear()   ; click on the background
          Shapes.InitateDrawHandler(SnipObj)
       } else if (hWnd = this.guiSSR.hWnd) {
          ; Step 2, initiate screen selection
