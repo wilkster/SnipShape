@@ -392,11 +392,13 @@ Class ShapeMenus {
       Static subMenu2    := Menu()
       Static propMenu    := Menu()
       Static typeMenu    := Menu()
+      Static schemeMenu  := Menu()
       shapeMenu.Delete()
       colorMenu.Delete()
       subMenu1.Delete()
       propMenu.Delete()
       typeMenu.Delete()
+      schemeMenu.Delete()
       PC := PeerCount(ShapeObj)
       ; Shape specific
 ; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
@@ -428,8 +430,17 @@ Class ShapeMenus {
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Alt-Click)","Edit.ico")
             ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Font Size","Reset.ico")
             ; Numbered tags: close gaps in the sequence (e.g. after deleting one)
-            If (ShapeObj.Shape = Shapes.SHAPE_TAG)
+            If (ShapeObj.Shape = Shapes.SHAPE_TAG) {
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Renumber Tags", "Tag.cur")
+               ; Label scheme of the snip's numbered tags (1 2 3 / A B C / a b c / I II III)
+               shapeMenu.Add("Tag Scheme", schemeMenu)
+               shapeMenu.SetIcon("Tag Scheme", SETTINGS.CursorPath . "Tag.cur")
+               For scheme in TextShape.TagSchemes {
+                  schemeMenu.Add(scheme, TagScheme.Bind(scheme))
+                  If (ShapeObj.TagScheme = scheme)
+                     schemeMenu.Check(scheme)
+               }
+            }
             ; Change to another text type
             shapeMenu.Add("Change Type", typeMenu)
             shapeMenu.SetIcon("Change Type", SETTINGS.CursorPath . "Text.cur")
@@ -503,6 +514,7 @@ Class ShapeMenus {
       subMenu2.Delete()
       propMenu.Delete()
       typeMenu.Delete()
+      schemeMenu.Delete()
 
       Return
 
@@ -515,6 +527,10 @@ Class ShapeMenus {
          ; ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
          ShapeObj.Factor         *= (1+amt) ; blur/pixelate
          ShapeObj.Refresh()
+      }
+      TagScheme(scheme,*) {
+         Shapes.SetTagScheme(ShapeObj.Gui, scheme)
+         focusBorder.Sync(ShapeObj)
       }
       TextType(tType,*) {
          ShapeObj.ChangeType(tType)

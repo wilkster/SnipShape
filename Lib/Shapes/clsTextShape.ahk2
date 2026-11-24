@@ -28,6 +28,8 @@ Class TextShape extends CommonShape {
    Static TagFontStyle    := IniReadValue("Text", "Tag Font Style", "Bold")
    Static TagFontSize     := IniReadValue("Text", "Tag Font Size", 15)
    Static TCOpacity       := IniReadValue("Text", "Tag Center Opacity", 160)
+   ; Label scheme for new numbered tags: Numbers, Upper Case, Lower Case, Roman
+   Static TagScheme       := IniReadValue("Text", "Tag Scheme", "Numbers")
 
    Static FillFontName    := IniReadValue("Text", "Fill Font Name", "Tahoma")
    Static FillFontStyle   := IniReadValue("Text", "Fill Font Style", "Bold")
@@ -78,6 +80,8 @@ Class TextShape extends CommonShape {
       this.EditWidth            := unset
       this.Tip                  := ""      ; callout tip {X, Y} in snip coordinates, "" = none
       this._tailShown           := false
+      ; Numbered tag label scheme (DrawTag sets it; tags saved before it existed are numbers)
+      this.TagScheme            := "Numbers"
    }
    /**
     * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
@@ -997,6 +1001,82 @@ Class TextShape extends CommonShape {
     */
    Static TypeName(shapeType) => Trim(StrSplit(Shapes.ShapeName[shapeType], "-")[1])
 
+   ;----------------------------------------------------------------------
+   ; Numbered tag label schemes. A tag stores its scheme (TagScheme), since a
+   ; label alone is ambiguous ("I" is Roman 1 or the letter I).
+   ;----------------------------------------------------------------------
+   /**
+    * The tag label schemes, in menu order
+    * @type {Array}
+    */
+   Static TagSchemes => ["Numbers", "Upper Case", "Lower Case", "Roman"]
+
+   /**
+    * Label for sequence number n in a scheme. Letters go A..Z, AA, AB... (like
+    * spreadsheet columns); Roman is upper case, numbers past 3999 fall back to digits.
+    * @param {Integer} n - Sequence number (1 based)
+    * @param {String} scheme - One of TagSchemes
+    * @returns {String}
+    */
+   Static TagLabel(n, scheme) {
+      Static romanVal := [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+      Static romanSym := ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+      n := Integer(n)
+      If (n < 1)
+         Return String(n)
+      Switch scheme, false {
+         Case "Upper Case", "Lower Case":
+            s := ""
+            While (n > 0) {
+               n--
+               s := Chr(Ord("A") + Mod(n, 26)) . s
+               n //= 26
+            }
+            Return (scheme = "Lower Case") ? StrLower(s) : s
+         Case "Roman":
+            If (n > 3999)
+               Return String(n)
+            s := ""
+            For idx, v in romanVal
+               While (n >= v)
+                  s .= romanSym[idx], n -= v
+            Return s
+         Default:
+            Return String(n)
+      }
+   }
+
+   /**
+    * Sequence number of a tag label in a scheme (the reverse of TagLabel)
+    * @param {String} label - Tag text
+    * @param {String} scheme - One of TagSchemes
+    * @returns {Integer} The number, or 0 if the label isn't a label of that scheme
+    */
+   Static TagValue(label, scheme) {
+      Static digit := Map("I", 1, "V", 5, "X", 10, "L", 50, "C", 100, "D", 500, "M", 1000)
+      Switch scheme, false {
+         Case "Upper Case", "Lower Case":
+            If NOT RegExMatch(label, (scheme = "Lower Case") ? "^[a-z]+$" : "^[A-Z]+$")
+               Return 0
+            n := 0
+            Loop Parse, StrUpper(label)
+               n := n * 26 + Ord(A_LoopField) - Ord("A") + 1
+            Return n
+         Case "Roman":
+            If NOT RegExMatch(label, "^[IVXLCDM]+$")
+               Return 0
+            n := 0, chars := StrSplit(label)
+            For idx, ch in chars {
+               v := digit[ch]
+               n += (idx < chars.Length AND v < digit[chars[idx + 1]]) ? -v : v
+            }
+            ; Only well-formed numerals (e.g. not "IIII" or "IC")
+            Return (TextShape.TagLabel(n, "Roman") == label) ? n : 0
+         Default:
+            Return RegExMatch(label, "^\d+$") ? Integer(label) : 0
+      }
+   }
+
    /**
     * Change this text to another text type (e.g. Text to Fill Text), keeping its text,
     * font, color and centre. One undo step restores the type and position.
@@ -1205,6 +1285,7 @@ Class TextShape extends CommonShape {
       infoObj._Alignment        := this._Alignment
       infoObj._BGColor          := this._BGColor
       infoObj.Tip               := IsObject(this.Tip) ? this.Tip.Clone() : ""
+      infoObj.TagScheme         := this.TagScheme
       Return infoObj
    }
    /**
@@ -1238,6 +1319,7 @@ Class TextShape extends CommonShape {
       Return {
          Shape     : this.Shape,
          ShapeName : this.ShapeName,
+         TagScheme : this.TagScheme,
          _Text     : this._Text,
          _fontName : this._fontName,
          _Alignment: this._Alignment,

@@ -203,6 +203,7 @@ Class Shapes {
       this.MTagfontStyle       := this.valMenu(this.FontStyles, &TextShape.TagFontStyle)
       this.MTagFontSize        := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.TagFontSize)
       this.MTCOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.TCOpacity, "TCOpacity")
+      this.MTagScheme          := this.valMenu(TextShape.TagSchemes, &TextShape.TagScheme)
       ;Not currently used
       this.MFillfontName       := this.valMenu(this.FontNames, &TextShape.FillFontName)
       this.MFillfontStyle      := this.valMenu(this.FontStyles, &TextShape.FillFontStyle)
@@ -324,6 +325,7 @@ Class Shapes {
             this.MenuCheckCurrent("Tag Font Style", this.MTagfontStyle, TextShape.TagFontStyle)
             this.MenuCheckCurrent("Tag Font Size", this.MTagFontSize, TextShape.TagFontSize)
             this.MenuCheckCurrent("Tag Center Opacity", this.MTCOpacity, TextShape.TCOpacity)
+            this.MenuCheckCurrent("Tag Number Scheme", this.MTagScheme, TextShape.TagScheme)
             this.shapeBBMenu.Add('')
             this.MenuCheckCurrent("Fill/Arrow Font Name", this.MFillFontName, TextShape.FillFontName)
             this.MenuCheckCurrent("Fill/Arrow Font Style", this.MFillFontStyle, TextShape.FillFontStyle)
@@ -1471,27 +1473,19 @@ Class Shapes {
    }
 
    /**
-    * @description Renumber the numbered tags on a snip 1..N with no gaps (e.g. after one
-    *   was deleted). Only tags whose text is a pure integer are changed; other tags are
-    *   left alone. Order follows the current numbers (ties: oldest first). Each tag keeps
-    *   its centre. One undo restores all of them. The snip's tag counter is set so the
-    *   next tag drawn continues the sequence.
+    * @description The numbered tags on a snip: tags whose text is a label of their own
+    *   scheme (TagScheme: number, letters or Roman). Tags with other text are left out.
     * @param {Object} SnipObj - The snip GUI object
-    * @returns {Integer} Number of tags changed
+    * @returns {Array} [{shape, n}] sorted by number (ties: oldest first)
     */
-   Static RenumberTags(SnipObj) {
-      ; Number tags on this snip whose text is a pure integer (others are left alone)
+   Static TagSequence(SnipObj) {
       ; VisibleShapes is top of the Z-order first; walk bottom-up so ties keep oldest first
       list := SnipObj.VisibleShapes, tags := []
       i := list.Length
       While (i >= 1) {
          s := list[i--]
-         If (s.Shape = Shapes.SHAPE_TAG AND RegExMatch(s.Text, "^\d+$"))
-            tags.Push({ shape: s, n: Integer(s.Text) })
-      }
-      If (tags.Length = 0) {
-         qTrayTip("No numbered tags to renumber")
-         Return 0
+         If (s.Shape = Shapes.SHAPE_TAG AND (n := TextShape.TagValue(s.Text, s.TagScheme)))
+            tags.Push({ shape: s, n: n })
       }
       ; Stable insertion sort by current number
       Loop tags.Length - 1 {
@@ -1501,21 +1495,47 @@ Class Shapes {
          }
          tags[j] := cur
       }
+      Return tags
+   }
+
+   /**
+    * @description Relabel one tag (number n, scheme), keeping its centre (the width
+    *   changes with the label). Posts TEXT_CHANGE and MOVE_SHAPE under undoTag.
+    */
+   Static _RelabelTag(s, n, scheme, undoTag) {
+      ; Text, then position: undo replays in reverse, restoring the old spot last
+      s.PostAction(UnDo.TEXT_CHANGE, undoTag)
+      s.PostAction(UnDo.MOVE_SHAPE, undoTag)
+      C := s.shapeCoord, cx := C.X + C.W / 2, cy := C.Y + C.H / 2
+      s.TagScheme := scheme
+      s.Text := TextShape.TagLabel(n, scheme)
+      s.DrawText(C.X1, C.Y1)
+      C := s.shapeCoord
+      s.Move(Round(cx - C.W / 2), Round(cy - C.H / 2))
+   }
+
+   /**
+    * @description Renumber the numbered tags on a snip 1..N with no gaps (e.g. after one
+    *   was deleted), each in its own scheme (1, 2, 3 / A, B, C / a, b, c / I, II, III).
+    *   Tags whose text isn't a label of their scheme are left alone. Order follows the
+    *   current numbers (ties: oldest first). Each tag keeps its centre. One undo restores
+    *   all of them. The snip's tag counter is set so the next tag drawn continues the
+    *   sequence.
+    * @param {Object} SnipObj - The snip GUI object
+    * @returns {Integer} Number of tags changed
+    */
+   Static RenumberTags(SnipObj) {
+      tags := this.TagSequence(SnipObj)
+      If (tags.Length = 0) {
+         qTrayTip("No numbered tags to renumber")
+         Return 0
+      }
       undoTag := UnDo.NewTag("RenumberTags")
       changed := 0
       For idx, t in tags {
          If (t.n = idx)
             Continue
-         s := t.shape
-         ; Text, then position: undo replays in reverse, restoring the old spot last
-         s.PostAction(UnDo.TEXT_CHANGE, undoTag)
-         s.PostAction(UnDo.MOVE_SHAPE, undoTag)
-         ; Keep the tag centred where it was (the width changes with the digits)
-         C := s.shapeCoord, cx := C.X + C.W / 2, cy := C.Y + C.H / 2
-         s.Text := String(idx)
-         s.DrawText(C.X1, C.Y1)
-         C := s.shapeCoord
-         s.Move(Round(cx - C.W / 2), Round(cy - C.H / 2))
+         this._RelabelTag(t.shape, idx, t.shape.TagScheme, undoTag)
          changed++
       }
       ; The next tag drawn continues the sequence
@@ -1526,10 +1546,33 @@ Class Shapes {
    }
 
    /**
+    * @description Change the label scheme of every numbered tag on a snip (e.g. 1, 2, 3
+    *   to A, B, C). Each tag keeps its number and centre; one undo restores them all.
+    *   New tags on the snip continue in this scheme.
+    * @param {Object} SnipObj - The snip GUI object
+    * @param {String} scheme - One of TextShape.TagSchemes
+    * @returns {Integer} Number of tags changed
+    */
+   Static SetTagScheme(SnipObj, scheme) {
+      undoTag := UnDo.NewTag("TagScheme")
+      changed := 0
+      For t in this.TagSequence(SnipObj) {
+         If (t.shape.TagScheme = scheme)
+            Continue
+         this._RelabelTag(t.shape, t.n, scheme, undoTag)
+         changed++
+      }
+      If (changed)
+         SnipObj.Dirty++
+      Return changed
+   }
+
+   /**
     * @description Draws an auto-incrementing numbered tag at the current mouse position.
     *   Resets the snip counter if no text shapes are present. The tag background color is
     *   sampled from the snip bitmap at the mouse location. The tag is centered on the
-    *   mouse cursor after rendering.
+    *   mouse cursor after rendering. If the mouse button is still held, a callout
+    *   tip follows the drag until it is released.
     * @param {Object} SnipObj - The snip GUI object to draw the tag on.
     * @param {Integer} fColor - Foreground color for the tag text (RGB integer).
     * @param {Number} Factor - Font size scaling factor. Defaults to 1.
@@ -1540,12 +1583,16 @@ Class Shapes {
       if (this.VisibleTextShapes(SnipObj.hWnd) = 0)
          SnipObj.Counter := 0
       next := ++SnipObj.Counter
-      nextChar := Format("{:d}", next) ; Numbers cause an issue for render
+      ; Continue the scheme the snip's tags already use (the highest one), else the default
+      seq := this.TagSequence(SnipObj)
+      scheme := seq.Length ? seq[-1].shape.TagScheme : TextShape.TagScheme
+      nextChar := TextShape.TagLabel(next, scheme) ; a string: numbers cause an issue for render
 
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mX, &mY)
       BGColor := SnipObj.BackgroundPICColorFromXY(mX, mY, 32)
       TextObj := SnipObj.AddNewShape(Shapes.SHAPE_TAG)
+      TextObj.TagScheme := scheme
       TextObj.Visible := false
       ; No size until rendered, so BackgroundColorFromShape won't work here
 
@@ -1557,6 +1604,12 @@ Class Shapes {
          ShapeOnTop(TextObj)
          TextObj.Visible := true
          TextObj.Gui.Dirty++
+         ; Button still down: the tag stays put and a callout tip follows the drag
+         ; (same loop as dragging the tip handle; a tip released inside the tag
+         ; leaves no callout, so a plain click is unchanged)
+         If GetKeyState("LButton", "P")
+            Shapes.DragControl("LButton", TextObj, "Tip")
+         ; After the drag, so one undo removes the tag and its callout together
          TextObj.PostAction(UnDo.ADD_SHAPE)
       }
       Return 1

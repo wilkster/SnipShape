@@ -153,6 +153,7 @@ SaveSettings() {
    IniWriteValue(TextShape.TagFontStyle, "Text", "Tag Font Style")
    IniWriteValue(TextShape.TagFontSize, "Text", "Tag Font Size")
    IniWriteValue(TextShape.TCOpacity, "Text", "Tag Center Opacity")
+   IniWriteValue(TextShape.TagScheme, "Text", "Tag Scheme")
 
    IniWriteValue(TextShape.FillFontName, "Text", "Fill Font Name")
    IniWriteValue(TextShape.FillFontStyle, "Text", "Fill Font Style")

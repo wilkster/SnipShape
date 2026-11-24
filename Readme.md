@@ -303,7 +303,7 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
-| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size. RMB on a tag > **Renumber Tags** closes gaps after deleting one |
+| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size. Hold the button and drag to pull out a callout (the tag stays where you clicked). Labels can be numbers, upper or lower case letters, or Roman numerals (RMB on the text button > **Tag Number Scheme**). RMB on a tag > **Renumber Tags** closes gaps after deleting one, **Tag Scheme** changes the scheme |
 | T          | Add Text to cursor location                                                              |
 | U          | Add Outline Text to cursor location                                                      |
 | F          | Add Text with adaptive translucent background to stand out from busy backgrounds         |
@@ -475,8 +475,13 @@ r- Shift-Del will remove all shapes on a ship
 
 - Right Mouse Button on shape will bring up a shape specific menu with additional functions.
 - On a numbered Tag, **Renumber Tags** renumbers the snip's numbered tags 1, 2, 3... in their current order, closing any
-  gaps left by deleted tags. Tags whose text is not a plain number are left alone, each tag stays where it is, the next
+  gaps left by deleted tags. Tags whose text you edited to something else are left alone, each tag stays where it is, the next
   tag you add continues the sequence, and a single undo restores the old numbers.
+- **Tag Scheme** (next to Renumber Tags) switches all of the snip's numbered tags between Numbers (1, 2, 3), Upper
+  Case (A, B, C), Lower Case (a, b, c) and Roman (I, II, III). Each tag keeps its place in the order and stays where it
+  is, and a single undo changes them back. Letters continue past Z as AA, AB, ... New tags on a snip continue the
+  scheme its tags already use; the default for a snip with no tags is set on the button bar (RMB on the text button >
+  **Tag Number Scheme**). Renumber Tags keeps each tag's scheme.
 - On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
   Left/Right Arrow Text). The text, font and color are kept, the shape stays centred where it was, and a single undo
   changes it back.
