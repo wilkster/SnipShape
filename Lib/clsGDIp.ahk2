@@ -181,17 +181,20 @@ Class GDI {
          , "uint", raster) ; SRCCOPY by default
    }
    /**
-    * AlphaBlend a premultiplied 32bpp source over the destination (SrcOver, AC_SRC_ALPHA), same size
+    * AlphaBlend a premultiplied 32bpp source over the destination (SrcOver, AC_SRC_ALPHA),
+    * same size unless a source size is given (then stretched to dw x dh)
     * @param {Integer} alpha Constant alpha applied to the whole source (255 = as is)
+    * @param {Integer} sw Optional source width (0 = dw)
+    * @param {Integer} sh Optional source height (0 = dh)
     */
-   Static AlphaBlend(ddc, dx, dy, dw, dh, sdc, sx:=0, sy:=0, alpha:=255) {
+   Static AlphaBlend(ddc, dx, dy, dw, dh, sdc, sx:=0, sy:=0, alpha:=255, sw:=0, sh:=0) {
       Return DllCall("Msimg32\AlphaBlend"
          , "Ptr", ddc
          , "int", dx, "int", dy
          , "int", dw, "int", dh
          , "Ptr", sdc
          , "int", sx, "int", sy
-         , "int", dw, "int", dh
+         , "int", sw || dw, "int", sh || dh
          , "Uint", (alpha & 0xFF) << 16 | 1 << 24) ; BLENDFUNCTION
    }
    ; Static TransparentBlt(ddc, dx, dy, dw, dh, sdc, sx, sy, tranColor := 0) {

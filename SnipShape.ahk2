@@ -83,6 +83,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsClipboard.ahk2
 #include clsCursor.ahk2
 #include clsShapeGroup.ahk2
+#include clsSnipDrag.ahk2
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
 #include undo.ahk2

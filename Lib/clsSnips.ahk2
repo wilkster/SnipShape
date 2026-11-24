@@ -20,6 +20,7 @@
 #include undo.ahk2
 #include OCR.ahk2
 #include clsFileOjbect.ahk2
+#include clsSnipDrag.ahk2
 #Include Shapes\clsTextShape.ahk2
 ; Cancel start of selection with escape, when hidden won't meet WinExist criteria
 #HotIf IsWindowVisible(Snips.guiSSR.hWnd)
@@ -868,10 +869,12 @@ Class Snips {
     * DropFiles handler for snip windows: each dropped image file opens as a new snip.
     * The snip it was dropped on is not changed. Other file types are ignored.
     * Deferred with a timer so the drag source (Explorer) isn't kept waiting on the load.
+    * A snip Ctrl-dragged and dropped back on itself is ignored (dropped on another
+    * snip, it opens as a new snip).
     */
    Static DropFiles(GuiObj, GuiCtrlObj, FileArray, X, Y) {
       For sFile in FileArray
-         If (sFile ~= Clipboard.ImageFileRegEx)
+         If (sFile ~= Clipboard.ImageFileRegEx AND NOT SnipDrag.IsOwnDrop(sFile, GuiObj.hWnd))
             SetTimer(Snips.CreateSnipFromFile.Bind(Snips, sFile), -1)
    }
    /**

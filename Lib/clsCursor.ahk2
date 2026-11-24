@@ -188,7 +188,7 @@ Class Cursor {
          Return 1
       } else If (drawModeCursor = 0 OR Shapes.ShapeName.Has(drawModeCursor)) {
          ; Over the drawing suface, use the draw mode cursor as appropriate
-         ; Ctrl key is temp move, so check for it here
+         ; Ctrl-drag drags the snip out (not a draw), so show the pointer while Ctrl is down
          ; NOTE - after we let go of a shape (but still over it), this will also be called with shapehWnd=0
          DllCall(this.SetCur, "Ptr", this.Cursors[GetKeyState("Ctrl", "P") ? 0 : drawModeCursor])  ;, debug("Draw Mode " drawMode)
          focusBorder.HideFocus()

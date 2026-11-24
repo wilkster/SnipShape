@@ -18,6 +18,7 @@
 #include clsCursor.ahk2
 #include clsSnips.ahk2
 #include undo.ahk2
+#include clsSnipDrag.ahk2
 #include ColorPopDown.ahk2
 #include Shapes\clsCommonShape.ahk2
 #include Shapes\clsTextShape.ahk2
@@ -459,9 +460,15 @@ Class Shapes {
       hWnd             := SnipObj.hWnd
       changed          := 0
       Factor           := GetKeyState("Alt", "P") ? 2 : 1
-      ; These assume right hand mouse for ease of use
-      If (GetKeyState("Ctrl", "P"))   ; Temp allow Snip movement if in draw mode
-         DrawMode := 0
+      ; Ctrl-drag (any mode) drags the snip out to another app as a copy;
+      ; Ctrl+Shift-drag selects a group of shapes (Shift alone constrains drawing)
+      If (GetKeyState("Ctrl", "P")) {
+         If (GetKeyState("Shift", "P"))
+            ShapeGroup.SelectDrag(SnipObj)
+         Else
+            SnipDrag.Start(SnipObj)
+         Return
+      }
       Switch DrawMode {
          Case 0:
             ; Shift-drag selects a group of shapes (Ctrl+Shift-drag in a draw mode)

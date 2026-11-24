@@ -1,0 +1,250 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description Drag a snip out into another application (Ctrl-drag)
+ *
+ * Ctrl-drag on the snip background (any mode) starts an OLE drag of the
+ * rendered snip: picture plus shapes, built the same way as Ctrl-C. The snip
+ * window doesn't move; Windows draws the cursor and a thumbnail of the snip.
+ * A plain Ctrl-click (no movement) does nothing.
+ *
+ * The data object (SHCreateDataObject, filled with SetData) offers:
+ *   - CF_HDROP: a PNG written to %TEMP%\SnipShape\Drag (Explorer, browser
+ *     upload areas, mail and chat attachments)
+ *   - "PNG" and CF_DIB: apps that take an image directly (Office, Paint...)
+ * Only DROPEFFECT_COPY is offered. SHDoDragDrop with no IDropSource uses the
+ * shell's default drop source (Esc cancels), so no COM objects are built here.
+ *
+ * Temp files are kept until SnipShape next starts: some targets (browsers)
+ * read the file long after the drop.
+ ***********************************************************************/
+#include libMisc.ahk2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2
+#include clsClipboard.ahk2
+Class SnipDrag {
+   Static TempDir    := A_Temp "\SnipShape\Drag"
+   Static LastFile   := ""   ; file of the last drag, so a drop back on its own snip is ignored
+   Static LastSource := 0    ; hWnd of the snip it came from
+   Static Busy       := false
+
+   Static __New() {
+      ; Files from an earlier session: their targets have had their chance to read them
+      If (this = SnipDrag)
+         Try DirDelete(this.TempDir, true)
+   }
+
+   /**
+    * Ctrl+LMB down on a snip: if the mouse moves past the system drag threshold
+    * before the button is released, drag the snip out. Called from
+    * Shapes.InitateDrawHandler (inside WM_LBUTTONDOWN, button still down).
+    * @param {GuiSnip} SnipObj
+    * @returns {Integer} 1 if a drag was done (dropped or cancelled), 0 otherwise
+    */
+   Static Start(SnipObj) {
+      CoordMode('Mouse', 'Screen')
+      MouseGetPos(&mX, &mY)
+      If !this.DragDetect(SnipObj.hWnd, mX, mY)
+         Return 0
+      Return this.DoDrag(SnipObj, mX, mY)
+   }
+
+   /**
+    * Wait for the mouse to leave the drag rectangle (SM_CXDRAG x SM_CYDRAG) with
+    * the left button down. Returns false if the button is released first.
+    */
+   Static DragDetect(hWnd, X, Y) {
+      If (A_PtrSize = 8)   ; POINT by value: one 64-bit register on x64, two ints on x86
+         Return DllCall("User32\DragDetect", "Ptr", hWnd, "Int64", (Y << 32) | (X & 0xFFFFFFFF), "Int")
+      Return DllCall("User32\DragDetect", "Ptr", hWnd, "Int", X, "Int", Y, "Int")
+   }
+
+   /**
+    * Render the snip, build the data object and run the modal drag loop
+    * @param {GuiSnip} SnipObj
+    * @param {Integer} mX Mouse X at the button press (screen)
+    * @param {Integer} mY Mouse Y at the button press (screen)
+    * @returns {Integer} 1 if the drag ran, 0 if it couldn't start
+    */
+   Static DoDrag(SnipObj, mX, mY) {
+      Static DROPEFFECT_COPY := 1
+      Static DRAGDROP_S_DROP := 0x40100
+      If (this.Busy)
+         Return 0
+      this.Busy := true
+      hBitmap := 0, pData := 0
+      Try {
+         DllCall("Ole32\OleInitialize", "Ptr", 0, "Int")   ; S_FALSE when already done on this thread
+         If !(hBitmap := SnipObj.RenderBitmap(Snips.borderWithCopy))
+            Return 0
+         pData := this.CreateDataObject()
+         file  := this.SaveTemp(SnipObj, hBitmap)
+         n := 0
+         If (file)
+            n += this.SetData(pData, 15, Clipboard.ToHDROP(file))           ; CF_HDROP
+         n += this.SetData(pData, Clipboard.png, Clipboard.ToPNG(hBitmap))   ; registered "PNG"
+         n += this.SetData(pData, 8, Clipboard.ToDIB(hBitmap))               ; CF_DIB
+         If (!n)
+            Throw Error("No formats could be added to the drag data")
+         WinGetPos(&wX, &wY, , , SnipObj.hWnd)
+         this.SetDragImage(pData, hBitmap, mX - wX, mY - wY)
+         this.LastFile   := file
+         this.LastSource := SnipObj.hWnd
+         res := DllCall("Shell32\SHDoDragDrop", "Ptr", SnipObj.hWnd, "Ptr", pData, "Ptr", 0
+            , "UInt", DROPEFFECT_COPY, "UInt*", &effect := 0, "Int")
+         ; Treated like a copy to the clipboard
+         If (res = DRAGDROP_S_DROP AND effect)
+            SnipObj.Dirty := 0
+         Return 1
+      } Catch as E {
+         elog(E, "Snip drag")
+         qTrayTip("Could not drag the snip: " E.Message, 2)
+         Return 0
+      } Finally {
+         If (hBitmap)
+            GDI.DeleteObject(hBitmap)
+         If (pData)
+            ObjRelease(pData)
+         this.Busy := false
+      }
+   }
+
+   /**
+    * An empty shell data object (IDataObject); it accepts any format through SetData
+    * @returns {Ptr} IDataObject pointer, caller releases
+    */
+   Static CreateDataObject() {
+      Static IID_IDataObject := SnipDrag.GUID("{0000010E-0000-0000-C000-000000000046}")
+      hr := DllCall("Shell32\SHCreateDataObject", "Ptr", 0, "UInt", 0, "Ptr", 0, "Ptr", 0
+         , "Ptr", IID_IDataObject, "Ptr*", &pData := 0, "Int")
+      If (hr OR !pData)
+         Throw Error("SHCreateDataObject failed " Format("0x{:08X}", hr & 0xFFFFFFFF))
+      Return pData
+   }
+
+   /**
+    * Add an HGLOBAL format to the data object (IDataObject::SetData, fRelease = TRUE).
+    * The data object owns hGlobal on success; it is freed here on failure.
+    * @returns {Integer} 1 if added
+    */
+   Static SetData(pData, cf, hGlobal) {
+      If (!hGlobal)
+         Return 0
+      Static DVASPECT_CONTENT := 1, TYMED_HGLOBAL := 1
+      fe := tagFORMATETC()           ; ptd stays NULL
+      fe.cfFormat := cf
+      fe.dwAspect := DVASPECT_CONTENT
+      fe.lindex   := -1
+      fe.tymed    := TYMED_HGLOBAL
+      sm := tagSTGMEDIUM()           ; pUnkForRelease stays NULL
+      sm.tymed    := TYMED_HGLOBAL
+      sm.hGlobal  := hGlobal
+      If (hr := ComCall(7, pData, "Ptr", fe.ptr, "Ptr", sm.ptr, "Int", true, "Int")) {   ; SetData
+         warning("SnipDrag: SetData failed for format " cf ": " Format("0x{:08X}", hr & 0xFFFFFFFF))
+         Clipboard.GlobalFree(hGlobal)
+         Return 0
+      }
+      Return 1
+   }
+
+   /**
+    * Write the rendered snip as a PNG for CF_HDROP targets. Named after the snip,
+    * as a save would be, so a drop in Explorer gets a sensible file name.
+    * @returns {String} full path, or "" on failure (the drag goes ahead without a file)
+    */
+   Static SaveTemp(SnipObj, hBitmap) {
+      pBitmap := 0
+      Try {
+         DirCreate(this.TempDir)
+         file := this.TempDir "\" SnipObj.BaseName ".png"
+         If FileExist(file)
+            Try FileDelete(file)
+         If FileExist(file)   ; still open in whatever took the last drag
+            file := this.TempDir "\" SnipObj.BaseName " " A_TickCount ".png"
+         pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
+         res := BitMap.SaveBitmapToFile(pBitmap, file)
+         Return (res = 0 AND FileExist(file)) ? file : ""
+      } Catch as E {
+         elog(E, "Snip drag temp file")
+         Return ""
+      } Finally {
+         If (pBitmap)
+            GDIp.DisposeImage(pBitmap)
+      }
+   }
+
+   /**
+    * Give the shell a translucent thumbnail of the snip to show under the cursor
+    * (IDragSourceHelper::InitializeFromBitmap). Targets that use the drag helper
+    * (Explorer, Office, browsers) draw it; others only show the cursor.
+    * Failure is not an error: the drag works without it.
+    * @param {Integer} offX Cursor X within the snip window
+    * @param {Integer} offY Cursor Y within the snip window
+    */
+   Static SetDragImage(pData, hBitmap, offX, offY) {
+      Static MaxSide := 256, ThumbAlpha := 200
+      Static CLSID_DragDropHelper  := "{4657278A-411B-11D2-839A-00C04FD918D0}"
+      Static IID_IDragSourceHelper := "{DE5BF786-477A-11D2-839D-00C04FD918D0}"
+      hThumb := 0
+      Try {
+         GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+         s  := Min(1, MaxSide / Max(W, H, 1))
+         tW := Max(1, Round(W * s)), tH := Max(1, Round(H * s))
+         ; Scale the premultiplied picture into a zeroed (transparent) DIB
+         hThumb := GDI.CreateDIBSection(tW, tH)
+         sDC := GDI.CreateCompatibleDC(), dDC := GDI.CreateCompatibleDC()
+         oS  := GDI.SelectObject(sDC, hBitmap), oD := GDI.SelectObject(dDC, hThumb)
+         GDI.AlphaBlend(dDC, 0, 0, tW, tH, sDC, 0, 0, ThumbAlpha, W, H)
+         GDI.SelectObject(sDC, oS), GDI.SelectObject(dDC, oD)
+         GDI.DeleteDC(sDC), GDI.DeleteDC(dDC)
+
+         sdi := Buffer(16 + A_PtrSize * 2, 0)             ; SHDRAGIMAGE
+         NumPut("Int", tW, "Int", tH                      ; sizeDragImage
+              , "Int", Min(tW, Max(0, Round(offX * s)))   ; ptOffset: keep the grab point under the cursor
+              , "Int", Min(tH, Max(0, Round(offY * s))), sdi)
+         NumPut("Ptr", hThumb, sdi, 16)                   ; hbmpDragImage
+         NumPut("UInt", 0xFFFFFFFF, sdi, 16 + A_PtrSize)  ; crColorKey = CLR_NONE (use the alpha)
+         helper := ComObject(CLSID_DragDropHelper, IID_IDragSourceHelper)
+         If (ComCall(3, helper, "Ptr", sdi, "Ptr", pData, "Int") = 0)   ; InitializeFromBitmap
+            hThumb := 0   ; the helper owns it now
+      } Catch as E {
+         warning("SnipDrag: no drag image: " E.Message)
+      }
+      If (hThumb)
+         GDI.DeleteObject(hThumb)
+   }
+
+   /**
+    * True if FileName is the file of the last drag and it was dropped back on
+    * the snip it came from (Snips.DropFiles ignores that drop)
+    */
+   Static IsOwnDrop(FileName, hWnd) => (FileName = this.LastFile AND hWnd = this.LastSource)
+
+   Static GUID(str) {
+      buf := Buffer(16)
+      DllCall("Ole32\CLSIDFromString", "WStr", str, "Ptr", buf, "Int")
+      Return buf
+   }
+}
+; https://learn.microsoft.com/en-us/windows/win32/api/objidl/ns-objidl-formatetc
+/**
+ * OLE FORMATETC: one data format offered by an IDataObject.
+ * x86 20 bytes, x64 32 bytes (ptd pointer aligned, tail padded)
+ */
+Struct tagFORMATETC {
+   cfFormat : UInt16    ; clipboard format
+   ptd      : IntPtr    ; DVTARGETDEVICE*, NULL = device independent
+   dwAspect : UInt32    ; DVASPECT_*
+   lindex   : Int32     ; -1 = all of the data
+   tymed    : UInt32    ; TYMED_* storage medium
+}
+; https://learn.microsoft.com/en-us/windows/win32/api/objidl/ns-objidl-ustgmedium-r1
+/**
+ * OLE STGMEDIUM: the data itself. The union member is only used as an HGLOBAL here.
+ * x86 12 bytes, x64 24 bytes
+ */
+Struct tagSTGMEDIUM {
+   tymed          : UInt32   ; TYMED_* (says which union member is valid)
+   hGlobal        : IntPtr   ; union: hGlobal / hBitmap / pstm / lpszFileName ...
+   pUnkForRelease : IntPtr   ; NULL = receiver frees with ReleaseStgMedium
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

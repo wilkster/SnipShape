@@ -30,6 +30,7 @@ markup the snip.
     - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
       - [Copying and saving](#copying-and-saving)
+      - [Dragging a snip into another app](#dragging-a-snip-into-another-app)
   - [Toolbar - F1 to toggle while snip active](#toolbar---f1-to-toggle-while-snip-active)
     - [Show or hide the toolbar](#show-or-hide-the-toolbar)
     - [Use toolbar buttons](#use-toolbar-buttons)
@@ -172,6 +173,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-A                   | Select all the shapes on the snip as a group, see [Selecting a group of shapes](#selecting-a-group-of-shapes)            |
 | Shift-Drag               | Select the shapes inside the dragged rectangle as a group (Ctrl+Shift-Drag in a drawing mode)                            |
 | Shift-Click on a shape   | Add the shape to the group, or take it out if it is already in                                                           |
+| Ctrl-Drag                | Drag a copy of the snip and shapes into another app (Explorer, Word, a browser upload box...), see [Dragging a snip into another app](#dragging-a-snip-into-another-app) |
 | Ctrl-O                   | OCR the text to lines of text                                                                                            |
 | Ctrl-T                   | OCR the text to html table                                                                                               |
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
@@ -197,6 +199,20 @@ taking a screen capture, so:
   border stay opaque, as they appear on screen.
 - Transparent rounded corners (e.g. from a Windows 11 window capture) stay transparent.
 - Saved snips remember their transparency and restore it when reopened for editing.
+
+#### Dragging a snip into another app
+
+Hold Ctrl and drag on an empty part of the snip (in any mode) to drag a copy of it into another application. The snip
+itself stays where it is; only the cursor moves, with a small picture of the snip under it. Press Esc to cancel.
+
+- The image is the same one Ctrl-C copies (snip plus shapes, with the border if "Include Border With Clipboard Copy" is
+  checked).
+- Apps that take pictures (Word, Outlook, Paint, OneNote...) get the image directly. Explorer, browser upload boxes and
+  mail/chat attachments get a PNG file named after the snip, written to `%TEMP%\SnipShape\Drag`. Those files are kept
+  until SnipShape next starts, since some apps (browsers) read the file after the drop.
+- Dropping on another snip opens the picture as a new snip; dropping it back on itself does nothing.
+- Apps running as administrator won't accept drops from SnipShape unless it runs as administrator too (a Windows rule).
+- Ctrl-click on a shape still duplicates the shape, and Ctrl+Shift-drag still selects a group in a drawing mode.
 
 ## Toolbar - F1 to toggle while snip active
 

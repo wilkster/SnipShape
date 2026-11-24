@@ -109,8 +109,6 @@ Class Clipboard {
          GDI.DeleteObject(hBitmap)
          Return -11
       }
-      ; biSizeImage may be 0 for BI_RGB, compute from the stride if so
-      imgBytes := ds.dsBmih.biSizeImage || ds.dsBm.bmWidthBytes * Abs(ds.dsBmih.biHeight)
       ;--------------------------------------------------------------------
       ; Open Clipboard and empty it
       ; Must have an owner window, with a NULL owner EmptyClipboard sets
@@ -158,23 +156,13 @@ Class Clipboard {
 
       ;--------------------------------------------------------------------
       ; DIB Format for alpha support and more modern app support
-      ; (ds was populated above)
       ;--------------------------------------------------------------------
-      ; Allocate a moveable global block large enough for: BITMAPINFOHEADER (40 bytes) + raw pixel data
-      dwBytes := ds.dsBmih.size + imgBytes
-      If not (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, dwBytes)) {
+      If not (hDIB := this.ToDIB(hBitmap)) {
          warning("Clipboard: Failed to allocate memory")
          DllCall("CloseClipboard")
          Gdi.DeleteObject(hBitmap)
          Return -3
       }
-      ; Lock down the object while we work with it
-      pDIB := this.GlobalLock(hDIB)
-      ; Copy BITMAPINFOHEADER into the front of the global block
-      this.CopyMemory(pDIB, ds.dsBmih.Ptr, ds.dsBmih.Size)
-      ; ; Copy raw pixel data after the header
-      this.CopyMemory(pDIB + ds.dsBmih.Size, ds.dsBm.bmBits, imgBytes)
-      this.GlobalUnlock(hDIB)
 
       ; Place the DIB on the clipboard — on success clipboard owns hdib, do NOT free it
       If not this.SetClipboardData(CF_DIB := 8, hDIB) {
@@ -236,6 +224,26 @@ Class Clipboard {
       this.CloseClipboard()
       Gdi.DeleteObject(hBitmap)
       Return 0
+   }
+   /**
+    * Pack a DIB section as a CF_DIB block (BITMAPINFOHEADER + pixels) in a moveable
+    * global, for the clipboard or a drag data object (the receiver owns it)
+    * @param hBitmap DIB section (not changed)
+    * @returns {Ptr} HGLOBAL, or 0 if hBitmap isn't a DIB section or allocation failed
+    */
+   Static ToDIB(hBitmap) {
+      ds := tagDIBSECTION()
+      If (!GDI.GetObject(hBitmap, ds.size, ds.ptr) || !ds.dsBm.bmBits)
+         Return 0
+      ; biSizeImage may be 0 for BI_RGB, compute from the stride if so
+      imgBytes := ds.dsBmih.biSizeImage || ds.dsBm.bmWidthBytes * Abs(ds.dsBmih.biHeight)
+      If not (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, ds.dsBmih.size + imgBytes))
+         Return 0
+      pDIB := this.GlobalLock(hDIB)
+      this.CopyMemory(pDIB, ds.dsBmih.Ptr, ds.dsBmih.Size)                ; header
+      this.CopyMemory(pDIB + ds.dsBmih.Size, ds.dsBm.bmBits, imgBytes)   ; pixels
+      this.GlobalUnlock(hDIB)
+      Return hDIB
    }
    /**
     * Convert an hBitmap to PNG format for the clipboard
@@ -550,11 +558,34 @@ Class Clipboard {
     * @returns {Any} 
     */
    Static AddFilesToClipboard(files) {
-      ; files: a single path string or an Array of path strings
+      If !(hGlobal := this.ToHDROP(files))
+         Return false
+      ; Need an owner window, a NULL owner makes SetClipboardData fail after EmptyClipboard
+      If !this.OpenClipboard(A_ScriptHwnd) {
+         this.GlobalFree(hGlobal)
+         Return false
+      }
+      this.EmptyClipboard()
+      ok := this.SetClipboardData(15, hGlobal)  ; CF_HDROP = 15
+      this.CloseClipboard()
+
+      If !ok
+         this.GlobalFree(hGlobal)  ; only free on failure - clipboard owns it once SetClipboardData succeeds
+
+      Return !!ok
+   }
+   Static AddFileToClipboard(file) => this.AddFilesToClipboard(file)
+   /**
+    * Build a CF_HDROP block (DROPFILES + wide file list) in a moveable global,
+    * for the clipboard or a drag data object (the receiver owns it)
+    * @param files a single path string or an Array of path strings
+    * @returns {Ptr} HGLOBAL, or 0 on failure
+    */
+   Static ToHDROP(files) {
       If !(files is Array)
          files := [files]
       If !files.Length
-         Return false
+         Return 0
 
       ; --- size the file-list block (wide chars, each null-terminated, +1 final null) ---
       listSize := 2  ; final terminating null
@@ -566,12 +597,12 @@ Class Clipboard {
 
       hGlobal := this.GlobalAlloc(0x42, totalSize)  ; GMEM_MOVEABLE | GMEM_ZEROINIT
       If !hGlobal
-         Return false
+         Return 0
 
       pGlobal := this.GlobalLock(hGlobal)
       If !pGlobal {
          this.GlobalFree(hGlobal)
-         Return false
+         Return 0
       }
 
       NumPut("UInt", dropFilesSize, pGlobal, 0)   ; pFiles - offset to list
@@ -588,21 +619,7 @@ Class Clipboard {
       ; trailing double-null already present from GMEM_ZEROINIT
 
       this.GlobalUnlock(hGlobal)
-
-      ; Need an owner window, a NULL owner makes SetClipboardData fail after EmptyClipboard
-      If !this.OpenClipboard(A_ScriptHwnd) {
-         this.GlobalFree(hGlobal)
-         Return false
-      }
-      this.EmptyClipboard()
-      ok := this.SetClipboardData(15, hGlobal)  ; CF_HDROP = 15
-      this.CloseClipboard()
-
-      If !ok
-         this.GlobalFree(hGlobal)  ; only free on failure - clipboard owns it once SetClipboardData succeeds
-
-      Return !!ok
+      Return hGlobal
    }
-   Static AddFileToClipboard(file) => this.AddFilesToClipboard(file)
 }
 logGDI(BFN(Error("", -1).File) " loaded...")
