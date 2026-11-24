@@ -25,6 +25,7 @@
 #include undo.ahk2
 #include clsSnips.ahk2
 #include ColorPopDown.ahk2
+#include clsShapeBar.ahk2
 Class ShapeGroup {
    Static List     := []      ; selected shapes (commonShape)
    Static SnipObj  := 0       ; snip that owns them
@@ -161,6 +162,7 @@ Class ShapeGroup {
       focusBorder.HideFocus(true)
       this.Sync()
       SetTimer(this._timer, 200)
+      ShapeBar.Update(SnipObj)
    }
 
    /**
@@ -196,6 +198,8 @@ Class ShapeGroup {
       this._lastKey := ""
       focusBorder.HideFocus(true)
       this.Sync()
+      If (this.SnipObj)
+         ShapeBar.Update(this.SnipObj)
    }
 
    /**
@@ -221,10 +225,14 @@ Class ShapeGroup {
     */
    Static Clear() {
       SetTimer(this._timer, 0)
+      snip := this.SnipObj
       this.List    := []
       this.SnipObj := 0
       this._lastKey := ""
       this._Hide()
+      ; The bar goes, or back to the draw mode (snipHwnd: hWnd of a closed snip throws)
+      If (snip AND DllCall("IsWindow", "Ptr", this.snipHwnd))
+         ShapeBar.Update(snip)
    }
    ; Hide the box and let go of the snip (an owned window dies with its owner)
    Static _Hide() {
@@ -267,6 +275,7 @@ Class ShapeGroup {
          this._Render(wX, wY, rc, true)
          this._lastKey := key
       }
+      ShapeBar.SyncGroup()
    }
 
    /**
@@ -370,11 +379,11 @@ Class ShapeGroup {
    }
 
    /**
-    * A button bar default changed (Shapes.ButtonMenu_Handler): apply it to the
+    * A button bar default changed (ShapeStyles._DefaultPicked): apply it to the
     * shapes in the group it belongs to, one undo step. Opacities, outline type etc.
     * are set to the new value; thickness and blur/pixelate amounts are scaled by
     * new/old so sizes changed on a shape are kept. Other shapes are left alone.
-    * @param {String} key - default name (Shapes.valMenu key)
+    * @param {String} key - default name (ShapeStyles key)
     * @param {Any} old - previous default
     * @param {Any} new - new default
     * @returns {Integer} number of shapes changed

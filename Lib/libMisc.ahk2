@@ -38,6 +38,16 @@ GetWindowsTheme() {
    Return DllCall(GetProcAddress(uxtheme, 132), "Int")
 }
 /**
+ * Background of the script's own popups and bars, close to that of the Windows menus
+ * @returns {Integer} RGB for the current light or dark theme
+ */
+MenuBackColor() => GetWindowsTheme() ? 0x2C2C2C : 0xF9F9F9
+/**
+ * Highlight under the mouse on MenuBackColor
+ * @returns {Integer} RGB for the current light or dark theme
+ */
+MenuHoverColor() => GetWindowsTheme() ? 0x484848 : 0xE0E0E0
+/**
  * 
  * @param {Integer} how  0=Default  1=AllowDark  2=ForceDark  3=ForceLight  4=Max
  * @returns {unset?} 

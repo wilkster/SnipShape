@@ -20,18 +20,6 @@ Class BodyShape extends commonShape {
       this.shapeThickness := Shapes.rawLineThickness * this.DPIFactor * this.Factor
    }
    /**
-    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget)
-    */
-   StyleTarget(key) {
-      Switch key, false {
-         Case "shapeOpacity", "outlineOpacity", "fillOpacity", "outlineThickFactor":
-            Return { Prop: key, Scale: false }
-         Case "rawLineThickness":
-            Return { Prop: "shapeThickness", Scale: true }
-      }
-      Return 0
-   }
-   /**
     * Create the pens and set the alignment
     */
    Startup() {

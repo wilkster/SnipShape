@@ -262,12 +262,10 @@ Class ColorPopDown {
     */
    Static _BuildColorPopup() {
       static cols := 6
-      ; These are close to standard light mode/dark mode colors
-      mbg := GetWindowsTheme() ? 0x2C2C2C : 0xF9F9F9 
 
       gap := Round(1.8 * this.DPIFactor)
       this.colorGui           := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")
-      this.colorGui.BackColor := mbg
+      this.colorGui.BackColor := MenuBackColor()
       this.colorGui.MarginX   := this.colorGui.MarginY := gap * 4
       For Index, Color in this.colorValArray {
          opt := (Mod(Index - 1, cols) = 0) ? (Index = 1 ? "" : "XM Y+" gap) : "X+" gap ; wrap the icons by position

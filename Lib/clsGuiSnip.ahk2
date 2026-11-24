@@ -14,6 +14,7 @@
 #include clsShapes.ahk2
 #include clsMenus.ahk2
 #include clsShapeGroup.ahk2
+#include clsShapeBar.ahk2
 #include ColorPopDown.ahk2
 /**
  * Extended GUI class that stores snip-specific metadata, brush caches, and bitmap state
@@ -34,6 +35,7 @@ Class GuiSnip extends Gui {
       this.Time                 := Snips.timeTag ; time at creation
       this._Area                := objArea
       this._DrawMode            := 0
+      this.lastDrawn            := 0   ; shape drawn last in this draw mode (shape bar)
       this.Counter              := 0
       this.Dirty                := 0
       this.Title                := "SnipShapeWindow - " this.Time . ' (' this._Area.W 'x' this._Area.H ')'
@@ -105,6 +107,8 @@ Class GuiSnip extends Gui {
          If (this.HasOwnProp("UnDo") AND IsObject(this.UnDo))
             this.UnDo.Clear()
          hwnd := this.hWnd
+         If (ShapeBar.snipHwnd = hwnd)
+            ShapeBar.Hide()
          super.Destroy()
          GDI.DeleteObject(this.myHandle)
          if (this._base)
@@ -711,7 +715,9 @@ Class GuiSnip extends Gui {
    DrawMode {
       get => this._DrawMode
       set {
-         this.priorDrawMode := this._DrawMode 
+         this.priorDrawMode := this._DrawMode
+         If (Value != this._DrawMode)
+            this.lastDrawn := 0
          this._DrawMode := Value
       }
    }
@@ -851,6 +857,9 @@ Class GuiSnip extends Gui {
     * @param {Integer} hWnd - Handle of the window receiving the message
     */
    WM_ACTIVATE_GUI(SnipObj, wParam, lParam, msg) {
+      ; A shape bar value list is open for this snip: it stays in draw mode
+      If (ShapeBar.menuSnip = SnipObj.hwnd)
+         Return
       ; lParam is other window
       focusBorder.HideFocus(true)
       hwnd := SnipObj.hwnd

@@ -41,6 +41,7 @@ mark up the snip.
     - [Show or hide the toolbar](#show-or-hide-the-toolbar)
     - [Use toolbar buttons](#use-toolbar-buttons)
     - [Toolbar behavior](#toolbar-behavior)
+    - [Shape bar](#shape-bar)
   - [Drawing on snips](#drawing-on-snips)
     - [Snip Hotkeys to create shapes](#snip-hotkeys-to-create-shapes)
   - [Arrow shapes](#arrow-shapes)
@@ -238,12 +239,12 @@ itself stays where it is; only the cursor moves, with a small picture of the sni
 
 ![alt text](Snips/toolbar.png)
 
-A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
+A toolbar can appear to the left of each active snip to provide quick access to common actions and annotation tools.
 
 ### Show or hide the toolbar
 
 - Press `F1` while a snip is active to toggle the toolbar on or off.
-- Click the **X** button on the left side of the toolbar to close it.
+- The **X** button at the top closes the snip (not the toolbar).
 
 ### Use toolbar buttons
 
@@ -259,6 +260,31 @@ The toolbar is helpful if you prefer selecting tools visually instead of using k
 - The toolbar automatically moves to the currently active snip.
 - If focus changes to a non-snip window, the toolbar hides automatically.
 - When focus returns to a snip, the toolbar reappears.
+- The toolbar is on the left of the snip, starting at its top corner. When there is no room there it moves to the right
+  side, and a toolbar taller than the space below is moved up to stay on the monitor.
+- To have the toolbar horizontally above the snip instead, set `Orientation` in the settings file (see below).
+
+### Shape bar
+
+A horizontal **shape bar** appears above the snip while a drawing tool is selected or shapes are selected as a group. It
+shows the properties that apply: color, thickness, opacity, outline, blur amount, fonts and so on.
+
+- **Drawing tool**: the properties of the shape you are about to draw. Changes apply to new shapes and are remembered, like
+  the defaults in the toolbar's right-click menus. They also change the shape you just drew (with undo), as long as its
+  tool is still selected.
+- **Selected shapes** (Shift-drag, Shift-click or Ctrl-A): the properties that all the selected shapes share. A change sets
+  every shape to the same value, can be undone in one step, and does not change the defaults for new shapes. *Mixed* means
+  the shapes have different values. Shapes with nothing in common show only the color, copy and delete buttons.
+  Shift-click a single shape to edit just that one.
+
+Using it:
+
+- **Color**: click to choose. Several dots mean the selected shapes have different colors.
+- **Sliders**: drag the knob, click the track, or turn the mouse wheel over it. Press `Esc` while dragging to put the old
+  value back. Right-click for a list of preset values.
+- **Lists** (font, style, alignment, ...): click to choose, or turn the mouse wheel over it.
+- The bar moves below the snip when there is no room above it. Drag its icon to move it out of the way.
+- `F1` shows or hides the shape bar together with the toolbar.
 
 ## Drawing on snips
 
@@ -588,8 +614,9 @@ Left-clicking the SnipShape tray icon brings up the following choices:
   - `[User Shapes]`, Shape related settings.
     - `ScaleFreehand` - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
     - `Padding` - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
-  - `[User Button Bar]`, size of the button bar font/buttons
+  - `[User Button Bar]`, size and placement of the button bar
     - `Font Size` - increase or decrease to change the default size of the Toolbar icons. Default is 8.0. Fractional sizes are allowed.
+    - `Orientation` - `Vertical` (left of the snip) or `Horizontal` (above the snip). Default is Vertical.
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional key bindings: these are defaults, so they aren't shown in the file unless you add them. Select Edit Settings File from the tray menu to add them.
 

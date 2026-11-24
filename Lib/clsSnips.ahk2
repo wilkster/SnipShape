@@ -17,6 +17,7 @@
 #include clsMenus.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
+#include clsShapeBar.ahk2
 #include undo.ahk2
 #include OCR.ahk2
 #include clsFileOjbect.ahk2
@@ -176,6 +177,8 @@ Class Snips {
             SnipObj.BackColor := Shapes.globalShapeColor
          else
             SnipObj.BackColor := Settings.ActiveSnipBorderColor
+         ; Properties of the shape to draw, above the snip
+         ShapeBar.Update(SnipObj)
          return hWnd
       } Else {
          debug("Did not see " hex(hWnd) " in the snip list, Exists=" hex(WinExist(hWnd)))
@@ -242,6 +245,10 @@ Class Snips {
 
    Static WM_LBUTTONDOWN(wParam, lParam, msg, hWnd) {
       Static WM_NCLBUTTONDOWN := 0xA1
+      If (hWnd = ShapeBar.hWnd) {
+         ShapeBar.Click()
+         Return 0
+      }
       ; Shape group box: drag moves the group. A click on a snip or on a shape
       ; (a child of a snip) clears the group. Nothing else does: menus, the color
       ; fly-out and the button bar are this script's windows too, and their clicks

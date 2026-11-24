@@ -257,6 +257,17 @@ Class GDI {
       return res
    }
    /**
+    * Draw an icon stretched to a size, blended by its alpha
+    * @param hDC Device context to draw on
+    * @param X Left
+    * @param Y Top
+    * @param hIcon Handle to the icon
+    * @param W Width
+    * @param H Height
+    * @returns {Integer} Nonzero on success
+    */
+   Static DrawIconEx(hDC, X, Y, hIcon, W, H) => DllCall("User32\DrawIconEx", "Ptr", hDC, "Int", X, "Int", Y, "Ptr", hIcon, "Int", W, "Int", H, "UInt", 0, "Ptr", 0, "UInt", 3)
+   /**
     * Destroy an icon previously created or loaded from a file
     * @param {pointer} hImg Icon Handle
     * @returns {Integer} Status

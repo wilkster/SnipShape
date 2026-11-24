@@ -814,10 +814,10 @@ Class commonShape extends Gui.Pic {
 
    ;----------------------------------------------------------------------
    ; Style defaults applied to existing shapes
-   ; A button bar default (Shapes.valMenu key) changed while a shape group is
-   ; selected is applied to the group (ShapeGroup.ApplyDefault). Each class maps
-   ; the key to the property it copied the default into at Init (StyleTarget);
-   ; shapes the key doesn't apply to return 0 and are left alone.
+   ; A button bar default (ShapeStyles key) changed while a shape group is selected is
+   ; applied to the group (ShapeGroup.ApplyDefault). The table maps the key to the
+   ; property each shape type copied the default into at Init; shapes the key doesn't
+   ; apply to return 0 from StyleTarget and are left alone.
    ;----------------------------------------------------------------------
    ; Instance properties that hold a shape's style (SHAPE_STYLE undo, InstanceInfo)
    Static StyleProps := ["Factor", "shapeThickness", "shapeOpacity", "outlineOpacity",
@@ -837,13 +837,12 @@ Class commonShape extends Gui.Pic {
    }
    /**
     * Which property of this shape a button bar default sets, if any.
-    * Override per class.
-    * @param {String} key - default name (Shapes.valMenu key, e.g. "arrowOpacity")
+    * @param {String} key - default name (ShapeStyles key, e.g. "arrowOpacity")
     * @returns {Object|Integer} {Prop, Scale} or 0 when the default doesn't apply.
     *   Scale: true scales the property by new/old default (thickness, blur amount),
     *   keeping any size change made to the shape; false sets it to the new value.
     */
-   StyleTarget(key) => 0
+   StyleTarget(key) => ShapeStyles.Target(this.Shape, key)
    /**
     * Work out the new value of a style property for a changed default
     * @param {Object} t - StyleTarget() result

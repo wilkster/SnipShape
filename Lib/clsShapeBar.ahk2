@@ -1,0 +1,949 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description Shape bar: a horizontal bar above the active snip with the
+ * properties (color, thickness, opacity, fonts...) of the shape about to be drawn, or
+ * of the selected shapes
+ *
+ * Shown while the snip is in a draw mode or has a shape group, whenever the button bar
+ * is enabled (F1). The properties come from ShapeStyles.
+ *   - draw mode: changes set the defaults for new shapes, and change the shape just
+ *     drawn (GuiSnip.lastDrawn, until the draw mode changes)
+ *   - group: shows the properties all its shapes share (ShapeStyles.Common); a change
+ *     sets every shape to the same value (one undo step) and leaves the defaults alone.
+ *     Also copy and delete. Shapes with nothing in common show only these and the color
+ *   - slider: drag it, click the track, or turn the wheel over it (Esc while
+ *     dragging puts the old value back); right-click for the list of values
+ *   - list (fonts, alignment...): click for the choices, or turn the wheel
+ *   - color: click for the color popup
+ *   - drag the icon or background to move the bar out of the way
+ *
+ * It is one layered window drawn with GDI+, not controls: the bar must never take
+ * the focus, because deactivating a snip ends its draw mode, and native sliders,
+ * buttons and drop-down lists take it when clicked (tested).
+ ***********************************************************************/
+#include Settings.ahk2
+#include libMisc.ahk2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2
+#include clsButtonBar.ahk2
+#include clsShapeStyles.ahk2
+#include clsShapeGroup.ahk2
+#include ColorPopDown.ahk2
+#include undo.ahk2
+Class ShapeBar {
+   Static SnipObj  := 0       ; snip the bar is shown for
+   Static snipHwnd := 0
+   Static Group    := false   ; true: the selected shapes, false: defaults of the draw mode
+   Static Shape    := 0       ; shape type shown, 0 for a group of different types
+   Static Count    := 0       ; shapes in the group
+   Static Items    := []      ; cells: {Kind, Def, X, Y, W, H}. Kind: Icon, Color, Slider,
+                              ; List or Button (with Action, File, Tip)
+   Static BarW     := 0
+   Static BarH     := 0
+   Static Scale    := 1       ; DPI scale of the snip's monitor
+   Static Dragging := false
+   Static menuSnip := 0       ; snip whose value list or color popup is open (it ignores
+                              ; being deactivated)
+   Static _menuObj := 0       ; its GuiSnip
+   Static _hover   := 0       ; index of the cell under the mouse
+   Static _maxW    := 0
+   Static _sig     := ""      ; what the cells were laid out for
+   Static _valSig  := ""      ; values last drawn
+   Static _cancel  := false   ; Esc pressed while dragging
+   Static _wheel   := 0       ; last wheel change of a group {Key, Tick, Depth}
+   Static _icons   := Map()   ; button icons by file and size
+   ; Titles that are too long for a cell
+   Static ShortTitles := Map("outlineThickFactor", "Outline Width", "FillOutline", "Border",
+      "TCOpacity", "Center Opacity", "TagScheme", "Numbering", "OLOpacity", "Edge Opacity",
+      "OLBlur", "Edge Blur", "OLFillThickness", "Edge Width")
+   ; Cell widths (at 96 DPI) of lists, by Param
+   Static ListWidths := Map("FontName", 124, "FillOutline", 116)
+
+   Static __New() {
+      this._hoverTimer := this._CheckHover.Bind(this)
+      this._colorTimer := this._WatchColors.Bind(this)
+      this.gui  := Gui("-Caption +E0x80000 +E0x08000000 +ToolWindow +AlwaysOnTop -DPIScale")
+      this.hWnd := this.gui.hWnd
+      this.gui.OnEvent("ContextMenu", (*) => this.RightClick())
+      ; WS_EX_NOACTIVATE alone doesn't stop a click activating it: MA_NOACTIVATE
+      this.gui.OnMessage(0x21, (*) => 3)   ; WM_MOUSEACTIVATE
+      ; Same light/dark colors as the menus and the color popup
+      dark := GetWindowsTheme()
+      this.Colors := {
+         Back:   0xFF000000 | MenuBackColor(),
+         Edge:   dark ? 0xFF606060 : 0xFFB0B0B0,
+         Hover:  0xFF000000 | MenuHoverColor(),
+         Title:  dark ? 0xFFB8B8B8 : 0xFF5A5A5A,
+         Value:  dark ? 0xFFFFFFFF : 0xFF000000,
+         Track:  dark ? 0xFF6A6A6A : 0xFFC4C4C4,
+         Accent: dark ? 0xFF4CA0FF : 0xFF0067C0
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Show / hide
+   ;----------------------------------------------------------------------
+   /**
+    * A snip's draw mode, group or position changed: show, update or hide the bar
+    * @param {GuiSnip} SnipObj
+    * @param {Integer} [X] - snip screen X, Y override (while the snip is dragged)
+    * @param {Integer} [Y]
+    */
+   Static Update(SnipObj, X?, Y?) {
+      hwnd    := SnipObj.hWnd
+      ; Only for the active snip: a snip being left can report after the next one
+      current := (NOT ButtonBar.SnipObj OR ButtonBar.SnipObj = SnipObj)
+      If (current AND ButtonBar.Enabled AND IsWindowVisible(hwnd) AND NOT DllCall("IsIconic", "Ptr", hwnd)
+          AND (content := this._Content(SnipObj)))
+         this._Place(SnipObj, content, X?, Y?)
+      Else If (current OR this.snipHwnd = hwnd)
+         this.Hide()
+   }
+   /**
+    * What the bar shows for a snip
+    * @returns {Object|Integer} {Group, Shape, Count, Defs, Color, Sig}, 0 = nothing
+    */
+   Static _Content(SnipObj) {
+      If (ShapeGroup.Active AND ShapeGroup.SnipObj = SnipObj) {
+         seen := Map(), types := [], color := false, sig := "G" ShapeGroup.List.Length
+         For ShapeObj in ShapeGroup.List {
+            color := color OR ShapeGroup._HasColor(ShapeObj)
+            If NOT seen.Has(ShapeObj.Shape) {
+               seen[ShapeObj.Shape] := 1
+               types.Push(ShapeObj.Shape)
+               sig .= "," ShapeObj.Shape
+            }
+         }
+         Return { Group: true, Shape: types.Length = 1 ? types[1] : 0, Count: ShapeGroup.List.Length
+            , Defs: this._GroupDefs(types), Color: color, Sig: sig }
+      }
+      If (mode := SnipObj.DrawMode) {
+         defs := ShapeStyles.DefsFor(mode)
+         If (defs.Length)
+            Return { Group: false, Shape: mode, Count: 0, Defs: defs, Color: this._DrawHasColor(mode), Sig: "D" mode }
+      }
+      Return 0
+   }
+   /**
+    * Definitions of the properties that shape types share. Different types can use
+    * different keys (Keys: shape type -> key) and slider ranges (joined here).
+    */
+   Static _GroupDefs(types) {
+      defs := []
+      For c in ShapeStyles.Common(types) {
+         d := ShapeStyles.Def(c.Keys[types[1]])
+         If (d.Apply = "")   ; new shapes only (smoothing...)
+            Continue
+         rng := 0
+         If IsObject(d.Range) {
+            rng := d.Range.Clone()
+            For n, key in c.Keys {
+               R := ShapeStyles.Def(key).Range
+               rng.Min := Min(rng.Min, R.Min), rng.Max := Max(rng.Max, R.Max), rng.Step := Min(rng.Step, R.Step)
+            }
+         }
+         defs.Push({ Key: d.Key, Title: d.Title, Param: d.Param, Unit: d.Unit, Values: d.Values
+            , Apply: d.Apply, Range: rng, Keys: c.Keys })
+      }
+      Return defs
+   }
+   ; New shapes of this type have a color that can be set (whiteout and redact sample theirs)
+   Static _DrawHasColor(mode) {
+      Switch mode {
+         Case Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_REDAC, Shapes.SHAPE_SMUDGE, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR:
+            Return false
+      }
+      Return true
+   }
+   Static _Place(SnipObj, content, X?, Y?) {
+      ; An own mouse drag (slider, bar) is running: leave the bar where it is
+      If this.Dragging
+         Return
+      hwnd := SnipObj.hWnd
+      WinGetPos(&sX, &sY, &sW, &sH, hwnd)
+      sX := X ?? sX, sY := Y ?? sY
+      Mon  := windowMonArea(hwnd)
+      zoom := WinDPI(hwnd) / 96
+      maxW := Min(Max(sW, Round(820 * zoom)), Mon.X2 - Mon.X)
+      this.SnipObj  := SnipObj
+      this.snipHwnd := hwnd
+      If (this._sig != content.Sig OR this.Scale != zoom OR this._maxW != maxW) {
+         this._sig  := content.Sig
+         this.Group := content.Group
+         this.Shape := content.Shape
+         this.Count := content.Count
+         this.Scale := zoom
+         this._maxW := maxW
+         this._hover := 0
+         this._Layout(content, maxW)
+      }
+      ; Keep clear of the button bar
+      bb := 0
+      If IsWindowVisible(ButtonBar.bbGui.hWnd) {
+         WinGetPos(&bX, &bY, &bW, &bH, ButtonBar.bbGui.hWnd)
+         bb := { X: bX, Y: bY, W: bW, H: bH }
+      }
+      pos := this.BarPos(sX, sY, sW, sH, Mon, bb)
+      this._Render(pos.X, pos.Y)
+   }
+   /**
+    * The group may have changed (ShapeGroup.Sync, every 200 ms): shapes dropped or their
+    * type changed, or values changed by other means (undo, wheel, menus, color keys)
+    */
+   Static SyncGroup() {
+      If (NOT this.Group OR NOT this.snipHwnd OR this.Dragging OR ShapeGroup.SnipObj != this.SnipObj)
+         Return
+      If (NOT (content := this._Content(this.SnipObj)) OR content.Sig != this._sig)
+         this.Update(this.SnipObj)
+      Else If (this._ValueSig() != this._valSig)
+         this.Redraw()
+   }
+   Static Hide() {
+      SetTimer(this._hoverTimer, 0)
+      If (this._hover)
+         ToolTip
+      this.gui.Hide()
+      this.SnipObj  := 0
+      this.snipHwnd := 0
+      this.Group    := false
+      this._sig     := ""
+      this._hover   := 0
+      this._wheel   := 0
+   }
+   /**
+    * Where the bar goes: above the snip from its left edge, or below it when there is
+    * no room, or over its top edge when there is no room there either. Kept inside the
+    * monitor's work area and off the button bar.
+    * @param {Integer} sX, sY, sW, sH - snip window (screen)
+    * @param {Object} Mon - {X, Y, X2, Y2} work area
+    * @param {Object|Integer} bb - button bar {X, Y, W, H} (screen), 0 if it isn't shown
+    * @returns {Object} {X, Y}
+    */
+   Static BarPos(sX, sY, sW, sH, Mon, bb) {
+      W := this.BarW, H := this.BarH
+      ; A horizontal button bar is above the snip too: go above it
+      top := (bb AND NOT ButtonBar.Vertical) ? Min(sY, bb.Y) : sY
+      X := Max(Mon.X, Min(sX, Mon.X2 - W))
+      Y := top - H
+      If (Y < Mon.Y)
+         Y := (sY + sH + H <= Mon.Y2) ? sY + sH : Mon.Y
+      If (bb AND X < bb.X + bb.W AND bb.X < X + W AND Y < bb.Y + bb.H AND bb.Y < Y + H) {
+         If NOT ButtonBar.Vertical
+            Y := bb.Y + bb.H
+         Else If (bb.X <= X OR bb.X - W < Mon.X)
+            X := Min(bb.X + bb.W, Max(Mon.X, Mon.X2 - W))
+         Else
+            X := bb.X - W
+      }
+      Return { X: X, Y: Y }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Layout
+   ;----------------------------------------------------------------------
+   ; Size in pixels of a size at 96 DPI
+   Static _Px(n) => Round(n * this.Scale)
+   /**
+    * Place the shape icon, the color, one cell per property and the group buttons, in
+    * rows no wider than maxW. Continuation rows start under the first cell.
+    */
+   Static _Layout(content, maxW) {
+      pad  := this._Px(4), gap := this._Px(2)
+      rowH := this._Px(38)
+      icoW := this._Px(34)
+      cells := []
+      If (content.Color)
+         cells.Push({ Kind: "Color", Def: 0, W: this._Px(42), Tip: content.Group ? "Color of the selected shapes" : "Color for new shapes" })
+      For d in content.Defs {
+         isSlider := IsObject(d.Range)
+         cells.Push({ Kind: isSlider ? "Slider" : "List", Def: d, W: this._Px(isSlider ? 128 : this.ListWidths.Get(d.Param, 86)) })
+      }
+      If (content.Group) {
+         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shapes (Ctrl-C)", Action: (*) => ShapeGroup.CopyToClipboard(true) })
+         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shapes (Del)", Action: (*) => ShapeGroup.Delete() })
+      }
+      this.Items := [{ Kind: "Icon", Def: 0, X: pad, Y: pad, W: icoW, H: rowH }]
+      left := pad + icoW + gap
+      X := left, Y := pad, right := left
+      For cell in cells {
+         If (X > left AND X + cell.W + pad > maxW)
+            X := left, Y += rowH + gap
+         cell.X := X, cell.Y := Y, cell.H := rowH
+         this.Items.Push(cell)
+         X += cell.W + gap
+         right := Max(right, X)
+      }
+      this.BarW := right - gap + pad
+      this.BarH := Y + rowH + pad
+   }
+   ; Slider track of a cell: {X, W, Y (center), R (knob radius)} in bar coordinates
+   Static _Track(item) {
+      r   := this._Px(6)
+      ins := this._Px(7) + r
+      Return { X: item.X + ins, W: item.W - 2 * ins, Y: item.Y + this._Px(27), R: r }
+   }
+   ; Knob center of a slider cell showing value (values outside the range stop at the ends)
+   Static _KnobX(item, value) {
+      T := this._Track(item), R := item.Def.Range
+      Return T.X + T.W * Constrain(0, 1, (value - R.Min) / (R.Max - R.Min))
+   }
+   ; Value at a bar X coordinate, in the slider's steps
+   Static ValueAt(item, x) {
+      T := this._Track(item), R := item.Def.Range
+      Return this.Snap(item.Def, R.Min + (x - T.X) / T.W * (R.Max - R.Min))
+   }
+   ; Nearest step inside the range; whole numbers as integers
+   Static Snap(d, value) {
+      R := d.Range
+      v := Constrain(R.Min, R.Max, Round(value / R.Step) * R.Step)
+      Return (v = Round(v)) ? Round(v) : Round(v, 2)
+   }
+   /**
+    * Value one wheel notch up or down: 5% for opacities, otherwise one step
+    * (two or more if the range is long, so it can be crossed in about 60 notches)
+    */
+   Static Nudge(d, value, dir) {
+      If (d.Unit = "alpha") {
+         pct := (Round(value / 12.75) + dir) * 5
+         Return this.Snap(d, pct * 2.55)
+      }
+      stp := d.Range.Step * Max(1, Round((d.Range.Max - d.Range.Min) / d.Range.Step / 60))
+      Return this.Snap(d, value + dir * stp)
+   }
+   ; Text shown for a value
+   Static ValueText(d, value) {
+      If NOT (IsObject(d.Range) AND IsNumber(value))
+         Return value
+      Switch d.Unit {
+         Case "alpha": Return Round(value / 255 * 100) "%"
+         Case "px", "pt": Return Format("{:g}", Round(value, 1)) " " d.Unit
+         Case "x": Return Format("{:g}", Round(value, 2)) "x"
+         Case "%": Return Format("{:g}", value) "%"
+      }
+      Return Format("{:g}", Round(value, 1))
+   }
+   /**
+    * Cell at a point in bar coordinates
+    * @returns {Integer} index in Items, 0 if none
+    */
+   Static ItemAt(x, y) {
+      For idx, item in this.Items
+         If (x >= item.X AND x < item.X + item.W AND y >= item.Y AND y < item.Y + item.H)
+            Return idx
+      Return 0
+   }
+   ; Mouse position in bar coordinates and the cell under it (0 = none or not over the bar)
+   Static _MouseItem(&x, &y) {
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&mX, &mY, &over)
+      CoordMode("Mouse", cm)
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      x := mX - wX, y := mY - wY
+      Return (over = this.hWnd) ? this.ItemAt(x, y) : 0
+   }
+   /**
+    * True if the bar is shown and the mouse is over it (wheel hotkeys)
+    * @type {Integer}
+    */
+   Static MouseOver {
+      get {
+         If NOT this.snipHwnd
+            Return false
+         MouseGetPos(,, &over)
+         Return over = this.hWnd
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Mouse
+   ;----------------------------------------------------------------------
+   /**
+    * Left button pressed on the bar (Snips.WM_LBUTTONDOWN)
+    */
+   Static Click() {
+      ; The color popup is open (the bar doesn't take the focus, so it stays): close it
+      If (this.menuSnip) {
+         If IsWindowVisible(ColorPopDown.colorGui.hWnd) {
+            ColorPopDown._hideMe()
+            WinActivate(this.menuSnip)
+         }
+         Return
+      }
+      idx  := this._MouseItem(&x, &y)
+      item := idx ? this.Items[idx] : 0
+      Switch item ? item.Kind : "Icon" {
+         Case "Icon":   this._DragBar()
+         Case "Slider": this._DragSlider(item, x, y)
+         ; leave the button message first, as the button bar does
+         Case "List":   SetTimer(this.ShowValues.Bind(this, item), -10)
+         Case "Color":  SetTimer(this.ShowColors.Bind(this), -10)
+         Case "Button": SetTimer(item.Action, -10)
+      }
+   }
+   ; Right click: list of values, also for sliders
+   Static RightClick() {
+      If ((idx := this._MouseItem(&x, &y)) AND this.Items[idx].Def)
+         this.ShowValues(this.Items[idx])
+   }
+   /**
+    * Wheel over the bar: change the property under the mouse
+    * @param {Integer} dir - +1 up, -1 down
+    */
+   Static Wheel(dir) {
+      If NOT (idx := this._MouseItem(&x, &y))
+         Return
+      If NOT (d := this.Items[idx].Def)
+         Return
+      cur := this._Get(d)
+      If IsObject(d.Range) {
+         value := this.Nudge(d, cur, dir)
+      } Else {
+         ; wheel up = previous entry of the list
+         pos := 0
+         For i, val in d.Values
+            If (val = cur)
+               pos := i
+         value := d.Values[Constrain(1, d.Values.Length, pos - dir)]
+      }
+      this.SetValue(d, value, true)
+   }
+   /**
+    * Drag a slider. Pressing the track jumps to that value; the knob or the title drags
+    * from the current value. Esc puts the old values back (CancelDrag hotkey). A group
+    * gets one undo step, posted with the first change.
+    */
+   Static _DragSlider(item, x, y) {
+      d      := item.Def
+      T      := this._Track(item)
+      starts := this._Save(d)
+      start  := this._Get(d)
+      knob   := this._KnobX(item, start)
+      grab   := (y < T.Y - T.R * 1.5 OR Abs(x - knob) <= T.R * 1.3) ? x - knob : 0
+      snip   := this.SnipObj
+      last   := start
+      posted := 0
+      this.Dragging := true
+      this._cancel  := false
+      lastX  := grab ? x : ""   ; a press on the track sets the value at once
+      Try {
+         Loop {
+            this._MouseItem(&mX, &mY)
+            If (A_Index = 1)
+               mX := x
+            If (mX != lastX) {
+               lastX := mX
+               value := this.ValueAt(item, mX - grab)
+               If (value != last) {
+                  If NOT posted
+                     posted := this._PostUndo(d)
+                  this._SetAll(d, value)
+                  last := value
+               }
+            }
+            If NOT GetKeyState("LButton", "P")
+               Break
+            Sleep(10)
+            If (this._cancel) {
+               this._Restore(d, starts)
+               Loop posted
+                  snip.UnDo.PopAction()
+               posted := 0
+               Break
+            }
+         }
+      } Finally {
+         this.Dragging := false
+      }
+      If (posted)
+         this._Finish()
+   }
+   ; Esc while dragging a slider (hotkey, so it doesn't clear the group or leave draw mode)
+   Static CancelDrag() {
+      this._cancel := true
+   }
+   ; Move the bar by its icon or background (until it is next placed)
+   Static _DragBar() {
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&sX, &sY)
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this.Dragging := true
+      While GetKeyState("LButton", "P") {
+         Sleep(10)
+         MouseGetPos(&mX, &mY)
+         WinMove(wX + mX - sX, wY + mY - sY,,, this.hWnd)
+      }
+      this.Dragging := false
+      CoordMode("Mouse", cm)
+   }
+   /**
+    * Menu of a property's values under its cell, current one checked
+    */
+   Static ShowValues(item) {
+      If (NOT this.snipHwnd OR this.menuSnip)
+         Return
+      d   := item.Def
+      cur := this._Get(d, &mixed)
+      M   := Menu()
+      For val in d.Values {
+         M.Add(val, this._ValuePicked.Bind(this, d))
+         If (val = cur AND NOT mixed)
+            M.Check(val)
+      }
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      ; Menu.Show activates the script's main window. The snip ignores that while menuSnip
+      ; is set (GuiSnip.WM_ACTIVATE_GUI), or it would leave draw mode and hide the bar
+      snip := this.SnipObj
+      hwnd := this.menuSnip := this.snipHwnd
+      cm   := CoordMode("Menu", "Screen")
+      Try
+         M.Show(wX + item.X, wY + item.Y + item.H)   ; blocks here
+      Finally {
+         CoordMode("Menu", cm)
+         this.menuSnip := 0
+      }
+      this._AfterMenu(snip, hwnd)
+   }
+   /**
+    * The value list closed: activate the snip again, or if another window was clicked
+    * meanwhile, let the snip handle the deactivation it ignored
+    */
+   Static _AfterMenu(snip, hwnd) {
+      If NOT DllCall("IsWindow", "Ptr", hwnd)
+         Return
+      fg := DllCall("GetForegroundWindow", "Ptr")
+      If (fg = hwnd)
+         Return
+      own := 0
+      Try
+         own := (WinGetPID(fg) = DllCall("GetCurrentProcessId"))
+      If (fg = 0 OR (own AND NOT Snips.IsValid(fg)))
+         WinActivate(hwnd)
+      Else
+         snip.WM_ACTIVATE_GUI(snip, 0, own ? fg : 0, 0x6)
+   }
+   Static _ValuePicked(d, ItemName, *) {
+      this.SetValue(d, ItemName)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Color
+   ;----------------------------------------------------------------------
+   ; Colors shown: the default for the draw mode, or the different ones of the group
+   Static _ColorsShown() {
+      If NOT this.Group
+         Return [RGBval(this._DrawHighlight() ? Shapes.highlightColor : Shapes.globalShapeColor)]
+      list := [], seen := Map()
+      For ShapeObj in ShapeGroup.List {
+         If (ShapeGroup._HasColor(ShapeObj) AND NOT seen.Has(clr := RGBval(ShapeObj.Color)))
+            seen[clr] := 1, list.Push(clr)
+      }
+      Return list
+   }
+   ; Highlighters have their own default color
+   Static _DrawHighlight() => (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_HILITE)
+   /**
+    * Color popup. It takes the focus, so the snip ignores being deactivated until the
+    * popup (or a color dialog it opened) is gone: see _WatchColors
+    */
+   Static ShowColors() {
+      If (NOT this.snipHwnd OR this.menuSnip)
+         Return
+      list := this._ColorsShown()
+      this.menuSnip := this.snipHwnd
+      this._menuObj := this.SnipObj
+      ColorPopDown.ShowColorPopup((cb, clr, *) => this._ColorPicked(clr), list.Length ? list[1] : -1, this.snipHwnd)
+      SetTimer(this._colorTimer, 100)
+   }
+   Static _WatchColors() {
+      hwnd := this.menuSnip
+      If IsWindowVisible(ColorPopDown.colorGui.hWnd)
+         Return
+      fg := DllCall("GetForegroundWindow", "Ptr")
+      ; A color dialog of this script (right-click on a color): wait for it
+      own := 0
+      Try
+         own := (WinGetPID(fg) = DllCall("GetCurrentProcessId"))
+      If (own AND IsWindowVisible(fg) AND NOT Snips.IsValid(fg) AND fg != ButtonBar.bbGui.hWnd)
+         Return
+      SetTimer(this._colorTimer, 0)
+      snip := this._menuObj
+      this.menuSnip := 0
+      this._menuObj := 0
+      this._AfterMenu(snip, hwnd)
+   }
+   Static _ColorPicked(clr) {
+      snip := this.SnipObj
+      If (this.Group) {
+         ShapeGroup.SetColor(clr)
+      } Else If (this._DrawHighlight()) {
+         Shapes.highlightColor := clr
+      } Else {
+         Shapes.globalShapeColor := clr
+         If (snip AND snip.DrawMode)
+            snip.BackColor := clr   ; border of a snip in draw mode
+         ButtonBar.ShowColor()
+      }
+      ; and the shape just drawn
+      If (NOT this.Group AND (ShapeObj := this._LastDrawn()) AND ShapeGroup._HasColor(ShapeObj) AND RGBval(ShapeObj.Color) != clr) {
+         ShapeObj.PostAction(UnDo.SHAPE_COLOR)
+         ShapeObj.Color := clr
+         ShapeObj.Refresh()
+         this._Finish()
+      }
+      this.Redraw()
+      If (snip)
+         WinActivate(snip.hWnd)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Values: defaults in draw mode, the shapes' own in a group
+   ;----------------------------------------------------------------------
+   /**
+    * Current value, in the units of the default. Group: the first shape's value.
+    * @param {Object} d - definition
+    * @param {VarRef} [mixed] - receives true if the shapes' values differ
+    */
+   Static _Get(d, &mixed?) {
+      mixed := false
+      list  := this._Values(d)
+      first := list.Length ? list[1] : ShapeStyles.GetDefault(d.Key)
+      For value in list {
+         If (IsNumber(value) AND IsNumber(first) AND IsObject(d.Range))
+            mixed := mixed OR Abs(value - first) > d.Range.Step / 2
+         Else
+            mixed := mixed OR value != first
+      }
+      Return first
+   }
+   ; All current values: one for draw mode, one per shape for a group (in list order)
+   Static _Values(d) {
+      If NOT this.Group
+         Return [ShapeStyles.GetDefault(d.Key)]
+      list := []
+      For ShapeObj in ShapeGroup.List
+         If (key := d.Keys.Get(ShapeObj.Shape, ""))
+            list.Push(ShapeStyles.GetValue(ShapeObj, key))
+      Return list
+   }
+   /**
+    * Shape just drawn in the draw mode shown, which changes along with the defaults
+    * @returns {commonShape|Integer} 0 if none (undone, deleted, other mode)
+    */
+   Static _LastDrawn() {
+      ; Shape controls are recycled: still shown and of this type
+      ShapeObj := this.SnipObj ? this.SnipObj.lastDrawn : 0
+      Try {
+         If (ShapeObj AND ShapeObj.Visible AND ShapeObj.Shape = this.Shape)
+            Return ShapeObj
+      }
+      Return 0
+   }
+   ; Shapes a change of a property is applied to: the group, or the shape just drawn
+   Static _Targets(d) {
+      If this.Group
+         Return ShapeGroup.List
+      Return (d.Apply != "" AND (ShapeObj := this._LastDrawn())) ? [ShapeObj] : []
+   }
+   ; Key of a property for a shape, "" if it doesn't have it
+   Static _KeyFor(d, ShapeObj) => this.Group ? d.Keys.Get(ShapeObj.Shape, "") : d.Key
+   /**
+    * Set a property: the default for new shapes and the shape just drawn, or every
+    * shape of the group (undo)
+    * @param {Object} d - definition
+    * @param {Any} value - in the units of the default
+    * @param {Integer} [wheel] - true: one notch of the wheel; notches in a row on one
+    *   property make one undo step
+    */
+   Static SetValue(d, value, wheel := false) {
+      value := IsNumber(value) ? Number(value) : value
+      If (this._Get(d, &mixed) = value AND NOT mixed AND NOT this._Differs(d, value))
+         Return
+      If NOT this._Differs(d, value) {
+         this._SetAll(d, value)   ; only the default
+         Return
+      }
+      stack := this.SnipObj.UnDo.undoStack
+      lw    := this._wheel
+      ; Nothing else was posted since (Depth) and not long ago
+      If NOT (wheel AND lw AND lw.Key = d.Key AND lw.Depth = stack.Length AND A_TickCount - lw.Tick < 1500)
+         this._PostUndo(d)
+      this._wheel := wheel ? { Key: d.Key, Tick: A_TickCount, Depth: stack.Length } : 0
+      this._SetAll(d, value)
+      If NOT wheel
+         this._Finish()   ; also the auto clipboard copy, too slow for each notch
+   }
+   ; Any shape the property applies to has another value (a shape drawn with Alt, say)
+   Static _Differs(d, value) {
+      For ShapeObj in this._Targets(d) {
+         If NOT (key := this._KeyFor(d, ShapeObj))
+            Continue
+         prop := ShapeStyles.Def(key).Prop
+         If (ShapeObj.%prop% != ShapeStyles.PropValue(ShapeObj, key, value))
+            Return true
+      }
+      Return false
+   }
+   /**
+    * Post one undo step for the shapes a property applies to
+    * @returns {Integer} number of entries posted
+    */
+   Static _PostUndo(d) {
+      tag  := UnDo.NewTag("BarStyle")
+      list := this._Targets(d)
+      For ShapeObj in list
+         ShapeObj.PostAction(d.Apply = "Text" ? UnDo.TEXT_CHANGE : UnDo.SHAPE_STYLE, tag)
+      ShapeGroup._resizePosted := false
+      Return list.Length
+   }
+   ; Shapes were changed: mark the snip, auto clipboard
+   Static _Finish() {
+      If (this.Group) {
+         ShapeGroup._Changed()
+         Return
+      }
+      snip := this.SnipObj
+      snip.Dirty++
+      If (Snips.UpdateClipboard) {
+         snip.Snip2Clipboard(Snips.borderWithCopy)
+         snip.flashBorder()
+      }
+   }
+   ; Set without undo, and redraw
+   Static _SetAll(d, value) {
+      If NOT this.Group
+         ShapeStyles.SetDefault(d.Key, value)
+      For ShapeObj in this._Targets(d)
+         this._SetShape(d, ShapeObj, value)
+      If (this.Group) {
+         this.SnipObj.Dirty++
+         ShapeGroup.Sync()
+      }
+      this.Redraw()
+   }
+   Static _SetShape(d, ShapeObj, value) {
+      If NOT (key := this._KeyFor(d, ShapeObj))
+         Return
+      prop   := ShapeStyles.Def(key).Prop
+      newVal := ShapeStyles.PropValue(ShapeObj, key, value)
+      If (ShapeObj.%prop% = newVal)
+         Return
+      ShapeObj.SetStyle(prop, newVal)
+      ShapeObj.Refresh()
+   }
+   ; Default and shape values, for _Restore
+   Static _Save(d) {
+      vals := []
+      For ShapeObj in this._Targets(d)
+         vals.Push((key := this._KeyFor(d, ShapeObj)) ? ShapeStyles.GetValue(ShapeObj, key) : "")
+      Return { Default: this.Group ? "" : ShapeStyles.GetDefault(d.Key), Vals: vals }
+   }
+   Static _Restore(d, saved) {
+      If NOT this.Group
+         ShapeStyles.SetDefault(d.Key, saved.Default)
+      For i, ShapeObj in this._Targets(d)
+         If (i <= saved.Vals.Length)
+            this._SetShape(d, ShapeObj, saved.Vals[i])
+      If (this.Group)
+         ShapeGroup.Sync()
+      this.Redraw()
+   }
+   ; Values and colors as a string, to notice changes made elsewhere
+   Static _ValueSig() {
+      sig := ""
+      For item in this.Items {
+         If (item.Def)
+            sig .= this._Get(item.Def, &mixed) "|" mixed ";"
+         Else If (item.Kind = "Color")
+            For clr in this._ColorsShown()
+               sig .= clr ","
+      }
+      Return sig
+   }
+   /**
+    * Mouse over the bar (Cursor.WM_SETCURSOR): highlight the cell under it
+    */
+   Static Hover() {
+      idx := this._MouseItem(&x, &y)
+      If (idx != this._hover) {
+         this._hover := idx
+         this.Redraw()
+         SetTimer(this._hoverTimer, 100)
+         ; buttons have no title: tooltip under the cell
+         item := idx ? this.Items[idx] : 0
+         If (item AND item.HasOwnProp("Tip")) {
+            WinGetPos(&wX, &wY,,, this.hWnd)
+            cm := CoordMode("ToolTip", "Screen")
+            ToolTip(" " item.Tip " ", wX + item.X, wY + item.Y + item.H + this._Px(6))
+            CoordMode("ToolTip", cm)
+            SetTimer(ToolTip, -1500)
+         } Else
+            ToolTip
+      }
+   }
+   ; The mouse left the bar: no message arrives for that, so poll while highlighted
+   Static _CheckHover() {
+      If (this.MouseOver OR this.Dragging)
+         Return
+      SetTimer(this._hoverTimer, 0)
+      If (this._hover) {
+         this._hover := 0
+         ToolTip
+         this.Redraw()
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Drawing
+   ;----------------------------------------------------------------------
+   ; Redraw where it is
+   Static Redraw() {
+      If NOT (this.snipHwnd AND IsWindowVisible(this.hWnd))
+         Return
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this._Render(wX, wY)
+   }
+   Static _Render(sX, sY) {
+      Surf := this.Draw()
+      this._valSig := this._ValueSig()
+      ; The first Show sizes and centres the window itself, so give it the box first
+      If NOT IsWindowVisible(this.hWnd)
+         this.gui.Show(Format("NA x{} y{} w{} h{}", sX, sY, this.BarW, this.BarH))
+      Surf.UpdateLayer(sX, sY)
+      ; above the (topmost) snip, which is raised when it is activated:
+      ; HWND_TOPMOST, SWP_NOMOVE|NOSIZE|NOACTIVATE
+      DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+      Surf := ""
+   }
+   /**
+    * Draw the bar
+    * @returns {DIBSurface}
+    */
+   Static Draw() {
+      C    := this.Colors
+      Surf := DIBSurface(this.BarW, this.BarH, this.hWnd)
+      G    := Surf.G
+      Surf.GraphicsClear(0)
+      GDIpText.SetTextRenderingHint(G, 3)   ; grid fit: ClearType needs an opaque surface
+      brushes := GDIp.Brushes()
+      bBack   := brushes.Add(C.Back),  bHover := brushes.Add(C.Hover)
+      bTitle  := brushes.Add(C.Title), bValue := brushes.Add(C.Value)
+      bTrack  := brushes.Add(C.Track), bAccent := brushes.Add(C.Accent)
+      family  := GDIpText.FontFamilyCreate("Segoe UI")
+      fTitle  := GDIpText.FontCreate(family, this._Px(11), 0, 2)   ; pixels
+      fValue  := GDIpText.FontCreate(family, this._Px(11), 1, 2)
+      fList   := GDIpText.FontCreate(family, this._Px(12), 1, 2)
+      fmtL := GDIpText.StringFormatCreate(0x1000), fmtR := GDIpText.StringFormatCreate(0x1000)   ; no wrap
+      GDIpText.SetStringFormatAlign(fmtR, 2)
+      GDIpText.SetStringFormatTrimming(fmtL, 3)
+
+      rad := this._Px(6)
+      GDIp.FillRoundedRectangle(G, bBack, 0, 0, this.BarW, this.BarH, rad)
+      pen := GDIp.CreatePen(C.Edge, 1)
+      GDIp.DrawRoundedRectangle(G, pen, 0, 0, this.BarW, this.BarH, rad)
+      GDIp.DeletePen(pen)
+
+      fmtC := GDIpText.StringFormatCreate(0x1000)
+      GDIpText.SetStringFormatAlign(fmtC, 1)
+      For idx, item in this.Items {
+         ins := this._Px(5)
+         If (idx = this._hover AND item.Kind != "Icon")
+            GDIp.FillRoundedRectangle(G, bHover, item.X, item.Y, item.W, item.H, this._Px(4))
+         Switch item.Kind {
+            Case "Icon":
+               If (this.Shape > 0)
+                  this._DrawShapeIcon(Surf, item)
+               If (this.Group) {
+                  ; number of shapes: under the icon, or alone for different types
+                  alone := (this.Shape <= 0)
+                  GDIp.CreateRectF(&rc, item.X, item.Y + this._Px(alone ? 4 : 23), item.W, this._Px(17))
+                  GDIpText.DrawString(G, String(this.Count), alone ? fList : fValue, fmtC, bValue, &rc)
+                  If (alone) {
+                     GDIp.CreateRectF(&rc, item.X - this._Px(4), item.Y + this._Px(20), item.W + this._Px(8), this._Px(17))
+                     GDIpText.DrawString(G, this.Count = 1 ? "shape" : "shapes", fTitle, fmtC, bTitle, &rc)
+                  }
+               }
+               Continue
+            Case "Button":
+               this._DrawButton(Surf, item)
+               Continue
+            Case "Color":
+               GDIp.CreateRectF(&rc, item.X, item.Y + this._Px(2), item.W, this._Px(17))
+               GDIpText.DrawString(G, "Color", fTitle, fmtC, bTitle, &rc)
+               this._DrawColors(G, item, C.Edge)
+               Continue
+         }
+         d     := item.Def
+         value := this._Get(d, &mixed)
+         text  := mixed ? "Mixed" : this.ValueText(d, value)
+         ; Title on the left (short of the value), value on the right
+         GDIp.CreateRectF(&rc, item.X + ins, item.Y + this._Px(2), item.W - 2 * ins - (item.Kind = "Slider" ? this._Px(30) : 0), this._Px(17))
+         GDIpText.DrawString(G, this.ShortTitles.Get(d.Key, d.Title), fTitle, fmtL, bTitle, &rc)
+         If (item.Kind = "Slider") {
+            GDIp.CreateRectF(&rc, item.X + ins, item.Y + this._Px(2), item.W - 2 * ins, this._Px(17))
+            GDIpText.DrawString(G, text, fValue, fmtR, bValue, &rc)
+            T  := this._Track(item)
+            kx := this._KnobX(item, value)
+            th := Max(2, this._Px(3))
+            GDIp.FillRoundedRectangle(G, bTrack, T.X - T.R, T.Y - th / 2, T.W + 2 * T.R, th, th / 2)
+            If NOT mixed
+               GDIp.FillRoundedRectangle(G, bAccent, T.X - T.R, T.Y - th / 2, Max(th, kx - T.X + T.R), th, th / 2)
+            GDIp.FillEllipse(G, mixed ? bTrack : bAccent, kx - T.R, T.Y - T.R, 2 * T.R, 2 * T.R)
+         } Else {
+            chev := this._Px(8)
+            GDIp.CreateRectF(&rc, item.X + ins, item.Y + this._Px(17), item.W - 2 * ins - chev, this._Px(19))
+            GDIpText.DrawString(G, text, fList, fmtL, bValue, &rc)
+            ; drop-down chevron
+            pen := GDIp.CreatePen(C.Title, Max(1, this.Scale * 1.3))
+            cx := item.X + item.W - ins - chev / 2, cy := item.Y + this._Px(27)
+            w  := chev / 2.5
+            GDIp.DrawLine(G, pen, cx - w, cy - w / 2, cx, cy + w / 2)
+            GDIp.DrawLine(G, pen, cx, cy + w / 2, cx + w, cy - w / 2)
+            GDIp.DeletePen(pen)
+         }
+      }
+      GDIpText.DeleteStringFormat(fmtL), GDIpText.DeleteStringFormat(fmtR), GDIpText.DeleteStringFormat(fmtC)
+      GDIpText.DeleteFont(fTitle), GDIpText.DeleteFont(fValue), GDIpText.DeleteFont(fList)
+      GDIpText.DeleteFontFamily(family)
+      Return Surf
+   }
+   ; Icon of the shape type (the button bar's menu icons); smaller with a group's count
+   Static _DrawShapeIcon(Surf, item) {
+      sna  := StrSplit(Shapes.ShapeName[this.Shape], " - ")
+      icon := ButtonBar.shapeIconsObj[sna[1] " (" sna[2] ")"]
+      If NOT icon
+         Return
+      sz := this._Px(this.Group ? 20 : 26)
+      this._DrawIcon(Surf, icon, item.X + (item.W - sz) // 2, item.Y + (this.Group ? this._Px(3) : (item.H - sz) // 2), sz)
+      GDI.DestroyIcon(icon)
+   }
+   Static _DrawButton(Surf, item) {
+      sz  := this._Px(24)
+      key := item.File "|" sz
+      If NOT this._icons.Has(key)
+         this._icons[key] := LoadPicture(SETTINGS.CursorPath . item.File, "Icon1 w" sz " h" sz, &imgType)
+      this._DrawIcon(Surf, this._icons[key], item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz)
+   }
+   ; GDI+ loses an icon's alpha (black box). GDI draws on the same bits: flush GDI+ first
+   Static _DrawIcon(Surf, icon, X, Y, size) {
+      GDIp.Flush(Surf.G)
+      GDI.DrawIconEx(Surf.ihdc, X, Y, icon, size, size)
+   }
+   ; Color dots: one, or up to three overlapping ones for different colors
+   Static _DrawColors(G, item, edge) {
+      list := this._ColorsShown()
+      n    := Min(list.Length, 3)
+      dia  := this._Px(17), stp := this._Px(8)
+      X    := item.X + (item.W - dia - (n - 1) * stp) / 2
+      Y    := item.Y + this._Px(19)
+      pen  := GDIp.CreatePen(edge, Max(1, this.Scale))
+      Loop n {
+         brush := GDIp.BrushCreateSolid(0xFF000000 | list[A_Index])
+         GDIp.FillEllipse(G, brush, X, Y, dia, dia)
+         GDIp.DrawEllipse(G, pen, X, Y, dia, dia)
+         GDIp.DeleteBrush(brush)
+         X += stp
+      }
+      GDIp.DeletePen(pen)
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

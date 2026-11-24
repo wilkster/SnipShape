@@ -78,38 +78,6 @@ Class FreeHandShape extends commonShape {
    }
 
    /**
-    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
-    * Smoothing is left out: it only applies while the stroke is drawn.
-    */
-   StyleTarget(key) {
-      S := this.Shape
-      Switch key, false {
-         Case "arrowOpacity":
-            Return (S = Shapes.SHAPE_ARCARROW) ? { Prop: "shapeOpacity", Scale: false } : 0
-         Case "arrowLineThickness":
-            Return (S = Shapes.SHAPE_ARCARROW) ? { Prop: "shapeThickness", Scale: true } : 0
-         Case "outlineOpacity", "outlineThickFactor":
-            Return (S = Shapes.SHAPE_ARCARROW) ? { Prop: key, Scale: false } : 0
-         Case "penOpacity":
-            Return (S = Shapes.SHAPE_PEN OR S = Shapes.SHAPE_WIDEPEN) ? { Prop: "shapeOpacity", Scale: false } : 0
-         Case "penLineThickness":
-            Return (S = Shapes.SHAPE_PEN) ? { Prop: "shapeThickness", Scale: true } : 0
-         Case "widePenThickness":
-            Return (S = Shapes.SHAPE_WIDEPEN) ? { Prop: "shapeThickness", Scale: true } : 0
-         Case "highlightOpacity":
-            Return (S = Shapes.SHAPE_HILITER) ? { Prop: "shapeOpacity", Scale: false } : 0
-         Case "highLightThickness":   ; highlighter, whiteout and smudge share it
-            Switch S {
-               Case Shapes.SHAPE_HILITER, Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_SMUDGE:
-                  Return { Prop: "shapeThickness", Scale: true }
-            }
-         Case "BlurDivisor":
-            Return (S = Shapes.SHAPE_SMUDGE) ? { Prop: "Factor", Scale: true } : 0
-      }
-      Return 0
-   }
-
-   /**
     * Called prior to a series of draws or Refreshes to set up GDI+ pens and brushes
     */
    Startup() {

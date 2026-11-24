@@ -13,6 +13,7 @@
 #include clsCursor.ahk2
 #include clsClipboard.ahk2
 #include clsButtonBar.ahk2
+#include clsShapeStyles.ahk2
 #include ColorPopDown.ahk2
 ; #include Shapes\clsCommonShape.ahk2
 /**
@@ -539,7 +540,7 @@ Class ShapeMenus {
    }
    /**
     * Fill a Properties menu with one sub-menu per style property the shape has
-    * (Shapes.ShapeStyleItems), built from the button bar's value lists, with the
+    * (ShapeStyles.PropMenu), built from the button bar's value lists, with the
     * shape's current value checked. Only plain-value properties (StyleTarget Scale:
     * false) are offered; thickness and blur keep their Increase/Decrease entries.
     * The sub-menus are new Menu objects each time, owned by propMenu until it is cleared.
@@ -550,18 +551,17 @@ Class ShapeMenus {
    Static AddStyleMenus(propMenu, ShapeObj) {
       propMenu.Delete()
       n := 0
-      For item in Shapes.ShapeStyleItems {
-         key := item[1], title := item[2]
-         If NOT (Shapes.StyleValues.Has(key) AND (t := ShapeObj.StyleTarget(key)) AND NOT t.Scale)
+      For key in ShapeStyles.PropMenu {
+         If NOT ((t := ShapeObj.StyleTarget(key)) AND NOT t.Scale)
             Continue
          cur := ShapeObj.%t.Prop%
          sub := Menu()
-         For val in Shapes.StyleValues[key] {
+         For val in ShapeStyles.Def(key).Values {
             sub.Add(val, ShapeMenus.SetShapeStyle.Bind(ShapeMenus, ShapeObj, t.Prop))
             If (val = cur)
                sub.Check(val)
          }
-         propMenu.Add(title, sub)
+         propMenu.Add(ShapeStyles.Def(key).Title, sub)
          n++
       }
       Return n

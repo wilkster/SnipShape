@@ -1,0 +1,353 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description Table of the shape style properties (thickness, opacity, fonts...)
+ *
+ * One entry per button bar default. It says where the default is kept, which
+ * shapes use it, which property of a shape it sets, and how it can be edited
+ * (value list, slider range). Everything that offers these properties reads it:
+ *   - the button bar category menus (Shapes._cmdRMBHandler -> AddBarMenu)
+ *   - a shape's Properties menu (ShapeMenus.AddStyleMenus)
+ *   - defaults applied to a shape group (commonShape.StyleTarget -> Target)
+ * Lookups are by shape type number, so they work before a shape exists (draw mode).
+ *
+ * To add a property: read its default in Shapes or TextShape, save it in
+ * SaveSettings, add an entry in Build, and list it in BarMenus and/or PropMenu.
+ * A property set on existing shapes must also be in commonShape.StyleProps (undo).
+ ***********************************************************************/
+#include Settings.ahk2
+#include libMisc.ahk2
+#include clsShapes.ahk2
+#include clsShapeGroup.ahk2
+#include clsShapeBar.ahk2
+Class ShapeStyles {
+   Static Defs     := Map()   ; key -> definition (see Build)
+   Static Order    := []      ; keys in display order
+   Static BarMenus := Map()   ; button bar category -> [[key, title] or 0 (separator), ...]
+   Static PropMenu := []      ; keys a shape's Properties menu offers, in menu order
+   Static _menus   := Map()   ; key -> value Menu, made when first shown
+
+   /**
+    * Build the table. Called by Shapes.__New once the shape numbers, the defaults
+    * and the font list exist.
+    *
+    * Definition properties:
+    *   Key    - name of the default (a static property of Owner)
+    *   Owner  - class holding the default (Shapes or TextShape)
+    *   Title  - short name (Properties menu)
+    *   Param  - what is being set. Keys with the same Param are the same property of
+    *            different shape types (arrow and line thickness are both "Thickness")
+    *   Prop   - shape property it sets, "" if it only affects new shapes
+    *   For    - shape types that use it (Map, shape number -> 1)
+    *   Apply  - how it is set on an existing shape: "Style" = SetStyle with
+    *            UnDo.SHAPE_STYLE; "Text" = font property (UnDo.TEXT_CHANGE);
+    *            "" = new shapes only
+    *   Scale  - a changed default scales the shape's value by new/old rather than
+    *            replacing it (thickness, blur amount: keeps Alt and Up/Down sizing)
+    *   Values - choices offered in menus
+    *   Range  - {Min, Max, Step} for a slider, 0 if it is a list
+    *   Unit   - "px", "pt", "alpha" (0-255), "x" (factor), "%" or ""
+    */
+   Static Build() {
+      S := Shapes
+      ; Shape types
+      outlined := [S.SHAPE_OARROW, S.SHAPE_ODARROW, S.SHAPE_TAPARROW, S.SHAPE_ARCARROW]
+      arrows   := [S.SHAPE_ARROW, outlined*]
+      lines    := [S.SHAPE_LINE, S.SHAPE_CONNECT, S.SHAPE_BRACKET]
+      body     := [S.SHAPE_RECT, S.SHAPE_RORECT, S.SHAPE_ELLIPSE]
+      pens     := [S.SHAPE_PEN, S.SHAPE_WIDEPEN]
+      fillText := [S.SHAPE_FILLTEXT, S.SHAPE_LEFTARROWTEXT, S.SHAPE_RIGHTARROWTEXT]
+      fillFont := [S.SHAPE_TEXT, fillText*]
+      tag      := [S.SHAPE_TAG]
+      olText   := [S.SHAPE_OLTEXT]
+      allText  := [fillFont*]
+      allText.Push(S.SHAPE_TAG, S.SHAPE_OLTEXT)
+      lineBody := [lines*]
+      lineBody.Push(body*)
+      outBody  := [outlined*]
+      outBody.Push(body*)
+      hlPens   := [S.SHAPE_HILITER, S.SHAPE_WHITEOUT, S.SHAPE_SMUDGE]
+      ; Choices used more than once
+      opacity  := [128, 200, 250, 255]
+      opacity0 := [0, 32, 64, 96, 128, 144, 160, 176, 192, 224, 255]
+      thin     := [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12]
+      smooth   := ["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"]
+      sizes    := [8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32]
+
+      ; Arguments: key, title, param, prop, shapes, values, range, unit, scale, owner
+      ; Thickness
+      this._Style("rawLineThickness",   "Thickness", "Thickness", "shapeThickness", lineBody, thin, [0.5, 20, 0.5], "px", true)
+      this._Style("arrowLineThickness", "Thickness", "Thickness", "shapeThickness", arrows, [2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20], [1, 30, 0.5], "px", true)
+      this._Style("penLineThickness",   "Thickness", "Thickness", "shapeThickness", [S.SHAPE_PEN], thin, [0.5, 20, 0.5], "px", true)
+      this._Style("widePenThickness",   "Thickness", "Thickness", "shapeThickness", [S.SHAPE_WIDEPEN], [2, 4, 6, 8, 10, 12, 14, 18, 24, 30], [2, 40, 1], "px", true)
+      ; highlighter, whiteout and smudge share it
+      this._Style("highLightThickness", "Thickness", "Thickness", "shapeThickness", hlPens, [10, 12, 14, 16, 18, 20, 24, 28, 32, 36], [4, 60, 1], "px", true)
+      ; Blur and pixelate
+      this._Style("PixelateBlockSize",  "Block Size", "BlockSize", "Factor", [S.SHAPE_PIXELATE], [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], [2, 32, 1], "", true)
+      this._Style("BlurDivisor",        "Blur Amount", "BlurAmount", "Factor", [S.SHAPE_BLUR, S.SHAPE_GAUS_BLUR, S.SHAPE_SMUDGE], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 30, 40], [2, 60, 1], "", true)
+      ; Opacity (slider minimum 16: a fully transparent shape could not be found again)
+      this._Style("shapeOpacity",       "Opacity", "Opacity", "shapeOpacity", lineBody, opacity, [16, 255, 1], "alpha")
+      this._Style("arrowOpacity",       "Opacity", "Opacity", "shapeOpacity", arrows, opacity, [16, 255, 1], "alpha")
+      this._Style("penOpacity",         "Opacity", "Opacity", "shapeOpacity", pens, opacity, [16, 255, 1], "alpha")
+      this._Style("highlightOpacity",   "Opacity", "Opacity", "shapeOpacity", [S.SHAPE_HILITER, S.SHAPE_HILITE], [8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], [8, 255, 1], "alpha")
+      this._Style("fillOpacity",        "Fill Opacity", "FillOpacity", "fillOpacity", body, [0, 1, 4, 8, 16, 32, 48, 64, 96, 128], [0, 255, 1], "alpha")
+      ; Outline
+      this._Style("outlineOpacity",     "Outline Opacity", "OutlineOpacity", "outlineOpacity", outBody, [0, 16, 32, 64, 96, 128, 144, 160, 176, 192, 224, 255], [0, 255, 1], "alpha")
+      this._Style("outlineThickFactor", "Outline Thickness Factor", "OutlineFactor", "outlineThickFactor", outBody, [1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6], [1, 6, 0.25], "x")
+      ; Fonts
+      this._Text("FillFontName",  "Font",      "FontName",  fillFont, S.FontNames)
+      this._Text("FillFontSize",  "Font Size", "FontSize",  fillFont, sizes, [6, 72, 1], "pt")
+      this._Text("FillFontStyle", "Style",     "FontStyle", fillFont, S.FontStyles)
+      this._Text("FillAlignment", "Alignment", "Alignment", fillFont, S.Alignments)
+      this._Text("OLFontName",    "Font",      "FontName",  olText, S.FontNames)
+      this._Text("OLFontSize",    "Font Size", "FontSize",  olText, sizes, [6, 72, 1], "pt")
+      this._Text("OLFontStyle",   "Style",     "FontStyle", olText, S.FontStyles)
+      this._Text("OLAlignment",   "Alignment", "Alignment", olText, S.Alignments)
+      this._Text("TagFontName",   "Font",      "FontName",  tag, S.FontNames)
+      this._Text("TagFontSize",   "Font Size", "FontSize",  tag, sizes, [6, 72, 1], "pt")
+      this._Text("TagFontStyle",  "Style",     "FontStyle", tag, S.FontStyles)
+      ; Text style (the shape properties have the same names as the TextShape defaults)
+      this._Style("FillOutline",     "Fill Text Outline", "FillOutline", "FillOutline", [S.SHAPE_FILLTEXT], ["Rectangle", "Rounded Rectangle", "Ellipse", "None"], 0, "", false, TextShape)
+      this._Style("textOpacity",     "Text Opacity", "TextOpacity", "textOpacity", allText, opacity, [16, 255, 1], "alpha", false, TextShape)
+      this._Style("TCOpacity",       "Tag Center Opacity", "TCOpacity", "TCOpacity", tag, opacity0, [0, 255, 1], "alpha", false, TextShape)
+      this._Style("FTOpacity",       "Fill Opacity", "FTOpacity", "FTOpacity", fillText, opacity0, [0, 255, 1], "alpha", false, TextShape)
+      this._Style("FTOLOpacity",     "Border Opacity", "FTOLOpacity", "FTOLOpacity", fillText, opacity0, [0, 255, 1], "alpha", false, TextShape)
+      this._Style("OLOpacity",       "Outline Edge Opacity", "OLOpacity", "OLOpacity", olText, opacity0, [0, 255, 1], "alpha", false, TextShape)
+      this._Style("OLBlur",          "Outline Edge Blur", "OLBlur", "OLBlur", olText, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25], [1, 25, 1], "", false, TextShape)
+      this._Style("OLFillThickness", "Outline Width", "OLFillThickness", "OLFillThickness", olText, [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30], [0, 30, 1], "%", false, TextShape)
+      ; New shapes only: smoothing works while the stroke is drawn, and a tag's scheme
+      ; is changed for all tags of a snip (Shapes.SetTagScheme)
+      this._New("ArrowSmoothFactor",     "Smoothing", "Smoothing", [S.SHAPE_ARCARROW], smooth)
+      this._New("PenSmoothFactor",       "Smoothing", "Smoothing", pens, smooth)
+      this._New("HighlightSmoothFactor", "Smoothing", "Smoothing", hlPens, smooth)
+      this._New("TagScheme",             "Tag Number Scheme", "TagScheme", tag, TextShape.TagSchemes, TextShape)
+
+      ; Button bar category menus (0 = separator)
+      this.BarMenus := Map(
+         "Arrows", [
+            ["arrowLineThickness",    "Arrow Line Width"],
+            ["outlineThickFactor",    "Outline Thickness Factor"],
+            ["ArrowSmoothFactor",     "Arc Arrow Smoothing Factor"],
+            0,
+            ["arrowOpacity",          "Arrow Opacity"],
+            ["outlineOpacity",        "Outline Opacity"]],
+         "Shapes", [
+            ["rawLineThickness",      "Base Line Width"],
+            ["outlineThickFactor",    "Outline Thickness Factor"],
+            0,
+            ["outlineOpacity",        "Outline Opacity"],
+            ["shapeOpacity",          "Shape Opacity"],
+            ["fillOpacity",           "Shape Fill Opacity"]],
+         "Free Hand", [
+            ["penLineThickness",      "Pen Width"],
+            ["widePenThickness",      "Wide Pen Width"],
+            ["PenSmoothFactor",       "Pen Smoothing Factor"],
+            ["penOpacity",            "Pen Opacity"]],
+         "Highlighters", [
+            ["highLightThickness",    "Highlighter Thickness"],
+            ["HighlightSmoothFactor", "Highlight Smoothing Factor"],
+            ["highlightOpacity",      "Highlight Opacity"]],
+         "Redact", [
+            ["highLightThickness",    "Whiteout Thickness"],
+            ["HighlightSmoothFactor", "Whiteout Smoothing Factor"],
+            0,
+            ["PixelateBlockSize",     "Pixelate Block Size"],
+            ["BlurDivisor",           "Blur Amount"]],
+         "Text", [
+            ["TagFontName",           "Tag Font Name"],
+            ["TagFontStyle",          "Tag Font Style"],
+            ["TagFontSize",           "Tag Font Size"],
+            ["TCOpacity",             "Tag Center Opacity"],
+            ["TagScheme",             "Tag Number Scheme"],
+            0,
+            ["FillFontName",          "Fill/Arrow Font Name"],
+            ["FillFontStyle",         "Fill/Arrow Font Style"],
+            ["FillAlignment",         "Fill/Arrow Font Alignment"],
+            ["FillFontSize",          "Fill/Arrow Font Size"],
+            ["FTOpacity",             "Fill/Arrow Fill Opacity"],
+            ["FTOLOpacity",           "Fill/Arrow Outline Opacity"],
+            ["FillOutline",           "Fill Text Outline"],
+            0,
+            ["OLFontName",            "Outline Font Name"],
+            ["OLFontStyle",           "Outline Font Style"],
+            ["OLAlignment",           "Outline Font Alignment"],
+            ["OLFontSize",            "Outline Font Size"],
+            ["OLOpacity",             "Outline Edge Opacity"],
+            ["OLBlur",                "Outline Edge Blur"],
+            ["OLFillThickness",       "Outline Width Percent"],
+            0,
+            ["textOpacity",           "Text Opacity"]]
+      )
+      ; Thickness and blur stay with Increase/Decrease and Up/Down. The outline
+      ; thickness factor is a plain multiplier of the line thickness, so it is here.
+      this.PropMenu := ["shapeOpacity", "arrowOpacity", "penOpacity", "highlightOpacity",
+         "fillOpacity", "outlineOpacity", "outlineThickFactor", "FillOutline", "textOpacity",
+         "TCOpacity", "FTOpacity", "FTOLOpacity", "OLOpacity"]
+   }
+   ; A property set on existing shapes with SetStyle
+   Static _Style(key, title, param, prop, forShapes, values, range := 0, unit := "", scale := false, owner := Shapes) {
+      this._Add(key, title, param, prop, forShapes, values, range, unit, scale, owner, "Style")
+   }
+   ; A font property: the shape property has the same name as the param (FontSize...)
+   Static _Text(key, title, param, forShapes, values, range := 0, unit := "") {
+      this._Add(key, title, param, param, forShapes, values, range, unit, false, TextShape, "Text")
+   }
+   ; A property of new shapes only
+   Static _New(key, title, param, forShapes, values, owner := Shapes) {
+      this._Add(key, title, param, "", forShapes, values, 0, "", false, owner, "")
+   }
+   Static _Add(key, title, param, prop, forShapes, values, range, unit, scale, owner, apply) {
+      used := Map()
+      For n in forShapes
+         used[n] := 1
+      this.Order.Push(key)
+      this.Defs[key] := {
+         Key: key, Owner: owner, Title: title, Param: param, Prop: prop, For: used,
+         Apply: apply, Scale: scale, Values: values, Unit: unit,
+         Range: range ? { Min: range[1], Max: range[2], Step: range[3] } : 0
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Lookup by shape type
+   ;----------------------------------------------------------------------
+   /**
+    * Definition of a key
+    * @returns {Object|Integer} definition, or 0
+    */
+   Static Def(key) => this.Defs.Get(key, 0)
+   /**
+    * Definitions of the properties a shape type has, in display order
+    * @param {Integer} Shape - shape type number
+    * @returns {Array}
+    */
+   Static DefsFor(Shape) {
+      list := []
+      For key in this.Order {
+         d := this.Defs[key]
+         If d.For.Has(Shape)
+            list.Push(d)
+      }
+      Return list
+   }
+   /**
+    * Properties that several shape types share, matched by Param: line and arrow
+    * share Thickness and Opacity; pixelate and line share nothing.
+    * @param {Array} shapeTypes - shape type numbers
+    * @returns {Array} of {Param, Keys}; Keys maps each shape type to its key
+    */
+   Static Common(shapeTypes) {
+      list := []
+      If NOT shapeTypes.Length
+         Return list
+      For d in this.DefsFor(shapeTypes[1]) {
+         keys := Map()
+         For n in shapeTypes {
+            For other in this.DefsFor(n) {
+               If (other.Param = d.Param)
+                  keys[n] := other.Key
+            }
+            If NOT keys.Has(n)
+               Continue 2
+         }
+         list.Push({ Param: d.Param, Keys: keys })
+      }
+      Return list
+   }
+   /**
+    * Property of a shape type that a default sets with SetStyle (commonShape.StyleTarget)
+    * @param {Integer} Shape - shape type number
+    * @param {String} key - default name
+    * @returns {Object|Integer} {Prop, Scale} or 0 when the default doesn't apply
+    */
+   Static Target(Shape, key) {
+      d := this.Def(key)
+      Return (d AND d.Apply = "Style" AND d.For.Has(Shape)) ? { Prop: d.Prop, Scale: d.Scale } : 0
+   }
+
+   ;----------------------------------------------------------------------
+   ; Values
+   ;----------------------------------------------------------------------
+   ; Default used for new shapes
+   Static GetDefault(key) {
+      d := this.Defs[key]
+      Return d.Owner.%d.Key%
+   }
+   Static SetDefault(key, value) {
+      d := this.Defs[key]
+      d.Owner.%d.Key% := IsNumber(value) ? Number(value) : value
+   }
+   /**
+    * Value of a property of an existing shape, in the units of its default
+    * (a 3 px line at 150% has a shapeThickness of 4.5)
+    * @param {commonShape} ShapeObj
+    * @param {String} key - key that applies to the shape
+    */
+   Static GetValue(ShapeObj, key) {
+      prop  := this.Defs[key].Prop
+      value := ShapeObj.%prop%
+      u     := this._UnitOf(ShapeObj, key)
+      Return (u = 1 OR NOT IsNumber(value)) ? value : value / u
+   }
+   /**
+    * Shape property value for a value in the units of the default (see GetValue)
+    */
+   Static PropValue(ShapeObj, key, value) {
+      u := this._UnitOf(ShapeObj, key)
+      Return (u = 1 OR NOT IsNumber(value)) ? value : value * u
+   }
+   ; Shape classes multiply the thickness defaults when they copy them (Init)
+   Static _UnitOf(ShapeObj, key) {
+      If (this.Defs[key].Prop != "shapeThickness")
+         Return 1
+      Return ShapeObj.DPIFactor * (ShapeObj.Shape = Shapes.SHAPE_TAPARROW ? 2 : 1)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Menus
+   ;----------------------------------------------------------------------
+   /**
+    * Add a button bar category's sub-menus, with the current defaults checked
+    * @param {Menu} objMenu - Menu to add to
+    * @param {String} category - button bar category name
+    */
+   Static AddBarMenu(objMenu, category) {
+      For item in this.BarMenus.Get(category, []) {
+         If item
+            objMenu.Add(item[2], this._ValueMenu(item[1]))
+         Else
+            objMenu.Add('')
+      }
+   }
+   ; Sub-menu of a key's values, made once and reused, with the default checked
+   Static _ValueMenu(key) {
+      d := this.Defs[key]
+      If NOT this._menus.Has(key) {
+         M := Menu()
+         For val in d.Values
+            M.Add(val, this._DefaultPicked.Bind(this, key))
+         this._menus[key] := M
+      }
+      M   := this._menus[key]
+      cur := this.GetDefault(key)
+      For val in d.Values {
+         If (val = cur)
+            M.Check(val)
+         Else
+            M.UnCheck(val)
+      }
+      Return M
+   }
+   /**
+    * A default was picked on the button bar: also apply it to a selected shape group
+    * @param {String} key - default name
+    * @param {String} ItemName - menu item text, the new value
+    */
+   Static _DefaultPicked(key, ItemName, *) {
+      old := this.GetDefault(key)
+      this.SetDefault(key, ItemName)
+      ShapeBar.Redraw()
+      If (this.Defs[key].Apply = "Style" AND ShapeGroup.Active)
+         ShapeGroup.ApplyDefault(key, old, ItemName)
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

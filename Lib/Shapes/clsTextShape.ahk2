@@ -84,30 +84,6 @@ Class TextShape extends CommonShape {
       this.TagScheme            := "Numbers"
    }
    /**
-    * Property a changed button bar default sets on this shape (see commonShape.StyleTarget).
-    * The text properties have the same names as the TextShape defaults. Fonts, sizes
-    * and alignment are not applied.
-    */
-   StyleTarget(key) {
-      S := this.Shape
-      isFill := (S = Shapes.SHAPE_FILLTEXT OR S = Shapes.SHAPE_LEFTARROWTEXT OR S = Shapes.SHAPE_RIGHTARROWTEXT)
-      Switch key, false {
-         Case "textOpacity":
-            ok := true
-         Case "TCOpacity":
-            ok := (S = Shapes.SHAPE_TAG)
-         Case "FTOpacity", "FTOLOpacity":
-            ok := isFill
-         Case "FillOutline":
-            ok := (S = Shapes.SHAPE_FILLTEXT)
-         Case "OLOpacity", "OLBlur", "OLFillThickness":
-            ok := (S = Shapes.SHAPE_OLTEXT)
-         Default:
-            ok := false
-      }
-      Return ok ? { Prop: key, Scale: false } : 0
-   }
-   /**
     * Configure text and font properties prior to drawing.
     * Font size, colors, and other characteristics may also be updated dynamically during resize events.
     * @param {Integer} [Size] - Font size in points

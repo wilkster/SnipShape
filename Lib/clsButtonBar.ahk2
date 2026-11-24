@@ -13,9 +13,11 @@
 #include clsShapes.ahk2
 #include clsSnips.ahk2
 #include ColorPopDown.ahk2
+#include clsShapeBar.ahk2
 /*
  * Button Bar Class to show buttons and select shapes, colors and such
- * Lives on top of active GUI if it is enabled.
+ * Lives beside the active snip if it is enabled: vertical to the left of its top left
+ * corner, or horizontal above it ([User Button Bar] Orientation in the settings file).
 */
 Class ButtonBar {
    Static DPIFactor  := activeDPIFactor()
@@ -43,20 +45,23 @@ Class ButtonBar {
       this.Enabled         := IniReadValue("Button Bar", "Enabled", 1)
       ; For now, this is not run-time adjustable just read from the settings file
       this.FontSize        := IniReadValue("User Button Bar", "Font Size", 8)
+      ; Vertical (left of the snip) or Horizontal (above it)
+      this.Vertical        := (IniReadValue("User Button Bar", "Orientation", "Vertical") != "Horizontal")
       this.bbGui           := Gui("+AlwaysOnTop +Border +ToolWindow -Caption -DPIScale")
       this.bbGui.MarginY   := this.Margin
       this.bbGui.MarginX   := this.Margin
-      this.bbGui.BackColor := Shapes.globalShapeColor
+      this.bbGui.BackColor := MenuBackColor()   ; same as the shape bar and color popup
+      this.bbWidth         := 0
       this.bbHeight        := 0
       this.SnipObj         := 0
       ; Force rounded corners on windows 11 since we don't have a caption - we do manually later for windows 10
       win11RoundCorners(this.bbGUI.hwnd, 3)
       ; Setting the font size sets the button size as well, later we re-read the button size for this DPI
       this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
-      ; Close Bar Button
+      ; Close snip button
       cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
       ; TODO - have a space but would like a grabber
-      b := this.AddBarButton("Y" this.Margin " X+" this.Margin * 3, Settings.CursorPath . "BBClose.ico", cH, "Close Button Bar (F1)", this.Hide.Bind(this, 0))
+      b := this.AddBarButton(this._Next(this.Margin * 3), Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
       b.GetPos(,,,&cH)
       ; Cursors need to zoom in a bit, remove some margin
       bs := this.ButSize := round(cH - 4 * this.DPIFactor)
@@ -72,35 +77,34 @@ Class ButtonBar {
          this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
 
       logGDI("Built Shape Buttons")
-      ; Build a button or menu entry for each color in settings
-      b := this.AddBarButton("Y" this.Margin " X+" o , Settings.CursorPath . "colors.ico", round(bs*.75), "Set Shape Colors (1-9)", , PickAColor)
+      ; Default shape color: shows the color, click to change it
+      this.colorButton := this.AddBarButton(this._Next(o), Settings.CursorPath . "colors.ico", round(bs*.75), "Set Shape Color (1-9)", , PickAColor)
+      this.ShowColor()
       
       padded := round(cH*.7)
-      b := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
-      b := this.AddBarButton("Y" this.Margin " X+" o,     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
+      b := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
+      b := this.AddBarButton(this._Next(o),     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
 
-      this.btnUndo := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Undo.ico", round(cH*.8), "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
-      this.btnRedo := this.AddBarButton("Y" this.Margin " X+" o    , Settings.CursorPath . "Redo.ico", round(cH*.8), "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
+      this.btnUndo := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Undo.ico", round(cH*.8), "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
+      this.btnRedo := this.AddBarButton(this._Next(o), Settings.CursorPath . "Redo.ico", round(cH*.8), "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
       this.btnUndo.enabled := false
       this.btnRedo.enabled := false
 
-      this.pinButton := this.AddBarButton("Y" this.Margin " X+" o * 3, Settings.CursorPath . "Pin.ico", round(cH*.8), "Pin or Unpin Snip", this.TogglePin.Bind(this, 0))
+      this.pinButton := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Pin.ico", round(cH*.8), "Pin or Unpin Snip", this.TogglePin.Bind(this, 0))
       this.pinButton.Pinned := 1
 
-      b := this.AddBarButton("Y" this.Margin " X+" o , Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
-      b := this.AddBarButton("Y" this.Margin " X+" o,  Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
+      b := this.AddBarButton(this._Next(o), Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
       logGDI("Built Snip Buttons")
       ; Also handle Escape
       this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
       ; this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
       logGDI("Built Close Buttons")
-      ; Make the button edges the same as the gui background color
-      ; more GDI Resources (one for each button)
-      this.BackColor := Shapes.globalShapeColor
-      ; Save the height for positioning on Show
+      ; Save the size for positioning on Show
       logGDI("GUI Show complete")
       this.bbgui.Show("NA Hide")
-      this.bbgui.GetPos(,,,&this.bbHeight)
+      this.bbgui.GetPos(,,&bbW, &bbH)
+      this.bbWidth  := bbW
+      this.bbHeight := bbH
       ; Windows 10 round the corners (not needed with backcolor)
       win10RoundCorners(this.bbgui.hWnd, this.DPIFactor)
 
@@ -112,26 +116,34 @@ Class ButtonBar {
       PickAColor() {
          ; Save and restore any recent drawing modes
          drawMode := this.SnipObj.PriorDrawMode
-         ColorPopDown.ShowColorPopup(this.colorPicked.bind(this), RGBval(this.BackColor), this.bbGui.hWnd)
+         ColorPopDown.ShowColorPopup(this.colorPicked.bind(this), RGBval(Shapes.globalShapeColor), this.bbGui.hWnd)
          if (drawMode)
             Snips.SetDrawMode(drawMode, this.SnipObj.hwnd)
       }
    }
 
       /**
-    * Handle a color circle click: queue the color, tint the bar, hide the popup.
+    * Handle a color circle click: set the default color, queue it (the snip's border
+    * follows when the mouse is over it) and show it on the color button.
     * A selected shape group is recolored too (as the 1-9 keys do).
     * @param {Integer} clr - RGB color value chosen
     */
    Static colorPicked(cb, clr, *) {
       ; debug("colorPicked " hex(clr))
       this.colorQueue := clr
-      this.BackColor  := clr
+      Shapes.globalShapeColor := RGBval(clr)
+      this.ShowColor()
       If (ShapeGroup.Active)
          ShapeGroup.SetColor(RGBval(clr))
       if (this.SnipObj)
          WinActivate(this.SnipObj.hWnd)
    } 
+   /**
+    * Control options that place the next button after the last one
+    * @param {Integer} gap - space before it (px)
+    * @returns {String}
+    */
+   Static _Next(gap) => this.Vertical ? "X" this.Margin " Y+" gap : "Y" this.Margin " X+" gap
    /**
     * Helper routine to add a pic button
     * @param opts control options
@@ -144,6 +156,7 @@ Class ButtonBar {
     */
    Static AddBarButton(opts, icon, wh := 16, tip := "", onClick?, onPress?) {
       b := this.bbGUI.AddPicButton(opts, icon, "W" wh " H" wh)
+      b.SetFlat(MenuBackColor(), MenuHoverColor(), wh)
       this.buttonTips[b.hWnd] := tip
       If IsSet(onClick)
          b.OnEvent("Click", onClick)
@@ -163,7 +176,7 @@ Class ButtonBar {
    Static BuildShapeButtons(Button, SubButtons, pad:=3) {
       fileName := SETTINGS.CursorPath . "Menu\" . Button . ".png"
 
-      b := this.AddBarButton("Y" this.Margin " X+" . pad, fileName, this.ButSize, Button . " Menu", , this.PostShapeMenu.Bind(this, SubButtons))
+      b := this.AddBarButton(this._Next(pad), fileName, this.ButSize, Button . " Menu", , this.PostShapeMenu.Bind(this, SubButtons))
       ; RMB menu for settings
       b.OnEvent("contextMenu", Shapes._cmdRMBHandler.bind(Shapes, Button, "lButton"))
       ; Cache the cursor images into an imagelist for reuse and less GDI resources.
@@ -201,22 +214,11 @@ Class ButtonBar {
    }
 
    /**
-    * Get or set the background color of the button bar window and all its buttons.
-    * Setting this property also updates each button's BackGround option so edges blend seamlessly.
-    * @type {Integer}
+    * Show the default shape color on the color button (and on the shape bar)
     */
-   Static BackColor {
-      get => this.bbGUI.BackColor ? "0x" . this.bbGUI.BackColor : ""
-      set {
-         this.bbGUI.BackColor := Value
-         ; Change the buttons as well so they blend at edges
-         for ctrl in this.bbGui {
-            if (ctrl.Type ~= "Button") {
-               rgb := RGBHex(value)
-               ctrl.Opt("+BackGround" rgb) ; This ties up a brush object for each one
-            }
-         }
-      }
+   Static ShowColor() {
+      this.colorButton.SetImg("HICON:" ColorPopDown._BuildAColor(RGBval(Shapes.globalShapeColor), ColorPopDown.circledIcon))
+      ShapeBar.Redraw()
    }
    /**
     * Handle a shape button click by queuing the selected shape name,
@@ -254,8 +256,7 @@ Class ButtonBar {
    }
 
    /**
-    * Position and show the button bar directly above the specified snip window.
-    * Clamps the position to remain within the active monitor's work area.
+    * Position and show the button bar beside the specified snip window (see BarPos).
     * Optionally overrides the enabled state before showing.
     * @param {Integer} [hWnd=0] - Window handle of the target snip; defaults to the active SnipShapeWindow
     * @param {Integer} [Enable] - If provided, sets the Enabled state before deciding whether to show
@@ -272,15 +273,39 @@ Class ButtonBar {
                sX := X, sY := Y
             Else
                WinGetPos(&sX, &sY,,, hWnd)
+            WinGetPos(,, &sW,, hWnd)
             ; Keep it visible on monitor containing snip
-            MonInfo := windowMonArea(hWnd)
-            newY    := Max(sY - this.bbHeight, MonInfo.Y)
-            sX      := Max(sX, MonInfo.X)
-            this.bbgui.Show("NA Y" newY " X" sX)
+            pos := this.BarPos(sX, sY, sW, windowMonArea(hWnd))
+            this.bbgui.Show("NA Y" pos.Y " X" pos.X)
+            ; The shape bar goes along if the snip is in a draw mode
+            If (SnipObj := Snips.IsValid(hWnd)) {
+               ShapeBar.Update(SnipObj, sX, sY)
+            }
          } Else {
             dlog("No Snip Active when expected")
          }
       }
+   }
+   /**
+    * Where the bar goes for a snip.
+    * Horizontal: above the snip, from its left edge. Vertical: to the left of the snip,
+    * from its top edge; with no room on the left it goes on the right, and with no room
+    * on either side it covers the snip's left edge. Kept inside the monitor's work area.
+    * @param {Integer} sX - snip window screen X
+    * @param {Integer} sY - snip window screen Y
+    * @param {Integer} sW - snip window width
+    * @param {Object} Mon - {X, Y, X2, Y2} work area of the snip's monitor
+    * @returns {Object} {X, Y}
+    */
+   Static BarPos(sX, sY, sW, Mon) {
+      If NOT this.Vertical
+         Return { X: Max(sX, Mon.X), Y: Max(sY - this.bbHeight, Mon.Y) }
+      X := sX - this.bbWidth
+      If (X < Mon.X)
+         X := (sX + sW + this.bbWidth <= Mon.X2) ? sX + sW : Mon.X
+      ; A short snip near the bottom: move the bar up until it fits
+      Y := Max(Min(sY, Mon.Y2 - this.bbHeight), Mon.Y)
+      Return { X: X, Y: Y }
    }
    /**
     * Hide the button bar and optionally change its enabled state
@@ -290,6 +315,7 @@ Class ButtonBar {
       if (IsSet(enabled))
          this.Enabled := enabled
       this.bbgui.Hide()
+      ShapeBar.Hide()
       ToolTip
    }
    Static Undo(*) {

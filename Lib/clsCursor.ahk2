@@ -12,6 +12,7 @@
 #include clsShapes.ahk2
 #include clsSnips.ahk2
 #include clsButtonBar.ahk2
+#include clsShapeBar.ahk2
 ;----------------------------------------------------------------------
 ; Cursor Class
 ;----------------------------------------------------------------------
@@ -127,6 +128,10 @@ Class Cursor {
          focusBorder.HideFocus()
          DllCall(this.SetCur, "Ptr", this.Cursors["Move"])
          Return 1
+      } Else If (hWnd = ShapeBar.hWnd) {
+         ; Shape bar: highlight the property under the mouse, tooltips
+         ShapeBar.Hover()
+         Return this.SetCursor("Pointer")
       } Else If (hwnd = ButtonBar.bbGUI.hWnd) {
          ; Button Bar, get the control hWnd
          ; Show a tooltip for the button if we have one
@@ -135,7 +140,12 @@ Class Cursor {
          } else if (wParam AND ButtonBar.buttonTips.Has(wParam) And WinActive("ahk_class AutoHotkeyGUI")) { ; active menus have a class #32768
             GetCursorPos(&mX, &mY)
             CoordMode("ToolTip", "Screen")
-            ToolTip(" " . ButtonBar.buttonTips[wParam] . " ", mX, mY + ButtonBar.ButSize)
+            ; clear of the bar: below a horizontal one, beside a vertical one
+            If (ButtonBar.Vertical)
+               mX += ButtonBar.ButSize
+            Else
+               mY += ButtonBar.ButSize
+            ToolTip(" " . ButtonBar.buttonTips[wParam] . " ", mX, mY)
             SetTimer(ToolTip,-1500)
             lastControl := wParam
          } else {

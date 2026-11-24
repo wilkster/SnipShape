@@ -19,6 +19,7 @@
 #include clsSnips.ahk2
 #include undo.ahk2
 #include clsSnipDrag.ahk2
+#include clsShapeStyles.ahk2
 #include ColorPopDown.ahk2
 #include Shapes\clsCommonShape.ahk2
 #include Shapes\clsTextShape.ahk2
@@ -170,103 +171,11 @@ Class Shapes {
             dlog("Discarding unavailable font " fnt)
       }
       logGDI("Complete reading system fonts")
-      ; Sub Menus
+      ; Button bar category menu
       this.shapeBBMenu := Menu()
-      this.hlColorMenu := Menu()
-      ; NOTE - Not currently used, migrate so each shape type has its own opacity
-      this.MshapeOpacity := this.valMenu([128, 200, 250, 255], &Shapes.shapeOpacity, "shapeOpacity")
-      this.MpenOpacity   := this.valMenu([128, 200, 250, 255], &Shapes.penOpacity, "penOpacity")
-      this.MarrowOpacity := this.valMenu([128, 200, 250, 255], &Shapes.arrowOpacity, "arrowOpacity")
-      this.MtextOpacity  := this.valMenu([128, 200, 250, 255], &TextShape.textOpacity, "textOpacity")
-
-      ; Build up the sub menus here
-      this.MrawLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.rawLineThickness, "rawLineThickness")
-      this.MpenLineThickness      := this.valMenu([1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12], &Shapes.penLineThickness, "penLineThickness")
-      this.MarrowLineThickness    := this.valMenu([2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20],   &Shapes.arrowLineThickness, "arrowLineThickness")
-      this.MwidePenThickness      := this.valMenu([2, 4, 6, 8, 10, 12, 14, 18, 24,30],  &Shapes.widePenThickness, "widePenThickness")
-      this.MhighlightThickness    := this.valMenu([10, 12, 14, 16, 18, 20, 24, 28, 32, 36],  &Shapes.highLightThickness, "highLightThickness")
-      this.MoutlineThickFactor    := this.valMenu([1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6],       &Shapes.outlineThickFactor, "outlineThickFactor")
-      this.MfillOpacity           := this.valMenu([0, 1, 4, 8, 16, 32, 48, 64, 96, 128],   &Shapes.fillOpacity, "fillOpacity")
-      this.MhighlightOpacity      := this.valMenu([8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], &Shapes.highlightOpacity, "highlightOpacity")
-      this.MoutlineOpacity        := this.valMenu([0, 16, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&Shapes.outlineOpacity, "outlineOpacity")
-      this.MArrowSmoothFactor     := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"], &Shapes.ArrowSmoothFactor)
-      this.MPenSmoothFactor       := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.PenSmoothFactor)
-      this.MHighlightSmoothFactor := this.valMenu(["Extreme", "Very High", "High", "Medium", "Low", "Minimal", "None"],&Shapes.HighlightSmoothFactor)
-      this.MPixelateBlockSize     := this.valMenu([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16], &Shapes.PixelateBlockSize, "PixelateBlockSize")
-      this.MBlurDivisor           := this.valMenu([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 30, 40], &Shapes.BlurDivisor, "BlurDivisor")
-      ; Not currently used
-      this.MfontSize           := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32], &Shapes.fontSize)
-      this.MfontName           := this.valMenu(this.FontNames, &Shapes.fontName)
-
-      this.MTagReset           := this.valMenu([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],&Shapes.TagReset)
-      this.MTagfontName        := this.valMenu(this.FontNames, &TextShape.TagFontName)
-      this.MTagfontStyle       := this.valMenu(this.FontStyles, &TextShape.TagFontStyle)
-      this.MTagFontSize        := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.TagFontSize)
-      this.MTCOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.TCOpacity, "TCOpacity")
-      this.MTagScheme          := this.valMenu(TextShape.TagSchemes, &TextShape.TagScheme)
-      ;Not currently used
-      this.MFillfontName       := this.valMenu(this.FontNames, &TextShape.FillFontName)
-      this.MFillfontStyle      := this.valMenu(this.FontStyles, &TextShape.FillFontStyle)
-
-      this.MFillAlignment      := this.valMenu(this.Alignments, &TextShape.FillAlignment)
-      this.MFillFontSize       := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.FillFontSize)
-      this.MFTOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOpacity, "FTOpacity")
-      this.MFTOLOpacity        := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255], &TextShape.FTOLOpacity, "FTOLOpacity")
-
-      this.MFillOutline        := this.valMenu(["Rectangle", "Rounded Rectangle", "Ellipse", "None"], &TextShape.FillOutline, "FillOutline")
-
-      this.MOLFontName         := this.valMenu(this.FontNames, &TextShape.OLFontName)
-      ;Not currently used
-      this.MOLfontStyle        := this.valMenu(this.FontStyles, &TextShape.OLFontStyle)
-      
-      this.MOLAlignment        := this.valMenu(this.Alignments, &TextShape.OLAlignment)
-      this.MOLFontSize         := this.valMenu([8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32],&TextShape.OLFontSize)
-      this.MOLOpacity          := this.valMenu([0, 32, 64, 96, 128, 144, 160, 176 ,192, 224, 255],&TextShape.OLOpacity, "OLOpacity")
-      this.MOLBlur             := this.valMenu([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25],&TextShape.OLBlur, "OLBlur")
-      this.MOLFillThickness    := this.valMenu([0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],&TextShape.OLFillThickness, "OLFillThickness")
+      ; Table of style properties for the menus (needs the shape numbers, defaults and fonts above)
+      ShapeStyles.Build()
    }
-
-   /**
-    * @description Builds a sub-menu populated with the given values. Each item calls
-    *   ButtonMenu_Handler to assign the selected value back to the referenced variable.
-    * @param {Array} Values - Array of values to add as menu items.
-    * @param {VarRef} GlobName - Reference to the variable that will receive the chosen value.
-    * @param {String} [key] - Style key: when set, a change is also applied to the
-    *   selected shape group (ShapeGroup.ApplyDefault, each shape's StyleTarget).
-    * @returns {Menu} The constructed Menu object.
-    */
-   Static valMenu(Values, &GlobName, key := "") {
-      M := Menu()
-      For Val in Values {
-         M.Add(val, this.ButtonMenu_Handler.bind(this, &GlobName, key))
-      }
-      ; Same values for the shape's own Properties menu (ShapeMenus.AddStyleMenus)
-      If (key != "")
-         this.StyleValues[key] := Values
-      Return M
-   }
-
-   ; Value lists of the keyed button bar defaults (filled by valMenu)
-   Static StyleValues := Map()
-   ; Properties a shape's right-click Properties menu offers, in menu order: [key, title].
-   ; Only keys a shape maps to a plain value (StyleTarget Scale: false) are shown;
-   ; line thickness and blur stay with Increase/Decrease and Up/Down. The outline
-   ; thickness factor is a plain multiplier of the line thickness, so it is here.
-   Static ShapeStyleItems := [
-      ["shapeOpacity",       "Opacity"],
-      ["arrowOpacity",       "Opacity"],
-      ["penOpacity",         "Opacity"],
-      ["highlightOpacity",   "Opacity"],
-      ["fillOpacity",        "Fill Opacity"],
-      ["outlineOpacity",     "Outline Opacity"],
-      ["outlineThickFactor", "Outline Thickness Factor"],
-      ["FillOutline",        "Fill Text Outline"],
-      ["textOpacity",        "Text Opacity"],
-      ["TCOpacity",          "Tag Center Opacity"],
-      ["FTOpacity",          "Fill Opacity"],
-      ["FTOLOpacity",        "Border Opacity"],
-      ["OLOpacity",          "Outline Edge Opacity"]
-   ]
 
    /**
     * @description Right-mouse-button handler for the shape button bar. Rebuilds and
@@ -283,67 +192,14 @@ Class Shapes {
     */
    Static _cmdRMBHandler(btn, key, ctl, item, IsRightClick, X, Y) {
       this.shapeBBMenu.Delete()
+      ; Style defaults of this category (ShapeStyles.BarMenus)
+      ShapeStyles.AddBarMenu(this.shapeBBMenu, btn)
       Switch btn {
-         ;--------------------------------------------------------
-         ; These are unique for shape categories on the button bar
-         ;--------------------------------------------------------
-         Case "Arrows":
-            this.MenuCheckCurrent("Arrow Line Width", this.MarrowLineThickness, this.arrowLineThickness)
-            this.MenuCheckCurrent("Outline Thickness Factor", this.MoutlineThickFactor, this.outlineThickFactor)
-            this.MenuCheckCurrent("Arc Arrow Smoothing Factor", this.MArrowSmoothFactor, this.ArrowSmoothFactor)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Arrow Opacity", this.MarrowOpacity, this.arrowOpacity)
-            this.MenuCheckCurrent("Outline Opacity", this.MoutlineOpacity, this.outlineOpacity)
-         Case "Shapes":
-            this.MenuCheckCurrent("Base Line Width", this.MrawLineThickness, this.rawLineThickness)
-            this.MenuCheckCurrent("Outline Thickness Factor", this.MoutlineThickFactor, this.outlineThickFactor)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Outline Opacity", this.MoutlineOpacity, this.outlineOpacity)
-            this.MenuCheckCurrent("Shape Opacity", this.MshapeOpacity, this.shapeOpacity)
-            this.MenuCheckCurrent("Shape Fill Opacity", this.MfillOpacity, this.fillOpacity)
-         Case "Free Hand":
-            this.MenuCheckCurrent("Pen Width", this.MpenLineThickness, this.penLineThickness)
-            this.MenuCheckCurrent("Wide Pen Width", this.MwidePenThickness, this.widePenThickness)
-            this.MenuCheckCurrent("Pen Smoothing Factor", this.MPenSmoothFactor, this.PenSmoothFactor)
-            this.MenuCheckCurrent("Pen Opacity", this.MpenOpacity, this.penOpacity)
-          Case "Highlighters":
-            this.MenuCheckCurrent("Highlighter Thickness", this.MhighlightThickness, this.highLightThickness)
-            this.MenuCheckCurrent("Highlight Smoothing Factor", this.MHighlightSmoothFactor, this.HighlightSmoothFactor)
-            this.MenuCheckCurrent("Highlight Opacity", this.MhighlightOpacity, this.highlightOpacity)
+         Case "Highlighters":
             this.shapeBBMenu.Add('')
             ; Set default highlighter color
             this.shapeBBMenu.Add("Set Highlighter Color", (*) => {})
             this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico") ; 
-        Case "Redact":
-            this.MenuCheckCurrent("Whiteout Thickness", this.MhighlightThickness, this.highLightThickness)
-            this.MenuCheckCurrent("Whiteout Smoothing Factor", this.MHighlightSmoothFactor, this.HighlightSmoothFactor)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Pixelate Block Size", this.MPixelateBlockSize, this.PixelateBlockSize)
-            this.MenuCheckCurrent("Blur Amount", this.MBlurDivisor, this.BlurDivisor)
-         Case "Text" :
-            this.MenuCheckCurrent("Tag Font Name", this.MTagfontName, TextShape.TagFontName)
-            this.MenuCheckCurrent("Tag Font Style", this.MTagfontStyle, TextShape.TagFontStyle)
-            this.MenuCheckCurrent("Tag Font Size", this.MTagFontSize, TextShape.TagFontSize)
-            this.MenuCheckCurrent("Tag Center Opacity", this.MTCOpacity, TextShape.TCOpacity)
-            this.MenuCheckCurrent("Tag Number Scheme", this.MTagScheme, TextShape.TagScheme)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Fill/Arrow Font Name", this.MFillFontName, TextShape.FillFontName)
-            this.MenuCheckCurrent("Fill/Arrow Font Style", this.MFillFontStyle, TextShape.FillFontStyle)
-            this.MenuCheckCurrent("Fill/Arrow Font Alignment", this.MFillAlignment, TextShape.FillAlignment)
-            this.MenuCheckCurrent("Fill/Arrow Font Size", this.MFillFontSize, TextShape.FillFontSize)
-            this.MenuCheckCurrent("Fill/Arrow Fill Opacity", this.MFTOPacity, TextShape.FTOpacity)
-            this.MenuCheckCurrent("Fill/Arrow Outline Opacity", this.MFTOLOPacity, TextShape.FTOLOpacity)
-            this.MenuCheckCurrent("Fill Text Outline", this.MFillOutline, TextShape.FillOutline)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Outline Font Name", this.MOLFontName, TextShape.OLFontName)
-            this.MenuCheckCurrent("Outline Font Style", this.MOLFontStyle, TextShape.OLFontStyle)
-            this.MenuCheckCurrent("Outline Font Alignment", this.MOLAlignment, TextShape.OLAlignment)
-            this.MenuCheckCurrent("Outline Font Size", this.MOLFontSize, TextShape.OLFontSize)
-            this.MenuCheckCurrent("Outline Edge Opactiy", this.MOLOpacity, TextShape.OLOpacity)
-            this.MenuCheckCurrent("Outline Edge Blur", this.MOLBlur, TextShape.OLBlur)
-            this.MenuCheckCurrent("Outline Width Percent", this.MOLFillThickness, TextShape.OLFillThickness)
-            this.shapeBBMenu.Add('')
-            this.MenuCheckCurrent("Text Opacity", this.MtextOpacity, TextShape.textOpacity)
          Case "Tool":
             ; IDEA - OCR capture default (lines/rows/table)
       }
@@ -354,7 +210,6 @@ Class Shapes {
 
       ; Blocks here
       this.shapeBBMenu.Delete()
-      this.hlColorMenu.Delete()
    }
 
    /**
@@ -370,47 +225,6 @@ Class Shapes {
       if (ButtonBar.SnipObj)
          WinActivate(ButtonBar.SnipObj.hWnd)
    }
-   /**
-    * @description Iterates all items in a sub-menu and checks the one matching the
-    *   current value, unchecking all others. Then appends the sub-menu to the main
-    *   shapeBBMenu under the given title.
-    * @param {String} Title - Label for the sub-menu entry in the parent menu.
-    * @param {Menu} objMenu - The sub-menu whose items will be checked/unchecked.
-    * @param {String|Number} value - The current value; the matching menu item will be checked.
-    */
-   static MenuCheckCurrent(Title, objMenu, value) {
-      static MF_BYPOSITION := 0x00000400
-      res := VarSetStrCapacity(&menuText:=0, 512)
-      count := DllCall("GetMenuItemCount", "ptr", objMenu.Handle)
-      loop DllCall("GetMenuItemCount", "ptr", objMenu.Handle) {
-         DllCall("GetMenuString", "Ptr", objMenu.Handle, "UInt", A_Index - 1, "Str", menuText, "Int", 128, "UInt", MF_BYPOSITION)
-         if menuText = value
-            objMenu.Check(menuText)
-         else
-            objMenu.UnCheck(menuText)
-
-      }
-      this.shapeBBMenu.Add(Title, objMenu)
-
-   }
-
-   /**
-    * @description Common menu item callback shared across all value sub-menus.
-    *   Assigns the selected item name back to the referenced global variable.
-    * @param {VarRef} GlobVal - Reference to the variable to update.
-    * @param {String} key - Style key from valMenu ("" = new shapes only)
-    * @param {String} ItemName - The menu item text, used as the new value.
-    * @param {Integer} ItemPos - Position of the selected item in the menu.
-    * @param {Menu} MyMenu - The menu object that triggered this callback.
-    */
-   Static ButtonMenu_Handler(&GlobVal, key, ItemName, ItemPos, MyMenu) {
-      old     := GlobVal
-      GlobVal := ItemName
-      ; Also apply it to a selected shape group
-      If (key != "" AND ShapeGroup.Active)
-         ShapeGroup.ApplyDefault(key, old, ItemName)
-   }
-
    /**
     * @description Looks up a shape name string in the ShapeName array and returns its
     *   1-based index (shape number). Used to convert a queued command name into the
@@ -949,8 +763,11 @@ Class Shapes {
                ShapeObj.Close(true)
                SnipObj.OCRShape(ShapeObj)
             Default:
-               if (newShape)
+               if (newShape) {
                   ShapeObj.PostAction(UnDo.ADD_SHAPE)
+                  ; the shape bar changes it too while this draw mode is on
+                  SnipObj.lastDrawn := ShapeObj
+               }
 
          }
          ; Done with drawing now
@@ -1435,7 +1252,7 @@ Class Shapes {
       If (nc != this.globalShapeColor) {
          this.globalShapeColor := nc
          Snips.SetSnipBorderColor(val)
-         ButtonBar.BackColor := nc
+         ButtonBar.ShowColor()
       }
    }
 
@@ -1611,6 +1428,7 @@ Class Shapes {
             Shapes.DragControl("LButton", TextObj, "Tip")
          ; After the drag, so one undo removes the tag and its callout together
          TextObj.PostAction(UnDo.ADD_SHAPE)
+         SnipObj.lastDrawn := TextObj
       }
       Return 1
    }

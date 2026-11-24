@@ -79,6 +79,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include Theming.ahk2
 
 #include clsShapes.ahk2
+#include clsShapeStyles.ahk2
 #include clsSnips.ahk2
 #include clsClipboard.ahk2
 #include clsCursor.ahk2
@@ -86,6 +87,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsSnipDrag.ahk2
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
+#include clsShapeBar.ahk2
 #include undo.ahk2
 #include OCR.ahk2
 
@@ -306,6 +308,15 @@ HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
       }
    }
 HotIfWinActive   
+; Wheel over the shape bar changes the property under the mouse. Defined first, so it
+; wins over the shape and group wheel hotkeys below.
+#HotIf ShapeBar.MouseOver
+   $Wheelup:: ShapeBar.Wheel(+1)
+   $Wheeldown:: ShapeBar.Wheel(-1)
+; Esc while dragging a slider puts the old value back (not: clear the group, leave draw mode)
+#HotIf ShapeBar.Dragging
+   Esc:: ShapeBar.CancelDrag()
+#HotIf
 ; Shape group selected (Shift-drag on the snip). Defined before the general snip
 ; hotkeys: when several #HotIf variants match, the one created first fires.
 #HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND ShapeGroup.Active

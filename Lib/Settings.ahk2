@@ -6,6 +6,9 @@
  * @version 1.0.0
  ***********************************************************************/
 #include libMisc.ahk2
+#include clsSnips.ahk2
+#include clsButtonBar.ahk2
+#include Shapes\clsTextShape.ahk2
 Class Settings {
    Static Path                   := A_AppData . "\SnipShape"
    Static File                   := Settings.Path . "\SnipShape.ini"
@@ -119,6 +122,7 @@ SaveSettings() {
 
    ;Button Bar   
    IniWriteIfBlank(ButtonBar.FontSize,  "User Button Bar", "Font Size")
+   IniWriteIfBlank(ButtonBar.Vertical ? "Vertical" : "Horizontal",  "User Button Bar", "Orientation")
    IniWriteValue(ButtonBar.Enabled,  "Button Bar", "Enabled")
 
    ; Common Shapes
@@ -169,5 +173,5 @@ SaveSettings() {
    IniWriteValue(TextShape.OLAlignment, "Text", "Outline Font Alignment")
    IniWriteValue(TextShape.OLFontSize, "Text", "Outline Font Size")
    IniWriteValue(TextShape.OLFillThickness, "Text", "Outline Width Percent")
-   IniWriteValue(TextShape.OLOpacity, "Text", "Outline Edge Opactiy")
+   IniWriteValue(TextShape.OLOpacity, "Text", "Outline Edge Opacity")
 }
