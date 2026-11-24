@@ -482,6 +482,18 @@ activeMonDPIFactor(useMouse := 1) {
    return Factor
 }
 /**
+ * Return the DPI of the monitor containing a screen point (nearest monitor if none)
+ * @param x Screen X
+ * @param y Screen Y
+ * @returns {Number} DPI (96 = 100%)
+ */
+MonDPIatPoint(x, y) {
+   Static MDT_EFFECTIVE_DPI := 0
+   hMonitor := DllCall("User32\MonitorFromPoint", "Int64", (Integer(y) << 32) | (Integer(x) & 0xFFFFFFFF), "UInt", 2, "Ptr") ; MONITOR_DEFAULTTONEAREST
+   DllCall("Shcore\GetDpiForMonitor", "Ptr", hMonitor, "UInt", MDT_EFFECTIVE_DPI, "UInt*", &dpiX := 0, "UInt*", &dpiY := 0)
+   Return Sqrt(dpiX * dpiY) || A_ScreenDPI
+}
+/**
  * Return the DPI for the monitor under some window
  * Not necessarly the same as WinDPI (for non-DPI aware apps)
  * @param useMouse - 1 if using mouse, 0 if primary monitor 

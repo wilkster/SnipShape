@@ -77,12 +77,14 @@ Class SnipDrag {
          If !(hBitmap := SnipObj.RenderBitmap(Snips.borderWithCopy))
             Return 0
          pData := this.CreateDataObject()
-         file  := this.SaveTemp(SnipObj, hBitmap)
+         ; Every format carries the DPI of the snip's monitor, so apps size it as seen
+         dpi   := MonDPIunderWindow(SnipObj.hWnd)
+         file  := this.SaveTemp(SnipObj, hBitmap, dpi)
          n := 0
          If (file)
-            n += this.SetData(pData, 15, Clipboard.ToHDROP(file))           ; CF_HDROP
-         n += this.SetData(pData, Clipboard.png, Clipboard.ToPNG(hBitmap))   ; registered "PNG"
-         n += this.SetData(pData, 8, Clipboard.ToDIB(hBitmap))               ; CF_DIB
+            n += this.SetData(pData, 15, Clipboard.ToHDROP(file))                ; CF_HDROP
+         n += this.SetData(pData, Clipboard.png, Clipboard.ToPNG(hBitmap, dpi))   ; registered "PNG"
+         n += this.SetData(pData, 8, Clipboard.ToDIB(hBitmap, dpi))               ; CF_DIB
          If (!n)
             Throw Error("No formats could be added to the drag data")
          WinGetPos(&wX, &wY, , , SnipObj.hWnd)
@@ -151,7 +153,7 @@ Class SnipDrag {
     * as a save would be, so a drop in Explorer gets a sensible file name.
     * @returns {String} full path, or "" on failure (the drag goes ahead without a file)
     */
-   Static SaveTemp(SnipObj, hBitmap) {
+   Static SaveTemp(SnipObj, hBitmap, dpi := 0) {
       pBitmap := 0
       Try {
          DirCreate(this.TempDir)
@@ -161,6 +163,8 @@ Class SnipDrag {
          If FileExist(file)   ; still open in whatever took the last drag
             file := this.TempDir "\" SnipObj.BaseName " " A_TickCount ".png"
          pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
+         If (dpi)
+            GDIp.BitmapSetResolution(pBitmap, dpi)
          res := BitMap.SaveBitmapToFile(pBitmap, file)
          Return (res = 0 AND FileExist(file)) ? file : ""
       } Catch as E {

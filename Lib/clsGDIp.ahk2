@@ -1505,6 +1505,16 @@ Class GDIp {
          Warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       Return res
    }
+   /**
+    * Set the resolution (DPI) stored with a GDI+ bitmap; encoders write it to the file
+    * (PNG pHYs), so apps like Office size the picture from it
+    * @param pBitmap GDI+ bitmap
+    * @param dpiX Horizontal DPI
+    * @param dpiY Vertical DPI (default: dpiX)
+    * @returns {Integer} GDI+ status code
+    */
+   Static BitmapSetResolution(pBitmap, dpiX, dpiY?) =>
+      DllCall("gdiplus\GdipBitmapSetResolution", "Ptr", pBitmap, "Float", dpiX, "Float", dpiY ?? dpiX)
 
    ; GraphicsFromHDC
    /**

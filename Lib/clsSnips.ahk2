@@ -659,13 +659,15 @@ Class Snips {
             ; Select and screen capture only
             ; ALWAYS put selection only on the clipboard
             GDI.GetHBitmapDimensions(hBitmap, &W, &H)
+            ; DPI of the monitor the area was on (its centre)
+            dpi := MonDPIatPoint(Area.X + Area.W // 2, Area.Y + Area.H // 2)
             If (SaveFile) {
                msg := "Clipped Area to Clipboard/File: " W " x " H " pixels"
-               this.SaveHBitMapFile(hBitmap, SETTINGS.SavePath_Image)
+               this.SaveHBitMapFile(hBitmap, SETTINGS.SavePath_Image, , dpi)
             } Else {
                msg := "Clipped Area to Clipboard: " W " x " H " pixels"
             }
-            if ((res := Clipboard.SetHBitmapToClipboard(hBitmap)) < 0 )
+            if ((res := Clipboard.SetHBitmapToClipboard(hBitmap, , dpi)) < 0 )
                MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
             qTrayTip(msg, 4, "Click Here to Edit", 6000)
@@ -680,9 +682,10 @@ Class Snips {
     * Errors are passed on to the caller (Snip2File reports them); the GDI+ bitmap
     * and the dialog hook are released either way.
     * @param {Integer} hBitmap - GDI HBITMAP handle to save (not deleted here)
+    * @param {Number} [dpi] - DPI to store in the file (0 = system DPI)
     * @returns {String} Full path of the saved file, or empty string on failure
     */
-   Static ExportHBitMapFile(hBitmap) {
+   Static ExportHBitMapFile(hBitmap, dpi := 0) {
       hook := FileDialogHook()
       pBitmap := 0
       Try {
@@ -690,6 +693,8 @@ Class Snips {
          FileName := lastFolder ? lastFolder . "\Image.png" : "Image.png"
          If (FileName := FileSelect("S", FileName, "Save Snip","Image (*.png; *.bmp; *.jpg;*.tif)")) {
             pBitmap := GDIp.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
+            If (dpi)
+               GDIp.BitmapSetResolution(pBitmap, dpi)
             ; New filename
             If (FileExist(FileName)) {
                Switch MsgBox("The File Exists, do you want to replace it (Yes), Or skip (No)?", FileName, 0x1034) {
@@ -725,11 +730,15 @@ Class Snips {
     * @param {Integer} hBitmap - GDI HBITMAP handle to save
     * @param {String} SavePath - Directory path where the file should be written
     * @param {GuiSnip} [SnipObj] - GuiSnip object used to derive the base filename; if omitted, uses dimensions and a timestamp
+    * @param {Number} [dpi] - DPI to store in the file (0 = the snip's monitor, or system DPI without a snip)
     * @returns {String} Full path of the saved file, or empty string on failure
     */
-   Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?) {
+   Static SaveHBitMapFile(hBitmap, SavePath, SnipObj?, dpi := 0) {
       try {
          pBitmap := Gdip.CreateARGBBitmapFromHBITMAP(hBitmap, 0xE200B)   ; premultiplied in, straight alpha in the file
+         ; Resolution of the monitor it was shown on, so apps size it as seen
+         If (dpi := dpi || (IsSet(SnipObj) ? MonDPIunderWindow(SnipObj.hWnd) : 0))
+            GDIp.BitmapSetResolution(pBitmap, dpi)
          If IsSet(SnipObj) {
             hook := PreDialog(SnipObj)
             baseName := SnipObj.BaseName

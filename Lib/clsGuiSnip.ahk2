@@ -1398,8 +1398,8 @@ Class GuiSnip extends Gui {
       ; picture, and RenderBitmap keeps them (no RoundWindowCorners needed)
       hBitmap := this.RenderBitmap(Borders)
       this.Dirty := 0
-      ; clipboard owns hBitmap now
-      if ((res := Clipboard.SetHBitmapToClipboard(hBitmap)) < 0)
+      ; clipboard owns hBitmap now; DPI of the snip's monitor so apps size it as seen
+      if ((res := Clipboard.SetHBitmapToClipboard(hBitmap, , MonDPIunderWindow(this.hWnd))) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
       Return
    }
@@ -1420,7 +1420,7 @@ Class GuiSnip extends Gui {
          if (savePath)
             FileName := Snips.SaveHBitMapFile(hBitmap, SavePath, this)
          else
-            FileName := Snips.ExportHBitMapFile(hBitmap)
+            FileName := Snips.ExportHBitMapFile(hBitmap, MonDPIunderWindow(this.hWnd))
          this.Dirty := 0
          Return FileName
       } Catch as E {

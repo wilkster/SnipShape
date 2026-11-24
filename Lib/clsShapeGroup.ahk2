@@ -437,7 +437,7 @@ Class ShapeGroup {
       If NOT (rc := this.Bounds(0))
          Return
       hBitmap := this.SnipObj.RenderShapes(this.List, rc, withPicture)
-      If ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+      If ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(this.snipHwnd))) < 0)
          MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
       Else
          this.SnipObj.flashBorder()

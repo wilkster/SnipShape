@@ -84,21 +84,23 @@ Class Clipboard {
     * @param {String} pszText Optional plain text to place on the clipboard alongside the image
     * @returns {Integer} 0 on success, or negative error code on failure
     */
-   Static SetPBitmapToClipboard(TpBitmap, pszText := "") {
+   Static SetPBitmapToClipboard(TpBitmap, pszText := "", dpi := 0) {
       hBitmap := Gdip.CreateARGBHBITMAPFromBitmap(TpBitmap, 0)
       Gdip.DisposeImage(TpBitmap)
       If !hBitmap {
          Return -3
       }
-      return this.SetHBitmapToClipboard(hBitmap, pszText)
+      return this.SetHBitmapToClipboard(hBitmap, pszText, dpi)
    }
    /**
     * Take an hBitmap DIB and put it on the clipboard
     * @param {Integer} hBitmap Handle to bitmap to use; will be discarded after the call
     * @param {String} pszText Optional plain text to place on the clipboard alongside the image
+    * @param {Number} [dpi] DPI of the monitor the picture was shown on, stored in the PNG
+    *        and DIB so apps size it as seen (0 = system DPI)
     * @returns {Integer} 0 on success, or negative error code on failure
     */
-   Static SetHBITMAPToClipboard(hBitmap, pszText := "") {
+   Static SetHBITMAPToClipboard(hBitmap, pszText := "", dpi := 0) {
       ;--------------------------------------------------------------------
       ; Validate we were given a DIB section (DDBs have no bmBits), do this
       ; before touching the clipboard so a bad call doesn't empty it
@@ -135,7 +137,7 @@ Class Clipboard {
       ;--------------------------------------------------------------------
       ; Optional format: on failure warn and continue with BITMAP/DIB.
       ; Never pass a NULL handle, that requests delayed rendering we don't service.
-      If (hPng := this.ToPNG(hBitmap)) {
+      If (hPng := this.ToPNG(hBitmap, dpi)) {
          If not this.SetClipboardData(Clipboard.png, hPng) {
             warning("Clipboard: Failed to set PNG Format")
             this.GlobalFree(hPng) ; only free if failed
@@ -157,7 +159,7 @@ Class Clipboard {
       ;--------------------------------------------------------------------
       ; DIB Format for alpha support and more modern app support
       ;--------------------------------------------------------------------
-      If not (hDIB := this.ToDIB(hBitmap)) {
+      If not (hDIB := this.ToDIB(hBitmap, dpi)) {
          warning("Clipboard: Failed to allocate memory")
          DllCall("CloseClipboard")
          Gdi.DeleteObject(hBitmap)
@@ -229,9 +231,10 @@ Class Clipboard {
     * Pack a DIB section as a CF_DIB block (BITMAPINFOHEADER + pixels) in a moveable
     * global, for the clipboard or a drag data object (the receiver owns it)
     * @param hBitmap DIB section (not changed)
+    * @param {Number} [dpi] Resolution to record in the header (0 = system DPI)
     * @returns {Ptr} HGLOBAL, or 0 if hBitmap isn't a DIB section or allocation failed
     */
-   Static ToDIB(hBitmap) {
+   Static ToDIB(hBitmap, dpi := 0) {
       ds := tagDIBSECTION()
       If (!GDI.GetObject(hBitmap, ds.size, ds.ptr) || !ds.dsBm.bmBits)
          Return 0
@@ -242,15 +245,22 @@ Class Clipboard {
       pDIB := this.GlobalLock(hDIB)
       this.CopyMemory(pDIB, ds.dsBmih.Ptr, ds.dsBmih.Size)                ; header
       this.CopyMemory(pDIB + ds.dsBmih.Size, ds.dsBm.bmBits, imgBytes)   ; pixels
+      ; Resolution: a DIB section has none (0 = readers assume 96 dpi). Write the DPI of
+      ; the monitor the picture was shown on (same as the PNG), or apps that take the DIB
+      ; (Office on a drag-drop, OneNote) show it larger than on screen on a high-DPI
+      ; monitor (1.5x at 150%)
+      ppm := Round((dpi || A_ScreenDPI) / 0.0254)                         ; pixels per metre
+      NumPut("Int", ppm, "Int", ppm, pDIB, 24)                            ; biX/biYPelsPerMeter
       this.GlobalUnlock(hDIB)
       Return hDIB
    }
    /**
     * Convert an hBitmap to PNG format for the clipboard
     * @param hBitmap Input hbitmap to convert
-    * @returns {Float | Integer | String} 
+    * @param {Number} [dpi] Resolution to record in the PNG (0 = system DPI, GDI+'s default)
+    * @returns {Float | Integer | String}
     */
-   Static ToPNG(hBitmap) {
+   Static ToPNG(hBitmap, dpi := 0) {
       ; CreateARGBBitmapFromHBITMAP already handles the 32bpp-alpha-preserving
       ; path vs falling back to CreateBitmapFromHBITMAP -- no manual alpha
       ; handling needed here.
@@ -269,6 +279,8 @@ Class Clipboard {
          ObjRelease(pStream)
          return 0
       }
+      If (dpi)
+         GDIp.BitmapSetResolution(pBitmap, dpi)
       clsid := Buffer(16)
       DllCall("ole32\CLSIDFromString", "WStr", "{557CF406-1A04-11D3-9A73-0000F81EF32E}", "Ptr", clsid, "Int")
       If (res := DllCall("gdiplus\GdipSaveImageToStream", "Ptr", pBitmap, "Ptr", pStream, "Ptr", clsid, "Ptr", 0)) {

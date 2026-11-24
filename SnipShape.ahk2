@@ -133,7 +133,8 @@ ClipActiveWindow(*) {
       hBitmap := BitMap.HBitmapFromHWNDPW(hWnd, 0)
       ; Make the area outside Windows 11's rounded corners transparent
       BitMap.RoundWindowCorners(hBitmap, BitMap.WindowCornerRadius(hWnd))
-      if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+      ; DPI of the window's monitor, so apps size the picture as it was on screen
+      if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(hWnd))) < 0)
          MsgBox("Failed To Set Clipboard Data " res, "Clipboard", 0x30)
 
       qTrayTip("Captured Active Window to clipboard", 4, "Click Here to Edit", 6000)

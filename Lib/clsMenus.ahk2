@@ -640,7 +640,7 @@ Class ShapeMenus {
             } Else {
                hBitmap := GDI.CopyImage(shapeObj.Handle)
             }
-            if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap)) < 0)
+            if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(shapeObj.hWnd))) < 0)
                MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
 
          Case ItemName ~= "Clear":

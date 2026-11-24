@@ -217,6 +217,8 @@ taking a screen capture, so:
   border stay opaque, as they appear on screen.
 - Transparent rounded corners (e.g. from a Windows 11 window capture) stay transparent.
 - Saved snips remember their transparency and restore it when reopened for editing.
+- Copied, dragged and saved pictures record the DPI of the monitor the snip is on, so Office and other apps that use
+  it show the picture at the size it appears on screen (including on high-DPI and mixed-DPI setups).
 
 #### Dragging a snip into another app
 
