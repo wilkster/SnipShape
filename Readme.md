@@ -2,30 +2,36 @@
 
 **SnipShape** is a lightweight screen-capture utility written in
 **AutoHotkey 2.1**. It provides an alternative to the Windows Snipping Tool while
-using much fewer system resources (~2MB when idle).
+using far fewer system resources (~2MB when idle).
 
 The tool captures a screen region and immediately displays it as an **overlay
 GUI positioned directly over the captured area**. This overlay can be edited in
 place using annotation and shape tools, allowing you to quickly highlight or
 mark up the captured content without opening additional windows.
 
-Full Undo/Redo capabilties, as well as PNG files that are saved with sidecar
-data, to allow round trip editing while still preserving the normal PNG
-Screenshot/annotation data for use in other applications.
+Editing works differently from most editors: moving the cursor over a shape
+shows its focus rectangle, and you can move or resize it right away without
+clicking on it first.
 
-SnipShape is originally based on the AutoHotkey **Snipper** concept by keeping
+It has full Undo/Redo, and saves PNG files with sidecar data to allow round-trip
+editing, while still preserving the normal PNG screenshot/annotation data for use
+in other applications.
+
+SnipShape was originally based on the AutoHotkey **Snipper** concept of keeping
 the editing surface directly on the screen rather than moving the image to a
 separate editor or clipboard. Powerful annotation tools are provided to further
-markup the snip.
+mark up the snip.
 
 - [SnipShape Screen Capture and Annotation Tool](#snipshape-screen-capture-and-annotation-tool)
   - [Credits](#credits)
   - [Requirements](#requirements)
   - [Installation](#installation)
+    - [Ready-to-run (no AutoHotkey needed)](#ready-to-run-no-autohotkey-needed)
+    - [From the source](#from-the-source)
   - [Snipping Overview](#snipping-overview)
     - [Snip Annotation Examples](#snip-annotation-examples)
     - [One step capture - hold down activation keys](#one-step-capture---hold-down-activation-keys)
-    - [Two Step capture - Hotkey to initiate snipping, the click-drag to select, similar to built-in snipper](#two-step-capture---hotkey-to-initiate-snipping-the-click-drag-to-select-similar-to-built-in-snipper)
+    - [Two Step capture - Hotkey to initiate snipping, then click-drag to select, similar to the built-in snipper](#two-step-capture---hotkey-to-initiate-snipping-then-click-drag-to-select-similar-to-the-built-in-snipper)
     - [While dragging the mouse to create a snip](#while-dragging-the-mouse-to-create-a-snip)
     - [Other snipping actions that don't use the mouse](#other-snipping-actions-that-dont-use-the-mouse)
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
@@ -42,7 +48,7 @@ markup the snip.
   - [Freehand drawing](#freehand-drawing)
   - [Highlighters](#highlighters)
   - [Redaction and obscuring](#redaction-and-obscuring)
-  - [Text tools - Text is entered via a dialog box allowing you set text options](#text-tools---text-is-entered-via-a-dialog-box-allowing-you-set-text-options)
+  - [Text tools - Text is entered via a dialog box allowing you to set text options](#text-tools---text-is-entered-via-a-dialog-box-allowing-you-to-set-text-options)
     - [Callouts](#callouts)
   - [Colors](#colors)
   - [Snip Tools](#snip-tools)
@@ -60,7 +66,9 @@ markup the snip.
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
+    - [Moving Shapes](#moving-shapes)
     - [Deleting Shapes](#deleting-shapes)
+    - [Resizing Shapes](#resizing-shapes)
     - [Clicking on Shapes](#clicking-on-shapes)
     - [Selecting a group of shapes](#selecting-a-group-of-shapes)
   - [Tray Menu options](#tray-menu-options)
@@ -84,20 +92,29 @@ Additional contributors are referenced in the source code.
 
 ## Requirements
 
-**Autohotkey 2.1 Alpha 29** or later (some 2.1 features are used including **structures**)
-**Windows 8 or Later** to support child layered windows.
+- **AutoHotkey 2.1 Alpha 29** or later (some 2.1 features are used, including **structures**)
+- **Windows 8 or later** to support child layered windows
 
 ## Installation
 
+### Ready-to-run (no AutoHotkey needed)
+
+Download [SnipShapeUnZip.zip](https://github.com/wilkster/SnipShape/releases/latest/download/SnipShapeUnZip.zip)
+from the latest release, extract it to a local folder, and run `SnipShape.exe`. The zip holds the compiled program
+with its `Cursors` and `Stickies` folders. Earlier versions are on the
+[Releases](https://github.com/wilkster/SnipShape/releases) page.
+
+### From the source
+
 1. Clone or download a zip of the repository to a local folder.
-2. Extract the files to a local folder
-3. If you have ahk2 associated with Autohotkey 2.1 alpha, then just click on the
-`SnipShape.ahk2` file in the base folder. You may rename the SnipShape.ahk2
-extension to SnipShape.ahk or something else if you are using a different file
-association. Do not rename the other **Authotkey** files as they are referenced in
+2. Extract the files to a local folder.
+3. If you have ahk2 associated with AutoHotkey 2.1 alpha, then just click on the
+`SnipShape.ahk2` file in the base folder. You may rename SnipShape.ahk2 to
+SnipShape.ahk or something else if you are using a different file
+association. Do not rename the other **AutoHotkey** files, as they are referenced in
 include files.
 
-A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) will appear. You may have to un-hide it in the tray if it is initially hidden by Windows.
+A tray icon like this ![image](https://github.com/user-attachments/assets/cefc4ca7-0a56-4161-82e4-4cd6d2e19176) will appear. You may have to unhide it in the tray if it is initially hidden by Windows.
 
 - **Left-click**: Opens the SnipShape menu
 - **Right-click**: Opens the default AutoHotkey menu
@@ -109,8 +126,9 @@ Additional tray icon options are shown in [Tray Menu Options](#tray-menu-options
 ### Snip Annotation Examples
 ![alt text](Snips/Example1.png)
 
-|![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)|
-|![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)|
+![image](https://github.com/user-attachments/assets/fd92e254-630b-4a71-8e19-38bf83763307)
+
+![image](https://github.com/user-attachments/assets/5735443f-1795-4545-ac45-db7e03526897)
 
 SnipShape supports **two methods for capturing a screen region**.
 
@@ -120,32 +138,32 @@ Current key assignments for screen selection (can be modified in the `SnipShape.
 
 | **Global HotKey** | **Action**                                                                                                                                                      |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ctrl-Win          | Then drag selection to create a snip                                                                                                                            |
+| Ctrl-Win          | Then drag a selection to create a snip                                                                                                                          |
 | Alt-Win           | Then drag a selection to copy to the clipboard directly.<br>You can click the tray message to edit the snip if desired or directly paste into your application. |
 
-### Two Step capture - Hotkey to initiate snipping, the click-drag to select, similar to built-in snipper
+### Two Step capture - Hotkey to initiate snipping, then click-drag to select, similar to the built-in snipper
 
-- Activation will change cursor (and optionally dim/freeze screen)
+- Activation changes the cursor (and optionally dims/freezes the screen)
 - Selection is done with mouse button-drag-release
 
-| **Global HotKey** | **Action**                                                            |
-| ----------------- | --------------------------------------------------------------------- |
-| Left Win-s        | Initiates a snip and changes the cursor to a cross.                   |
-| Left Win-z        | Initiates a snip to copy to the clipboard (like built in capability). |
-| Left Win-o        | Initiates a OCR of the user selection                                 |
+| **Global HotKey** | **Action**                                                                |
+| ----------------- | ------------------------------------------------------------------------- |
+| Left Win-s        | Initiates a snip and changes the cursor to a cross.                       |
+| Left Win-z        | Initiates a snip to copy to the clipboard (like the built-in capability). |
+| Left Win-o        | Initiates an OCR of the user selection.                                   |
 
 ### While dragging the mouse to create a snip
 
-- Holding `shift` key down forces a square capture
-- Holding `space` bar or right mouse button down will allow shifting of the entire box as you draw it
-- `Esc` key will abort the snipping operation
-- If the selected area is very small the snip will be ignored.
+- Holding the `Shift` key down forces a square capture.
+- Holding the `Space` bar or the right mouse button down lets you shift the entire box as you draw it.
+- The `Esc` key aborts the snipping operation.
+- If the selected area is very small, the snip is ignored.
 
 ### Other snipping actions that don't use the mouse
 
 | **Global HotKey** | **Action**                                                                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Shift-PrtScn      | To capture current window to the clipboard (Windows 11 rounded corners are transparent)                                                                                                          |
+| Shift-PrtScn      | To capture the current window to the clipboard (Windows 11 rounded corners are transparent)                                                                                                      |
 | Alt-PrtScn        | To create a snip of the current window (Windows 11 rounded corners are kept and the snip border follows them)                                                                                    |
 | Ctrl-PrtScn       | To create a snip of the current monitor screen                                                                                                                                                   |
 | Shift-Win-e       | To create a snip of the current clipboard: its image, or if there is none, each image file copied to the clipboard (e.g. Ctrl-C on picture files in Explorer)                                    |
@@ -156,7 +174,7 @@ reopens with its shapes still editable.
 
 ### Hotkeys on Snip Surface
 
-Right-click over Snip blank area should show a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
+Right-clicking a blank area of a snip shows a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
 
 One option is to paste in a small picture from the Stickies subfolder of the distribution. You can add/remove your own bitmaps in the Stickies folder created during installation.
 
@@ -168,17 +186,17 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-J                   | Save the snip to both the clipboard and Screenshot folder                                                                |
 | Ctrl-V                   | Try to paste a new picture shape from the clipboard as either a bitmap (if available), or text (if bitmap not available) |
 | Ctrl-P                   | Open a dialog box to add a picture from a file as a new shape                                                            |
-| Ctrl-D                   | Clone the current snip and shapes if on snip background, if focus is on a shape, it will duplicate the shape             |
-| Shift-Del                | will remove all the shapes on a Snip                                                                                     |
+| Ctrl-D                   | Clone the current snip and shapes if on the snip background; if focus is on a shape, duplicate the shape                 |
+| Shift-Del                | Remove all the shapes on a snip                                                                                          |
 | Ctrl-A                   | Select all the shapes on the snip as a group, see [Selecting a group of shapes](#selecting-a-group-of-shapes)            |
 | Shift-Drag               | Select the shapes inside the dragged rectangle as a group (Ctrl+Shift-Drag in a drawing mode)                            |
 | Shift-Click on a shape   | Add the shape to the group, or take it out if it is already in                                                           |
 | Ctrl-Drag                | Drag a copy of the snip and shapes into another app (Explorer, Word, a browser upload box...), see [Dragging a snip into another app](#dragging-a-snip-into-another-app) |
 | Ctrl-O                   | OCR the text to lines of text                                                                                            |
-| Ctrl-T                   | OCR the text to html table                                                                                               |
+| Ctrl-T                   | OCR the text to an HTML table                                                                                            |
 | Ctrl-I                   | Invert the Snip Colors                                                                                                   |
 | Ctrl-B                   | Black and White the Snip Colors                                                                                          |
-| Ctrl-G                   | Gray Scale the Snip Colors                                                                                               |
+| Ctrl-G                   | Grayscale the Snip Colors                                                                                                |
 | Ctrl-L                   | Stretch Contrast of the Snip                                                                                             |
 | Ctrl-Z                   | Undo the last snip action                                                                                                |
 | Ctrl-Y                   | Redo the last undo action on the snip                                                                                    |
@@ -187,7 +205,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | = / -                    | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | Ctrl-Scroll Wheel        | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | Alt-Scroll Wheel         | Adjust the transparency (Alpha) of the visible snip bitmap. It is kept when copying/saving and restored when a saved snip is reopened |
-| RMB (Right Mouse Button) | Will bring up a menu with additional options for the snip                                                                |
+| RMB (Right Mouse Button) | Brings up a menu with additional options for the snip                                                                    |
 
 #### Copying and saving
 
@@ -216,7 +234,7 @@ itself stays where it is; only the cursor moves, with a small picture of the sni
 
 ## Toolbar - F1 to toggle while snip active
 
-|![image](https://github.com/user-attachments/assets/74d88463-941b-41e9-b2d3-7046232f8f8e)
+![alt text](Snips/toolbar.png)
 
 A toolbar can appear above each active snip to provide quick access to common actions and annotation tools.
 
@@ -257,9 +275,9 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 
 | Key   | Action                                                  |
 | ----- | ------------------------------------------------------- |
-| V     | Creates an arrow from end to arrow-head                 |
+| V     | Creates an arrow from end to arrowhead                  |
 | A     | Creates a single outlined arrow                         |
-| &#92; | Creates an tapered outline arrow from end to arrow-head |
+| &#92; | Creates a tapered outline arrow from end to arrowhead   |
 | J     | Creates a freehand outlined arc arrow (with slow bends) |
 | /     | Creates a double outline arrow                          |
 
@@ -293,13 +311,13 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | Key | Action                                                                |
 | --- | --------------------------------------------------------------------- |
 | W   | Free-Hand White Out Pen in background color, shift to stay on an axis |
-| S   | Free-Hand Smudge Pen to blur underneath, shift to stay on axis        |
+| S   | Free-Hand Smudge Pen to blur underneath, shift to stay on an axis     |
 | X   | Block/Redact rectangle with color under the cursor                    |
 | I   | Pixelate Rectangle, good for text obscuring                           |
 | B   | Blur Rectangle, good for photo obscuring                              |
 | G   | Gaussian Blur Rectangle, good for text obscuring                      |
 
-## Text tools - Text is entered via a dialog box allowing you set text options
+## Text tools - Text is entered via a dialog box allowing you to set text options
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
@@ -307,8 +325,8 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | T          | Add Text to cursor location                                                              |
 | U          | Add Outline Text to cursor location                                                      |
 | F          | Add Text with adaptive translucent background to stand out from busy backgrounds         |
-| <          | Text inside a left point arrow                                                           |
-| >          | Text inside a right point arrow                                                          |
+| <          | Text inside a left-pointing arrow                                                        |
+| >          | Text inside a right-pointing arrow                                                       |
 
 ### Callouts
 
@@ -317,14 +335,14 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 Text shapes (Tag, Text, Outline Text and Fill Text) can point at something with a callout. Arrow text does not
 have one, since it already points.
 
-- Each of these shows a small round handle inside its box (near the bottom centre) when it has focus.
+- Each of these shows a small round handle inside its box (near the bottom center) when it has focus.
   Drag that handle out of the box and a callout follows it to where you release. Drag it back inside the box to
   remove the callout.
 - The callout style depends on the text type:
   - **Tag**: the circle and its tail form a filled pin.
   - **Fill Text with a border** (Rectangle / Rounded Rectangle / Ellipse): a triangular tail with the same fill, and one border
     running around both the box and the tail.
-  - **Text, Outline Text and Fill Text without a border**: a straight arrow in the text colour, from the edge of the
+  - **Text, Outline Text and Fill Text without a border**: a straight arrow in the text color, from the edge of the
     box to the tip.
 - Moving a callout:
   - Drag the **text box** to move just the text; the tip stays where it points.
@@ -336,7 +354,7 @@ have one, since it already points.
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
-| 1-9        | To set the drawing color of the next/active shape (also while drawing & resizing). Will also change text/shape color if shape has the focus rectangle. |
+| 1-9        | Sets the drawing color of the next/active shape (also while drawing & resizing). Also changes the text/shape color if the shape has the focus rectangle. |
 
 ## Snip Tools
 
@@ -344,41 +362,42 @@ have one, since it already points.
 | --- | ------------------------------------------------------------------------------- |
 | C   | Cropping rectangle to make the current snip smaller by cropping it to selection |
 | O   | OCR the selected area                                                           |
-| K   | Slice out the selected area of Snip                                             |
+| K   | Slice out the selected area of the snip                                         |
 | Q   | Extend the snip using the background color under the cursor                     |
 
 ### Toolbar Menus to create shapes
 
 #### Arrow Shapes
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/59ed9a88-ea3b-4612-b9cf-43feddea85b8"/>
+![alt text](Snips/arrowmenu.png)
 
 #### Line/Connector/Rectangle/Ellipse Shapes/Bracket
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/75659e76-b3df-449b-89da-4b475b7fdee5"/>
+![alt text](Snips/shapemenu.png)
 
 #### Free pen shapes
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/c49524e1-227b-44f9-9916-aa8157d11b46"/>
+![alt text](Snips/penmenu.png)
 
 #### Highlighter shapes
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/b86dd264-367f-41db-94ae-c72ef5dc9270"/>
+![alt text](Snips/highlightmenu.png)
 
 #### Redact/Obfuscate shapes
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/cbb2445b-5e4b-4e3c-8875-3b81ed634db2"/>
+![alt text](Snips/redactmenu.png)
 
 #### Text shapes (text/tag/fill/outline/arrow text), Text entered via a dialog box.
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/72a71a6f-5e66-471c-86d7-32678318f93d"/>
+![alt text](Snips/textmenu.png)
 
 #### Tool menu
 
-<img width="200" alt="image" src="https://github.com/user-attachments/assets/9d2c7488-3bc6-436b-9ed1-3dec837eabba"/>
+![alt text](Snips/toolmenu.png)
 
 #### Color menu, LMB to select color, RMB to customize color
-<img width="200" height="200" alt="image" src="https://github.com/user-attachments/assets/65817b48-6d98-410c-ac2b-8a495eddf9f6" />
+
+![alt text](Snips/colorpicker.png)
 
 ### Drawing/Resizing Shapes
 
@@ -408,8 +427,8 @@ shape instead of resizing it. Undo/redo, duplicating and saving keep the new sha
 | Shape                                   | Control point                    | Dragging it                                                                                     |
 | --------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Line, Arrow, Outline Arrow, Double Arrow, Tapered Arrow | Middle of the line | Bends the line into a smooth curve through that point. Drag it back near the straight line to straighten it again. Arrowheads follow the curve. |
-| Bracket                                 | Tip of the centre triangle       | Along the bracket moves the triangle; away from or towards the bracket makes it deeper or shallower. |
-| Connector                               | Middle of the centre segment     | Slides the middle segment left/right (or up/down), between the two ends.                        |
+| Bracket                                 | Tip of the center triangle       | Along the bracket moves the triangle; away from or towards the bracket makes it deeper or shallower. |
+| Connector                               | Middle of the center segment     | Slides the middle segment left/right (or up/down), between the two ends.                        |
 | Text shapes                             | Callout tip                      | See [Callouts](#callouts).                                                                       |
 
 ## Hovering and Focus Rectangle
@@ -427,13 +446,13 @@ shape instead of resizing it. Undo/redo, duplicating and saving keep the new sha
 
 - When you hover over a shape, a focus rectangle appears around it. This
 indicates the shape can be moved, resized, or adjusted. The cursor will change
-to a resize icon or hand icon depending on where you hover.
+to a resize icon or open hand icon depending on where you hover.
 - Resize a shape by clicking and dragging one of the resize handles (shown with
 the resize cursor). All shapes and text objects can be resized this way.
 - Move a shape by clicking and dragging the focus rectangle when the hand cursor is displayed.
-- Use the arrow keys (Up, Down, Left, Right) to move the shape without using the
+- When hovering, use the arrow keys (Up, Down, Left, Right) to move the shape without using the
 mouse. Movement snaps to the grid.
-- Use the mouse scroll wheel to adjust properties of the selected shape:
+- When hovering, use the mouse scroll wheel to adjust properties of the selected shape:
   - Line thickness for drawn shapes
   - Text size for text shapes
   - Blur or pixelation level for obscure shapes
@@ -456,24 +475,29 @@ While hovering over a shape, you can also use the hotkeys listed below to perfor
 
 ### Text / Graphics
 
-- Hit T/U key over snip and dialog box to add text to current mouse location
-- Hit ^P key over snip to select a graphic from a folder to add to current mouse location
-- RMB on snip to select a graphic using the menu to current mouse location (other options as well)
-Moving Shapes
-- Grab one of the sides or object itself to move it around
+- Press T or U over a snip to open a dialog box and add text at the current mouse location.
+- Press Ctrl-P over a snip to select a graphic from a folder and add it at the current mouse location.
+- RMB on a snip to add a graphic from the menu at the current mouse location (other options as well).
+
+### Moving Shapes
+
+- Grab one of the sides or the object itself to move it around.
 
 ### Deleting Shapes
 
-- If focus rectangle is active and a shape is highlighted then Del key will remove it
-r- Shift-Del will remove all shapes on a ship
-- RMB on Snip area, select Clear all Shapes (Shift-Del) in the menu selection Resizing Shapes
-- Enabling focus rectangle will help locate edges and resize points
-- Grab corner to resize in that direction, shift key maintains aspect ratio or square/linear
-- While resizing shapes you can use up/down to change the line thickness (when it applies)
+- If the focus rectangle is active and a shape is highlighted, the Del key removes it.
+- Shift-Del removes all shapes on a snip.
+- RMB on the snip area and select Clear all Shapes (Shift-Del) in the menu.
+
+### Resizing Shapes
+
+- Enabling the focus rectangle helps locate edges and resize points.
+- Grab a corner to resize in that direction; the Shift key maintains the aspect ratio (or square/linear).
+- While resizing shapes, you can use Up/Down to change the line thickness (when it applies).
 
 ### Clicking on Shapes
 
-- Right Mouse Button on shape will bring up a shape specific menu with additional functions.
+- The right mouse button on a shape brings up a shape-specific menu with additional functions.
 - On a numbered Tag, **Renumber Tags** renumbers the snip's numbered tags 1, 2, 3... in their current order, closing any
   gaps left by deleted tags. Tags whose text you edited to something else are left alone, each tag stays where it is, the next
   tag you add continues the sequence, and a single undo restores the old numbers.
@@ -483,22 +507,22 @@ r- Shift-Del will remove all shapes on a ship
   scheme its tags already use; the default for a snip with no tags is set on the button bar (RMB on the text button >
   **Tag Number Scheme**). Renumber Tags keeps each tag's scheme.
 - On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
-  Left/Right Arrow Text). The text, font and color are kept, the shape stays centred where it was, and a single undo
+  Left/Right Arrow Text). The text, font and color are kept, the shape stays centered where it was, and a single undo
   changes it back.
 - **&lt;Shape&gt; Properties** sets that shape's own opacities and outline style, with the same choices as the
   button bar defaults (right-click a button bar category), and the shape's current value checked. For example:
   opacity, fill and outline opacity (shapes, arrows, pens, highlighters), the outline thickness factor (rectangles,
-  ellipses and outlined arrows), text, tag centre and outline edge opacity
+  ellipses and outlined arrows), text, tag center and outline edge opacity
   (text shapes), and for Fill Text its border opacity and outline (Rectangle, Rounded Rectangle, Ellipse or None).
-  Each change can be undone. Thickness and blur amount are not here: use the thickness/amount entries, the Up/Down
-  keys or the mouse wheel.
-- Ctrl-click to clone a copy of the object (except for free-hand shapes), also Ctrl-D on shape
+  Each change can be undone. Thickness and blur amount are not here: use the thickness/amount entries, the mouse
+  wheel (when hovering), or the Up/Down keys while clicking on the shape.
+- Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape
 - Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
 - Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)
-- Click on a shape and the up/down arrow key will adjust border thickness, blur amount
-- OCR - Uses Descolada's OCR engine to read text from snip
+- Click on a shape and use the Up/Down arrow keys to adjust the border thickness or blur amount
+- OCR - Uses Descolada's OCR engine to read text from a snip
   - Read lines of text, with line breaks as shown
-  - Read words of text, that only have line breaks at paragraph breaks, good of pasting
+  - Read words of text, with line breaks only at paragraph breaks (good for pasting)
   - Read table text attempting to create an HTML table that represents each cell (with limitations)
   - Press O (or button-bar icon) to select a region of a snip to put the OCR on the clipboard
 
@@ -530,14 +554,14 @@ keep their own colors.
 
 ## Tray Menu options
 
-Left clicking on the SnipShape Tray Icon brings up the following choices
+Left-clicking the SnipShape tray icon brings up the following choices:
 
-<img width="300" alt="image" src="https://github.com/user-attachments/assets/5f01e6b9-d382-43d4-89cf-f2237b70b69a"/>
+![alt text](Snips/traymenu.png)
 
 - Initiate snip or clipboard selection
 - OCR selection to clipboard (Words, Lines or Table)
 - Freeze Screen Before Selection (toggle)
-- Dim Screen When Selecting - similar to built in snipping tool (toggle)
+- Dim Screen When Selecting - similar to the built-in snipping tool (toggle)
 - Show snip guides when selecting (toggle)
 - Snips Always On Top (toggle)
 - Confirm Snip Close if it has Shapes (toggle)
@@ -545,27 +569,27 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 - Auto Save clips to the screenshot folder on snip (toggle)
 - Include Border With Clipboard Copy (toggle)
 - Include Border With File Save (toggle)
-- Open Saved Snips dialog to retrieve a prior saved snip or screenshot, if snip has shapes the will be editable when re-opened
+- Open Saved Snips dialog to retrieve a previously saved snip or screenshot; if the snip has shapes, they will be editable when reopened
 - Edit Settings File in Notepad to edit additional settings
 
 ## Configuration Files
 
 - By default a configuration file called SnipShape.ini is created in your local AppData folder.
-- Most of the options are set via the Tray Menu and Toolbar, however some options may only be modified by editing the file. Restart is required after changing these. You can direct edit the SnipShape.ini file from the tray icon menu `Edit Settings File`.
-  - `[User Shape Color]`, custom colors 1 through 20. Named colors or hex RGG (e.g 0xCE1126) are allowed.
+- Most of the options are set via the Tray Menu and Toolbar; however, some options can only be changed by editing the file. A restart is required after changing these. You can edit the SnipShape.ini file directly from the tray icon menu `Edit Settings File`.
+  - `[User Shape Color]`, custom colors 1 through 20. Named colors or hex RGB (e.g. 0xCE1126) are allowed.
   - `[User Snips]`, location of the cursor files, saved snip files and icon clips that are available from the snip menu.
     - `SnipPath` - default is user\Pictures\Screenshots folder
     - `IconPath` - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
     - `CursorPath` - default is the Cursors subfolder of the installation, these are used as icons & cursors throughout the program.
     - `Border Width` is used to adjust width of snip borders. Fractional sizes are allowed. Default is 2.0.
-    - `Vertical Sync on Select` - Set to 1 to prevent artifacts rectangles when drawing. Only needed if they appear on your system. Default is 0.
+    - `Vertical Sync on Select` - Set to 1 to prevent rectangle artifacts when drawing. Only needed if they appear on your system. Default is 0.
   - `[User Shapes]`, Shape related settings.
     - `ScaleFreehand` - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
     - `Padding` - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
   - `[User Button Bar]`, size of the button bar font/buttons
     - `Font Size` - increase or decrease to change the default size of the Toolbar icons. Default is 8.0. Fractional sizes are allowed.
   - The Tray menu allows you to edit these directly in Notepad.
-- Optional Keycode Bindings, these are defaults so not shown unless you add them. Notification menu select Edit Settings File to add them
+- Optional key bindings: these are defaults, so they aren't shown in the file unless you add them. Select Edit Settings File from the tray menu to add them.
 
 - Below are the various global hotkeys and their default values.
 
@@ -577,7 +601,7 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 | `EditClipboard=+#e`              | Create a snip of the clipboard image, or of each image file copied to the clipboard                 |
 | `SnipAndEditClipboard=+#c`       | If there is an active selection, copy it and create a snip of it (an image or selected image files) |
 | `ShowHideAllSnips=!F12`          | Toggle view state of any active snip windows (minimize/restore)                                     |
-| `SnipArea2Step1=<#S`             | Start the snip an area of the screen using two step method                                          |
+| `SnipArea2Step1=<#S`             | Start a snip of an area of the screen using the two step method                                     |
 | `ClipArea2Step=<#Z`              | Start the clipboard capture of an area of the screen using the two step method                      |
 | `OCRArea2Step1=<#O`              | Start an OCR of an area of the screen using the two step method                                     |
 | `SnipArea1Step1=^#Lbutton`       | Start a snip of the screen using the one step method (keep hotkey down while dragging)              |
@@ -585,4 +609,4 @@ Left clicking on the SnipShape Tray Icon brings up the following choices
 
 ## Limitations/Future
 
-- Reszing a Snip always uses the 100% verison as the base to scale, so changes to the snip made after scaling may not stay if the snip is resized again (expanding, trimming, cropping, pixel color changes). Working on a solution to this.
+- Improved shape editing toolbar
