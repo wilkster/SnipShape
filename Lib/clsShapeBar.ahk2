@@ -404,7 +404,7 @@ Class ShapeBar {
    Static Click() {
       ; The color popup is open (the bar doesn't take the focus, so it stays): close it
       If (this.menuSnip) {
-         If IsWindowVisible(ColorPopDown.colorGui.hWnd) {
+         If ColorPopDown.IsShown {
             ColorPopDown._hideMe()
             WinActivate(this.menuSnip)
          }
@@ -598,7 +598,7 @@ Class ShapeBar {
    }
    Static _WatchColors() {
       hwnd := this.menuSnip
-      If IsWindowVisible(ColorPopDown.colorGui.hWnd)
+      If ColorPopDown.IsShown
          Return
       fg := DllCall("GetForegroundWindow", "Ptr")
       ; A color dialog of this script (right-click on a color): wait for it

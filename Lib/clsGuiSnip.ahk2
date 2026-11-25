@@ -128,9 +128,12 @@ Class GuiSnip extends Gui {
          focusBorder.HideFocus()
          if (Snips.VisibleSnips() = 0)
             ButtonBar.Hide()
-         ; Force windows to reclaim (used for checkking for memory leaks)
-         if (Snips.guiSnips.Count == 0)
+         if (Snips.guiSnips.Count == 0) {
+            ; The last snip is gone: free the color popup until a drawing tool is used again
+            ColorPopDown.Release()
+            ; Force windows to reclaim (used for checkking for memory leaks)
             DllCall("psapi\EmptyWorkingSet", "ptr", -1)
+         }
       }
       Return 1
    }

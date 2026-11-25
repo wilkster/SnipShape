@@ -182,6 +182,10 @@ Class Snips {
             ShapeSelect.Clear()
          ; Properties of the shape to draw, above the snip
          ShapeBar.Update(SnipObj)
+         ; The color popup is made when the first drawing tool is chosen (after the bar is
+         ; up; about 130 ms, once) and released when the last snip closes (GuiSnip.Destroy)
+         If (val)
+            ColorPopDown.Build()
          return hWnd
       } Else {
          debug("Did not see " hex(hWnd) " in the snip list, Exists=" hex(WinExist(hWnd)))

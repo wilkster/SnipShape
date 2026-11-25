@@ -13,9 +13,13 @@ Class ColorPopDown {
    Static colorNameArray   := Array() ; Index -> name (tool tips only)
    Static colorValArray    := Array() ; Index -> Color value in decimal
    Static colorPicControls := Array() ; Index -> Pic Control
-   Static smallerIconsObj  := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
-   Static circledIconsObj  := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
-   Static largerIconsObj   := ImageList() ; Index -> hIcon (in an image list, do we still need?) 3 gdi resources
+   ; The popup window and its icons exist only while snips are being drawn on: Build() when
+   ; a drawing tool is first chosen (or the popup is first shown), Release() when the last
+   ; snip closes. About 114 GDI + 73 USER objects and 1.8 MB, so a plain snip never pays.
+   Static colorGui         := 0
+   Static smallerIconsObj  := 0 ; ImageList: Index -> hIcon
+   Static circledIconsObj  := 0 ; ImageList: Index -> hIcon
+   Static largerIconsObj   := 0 ; ImageList: Index -> hIcon
    Static smallerIcon      := 1
    Static circledIcon      := 2
    Static largerIcon       := 3
@@ -23,23 +27,18 @@ Class ColorPopDown {
    Static DPIFactor        := activeDPIFactor()
    Static callback         := 0  ; called with the color picked (ShowColorPopup)
    Static MaxIndex         := 36
+   Static circleSize       := 0
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
-      ; Scalle circle size with the size of the font/buttons for the button bar
-      bs := round(this.DPIFactor * (FontSize / 0.36))
-      this.init(bs)
-      logGDI("Built Color Buttons")
+      ; Scale circle size with the size of the font/buttons for the button bar
+      this.circleSize := round(this.DPIFactor * (FontSize / 0.36))
+      this._LoadColors()
    }
    /**
-    * Initialize (one time) the color GUI and build the colors
-    * @param bs Color Circle Size
-    * @param parent Parent GUI (needed?)
+    * Read the color values and names from the settings file (cheap, kept for the session:
+    * GuiSnip.ReplaceSnipBGColor uses the values without the popup)
     */
-   Static Init(bs) {
-      logGDI("Creating Color GUI")
-      this.circleSize := bs
-      ; This are the background colors for the light/dark windows menus
-      this.smallerIconsObj.Size := this.circledIconsObj.Size := this.largerIconsObj.Size := this.circleSize
+   Static _LoadColors() {
       Loop this.MaxIndex {
          ColorName := IniReadValue("User Shape Color", "Color " A_Index, 123)
          If ColorName = 123 {
@@ -50,21 +49,59 @@ Class ColorPopDown {
             Color := RGBval(ColorName)
          }
          ; Descriptive Name
-         name := "Set " ColorName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color " A_Index)
-         ; Save this information by use in the shape class
-         this.colorNameArray.push(name)
+         this.colorNameArray.push("Set " ColorName . (A_Index < 10 ? " color (" . A_Index . ")" :  " color " A_Index))
          ; Last index is reserved for color wheel / color picker
-         If (A_Index == this.MaxIndex)
+         this.colorValArray.push(A_Index == this.MaxIndex ? RGBval(-1) : Color)
+      }
+   }
+   /**
+    * True if the popup window exists (see Build/Release)
+    * @type {Integer}
+    */
+   Static IsBuilt => this.colorGui != 0
+   /**
+    * True if the popup is built and showing
+    * @type {Integer}
+    */
+   Static IsShown => this.colorGui AND IsWindowVisible(this.colorGui.hWnd)
+   /**
+    * Make the icons and the popup window, if they don't exist (measured 125-150 ms:
+    * about 50 ms for the 108 icons, the rest for the window and its 36 picture controls)
+    */
+   Static Build() {
+      If this.colorGui
+         Return
+      logGDI("Creating Color GUI")
+      this.smallerIconsObj := ImageList(), this.circledIconsObj := ImageList(), this.largerIconsObj := ImageList()
+      this.smallerIconsObj.Size := this.circledIconsObj.Size := this.largerIconsObj.Size := this.circleSize
+      For Index, Color in this.colorValArray {
+         ; Last index is the color wheel / color picker
+         If (Index == this.MaxIndex)
             Color := -1
          ; Save in an image list (this consumes then discards the icon)
-         this.smallerIconsObj[A_Index] := this._BuildAColor(Color,1)
-         this.circledIconsObj[A_Index] := this._BuildAColor(Color,2)
-         this.largerIconsObj[A_Index]  := this._BuildAColor(Color,3)
-         this.colorValArray.push(RGBval(Color))
+         this.smallerIconsObj[Index] := this._BuildAColor(Color,1)
+         this.circledIconsObj[Index] := this._BuildAColor(Color,2)
+         this.largerIconsObj[Index]  := this._BuildAColor(Color,3)
       }
-      ; Build the GUI
-      this._BuildColorPopup() ; 32 ms
+      this._BuildColorPopup()
       logGDI("Created Color GUI")
+   }
+   /**
+    * Destroy the popup window and its icons (the last snip closed). The color values stay.
+    */
+   Static Release() {
+      If NOT this.colorGui
+         Return
+      If this.IsShown
+         ToolTip
+      this.colorGui.Destroy()
+      this.colorGui         := 0
+      this.colorPicControls := Array()
+      this.lastControl      := 0
+      this.callback         := 0
+      ; Dropping the ImageList objects destroys their image lists (ImageList.__Delete)
+      this.smallerIconsObj  := this.circledIconsObj := this.largerIconsObj := 0
+      logGDI("Released Color GUI")
    }
    Static _PrepColorPopup(defColor) {
       for idx, ctrl in this.colorPicControls {
@@ -105,6 +142,9 @@ Class ColorPopDown {
     * Not used for menus, only for buttons
     */
    Static ShowColorPopup(callback?, defColor?, parent:=0, *) {
+      ; Normally built when a drawing tool was chosen; a selected shape or the text
+      ; dialog can ask for it without one
+      this.Build()
       If (IsSet(callback))
          this.callback := callback ; used by _colorPicked
       ; Renable active window tracking
@@ -227,8 +267,7 @@ Class ColorPopDown {
    }   
    /**
     * Build a borderless popup GUI showing color circles in a grid.
-    * Built once; shown/positioned on demand near the color button.
-    * Only called once per session
+    * Called by Build; shown/positioned on demand near the color button.
     * @param {Integer} bs - button/icon size in px
     */
    Static _BuildColorPopup() {
@@ -395,6 +434,8 @@ Class ColorPopDown {
     * Hide the color selector as well as turn off activate callback
     */
    Static _hideMe() {
+      If NOT this.colorGui
+         Return
       this.colorGui.Opt("-Owner")
       this.colorGui.Hide()
    }
