@@ -1057,11 +1057,12 @@ Class TextShape extends CommonShape {
     * Change this text to another text type (e.g. Text to Fill Text), keeping its text,
     * font, color and centre. One undo step restores the type and position.
     * @param {Integer} newShape - Shapes.SHAPE_* text type
+    * @param {String} [undoTag] - Undo tag when several shapes are changed as one step
     */
-   ChangeType(newShape) {
+   ChangeType(newShape, undoTag := "") {
       If (newShape = this.Shape)
          Return
-      undoTag := UnDo.NewTag("TextType")
+      undoTag := undoTag || UnDo.NewTag("TextType")
       ; Text, then position (same order as RenumberTags)
       this.PostAction(UnDo.TEXT_CHANGE, undoTag)
       this.PostAction(UnDo.MOVE_SHAPE, undoTag)
@@ -1282,6 +1283,7 @@ Class TextShape extends CommonShape {
       Return {
          sCoord        : this.sCoord.clone(),
          sPad          : this.sPad.clone(),
+         shapeThickness: this.shapeThickness,
          _fontSize     : this._fontSize,
          _ogFontSize   : this._ogFontSize,
          Tip           : IsObject(this.Tip) ? this.Tip.Clone() : ""

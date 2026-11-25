@@ -311,6 +311,10 @@ Some defaults are shared by several kinds of shape:
 - **Sliders**: drag the knob, click the track, or turn the mouse wheel over it. Press `Esc` while dragging to put the old
   value back. Right-click for a list of preset values.
 - **Lists** (font, style, alignment, ...): click to choose, or turn the mouse wheel over it.
+- **Type**: for selected text shapes, changes them to another text type (Text, Fill Text, Outline Text, Tag, Left/Right
+  Arrow Text). The text, font and color are kept, the shapes stay centered where they were, and a single undo changes
+  them back. It doesn't react to the wheel.
+- **Edit** (left of the clipboard icon, for a selected text shape): edit the text, the same as Alt-click.
 - The bar moves below the snip when there is no room above it. Drag its icon to move it out of the way.
 - `F1` shows or hides the shape bar together with the toolbar.
 
@@ -520,6 +524,7 @@ mouse. Movement snaps to the grid.
   - Line thickness for drawn shapes
   - Text size for text shapes
   - Blur or pixelation level for obscure shapes
+- Arrow key and scroll wheel changes can be undone. A run of key presses or wheel notches is a single undo step.
 - When a shape has an active focus rectangle, right-click to open a context menu
 with options specific to that shape. You can also use keyboard shortcuts to
 perform operations on the shape. Available options vary by shape type.
@@ -585,9 +590,6 @@ The hotkeys while hovering over a shape, or with one selected:
   is, and a single undo changes them back. Letters continue past Z as AA, AB, ... New tags on a snip continue the
   scheme its tags already use; the default for a snip with no tags is set on the button bar (RMB on the text button >
   **Tag Number Scheme**). Renumber Tags keeps each tag's scheme.
-- On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
-  Left/Right Arrow Text). The text, font and color are kept, the shape stays centered where it was, and a single undo
-  changes it back.
 - Thickness, blur amount, opacities and outline are on the [shape bar](#shape-bar): click the shape to select it. You can
   also use the mouse wheel (when hovering), or the Up/Down keys while clicking on the shape.
 - Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape

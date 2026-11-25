@@ -53,14 +53,14 @@ Class ShapeBar {
    Static _sig     := ""      ; what the cells were laid out for
    Static _valSig  := ""      ; values last drawn
    Static _cancel  := false   ; Esc pressed while dragging
-   Static _wheel   := 0       ; last wheel change of a group {Key, Tick, Depth}
+   Static _wheel   := 0       ; last wheel change of shapes {Key, Tick, Id}
    Static _icons   := Map()   ; button icons by file and size
    ; Titles that are too long for a cell
    Static ShortTitles := Map("outlineThickFactor", "Outline Width", "FillOutline", "Border",
       "TCOpacity", "Center Opacity", "TagScheme", "Numbering", "OLOpacity", "Edge Opacity",
       "OLBlur", "Edge Blur", "OLFillThickness", "Edge Width")
    ; Cell widths (at 96 DPI) of lists, by Param
-   Static ListWidths := Map("FontName", 124, "FillOutline", 116)
+   Static ListWidths := Map("FontName", 124, "FillOutline", 116, "TextType", 128)
 
    Static __New() {
       this._hoverTimer := this._CheckHover.Bind(this)
@@ -117,11 +117,17 @@ Class ShapeBar {
                sig .= "," ShapeObj.Shape
             }
          }
+         defs := this._GroupDefs(types)
+         If this._AllText(ShapeGroup.List)
+            defs.InsertAt(1, this._TypeDef())
          Return { Group: true, Single: 0, Shape: types.Length = 1 ? types[1] : 0, Count: ShapeGroup.List.Length
-            , Defs: this._GroupDefs(types), Color: color, Sig: sig }
+            , Defs: defs, Color: color, Sig: sig }
       }
       If (ShapeSelect.SnipObj = SnipObj AND (s := ShapeSelect.Current)) {
-         Return { Group: true, Single: s, Shape: s.Shape, Count: 0, Defs: this._GroupDefs([s.Shape])
+         defs := this._GroupDefs([s.Shape])
+         If this._AllText([s])
+            defs.InsertAt(1, this._TypeDef())
+         Return { Group: true, Single: s, Shape: s.Shape, Count: 0, Defs: defs
             , Color: ShapeGroup._HasColor(s), Sig: "S" ShapeSelect.Id "," s.Shape }
       }
       If (mode := SnipObj.DrawMode) {
@@ -154,6 +160,21 @@ Class ShapeBar {
       }
       Return defs
    }
+   Static _AllText(list) {
+      For ShapeObj in list
+         If (ShapeObj.Source != "Text")
+            Return false
+      Return list.Length > 0
+   }
+   /**
+    * Definition of the Type list of selected text shapes (TextShape.ChangeType)
+    */
+   Static _TypeDef() {
+      names := []
+      For tType in TextShape.Types
+         names.Push(TextShape.TypeName(tType))
+      Return { Key: "TextType", Title: "Type", Param: "TextType", Unit: "", Values: names, Apply: "Type", Range: 0 }
+   }
    ; New shapes of this type have a color that can be set (whiteout and redact sample theirs)
    Static _DrawHasColor(mode) => Shapes.ColorCat.Has(mode)
    Static _Place(SnipObj, content, X?, Y?) {
@@ -165,7 +186,7 @@ Class ShapeBar {
       sX := X ?? sX, sY := Y ?? sY
       Mon  := windowMonArea(hwnd)
       zoom := WinDPI(hwnd) / 96
-      maxW := Min(Max(sW, Round(820 * zoom)), Mon.X2 - Mon.X)
+      maxW := Min(Max(sW, Round(900 * zoom)), Mon.X2 - Mon.X)
       this.SnipObj  := SnipObj
       this.snipHwnd := hwnd
       If (this._sig != content.Sig OR this.Scale != zoom OR this._maxW != maxW) {
@@ -186,7 +207,7 @@ Class ShapeBar {
          bb := { X: bX, Y: bY, W: bW, H: bH }
       }
       pos := this.BarPos(sX, sY, sW, sH, Mon, bb)
-      this._Render(pos.X, pos.Y)
+      this._Render(pos.X, pos.Y, true)
    }
    /**
     * The selection may have changed (ShapeGroup/ShapeSelect.Sync, every 200 ms): shapes dropped or their
@@ -262,6 +283,8 @@ Class ShapeBar {
          cells.Push({ Kind: isSlider ? "Slider" : "List", Def: d, W: this._Px(isSlider ? 128 : this.ListWidths.Get(d.Param, 86)) })
       }
       If (shp := content.Single) {
+         If (shp.Source = "Text")
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Edit.ico", Tip: "Edit text (Alt-Click)", Action: (*) => shp.EditDispText() })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
       } Else If (content.Group) {
@@ -271,8 +294,19 @@ Class ShapeBar {
       this.Items := [{ Kind: "Icon", Def: 0, X: pad, Y: pad, W: icoW, H: rowH }]
       left := pad + icoW + gap
       X := left, Y := pad, right := left
+      ; The buttons stay together: width of the block they need from the first one on
+      btnW := 0, inBtns := false, total := left
       For cell in cells {
-         If (X > left AND X + cell.W + pad > maxW)
+         btnW  += (cell.Kind = "Button") ? cell.W + gap : 0
+         total += cell.W + gap
+      }
+      ; If it takes more than one row anyway, text starts the second one with its opacities
+      split := (total - gap + pad > maxW)
+      For cell in cells {
+         need := (cell.Kind = "Button" AND NOT inBtns) ? btnW - gap : cell.W
+         inBtns := (cell.Kind = "Button")
+         opac := (split AND Y = pad AND cell.Def AND cell.Def.Param = "TextOpacity")
+         If (X > left AND (opac OR X + need + pad > maxW))
             X := left, Y += rowH + gap
          cell.X := X, cell.Y := Y, cell.H := rowH
          this.Items.Push(cell)
@@ -398,7 +432,8 @@ Class ShapeBar {
    Static Wheel(dir) {
       If NOT (idx := this._MouseItem(&x, &y))
          Return
-      If NOT (d := this.Items[idx].Def)
+      ; Not the text type: a stray notch would change the shape
+      If (NOT (d := this.Items[idx].Def) OR d.Apply = "Type")
          Return
       cur := this._Get(d)
       If IsObject(d.Range) {
@@ -492,6 +527,8 @@ Class ShapeBar {
       M   := Menu()
       For val in d.Values {
          M.Add(val, this._ValuePicked.Bind(this, d))
+         If (d.Apply = "Type")
+            Try M.SetIcon(val, SETTINGS.CursorPath . val . ".cur")
          If (val = cur AND NOT mixed)
             M.Check(val)
       }
@@ -628,6 +665,11 @@ Class ShapeBar {
       If NOT this.Group
          Return [ShapeStyles.GetDefault(d.Key)]
       list := []
+      If (d.Apply = "Type") {
+         For ShapeObj in this._List()
+            list.Push(TextShape.TypeName(ShapeObj.Shape))
+         Return list
+      }
       For ShapeObj in this._List()
          If (key := d.Keys.Get(ShapeObj.Shape, ""))
             list.Push(ShapeStyles.GetValue(ShapeObj, key))
@@ -665,6 +707,10 @@ Class ShapeBar {
     *   property make one undo step
     */
    Static SetValue(d, value, wheel := false) {
+      If (d.Apply = "Type") {
+         this._SetType(value)
+         Return
+      }
       value := IsNumber(value) ? Number(value) : value
       If (this._Get(d, &mixed) = value AND NOT mixed AND NOT this._Differs(d, value))
          Return
@@ -672,15 +718,38 @@ Class ShapeBar {
          this._SetAll(d, value)   ; only the default
          Return
       }
-      stack := this.SnipObj.UnDo.undoStack
+      hist  := this.SnipObj.UnDo
       lw    := this._wheel
-      ; Nothing else was posted since (Depth) and not long ago
-      If NOT (wheel AND lw AND lw.Key = d.Key AND lw.Depth = stack.Length AND A_TickCount - lw.Tick < 1500)
+      ; Nothing else was posted, undone or redone since (Id) and not long ago
+      If NOT (wheel AND lw AND lw.Key = d.Key AND lw.Id AND lw.Id = hist.TopId AND A_TickCount - lw.Tick < UnDo.RUN_MS)
          this._PostUndo(d)
-      this._wheel := wheel ? { Key: d.Key, Tick: A_TickCount, Depth: stack.Length } : 0
+      this._wheel := wheel ? { Key: d.Key, Tick: A_TickCount, Id: hist.TopId } : 0
       this._SetAll(d, value)
       If NOT wheel
          this._Finish()   ; also the auto clipboard copy, too slow for each notch
+   }
+   /**
+    * Change the selected text shapes to another text type, one undo step
+    * @param {String} name - type name (TextShape.TypeName)
+    */
+   Static _SetType(name) {
+      newType := 0
+      For tType in TextShape.Types
+         If (TextShape.TypeName(tType) = name)
+            newType := tType
+      tag := UnDo.NewTag("TextType"), changed := 0
+      For ShapeObj in this._List() {
+         If (newType AND ShapeObj.Source = "Text" AND ShapeObj.Shape != newType) {
+            ShapeObj.ChangeType(newType, tag)
+            changed++
+         }
+      }
+      If NOT changed
+         Return
+      ShapeGroup._resizePosted := false
+      this._SyncBox()
+      this.Update(this.SnipObj)   ; the new type has other properties
+      this._Finish()
    }
    ; Any shape the property applies to has another value (a shape drawn with Alt, say)
    Static _Differs(d, value) {
@@ -819,7 +888,11 @@ Class ShapeBar {
       WinGetPos(&wX, &wY,,, this.hWnd)
       this._Render(wX, wY)
    }
-   Static _Render(sX, sY) {
+   /**
+    * @param {Integer} raise - bring it to the top too: only when it is shown or placed. A
+    *   redraw (hover, values) must not, it would cover an open menu
+    */
+   Static _Render(sX, sY, raise := false) {
       Surf := this.Draw()
       this._valSig := this._ValueSig()
       ; The first Show sizes and centres the window itself, so give it the box first
@@ -828,7 +901,8 @@ Class ShapeBar {
       Surf.UpdateLayer(sX, sY)
       ; above the (topmost) snip, which is raised when it is activated:
       ; HWND_TOPMOST, SWP_NOMOVE|NOSIZE|NOACTIVATE
-      DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+      If (raise AND NOT this.menuSnip)
+         DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
       Surf := ""
    }
    /**

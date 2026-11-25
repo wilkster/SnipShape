@@ -521,6 +521,8 @@ Class Shapes {
             ;----------------------------------------------------------------------
             Switch {
                Case this.ColorQueue.Length:
+                  If (ResizeMode)
+                     ShapeObj.PostAction(UnDo.SHAPE_COLOR)
                   ShapeObj.SetColor(this.ColorQueue.Pop())
                Case GetKeyState("Up", "P"):
                   ; Arrow key can real time change the width of the pens
@@ -903,6 +905,7 @@ Class Shapes {
                Sleep(10)
                
                If (this.ColorQueue.Length) {
+                  ShapeObj.PostAction(UnDo.SHAPE_COLOR)
                   ShapeObj.SetColor(this.ColorQueue.Pop())  ; works on active pen
                   ShapeObj.Refresh()           ; not needed for all shapes
                }
@@ -991,8 +994,8 @@ Class Shapes {
             focusBorder.UnBlockMe()
          }
       } Else {
-         ShapeObj.PostAction(Undo.MOVE_SHAPE)
-
+         ; Undo is posted with the first change: a plain click (select) posts nothing
+         posted := false
          ;-----------------------------------------------------
          ;               Move the control
          ;-----------------------------------------------------
@@ -1015,6 +1018,7 @@ Class Shapes {
             MouseGetPos(&mouseNew.X, &mouseNew.Y)
             dX := mouseNew.X - mouseLast.X, dY := mouseNew.Y - mouseLast.Y
             if ((abs(dx) + abs(dy)) > 0) {
+               PostMove()
                nX := mouseNew.X + controlOffset.X, nY := mouseNew.Y + controlOffset.Y
                If (moveTip)
                   ShapeObj.Tip := { X: tipStart.X + nX - shapeStart.X, Y: tipStart.Y + nY - shapeStart.Y }
@@ -1033,11 +1037,13 @@ Class Shapes {
             ; Arrow key can real time change the width of the pens
             ;----------------------------------------------------------------------
             If (GetKeyState("Up","P")) {
+               PostMove()
                ShapeObj.shapeThickness *= 1.02 ; line/shape borders
                ShapeObj.Factor         *= 1.05 ; blur/pixelate
                ShapeObj.Refresh()
                focusBorder.Sync()
             } Else If (GetKeyState("Down","P")) {
+               PostMove()
                ShapeObj.shapeThickness *= .98 ; line/shape borders
                ShapeObj.Factor         *= .95 ; blur/pixelate
                ShapeObj.Refresh()
@@ -1060,6 +1066,13 @@ Class Shapes {
       }
       ShapeObj.Gui.Dirty++
       Return
+
+      ; Move undo, once, before the first change
+      PostMove() {
+         If NOT posted
+            ShapeObj.PostAction(UnDo.MOVE_SHAPE)
+         posted := true
+      }
    }
 
    /**

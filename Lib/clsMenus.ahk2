@@ -389,11 +389,9 @@ Class ShapeMenus {
    Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
       Static shapeMenu   := Menu()
       Static subMenu1    := Menu()
-      Static typeMenu    := Menu()
       Static schemeMenu  := Menu()
       shapeMenu.Delete()
       subMenu1.Delete()
-      typeMenu.Delete()
       schemeMenu.Delete()
       PC := PeerCount(ShapeObj)
       ; Shape specific
@@ -437,16 +435,6 @@ Class ShapeMenus {
                      schemeMenu.Check(scheme)
                }
             }
-            ; Change to another text type
-            shapeMenu.Add("Change Type", typeMenu)
-            shapeMenu.SetIcon("Change Type", SETTINGS.CursorPath . "Text.cur")
-            For tType in TextShape.Types {
-               tName := TextShape.TypeName(tType)
-               typeMenu.Add(tName, TextType.Bind(tType))
-               Try typeMenu.SetIcon(tName, SETTINGS.CursorPath . tName . ".cur")
-               If (ShapeObj.Shape = tType)
-                  typeMenu.Check(tName)
-            }
             ShapeMenu.Add()
             If (PC > 1)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
@@ -466,17 +454,12 @@ Class ShapeMenus {
       shapeMenu.Show()
       shapeMenu.Delete()
       subMenu1.Delete()
-      typeMenu.Delete()
       schemeMenu.Delete()
 
       Return
 
       TagScheme(scheme,*) {
          Shapes.SetTagScheme(ShapeObj.Gui, scheme)
-         focusBorder.Sync(ShapeObj)
-      }
-      TextType(tType,*) {
-         ShapeObj.ChangeType(tType)
          focusBorder.Sync(ShapeObj)
       }
    }

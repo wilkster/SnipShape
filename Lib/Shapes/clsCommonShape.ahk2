@@ -439,6 +439,19 @@ Class commonShape extends Gui.Pic {
       this.SnipObj.UnDo.PostAction(this, what, tag)
    }
    /**
+    * Post an undo action for one of a run of small changes (see UnDo.PostRun)
+    * @param what Action
+    */
+   PostRun(what) {
+      this.SnipObj.UnDo.PostRun(this, what)
+      this.Gui.Dirty++
+   }
+   /**
+    * True if the wheel and Up/Down change something: not pictures, redact or block highlight
+    * @type {Integer}
+    */
+   CanThicken => NOT (this.Shape <= 0 OR this.Shape = Shapes.SHAPE_REDAC OR this.Shape = Shapes.SHAPE_HILITE)
+   /**
     * Undo the last undo action off the stack
     */
    PopAction() {

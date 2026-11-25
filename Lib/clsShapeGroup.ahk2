@@ -427,11 +427,12 @@ Class ShapeGroup {
    Static Thicken(amt) {
       If NOT this.Active
          Return
-      If NOT this._resizePosted {
+      ; One step per run; a new one if anything was posted, undone or redone since
+      If NOT (this._resizePosted AND this._resizePosted = this.SnipObj.UnDo.TopId) {
          tag := UnDo.NewTag("GroupSize")
          For ShapeObj in this.List
             ShapeObj.PostAction(UnDo.RESIZE_SHAPE, tag)
-         this._resizePosted := true
+         this._resizePosted := this.SnipObj.UnDo.TopId
       }
       For ShapeObj in this.List {
          ShapeObj.ChangeThickness(amt)

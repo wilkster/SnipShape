@@ -28,7 +28,8 @@ Class UnDo {
    Static MOVE_SNIP     :=  9
    Static ZOOM_SNIP     := 10   ; zoom only: stores the zoom and window position, no picture
    Static SHAPE_STYLE   := 11   ; opacity/thickness/outline style props (StyleInfo)
-   ; SHAPE_THICKNESS is tricky since it is incrementally done so would tie up the stack
+   ; Thickness etc. changed in small steps (wheel, arrow keys) posts once per run, see PostRun
+   Static RUN_MS    := 1500 ; longest pause within a run
    Static MAX_DEPTH := 100  ; cap stack depth, oldest entries dropped first
    Static _tagSeq   := 0
    /**
@@ -104,7 +105,7 @@ Class UnDo {
       ; debug("Posting " action " with tag " Tag)
       this._clearStack(this.redoStack)
       data := this._CaptureData(action, obj)
-      item := { obj: obj, action: action, data: data , tag: Tag}
+      item := { obj: obj, action: action, data: data , tag: Tag, id: ++UnDo._tagSeq}
       this.undoStack.push(item)
       ; dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
 
@@ -114,6 +115,28 @@ Class UnDo {
          this._clearItem(item)
       }
       ButtonBar.SyncUndoRedo()
+   }
+
+   /**
+    * Number of the last posted entry, 0 if there is none or it came from undo/redo.
+    * Tells whether anything was posted, undone or redone since (a plain number: holding
+    * the entry itself would keep the shape and snip alive).
+    * @type {Integer}
+    */
+   TopId => (this.undoStack.Length AND this.undoStack[-1].HasOwnProp("id")) ? this.undoStack[-1].id : 0
+   /**
+    * Post an entry for one of a run of small changes (wheel notches, arrow keys): only the
+    * first posts, the whole run undoes as one step. A pause, or anything else posted,
+    * undone or redone, starts a new run.
+    * @param obj Shape Object
+    * @param action
+    */
+   PostRun(obj, action) {
+      Static last := { hWnd: 0, action: 0, id: 0, tick: 0 }
+      If NOT (last.hWnd = obj.hWnd AND last.action = action AND last.id AND last.id = this.TopId
+              AND A_TickCount - last.tick < UnDo.RUN_MS)
+         this.PostAction(obj, action)
+      last := { hWnd: obj.hWnd, action: action, id: this.TopId, tick: A_TickCount }
    }
 
    ; ===================== P R I V A T E  M E T H O D S  B E L O W ==============================
