@@ -76,10 +76,6 @@ Class ButtonBar {
          this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
 
       logGDI("Built Shape Buttons")
-      ; Default color for all shapes: shows the last one set, click to change it
-      this.colorButton := this.AddBarButton(this._Next(o), Settings.CursorPath . "colors.ico", round(bs*.75), "Set Color of All Shapes (1-9)", , PickAColor)
-      this.ShowColor()
-      
       padded := round(cH*.7)
       b := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
       b := this.AddBarButton(this._Next(o),     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
@@ -110,31 +106,7 @@ Class ButtonBar {
       this.bbgui.Hide()
       logGDI("ButtonBar Complete")
 
-      Return
-      
-      PickAColor() {
-         ; Save and restore any recent drawing modes
-         drawMode := this.SnipObj.PriorDrawMode
-         ColorPopDown.ShowColorPopup(this.colorPicked.bind(this), RGBval(Shapes.globalShapeColor), this.bbGui.hWnd)
-         if (drawMode)
-            Snips.SetDrawMode(drawMode, this.SnipObj.hwnd)
-      }
    }
-
-      /**
-    * Handle a color circle click: a selected shape group takes the color, otherwise it
-    * becomes the default color of all categories (Shapes.SetAllColors).
-    * @param {Integer} clr - RGB color value chosen
-    */
-   Static colorPicked(cb, clr, *) {
-      ; debug("colorPicked " hex(clr))
-      If (ShapeGroup.Active)
-         ShapeGroup.SetColor(RGBval(clr))
-      Else
-         Shapes.SetAllColors(RGBval(clr))
-      if (this.SnipObj)
-         WinActivate(this.SnipObj.hWnd)
-   } 
    /**
     * Control options that place the next button after the last one
     * @param {Integer} gap - space before it (px)
@@ -210,13 +182,6 @@ Class ButtonBar {
       this.MenuShapes.Delete()
    }
 
-   /**
-    * Show the default color on the color button (and on the shape bar)
-    */
-   Static ShowColor() {
-      this.colorButton.SetImg("HICON:" ColorPopDown._BuildAColor(RGBval(Shapes.globalShapeColor), ColorPopDown.circledIcon))
-      ShapeBar.Redraw()
-   }
    /**
     * Handle a shape button click by queuing the selected shape name,
     * updating lastShape, and briefly showing a tooltip confirmation

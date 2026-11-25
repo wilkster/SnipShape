@@ -9,7 +9,7 @@
  * box the click looks through it to the shape underneath. Shift-click on a
  * resize handle still resizes (Shift keeps the aspect ratio). While the group is up:
  *   - drag inside the box moves every shape (one undo step)
- *   - right-click the box: copy, color (fly-out), size, delete
+ *   - right-click the box: copy, delete
  *   - Up/Down and the mouse wheel change each shape's size/thickness (as for a
  *     single focused shape); Del deletes; Ctrl-C copies; Esc or a click
  *     anywhere else on the snip clears the group; 1-9 color keys recolor it
@@ -481,38 +481,11 @@ Class ShapeGroup {
       grpMenu.Add("Copy " title " Only (Transparent)", (*) => this.CopyToClipboard(false))
       grpMenu.SetIcon("Copy " title " Only (Transparent)", SETTINGS.CursorPath "Clipboard.ico")
       grpMenu.Add()
-      ; Color fly-out (ColorPopDown shows it for an item with "Color" in its text)
-      defColor := -1
-      For ShapeObj in this.List {
-         If this._HasColor(ShapeObj) {
-            defColor := RGBval(ShapeObj.Color)
-            Break
-         }
-      }
-      If (defColor >= 0) {
-         grpMenu.Add("Shape Color`t❯", (*) => {})
-         grpMenu.SetIcon("Shape Color`t❯", SETTINGS.CursorPath "colors.ico")
-      }
-      grpMenu.Add("Increase Size (Up/Wheel)", (*) => this.Thicken(+0.1))
-      grpMenu.SetIcon("Increase Size (Up/Wheel)", SETTINGS.CursorPath "Plus.ico")
-      grpMenu.Add("Decrease Size (Down/Wheel)", (*) => this.Thicken(-0.1))
-      grpMenu.SetIcon("Decrease Size (Down/Wheel)", SETTINGS.CursorPath "Minimize.ico")
-      grpMenu.Add()
       grpMenu.Add("Delete " title " (Del)", (*) => this.Delete())
       grpMenu.SetIcon("Delete " title " (Del)", SETTINGS.CursorPath "Close.ico")
-      If (defColor >= 0)
-         ColorPopDown.RegisterFlyOutColorSelect(this._ColorPicked.Bind(this), defColor)
       ; Blocks here
       grpMenu.Show()
-      ColorPopDown.RegisterFlyOutColorSelect()
       grpMenu.Delete()
-   }
-   ; ColorPopDown calls this.callback(color), so the first parameter is ColorPopDown
-   Static _ColorPicked(cb, colorCode, *) {
-      snip := this.SnipObj
-      this.SetColor(colorCode)
-      If (snip)
-         WinActivate(snip.hWnd)
    }
 
    ;----------------------------------------------------------------------

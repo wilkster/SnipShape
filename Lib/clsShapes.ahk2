@@ -206,37 +206,12 @@ Class Shapes {
       this.shapeBBMenu.Delete()
       ; Style defaults of this category (ShapeStyles.BarMenus)
       ShapeStyles.AddBarMenu(this.shapeBBMenu, btn)
-      Switch btn {
-         Case "Highlighters":
-            this.shapeBBMenu.Add('')
-            ; Set default highlighter color
-            this.shapeBBMenu.Add("Set Highlighter Color", (*) => {})
-            this.shapeBBMenu.SetIcon("Set Highlighter Color", SETTINGS.CursorPath . "colors.ico") ; 
-         Case "Tool":
-            ; IDEA - OCR capture default (lines/rows/table)
-      }
-      ; Track menu for color selections with callback when color is chosen
-      ColorPopDown.RegisterFlyOutColorSelect(Shapes.colorPicked.bind(this), Shapes.highlightColor)
+      ; IDEA - Tool category: OCR capture default (lines/rows/table)
       this.shapeBBMenu.Show()
-      ColorPopDown.RegisterFlyOutColorSelect()
-
       ; Blocks here
       this.shapeBBMenu.Delete()
    }
 
-   /**
-    * @description Menu callback and color select callback to change highlight color
-    */
-   ; Static PickAColor(*) {
-   ;    cb :=  Shapes.colorPicked.bind(this)
-   ;    ; The color chooser then calls the cb
-   ;    ColorPopDown.ShowColorPopup(cb, RGBval(this.highlightColor), ButtonBar.SnipObj.hWnd)
-   ; }
-   Static colorPicked(cb, colorCode, *) {
-      this.highlightColor := colorCode
-      if (ButtonBar.SnipObj)
-         WinActivate(ButtonBar.SnipObj.hWnd)
-   }
    /**
     * @description Looks up a shape name string in the ShapeName array and returns its
     *   1-based index (shape number). Used to convert a queued command name into the
@@ -1285,7 +1260,7 @@ Class Shapes {
       this.globalShapeColor := clr
       For cat in this.CatColors.Clone()
          this.CatColors[cat] := clr
-      ButtonBar.ShowColor()
+      ShapeBar.Redraw()
    }
    /**
     * @description Color key (1-9). A selected group takes the color; a shape being drawn,

@@ -416,9 +416,8 @@ Arrows, shapes (lines and boxes), free hand pens, text, tags and highlighters ea
 which is remembered.
 
 - The **shape bar** color and the number keys set the color of the kind of shape you are drawing.
-- The **toolbar** color button (and the number keys in select mode) sets the color of all kinds at once, except the
-  highlighters.
-- With a group selected, the keys and the color buttons recolor the group and leave the colors for new shapes alone.
+- The number keys in select mode set the color of all kinds at once, except the highlighters.
+- With a group selected, the keys and the shape bar color recolor the group and leave the colors for new shapes alone.
 - Redact shapes take their color from the picture.
 
 ## Snip Tools
@@ -589,13 +588,8 @@ The hotkeys while hovering over a shape, or with one selected:
 - On any text shape, **Change Type** switches it to another text type (Text, Fill Text, Outline Text, Tag,
   Left/Right Arrow Text). The text, font and color are kept, the shape stays centered where it was, and a single undo
   changes it back.
-- **&lt;Shape&gt; Properties** sets that shape's own opacities and outline style, with the same choices as the
-  button bar defaults (right-click a button bar category), and the shape's current value checked. For example:
-  opacity, fill and outline opacity (shapes, arrows, pens, highlighters), the outline thickness factor (0 = no outline; rectangles,
-  ellipses and outlined arrows), text, tag center and outline edge opacity
-  (text shapes), and for Fill Text its border opacity and outline (Rectangle, Rounded Rectangle, Ellipse or None).
-  Each change can be undone. Thickness and blur amount are not here: use the thickness/amount entries, the mouse
-  wheel (when hovering), or the Up/Down keys while clicking on the shape.
+- Thickness, blur amount, opacities and outline are on the [shape bar](#shape-bar): click the shape to select it. You can
+  also use the mouse wheel (when hovering), or the Up/Down keys while clicking on the shape.
 - Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape
 - Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
 - Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)
@@ -626,7 +620,7 @@ aspect ratio.
 | 1-9 color keys             | Recolors the group                                                                           |
 | Del                        | Deletes the group                                                                            |
 | Ctrl-C                     | Copies the group, with the snip picture under it, to the clipboard                           |
-| RMB on the box             | Menu: copy (with the picture, or the shapes only on a transparent background), shape color fly-out, size up/down, delete |
+| RMB on the box             | Menu: copy (with the picture, or the shapes only on a transparent background), delete |
 | Esc, or click outside the box | Clears the selection                                                                      |
 
 Each of these is a single undo step. Pictures and blur/pixelate shapes are moved, sized and deleted with the group but

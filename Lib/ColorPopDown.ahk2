@@ -21,7 +21,7 @@ Class ColorPopDown {
    Static largerIcon       := 3
    Static lastControl      := 0
    Static DPIFactor        := activeDPIFactor()
-   Static defaultColor     := 0
+   Static callback         := 0  ; called with the color picked (ShowColorPopup)
    Static MaxIndex         := 36
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
@@ -29,7 +29,6 @@ Class ColorPopDown {
       bs := round(this.DPIFactor * (FontSize / 0.36))
       this.init(bs)
       logGDI("Built Color Buttons")
-      this.callbackFlyOutColorSelect := ColorPopDown._FlyOutColorSelect.bind(ColorPopDown)
    }
    /**
     * Initialize (one time) the color GUI and build the colors
@@ -86,10 +85,6 @@ Class ColorPopDown {
       ; If users leaves mouse down while dragging over controls,
       ; allow releasing of the buttton over a control select that color
       ; Similar to how menus work.
-      ; BUG button up hotkey this is not working on flyouts, probably due to menu bind handling
-      ; One solution would to poll while the window is shown and detect a mouse up (GetKeyState("LButton", "P")
-      ; and if over an active control then consider it picked.
-      ; Works fine for the case the button bar lanuches it
       Hotkey("~LButton Up", HK_LButtonUp, "On")
       ; Debug("Registered Hotkey")
       Return
@@ -132,30 +127,6 @@ Class ColorPopDown {
       SetWindowTop(this.colorGui.hwnd)
       ; Let the user keep mouse down and drag/release over a color
    }   
-   /**
-    * Register/deregister to handle menu based color flyouts
-    * The popup is shown when the menu message is received
-    * Call this with a callback to run when color is selected, the menu.show(), then call again with no parameters
-    * @param callback Callback with flyout color select picks a color, otherwise resets the OnMessage
-    * Leave parameters blank to degegister the OnMessage handler
-    */
-   Static RegisterFlyOutColorSelect(callback?, defColor?) {
-      If (isset(callback)) {
-         this.callback := callback ; used by _colorPicked
-         If (IsSet(defColor)) {
-            ; this.defaultColor := defColor
-            this._PrepColorPopup(defColor)
-         }
-         ; _FlyOutColorSelect
-         OnMessage(0x011F, this.callbackFlyOutColorSelect, 1) ; WM_MENUSELECT
-      } Else {
-         OnMessage(0x011F, this.callbackFlyOutColorSelect, 0) ; WM_MENUSELECT
-         this.callback := 0
-      }
-   }
-
-
-
    /**
     * Build a specific color
     * 3 GDI + 1 user resource per icon
@@ -426,110 +397,5 @@ Class ColorPopDown {
    Static _hideMe() {
       this.colorGui.Opt("-Owner")
       this.colorGui.Hide()
-   }
-   /**
-    * Message handler for 0x011F, menu item select
-    * When the menu item for Color is selected show a flyout color selector like it was a menu flyout
-    * @param wParam Id and Flags
-            LOWORD = item ID (or item position, if MF_POPUP flag is set)
-            HIWORD = flags (MF_POPUP, MF_MOUSESELECT, MF_HILITE, 0xFFFF+lParam=0 on menu close)
-    * @param lParam handle of the menu currently being tracked
-    * @param msg msg number
-    * @param hwnd snip window handle
-    */
-   Static _FlyOutColorSelect(wParam, lParam, msg, hwnd) {
-      flags := (wParam >> 16) & 0xFFFF
-      idOrPos := wParam & 0xFFFF
-      ; Closing / nothing highlighted
-      If (lParam = 0 && flags = 0xFFFF) {
-         if IsWindowVisible(this.colorGui.hwnd)
-            this._hideMe()
-         Return
-      }
-      ; A submenu (popup) is highlighted, not our leaf item — hide ours if open
-      If (flags & 0x10) {  ; MF_POPUP
-         if IsWindowVisible(this.colorGui.hwnd)
-            this._hideMe()
-         Return
-      }
-      ; Look for Color as a keyword in the menu
-      If ((flags & 0xFF) == 0x80) {  ; MF_HILITE
-         menuString := GetMenuItemTextById(lParam, idOrPos)
-         ; Look for menu with Color in the text to show the popup
-         If (menuString ~= "Color") {
-            If not IsWindowVisible(this.colorGui.hwnd) {
-               pos := GetMenuItemPositionById(lParam, idOrPos)
-               this.colorGui.GetPos(, , &wW, &wH)
-               am := activeMonArea(0)
-               If (pos > 0) {
-                  ; Get the top and right hand location of the menu so we don't overlap
-                  rect := GetMenuItemScreenRect(lParam, hwnd, pos)
-                  sY := rect.y1
-                  ; Put on left side of menu if it won't fit on right
-                  If (rect.x2 + wW) > am.X2
-                     sX := rect.x1 - wW
-                  Else
-                     sX := rect.x2
-               } Else {
-                  ; backup
-                  cm := CoordMode("Mouse", "Screen")
-                  MouseGetPos(&sX, &sY)
-                  CoordMode("Mouse", cm)
-               }
-               ; Position to the right of the item, like a real flyout
-               ; Colors should have already been initialized, NA is important here
-               KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
-               this.colorGui.Opt("+Owner" hwnd)
-               this.colorGui.Show("NA x" X " y" Y)
-               SetWindowTop(this.colorGui.hwnd)
-            }
-         } Else {
-            If IsWindowVisible(this.colorGui.hwnd)
-               this._hideMe()
-         }
-      }
-      Return
-
-      /**
-       * Return the string associated with a menu entry
-       * @param hMenu Handle to the menu
-       * @param id id value of the menu entry
-       * @returns {String} Name of the menu
-       */
-      GetMenuItemTextById(hMenu, id) {
-         len := DllCall("GetMenuStringW", "ptr", hMenu, "uint", id, "ptr", 0, "int", 0, "uint", 0x0, "int")  ; MF_BYCOMMAND, query length
-         If (len = 0)
-            Return ""
-         buf := Buffer((len + 1) * 2, 0)
-         DllCall("GetMenuStringW", "ptr", hMenu, "uint", id, "ptr", buf, "int", len + 1, "uint", 0x0, "int")
-         Return StrGet(buf, "UTF-16")
-      }      
-      /**
-       * 
-       * @param hMenu Handle to the menu
-       * @param id ID of menu entry
-       * @returns {Number | Integer} Positino of the menu
-       */
-      GetMenuItemPositionById(hMenu, id) {
-         count := DllCall("GetMenuItemCount", "ptr", hMenu, "int")
-         Loop count {
-            pos := A_Index - 1
-            If (DllCall("GetMenuItemID", "ptr", hMenu, "int", pos, "int") = id)
-               Return pos
-         }
-         Return -1
-      }      
-      /**
-       * Return the screen rectangle for the menu item in itemPos
-       * @param hMenu Handle to the menu
-       * @param hOwnerWnd Owner window handle
-       * @param itemPos position of the menu entry
-       * @returns {stRECTI} 
-       */
-      GetMenuItemScreenRect(hMenu, hOwnerWnd, itemPos) {
-         rc := stRECTI()
-         DllCall("GetMenuItemRect", "ptr", hOwnerWnd, "ptr", hMenu, "uint", itemPos, "ptr", rc)
-         Return rc
-      }
    }
 }

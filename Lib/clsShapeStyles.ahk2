@@ -6,12 +6,12 @@
  * shapes use it, which property of a shape it sets, and how it can be edited
  * (value list, slider range). Everything that offers these properties reads it:
  *   - the button bar category menus (Shapes._cmdRMBHandler -> AddBarMenu)
- *   - a shape's Properties menu (ShapeMenus.AddStyleMenus)
+ *   - the shape bar (ShapeBar)
  *   - defaults applied to a shape group (commonShape.StyleTarget -> Target)
  * Lookups are by shape type number, so they work before a shape exists (draw mode).
  *
  * To add a property: read its default in Shapes or TextShape, save it in
- * SaveSettings, add an entry in Build, and list it in BarMenus and/or PropMenu.
+ * SaveSettings, add an entry in Build, and list it in BarMenus.
  * A property set on existing shapes must also be in commonShape.StyleProps (undo).
  ***********************************************************************/
 #include Settings.ahk2
@@ -23,7 +23,6 @@ Class ShapeStyles {
    Static Defs     := Map()   ; key -> definition (see Build)
    Static Order    := []      ; keys in display order
    Static BarMenus := Map()   ; button bar category -> [[key, title] or 0 (separator), ...]
-   Static PropMenu := []      ; keys a shape's Properties menu offers, in menu order
    Static _menus   := Map()   ; key -> value Menu, made when first shown
 
    /**
@@ -33,7 +32,7 @@ Class ShapeStyles {
     * Definition properties:
     *   Key    - name of the default (a static property of Owner)
     *   Owner  - class holding the default (Shapes or TextShape)
-    *   Title  - short name (Properties menu)
+    *   Title  - short name (shape bar)
     *   Param  - what is being set. Keys with the same Param are the same property of
     *            different shape types (arrow and line thickness are both "Thickness")
     *   Prop   - shape property it sets, "" if it only affects new shapes
@@ -178,11 +177,6 @@ Class ShapeStyles {
             0,
             ["textOpacity",           "Text Opacity"]]
       )
-      ; Thickness and blur stay with Increase/Decrease and Up/Down. The outline
-      ; thickness factor is a plain multiplier of the line thickness, so it is here.
-      this.PropMenu := ["shapeOpacity", "arrowOpacity", "penOpacity", "highlightOpacity",
-         "fillOpacity", "outlineOpacity", "outlineThickFactor", "FillOutline", "textOpacity",
-         "TCOpacity", "FTOpacity", "FTOLOpacity", "OLOpacity"]
    }
    ; A property set on existing shapes with SetStyle
    Static _Style(key, title, param, prop, forShapes, values, range := 0, unit := "", scale := false, owner := Shapes) {

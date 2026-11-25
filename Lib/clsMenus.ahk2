@@ -379,7 +379,7 @@ Class ShapeMenus {
    /**
     * Build and display the right-click context menu for a shape control.
     * Menu entries are assembled dynamically based on ShapeObj.Source and ShapeObj.Shape,
-    * including rotate/flip, z-order, color, thickness, blur amount, and delete actions.
+    * including rotate/flip, z-order and delete actions.
     * @param {Object} ShapeObj - The shape object that received the right-click
     * @param {Integer} Item - Item index (unused)
     * @param {Integer} IsRightClick - Non-zero if triggered by a right-click
@@ -388,16 +388,11 @@ Class ShapeMenus {
     */
    Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
       Static shapeMenu   := Menu()
-      Static colorMenu   := Menu()
       Static subMenu1    := Menu()
-      Static subMenu2    := Menu()
-      Static propMenu    := Menu()
       Static typeMenu    := Menu()
       Static schemeMenu  := Menu()
       shapeMenu.Delete()
-      colorMenu.Delete()
       subMenu1.Delete()
-      propMenu.Delete()
       typeMenu.Delete()
       schemeMenu.Delete()
       PC := PeerCount(ShapeObj)
@@ -461,74 +456,21 @@ Class ShapeMenus {
       ; Doesn't really work as it gets the pic under the shape as well
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Duplicate " ShapeObj.ShapeName " (Ctrl-D/Ctrl-Click)", "Duplicate.ico")
-      ; Blur Amount
-      Switch ShapeObj.Shape {
-         Case Shapes.SHAPE_BLUR, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
-            shapeMenu.Add(ShapeObj.ShapeName . " Amount", subMenu1)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Amount", SETTINGS.CursorPath . "Menu\Redact.png" )
-            subMenu1.Add("Increase (Up)",blurFactor.bind(+.5))
-            subMenu1.SetIcon("Increase (Up)", SETTINGS.CursorPath . "Plus.ico")
-            subMenu1.Add("Decrease (Down)",blurFactor.bind(-.5))
-            subMenu1.SetIcon("Decrease (Down)", SETTINGS.CursorPath . "Minimize.ico")
-      }
-      ; Color Sub Menu
-      Switch ShapeObj.Source {
-         Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
-            Switch ShapeObj.Shape {
-               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE, Shapes.SHAPE_REDAC:
-               Default:
-                  ShapeMenu.Add()
-                  shapeMenu.Add("Shape Color`t❯", (*)=>{})
-                  shapeMenu.SetIcon("Shape Color`t❯", SETTINGS.CursorPath . "colors.ico") ;
-            }
-         Default:
-      }
-      ; Opacities and outline style of this shape (same values as the button bar defaults)
-      If (ShapeMenus.AddStyleMenus(propMenu, ShapeObj)) {
-         shapeMenu.Add(ShapeObj.ShapeName " Properties", propMenu)
-         shapeMenu.SetIcon(ShapeObj.ShapeName " Properties", SETTINGS.CursorPath . "Outline.ico")
-      }
-      ; Thickness
-      Switch ShapeObj.Source {
-         Case "BodyShape", "LineShape", "FreeHand":
-            shapeMenu.Add(ShapeObj.ShapeName . " Thickness", subMenu2)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Thickness", SETTINGS.CursorPath . "Menu\Shapes.png" )
-            subMenu2.Add("Increase Thickness (Up)",LineThickness.bind(+.5))
-            subMenu2.SetIcon("Increase Thickness (Up)", SETTINGS.CursorPath . "Plus.ico")
-            subMenu2.Add("Decrease Thickness (Down)",LineThickness.bind(-.5))
-            subMenu2.SetIcon("Decrease Thickness (Down)", SETTINGS.CursorPath . "Minimize.ico")
-      }
+      ; Color, thickness, blur amount, opacities and outline are on the shape bar (click the shape)
       ShapeMenu.Add()
       ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
       If (PC > 1)
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
          
-      ; Track menu for color selections with callback when color is chosen
-      ColorPopDown.RegisterFlyOutColorSelect(ShapeMenus.shapeColorPicked.Bind(this, ShapeObj), RGBval(ShapeObj.Color)) 
       ; Blocks here
       shapeMenu.Show()
-      ; Turn off the menu tracker since we don't need it any more
-      ColorPopDown.RegisterFlyOutColorSelect()
       shapeMenu.Delete()
-      colorMenu.Delete()
       subMenu1.Delete()
-      subMenu2.Delete()
-      propMenu.Delete()
       typeMenu.Delete()
       schemeMenu.Delete()
 
       Return
 
-      LineThickness(amt,*) {
-         ; ShapeObj.ChangeThickness(amt)
-         ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
-         ShapeObj.Refresh()
-      }
-      blurFactor(amt,*) {
-         ; ShapeObj.shapeThickness *= (1+amt) ; line/shape borders
-         ShapeObj.Factor         *= (1+amt) ; blur/pixelate
-         ShapeObj.Refresh()
-      }
       TagScheme(scheme,*) {
          Shapes.SetTagScheme(ShapeObj.Gui, scheme)
          focusBorder.Sync(ShapeObj)
@@ -537,50 +479,6 @@ Class ShapeMenus {
          ShapeObj.ChangeType(tType)
          focusBorder.Sync(ShapeObj)
       }
-   }
-   /**
-    * Fill a Properties menu with one sub-menu per style property the shape has
-    * (ShapeStyles.PropMenu), built from the button bar's value lists, with the
-    * shape's current value checked. Only plain-value properties (StyleTarget Scale:
-    * false) are offered; thickness and blur keep their Increase/Decrease entries.
-    * The sub-menus are new Menu objects each time, owned by propMenu until it is cleared.
-    * @param {Menu} propMenu - Menu to fill (emptied first)
-    * @param {Object} ShapeObj - Shape the values apply to
-    * @returns {Integer} Number of properties added
-    */
-   Static AddStyleMenus(propMenu, ShapeObj) {
-      propMenu.Delete()
-      n := 0
-      For key in ShapeStyles.PropMenu {
-         If NOT ((t := ShapeObj.StyleTarget(key)) AND NOT t.Scale)
-            Continue
-         cur := ShapeObj.%t.Prop%
-         sub := Menu()
-         For val in ShapeStyles.Def(key).Values {
-            sub.Add(val, ShapeMenus.SetShapeStyle.Bind(ShapeMenus, ShapeObj, t.Prop))
-            If (val = cur)
-               sub.Check(val)
-         }
-         propMenu.Add(ShapeStyles.Def(key).Title, sub)
-         n++
-      }
-      Return n
-   }
-   /**
-    * Properties menu callback: set one style property on a shape, with undo
-    * @param {Object} ShapeObj - Shape to change
-    * @param {String} prop - Property name (StyleTarget Prop)
-    * @param {String} ItemName - Menu item text, the new value
-    */
-   Static SetShapeStyle(ShapeObj, prop, ItemName, *) {
-      value := IsNumber(ItemName) ? Number(ItemName) : ItemName
-      If (ShapeObj.%prop% = value)
-         Return
-      ShapeObj.PostAction(UnDo.SHAPE_STYLE)
-      ShapeObj.SetStyle(prop, value)
-      ShapeObj.Refresh()
-      ShapeObj.Gui.Dirty++
-      focusBorder.Sync(ShapeObj)
    }
    /**
     * Add a menu entry with an optional icon to a shape context menu
@@ -646,27 +544,9 @@ Class ShapeMenus {
          Case ItemName ~= "Clear":
             shapeObj.GUI.PostClearAllShapes()
             shapeObj.GUI.ClearAllShapes(true) ; no Undo, done above
-         ; Case ItemName ~= "Shape Color": ; No longer used
-         ;    cb :=  ShapeMenus.colorPicked.bind(this, ShapeObj)
-         ;    ColorPopDown.ShowColorPopup(cb, RGBval(shapeObj.Color), shapeObj.GUI.hwnd)
-
          Default:
       }
       MyMenu.delete()
-   }
-   /**
-    * Apply a new color to a shape and trigger a redraw
-    * @param {Object} shapeObj - The shape object whose color will be changed
-    * @param {Integer} colorCode - ARGB color value to assign
-    * @param {String} ItemName - Display text of the selected color item (unused)
-    * @param {Integer} ItemPos - Position of the item in the color submenu (unused)
-    * @param {Object} MyMenu - The Menu object that triggered the callback
-    */
-   Static shapeColorPicked(shapeObj, cb, colorCode,  *) {
-      shapeObj.PostAction(UnDo.SHAPE_COLOR)
-      shapeObj.Color := colorCode
-      shapeObj.Refresh()
-      WinActivate(shapeObj.GUI.hWnd)
    }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")
