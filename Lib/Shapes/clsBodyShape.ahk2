@@ -28,11 +28,11 @@ Class BodyShape extends commonShape {
          Case Shapes.SHAPE_ELLIPSE, Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT:
             this.fBrush := this.myBrushes.Add(this.fillOpacity << 24 | this.Color)
             ; Outline pen to set behind color pen
-            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor)
+            this.pOutline := this.OutlinePen()   ; 0 = no outline
             ; Center
             GDIp.SetPenAlignment(this.pPrime, 0)
-            GDIp.SetPenAlignment(this.pOutline, 0)
-            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded
+            If (this.pOutline)
+               GDIp.SetPenAlignment(this.pOutline, 0)
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
       }
    }
@@ -62,7 +62,8 @@ Class BodyShape extends commonShape {
 
             GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; zero upper/left corner always
             GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
-            GDIp.DrawRectangle(G, this.pOutline, X, Y, W, H) ; zero upper/left corner always
+            If (this.pOutline)
+               GDIp.DrawRectangle(G, this.pOutline, X, Y, W, H) ; zero upper/left corner always
             GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
          Case Shapes.SHAPE_RORECT:
             ; Increase outline by 1/2 thickness
@@ -70,7 +71,8 @@ Class BodyShape extends commonShape {
             GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; so we can grab corners
             radius := Min(W, H) * 0.1 ; 10% of min dimension
             GDIp.FillRoundedRectangle(G, this.fBrush, X, Y, W, H, radius)
-            GDIp.DrawRoundedRectangle(G, this.pOutline, X - s, Y - s, W + s * 2, H + s * 2, radius)
+            If (this.pOutline)
+               GDIp.DrawRoundedRectangle(G, this.pOutline, X - s, Y - s, W + s * 2, H + s * 2, radius)
             ; Note, draws inset regardless of pen setting
             GDIp.DrawRoundedRectangle(G, this.pPrime, X, Y, W, H, radius)
 
@@ -78,7 +80,8 @@ Class BodyShape extends commonShape {
             ; If I want handles I need to fill in a dim rectangle
             GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H)
             GDIp.FillEllipse(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
-            GDIp.DrawEllipse(G, this.pOutline, X, Y, W, H)
+            If (this.pOutline)
+               GDIp.DrawEllipse(G, this.pOutline, X, Y, W, H)
             GDIp.DrawEllipse(G, this.pPrime, X, Y, W, H)
 
          Default:

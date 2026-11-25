@@ -115,11 +115,6 @@ Class Cursor {
                Snips.SetDrawMode(idx, hWnd)
             }
          }
-         ; Check for pending color change
-         If ((color := ButtonBar.GetQueuedColor()) >= 0) {
-            Snips.SetSnipBorderColor(color, hWnd)
-            Shapes.globalShapeColor := RGBval(color)
-         }
          Tooltip ; turn off if we moved over the snip
          ; ctrl := GuiCtrlFromHwnd(wParam)
          ; (Change) returning 0 (default cursor) if we are not over a shape

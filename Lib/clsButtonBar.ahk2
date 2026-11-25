@@ -24,7 +24,6 @@ Class ButtonBar {
    Static Margin     := round(2.5 * this.DPIFactor)
    ; NOTE - we are not adjusting this dynamically for multiple monitors
    Static ButSize    := this.DPIFactor >= 1.5 ? 32 : 16 ; Raw size of cursor, may have to use 16 for low DPI
-   Static colorQueue := -1
    Static shapeQueue := 0
    Static buttonTips := Map()
    Static buttonCallbacks := Map()
@@ -77,8 +76,8 @@ Class ButtonBar {
          this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
 
       logGDI("Built Shape Buttons")
-      ; Default shape color: shows the color, click to change it
-      this.colorButton := this.AddBarButton(this._Next(o), Settings.CursorPath . "colors.ico", round(bs*.75), "Set Shape Color (1-9)", , PickAColor)
+      ; Default color for all shapes: shows the last one set, click to change it
+      this.colorButton := this.AddBarButton(this._Next(o), Settings.CursorPath . "colors.ico", round(bs*.75), "Set Color of All Shapes (1-9)", , PickAColor)
       this.ShowColor()
       
       padded := round(cH*.7)
@@ -123,18 +122,16 @@ Class ButtonBar {
    }
 
       /**
-    * Handle a color circle click: set the default color, queue it (the snip's border
-    * follows when the mouse is over it) and show it on the color button.
-    * A selected shape group is recolored too (as the 1-9 keys do).
+    * Handle a color circle click: a selected shape group takes the color, otherwise it
+    * becomes the default color of all categories (Shapes.SetAllColors).
     * @param {Integer} clr - RGB color value chosen
     */
    Static colorPicked(cb, clr, *) {
       ; debug("colorPicked " hex(clr))
-      this.colorQueue := clr
-      Shapes.globalShapeColor := RGBval(clr)
-      this.ShowColor()
       If (ShapeGroup.Active)
          ShapeGroup.SetColor(RGBval(clr))
+      Else
+         Shapes.SetAllColors(RGBval(clr))
       if (this.SnipObj)
          WinActivate(this.SnipObj.hWnd)
    } 
@@ -214,7 +211,7 @@ Class ButtonBar {
    }
 
    /**
-    * Show the default shape color on the color button (and on the shape bar)
+    * Show the default color on the color button (and on the shape bar)
     */
    Static ShowColor() {
       this.colorButton.SetImg("HICON:" ColorPopDown._BuildAColor(RGBval(Shapes.globalShapeColor), ColorPopDown.circledIcon))
@@ -243,15 +240,6 @@ Class ButtonBar {
    Static GetQueuedCommand() {
       cmd := this.shapeQueue
       this.shapeQueue := 0
-      return cmd
-   }
-   /**
-    * Consume and return the pending queued color value, clearing the queue
-    * @returns {Integer} The queued RGB color value, or -1 if the queue is empty
-    */
-   Static GetQueuedColor() {
-      cmd := this.colorQueue
-      this.colorQueue := -1
       return cmd
    }
 

@@ -544,12 +544,13 @@ Class ShapeGroup {
       }
       Return false
    }
-   ; Same rule as the single shape menu: pictures and blur/pixelate have no color
+   ; Same rule as the single shape menu: pictures and blur/pixelate have no color, and
+   ; redact takes its color from the picture on every redraw
    Static _HasColor(ShapeObj) {
       Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             Switch ShapeObj.Shape {
-               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
+               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE, Shapes.SHAPE_REDAC:
                   Return false
             }
             Return true

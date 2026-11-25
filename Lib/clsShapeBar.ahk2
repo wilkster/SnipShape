@@ -155,13 +155,7 @@ Class ShapeBar {
       Return defs
    }
    ; New shapes of this type have a color that can be set (whiteout and redact sample theirs)
-   Static _DrawHasColor(mode) {
-      Switch mode {
-         Case Shapes.SHAPE_WHITEOUT, Shapes.SHAPE_REDAC, Shapes.SHAPE_SMUDGE, Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR:
-            Return false
-      }
-      Return true
-   }
+   Static _DrawHasColor(mode) => Shapes.ColorCat.Has(mode)
    Static _Place(SnipObj, content, X?, Y?) {
       ; An own mouse drag (slider, bar) is running: leave the bar where it is
       If this.Dragging
@@ -329,7 +323,7 @@ Class ShapeBar {
       Switch d.Unit {
          Case "alpha": Return Round(value / 255 * 100) "%"
          Case "px", "pt": Return Format("{:g}", Round(value, 1)) " " d.Unit
-         Case "x": Return Format("{:g}", Round(value, 2)) "x"
+         Case "x": Return value > 0 ? Format("{:g}", Round(value, 2)) "x" : "None"
          Case "%": Return Format("{:g}", value) "%"
       }
       Return Format("{:g}", Round(value, 1))
@@ -543,7 +537,7 @@ Class ShapeBar {
    ; Colors shown: the default for the draw mode, or the different ones of the group
    Static _ColorsShown() {
       If NOT this.Group
-         Return [RGBval(this._DrawHighlight() ? Shapes.highlightColor : Shapes.globalShapeColor)]
+         Return [Shapes.DefaultColor(this.Shape)]
       list := [], seen := Map()
       For ShapeObj in this._List() {
          If (ShapeGroup._HasColor(ShapeObj) AND NOT seen.Has(clr := RGBval(ShapeObj.Color)))
@@ -551,8 +545,6 @@ Class ShapeBar {
       }
       Return list
    }
-   ; Highlighters have their own default color
-   Static _DrawHighlight() => (this.Shape = Shapes.SHAPE_HILITER OR this.Shape = Shapes.SHAPE_HILITE)
    /**
     * Color popup. It takes the focus, so the snip ignores being deactivated until the
     * popup (or a color dialog it opened) is gone: see _WatchColors
@@ -594,13 +586,10 @@ Class ShapeBar {
          }
       } Else If (this.Group) {
          ShapeGroup.SetColor(clr)
-      } Else If (this._DrawHighlight()) {
-         Shapes.highlightColor := clr
       } Else {
-         Shapes.globalShapeColor := clr
+         Shapes.SetDefaultColor(this.Shape, clr)   ; its category
          If (snip AND snip.DrawMode)
             snip.BackColor := clr   ; border of a snip in draw mode
-         ButtonBar.ShowColor()
       }
       ; and the shape just drawn
       If (NOT this.Group AND (ShapeObj := this._LastDrawn()) AND ShapeGroup._HasColor(ShapeObj) AND RGBval(ShapeObj.Color) != clr) {

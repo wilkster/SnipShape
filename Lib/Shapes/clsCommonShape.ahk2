@@ -143,7 +143,7 @@ Class commonShape extends Gui.Pic {
       this.fName          := sPicImage
       this.layered        := true
       ; Defaults will be overridden
-      this.Color          := Shapes.globalShapeColor ; Access via Color methods
+      this.Color          := Shapes.DefaultColor(this.Shape) ; Access via Color methods
       this.shapeThickness := Shapes.rawLineThickness
       this.shapeOpacity   := Shapes.ShapeOpacity
       this.outlineOpacity := Shapes.outlineOpacity
@@ -866,6 +866,20 @@ Class commonShape extends Gui.Pic {
       Return true
    }
    /**
+    * Pen for the outline, owned by the shape's pens. 0 when the outline width is 0: a
+    * GDI+ pen of width 0 still draws a 1 px line, so the outline must not be drawn at all.
+    * @param {Number} divisor - outline width is shapeThickness * outlineThickFactor / divisor
+    * @returns {Ptr} pen, or 0 = no outline
+    */
+   OutlinePen(divisor := 1) {
+      width := this.shapeThickness * this.outlineThickFactor / divisor
+      If (width <= 0)
+         Return 0
+      pen := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, width)
+      GDIp.SetPenLineJoin(pen, 2)  ;1=bevel, 2=rounded
+      Return pen
+   }
+   /**
     * Set a style property. A thicker line or outline needs more padding first, or the
     * redraw clips it (Refresh then shrinks the padding to fit)
     * @param {String} prop - property name
@@ -873,8 +887,12 @@ Class commonShape extends Gui.Pic {
     */
    SetStyle(prop, value) {
       cur := this.%prop%
-      If ((prop = "shapeThickness" OR prop = "outlineThickFactor")
-         AND IsNumber(cur) AND cur > 0 AND value > cur) {
+      If (prop = "outlineThickFactor" AND IsNumber(cur) AND value > cur) {
+         ; The outline grows by half the added width on each side (from 0 too)
+         g := Ceil(this.shapeThickness * (value - cur) / 2) + 2
+         P := this.sPad
+         this.sPad := { L: P.L + g, T: P.T + g, R: P.R + g, B: P.B + g }
+      } Else If (prop = "shapeThickness" AND IsNumber(cur) AND cur > 0 AND value > cur) {
          r := value / cur
          P := this.sPad
          this.sPad := { L: Ceil(P.L * r), T: Ceil(P.T * r), R: Ceil(P.R * r), B: Ceil(P.B * r) }

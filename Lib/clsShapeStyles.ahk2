@@ -59,8 +59,9 @@ Class ShapeStyles {
       fillFont := [S.SHAPE_TEXT, fillText*]
       tag      := [S.SHAPE_TAG]
       olText   := [S.SHAPE_OLTEXT]
-      allText  := [fillFont*]
-      allText.Push(S.SHAPE_TAG, S.SHAPE_OLTEXT)
+      ; Text whose opacity can be set: not tags, their label is always opaque black or white
+      opacText := [fillFont*]
+      opacText.Push(S.SHAPE_OLTEXT)
       lineBody := [lines*]
       lineBody.Push(body*)
       outBody  := [outlined*]
@@ -92,7 +93,7 @@ Class ShapeStyles {
       this._Style("fillOpacity",        "Fill Opacity", "FillOpacity", "fillOpacity", body, [0, 1, 4, 8, 16, 32, 48, 64, 96, 128], [0, 255, 1], "alpha")
       ; Outline
       this._Style("outlineOpacity",     "Outline Opacity", "OutlineOpacity", "outlineOpacity", outBody, [0, 16, 32, 64, 96, 128, 144, 160, 176, 192, 224, 255], [0, 255, 1], "alpha")
-      this._Style("outlineThickFactor", "Outline Thickness Factor", "OutlineFactor", "outlineThickFactor", outBody, [1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6], [1, 6, 0.25], "x")
+      this._Style("outlineThickFactor", "Outline Thickness Factor", "OutlineFactor", "outlineThickFactor", outBody, [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6], [0, 6, 0.25], "x")   ; 0 = no outline
       ; Fonts
       this._Text("FillFontName",  "Font",      "FontName",  fillFont, S.FontNames)
       this._Text("FillFontSize",  "Font Size", "FontSize",  fillFont, sizes, [6, 72, 1], "pt")
@@ -107,7 +108,7 @@ Class ShapeStyles {
       this._Text("TagFontStyle",  "Style",     "FontStyle", tag, S.FontStyles)
       ; Text style (the shape properties have the same names as the TextShape defaults)
       this._Style("FillOutline",     "Fill Text Outline", "FillOutline", "FillOutline", [S.SHAPE_FILLTEXT], ["Rectangle", "Rounded Rectangle", "Ellipse", "None"], 0, "", false, TextShape)
-      this._Style("textOpacity",     "Text Opacity", "TextOpacity", "textOpacity", allText, opacity, [16, 255, 1], "alpha", false, TextShape)
+      this._Style("textOpacity",     "Text Opacity", "TextOpacity", "textOpacity", opacText, opacity, [16, 255, 1], "alpha", false, TextShape)
       this._Style("TCOpacity",       "Tag Center Opacity", "TCOpacity", "TCOpacity", tag, opacity0, [0, 255, 1], "alpha", false, TextShape)
       this._Style("FTOpacity",       "Fill Opacity", "FTOpacity", "FTOpacity", fillText, opacity0, [0, 255, 1], "alpha", false, TextShape)
       this._Style("FTOLOpacity",     "Border Opacity", "FTOLOpacity", "FTOLOpacity", fillText, opacity0, [0, 255, 1], "alpha", false, TextShape)

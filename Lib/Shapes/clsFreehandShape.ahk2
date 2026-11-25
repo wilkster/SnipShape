@@ -105,8 +105,7 @@ Class FreeHandShape extends commonShape {
          Case Shapes.SHAPE_ARCARROW:
             GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
             GDIp.SetPenStartCap(this.pPrime, 3) ; triangle
-            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 3) ; Grey thickness/color of the outer border
-            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded, 3=triangle, round the outline only
+            this.pOutline := this.OutlinePen(3) ; Grey thickness/color of the outer border, 0 = none
             this.OkToClose := false
          Case Shapes.SHAPE_PEN, Shapes.SHAPE_WIDEPEN:
             GDIp.SetPenLineCaps(this.pPrime, 0x2, 0x2) ; rounded

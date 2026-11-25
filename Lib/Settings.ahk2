@@ -131,6 +131,8 @@ SaveSettings() {
    IniWriteValue(Shapes.rawLineThickness, "Common Shape", "Line Thickness")
    IniWriteValue(Shapes.outlineThickFactor, "Common Shape", "Outline Thickness Factor")
    IniWriteValue(hex(Shapes.globalShapeColor), "Common Shape", "Default Shape Color")
+   For cat, clr in Shapes.CatColors
+      IniWriteValue(hex(clr), "Default Color", cat)
    IniWriteValue(Shapes.shapeOpacity, "Common Shape", "Shape Opacity")
    ; Arrows
    IniWriteValue(Shapes.arrowLineThickness, "Arrow Shape", "Arrow Thickness")

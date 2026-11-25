@@ -54,6 +54,8 @@ Class Shapes {
    Static __New() {
       this.ShapeName := Array()
       this.ShapeCat  := Map()
+      this.ColorCat  := Map()   ; shape number -> default color category (see DefaultColor)
+      this.CatColors := Map()   ; category -> RGB
       ; Shape Databased ObjectVal, Name - hotkey, menu category
       /*
          1. Insert row below to hold the shape ID, menu entry (icon name & shortcut key), and category for button bar
@@ -110,6 +112,12 @@ Class Shapes {
          if NOT this.ShapeCat.Has(cat)
             this.ShapeCat[cat] := Array()
          this.ShapeCat[cat].Push(V[2])
+         ; Default color category: the menu category, tags on their own. Redact shapes
+         ; sample their color and tools have none.
+         If (V[1] = "SHAPE_TAG")
+            this.ColorCat[I] := "Tags"
+         Else If (cat != "Redact" AND cat != "Tool")
+            this.ColorCat[I] := cat
       }
       ; Non-drawn shapes
       this.SHAPE_FILE := -1
@@ -123,6 +131,9 @@ Class Shapes {
       this.rawLineThickness      := IniReadValue("Common Shape", "Line Thickness", 3)
       this.outlineThickFactor    := IniReadValue("Common Shape", "Outline Thickness Factor", 3)
       this.globalShapeColor      := RGBval(IniReadValue("Common Shape", "Default Shape Color", 0xFF0000))
+      ; Default color per category (Highlighters use highlightColor below)
+      For cat in ["Arrows", "Shapes", "Free Hand", "Text", "Tags"]
+         this.CatColors[cat] := RGBval(IniReadValue("Default Color", cat, hex(this.globalShapeColor)))
       this.shapeOpacity          := IniReadValue("Common Shape", "Shape Opacity", 0xFF)
       ; Arrows   
       this.arrowLineThickness    := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
@@ -304,7 +315,7 @@ Class Shapes {
             changed := Shapes.Draw(SnipObj,DrawMode)
             Snips.SetDrawMode(0)
          Case Shapes.SHAPE_TAG:
-            changed := Shapes.DrawTag(SnipObj, Shapes.globalShapeColor, Factor)
+            changed := Shapes.DrawTag(SnipObj, Shapes.DefaultColor(Shapes.SHAPE_TAG), Factor)
          Case Shapes.SHAPE_FILLTEXT,Shapes.SHAPE_TEXT,Shapes.SHAPE_LEFTARROWTEXT,Shapes.SHAPE_RIGHTARROWTEXT,Shapes.SHAPE_OLTEXT:
             changed := Shapes.AddDispText(SnipObj.hWnd, DrawMode, , Factor)
 
@@ -1241,23 +1252,63 @@ Class Shapes {
    }
 
    /**
-    * @description Sets the global shape color, pushes it onto the color queue for any
-    *   active drawing loop, updates the snip border color, and refreshes the button bar.
+    * Color new shapes of a type get: that of its category (Arrows, Shapes, Free Hand, Text,
+    * Tags, Highlighters), or the overall color for types without one (tools, pictures)
+    * @param {Integer} Shape - shape type number
+    * @returns {Integer} RGB
+    */
+   Static DefaultColor(Shape) {
+      cat := this.ColorCat.Get(Shape, "")
+      Return RGBval(cat = "Highlighters" ? this.highlightColor : this.CatColors.Get(cat, this.globalShapeColor))
+   }
+   /**
+    * Set the color of a shape type's category
+    * @param {Integer} Shape - shape type number
+    * @param {Integer} clr - RGB
+    * @returns {Integer} false if the type has no color category
+    */
+   Static SetDefaultColor(Shape, clr) {
+      If NOT (cat := this.ColorCat.Get(Shape, ""))
+         Return false
+      If (cat = "Highlighters")
+         this.highlightColor := clr
+      Else
+         this.CatColors[cat] := clr
+      ShapeBar.Redraw()
+      Return true
+   }
+   /**
+    * Set every category's color, except the highlighters'
+    * @param {Integer} clr - RGB
+    */
+   Static SetAllColors(clr) {
+      this.globalShapeColor := clr
+      For cat in this.CatColors.Clone()
+         this.CatColors[cat] := clr
+      ButtonBar.ShowColor()
+   }
+   /**
+    * @description Color key (1-9). A selected group takes the color; a shape being drawn,
+    *   moved or resized does too (color queue). Otherwise it is the color for new shapes:
+    *   of the selected drawing tool's category, or of all categories in select mode.
     * @param {String|Integer} val - Color value (name or RGB integer).
     * @param {*} * - Additional event parameters (ignored).
     */
    Static setShapeColor(val,*) {
       nc := RGBval(val)
-      ; A selected shape group takes the color directly
-      If (ShapeGroup.Active)
+      ; A selected shape group takes the color directly, the defaults stay
+      If (ShapeGroup.Active) {
          ShapeGroup.SetColor(nc)
-      Else
-         this.ColorQueue.push(nc)
-      If (nc != this.globalShapeColor) {
-         this.globalShapeColor := nc
-         Snips.SetSnipBorderColor(val)
-         ButtonBar.ShowColor()
+         Return
       }
+      this.ColorQueue.push(nc)
+      mode := (SnipObj := Snips.GetGuiObj()) ? SnipObj.DrawMode : 0
+      ; Moving or resizing a shape: only that shape
+      If (NOT mode AND GetKeyState("LButton", "P"))
+         Return
+      If NOT (mode AND this.SetDefaultColor(mode, nc))
+         this.SetAllColors(nc)
+      Snips.SetSnipBorderColor(val)
    }
 
    /**
@@ -1464,7 +1515,7 @@ Class Shapes {
       Text := StrReplace(Text,"`r`n","`n")
       BGColor := SnipObj.BackgroundPICColorFromXY(wX, wY, 32)
       TextObj := SnipObj.AddNewShape(Shapes.SHAPE_FILLTEXT)
-      If (TextObj.DrawText(wX, wY, TextShape.FillFontSize, Trim(Text, " `n"), TextShape.FillFontName, , , Shapes.globalShapeColor, BGColor)) {
+      If (TextObj.DrawText(wX, wY, TextShape.FillFontSize, Trim(Text, " `n"), TextShape.FillFontName, , , Shapes.DefaultColor(Shapes.SHAPE_FILLTEXT), BGColor)) {
          qTrayTip("Inserting text: " SubStr(Text,1,20) "...")
          ShapeOnTop(TextObj)
          SnipObj.Dirty++
@@ -1516,7 +1567,7 @@ Class Shapes {
          Default:
       }
       _ := PreDialog(SnipObj)
-      TextObj.Color := Shapes.globalShapeColor
+      TextObj.Color := Shapes.DefaultColor(Shape)
       Obj := TextInputBox(TextObj, "Enter Text to Add (Ctrl-Enter to Accept), Resize to set wrapping in shape", "Snip Text", "")
       If (WinExist(hWnd)) {
          If (Obj.Result = "OK") {

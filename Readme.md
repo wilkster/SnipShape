@@ -267,21 +267,47 @@ The toolbar is helpful if you prefer selecting tools visually instead of using k
 
 ### Shape bar
 
-A horizontal **shape bar** appears above the snip while a drawing tool is selected or shapes are selected as a group. It
-shows the properties that apply: color, thickness, opacity, outline, blur amount, fonts and so on.
+A horizontal **shape bar** appears above the snip while a drawing tool is selected or shapes are selected. It shows the
+properties that apply: color, thickness, opacity, outline, blur amount, fonts and so on.
 
-- **Drawing tool**: the properties of the shape you are about to draw. Changes apply to new shapes and are remembered, like
-  the defaults in the toolbar's right-click menus. They also change the shape you just drew (with undo), as long as its
-  tool is still selected.
-- **Selected shape** (click it in select mode): that shape's own properties, with undo. The defaults for new shapes do not
-  change. See [Selecting a shape](#selecting-a-shape).
-- **Selected shapes** (Shift-drag, Shift-click or Ctrl-A): the properties that all the selected shapes share. A change sets
-  every shape to the same value, can be undone in one step, and does not change the defaults for new shapes. *Mixed* means
-  the shapes have different values. Shapes with nothing in common show only the color, copy and delete buttons.
+#### Defaults for new shapes, or just the selected shapes
 
-Using it:
+With a drawing tool on, the bar sets the defaults for new shapes. With shapes selected, it changes only those shapes. When
+the bar has the copy and delete buttons, you are changing selected shapes.
 
-- **Color**: click to choose. Several dots mean the selected shapes have different colors.
+| When                                                          | Sets the default for new shapes | Shapes changed     |
+|---------------------------------------------------------------|---------------------------------|--------------------|
+| A drawing tool is selected                                    | Yes                             | None yet           |
+| A drawing tool is selected and you just drew a shape with it  | Yes                             | The last one drawn |
+| One shape is [selected](#selecting-a-shape)                   | No                              | That shape         |
+| A group is selected (Shift-drag, Shift-click or Ctrl-A)       | No                              | All in the group   |
+
+- Changes to shapes can be undone. Undo does not change a default back.
+- The last shape drawn is no longer changed once you pick another tool, leave drawing mode, or delete or undo it. Text
+  shapes other than tags leave drawing mode when you enter the text, so select those to change them.
+- Smoothing and Numbering only apply to new shapes.
+- A group shows the properties that all its shapes share. A change sets every shape to the same value in one undo step.
+  *Mixed* means the shapes have different values. Shapes with nothing in common show only copy, delete and, if any of
+  them has one, the color.
+- If a group is selected while a drawing tool is on, the bar changes the group.
+- Defaults are remembered when SnipShape is closed.
+
+Some defaults are shared by several kinds of shape:
+
+| Default                    | Shared by                                                                            |
+|----------------------------|--------------------------------------------------------------------------------------|
+| Color                      | The kind of shape, see [Colors](#colors)                                             |
+| Thickness                  | All arrows; lines and boxes; Highlighter, Whiteout and Smudge pens. Pen and Wide Pen have their own |
+| Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters                          |
+| Outline opacity and width  | Outlined, tapered and arc arrows, and boxes, together (a width of 0 is no outline)   |
+| Blur amount                | Blur, Gaussian Blur and Smudge                                                       |
+| Font, size, style, alignment | Text, Fill Text and Arrow Text. Outline Text and Tags have their own               |
+| Text opacity               | All text except tags                                                                 |
+
+#### Using the bar
+
+- **Color**: click to choose. While drawing it is the color of that kind of shape, see [Colors](#colors). Several dots mean
+  the selected shapes have different colors.
 - **Sliders**: drag the knob, click the track, or turn the mouse wheel over it. Press `Esc` while dragging to put the old
   value back. Right-click for a list of preset values.
 - **Lists** (font, style, alignment, ...): click to choose, or turn the mouse wheel over it.
@@ -384,7 +410,16 @@ have one, since it already points.
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
-| 1-9        | Sets the drawing color of the next/active shape (also while drawing & resizing). Also changes the text/shape color if the shape has the focus rectangle. |
+| 1-9        | With a drawing tool selected: the color of that kind of shape. In select mode: the color of all kinds. While drawing, moving or resizing a shape: that shape's color. With a group selected: recolors the group only. |
+
+Arrows, shapes (lines and boxes), free hand pens, text, tags and highlighters each have their own color for new shapes,
+which is remembered.
+
+- The **shape bar** color and the number keys set the color of the kind of shape you are drawing.
+- The **toolbar** color button (and the number keys in select mode) sets the color of all kinds at once, except the
+  highlighters.
+- With a group selected, the keys and the color buttons recolor the group and leave the colors for new shapes alone.
+- Redact shapes take their color from the picture.
 
 ## Snip Tools
 
@@ -515,7 +550,7 @@ The hotkeys while hovering over a shape, or with one selected:
 | Shift-Click          | Add the shape to the group selection, or take it out if it is already in. |
 | Alt-Click            | Edit a text shape; on other shapes, push the shape down one level. |
 | Del                  | Remove the shape.                        |
-| 1 to 9               | Apply the associated color to the shape. |
+| 1 to 9               | While moving or resizing the shape: apply the associated color to it. |
 | Scroll up/down       | Adjust thickness or obfuscation amount.  |
 
 ### Text / Graphics
@@ -556,7 +591,7 @@ The hotkeys while hovering over a shape, or with one selected:
   changes it back.
 - **&lt;Shape&gt; Properties** sets that shape's own opacities and outline style, with the same choices as the
   button bar defaults (right-click a button bar category), and the shape's current value checked. For example:
-  opacity, fill and outline opacity (shapes, arrows, pens, highlighters), the outline thickness factor (rectangles,
+  opacity, fill and outline opacity (shapes, arrows, pens, highlighters), the outline thickness factor (0 = no outline; rectangles,
   ellipses and outlined arrows), text, tag center and outline edge opacity
   (text shapes), and for Fill Text its border opacity and outline (Rectangle, Rounded Rectangle, Ellipse or None).
   Each change can be undone. Thickness and blur amount are not here: use the thickness/amount entries, the mouse

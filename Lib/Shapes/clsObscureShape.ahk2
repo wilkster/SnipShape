@@ -182,7 +182,7 @@ Class ObscureShape extends commonShape {
    SetColor(newColor) {
       super.SetColor(newColor)
       ; Only need this for Highlights
-      if (this.Shape := Shapes.SHAPE_HILITE)
+      if (this.Shape = Shapes.SHAPE_HILITE)
          this.createImageBrush()
    }
     /**

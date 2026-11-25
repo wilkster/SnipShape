@@ -475,7 +475,7 @@ Class ShapeMenus {
       Switch ShapeObj.Source {
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand", "Text":
             Switch ShapeObj.Shape {
-               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE:
+               Case Shapes.SHAPE_PIXELATE, Shapes.SHAPE_BLUR, Shapes.SHAPE_GAUS_BLUR, Shapes.SHAPE_SMUDGE, Shapes.SHAPE_REDAC:
                Default:
                   ShapeMenu.Add()
                   shapeMenu.Add("Shape Color`t❯", (*)=>{})

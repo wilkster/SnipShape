@@ -63,7 +63,7 @@ Class TextShape extends CommonShape {
       this._ogFontSize          := 0
       this._Alignment           := "Left"  ; Left|Center|Right
       this._calloutArrowDivisor := 6
-      this._fontColor           := Shapes.globalShapeColor
+      this._fontColor           := Shapes.DefaultColor(this.Shape)
       this.textOpacity          := TextShape.textOpacity
       this.TCOpacity            := TextShape.TCOpacity
       this.FTOpacity            := TextShape.FTOpacity

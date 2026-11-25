@@ -175,7 +175,7 @@ Class Snips {
             val := SnipObj.DrawMode
          ; Change backcolor if we are in "edit" mode
          if (val) 
-            SnipObj.BackColor := Shapes.globalShapeColor
+            SnipObj.BackColor := Shapes.DefaultColor(val)
          else
             SnipObj.BackColor := Settings.ActiveSnipBorderColor
          If (val AND ShapeSelect.SnipObj = SnipObj)

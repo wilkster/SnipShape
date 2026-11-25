@@ -56,8 +56,7 @@ Class LineShape extends commonShape {
                ; no cap since converging to a point
                GDIp.SetPenStartCap(this.pPrime, 0)
                ; Outline pen
-               this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 6) ; Grey thickness/color of the outer border
-               GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded
+               this.pOutline := this.OutlinePen(6) ; Grey thickness/color of the outer border, 0 = none
 
             } Else {
                GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1)
@@ -68,10 +67,9 @@ Class LineShape extends commonShape {
 
          Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
             ; Outline arrow is a little more complex to draw
-            this.pOutline := this.myPens.Add(this.outlineOpacity << 24 | this.outlineColor, this.shapeThickness * this.outlineThickFactor / 3) ; Grey thickness/color of the outer border
+            this.pOutline := this.OutlinePen(3) ; Grey thickness/color of the outer border, 0 = none
             GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW)
             ; GDIp.CustomArrowCap(this.pOutline, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW) ; This isn't necessary since we are drawing along a path
-            GDIp.SetPenLineJoin(this.pOutline, 2)  ;1=bevel, 2=rounded, round the outline only
 
          Case Shapes.SHAPE_BRACKET:
             GDIp.SetPenLineJoin(this.pPrime, 2)  ;1=bevel, 2=rounded
@@ -117,20 +115,27 @@ Class LineShape extends commonShape {
       bend := this._BendPoints(X1, Y1, X2, Y2)
       Switch this.shape {
          Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
-            oPath := GDIp.Path(G)
-            If (bend)
-               oPath.AddPathCurve2(bend)
-            Else
-               oPath.AddPathLine(X1, Y1, X2, Y2)
-            oPath.WidenPath(this.pPrime)
-            oPath.DrawPath(this.pOutline)
-            ; If we are not opaque we have to remove the arrow-head inside lines from the shape
-            ; by overwriting the inside of the path before drawing the translucent line to fill it
-            If (this.shapeOpacity < 255) {
-                oPath.SolidFillPath(this.blankBrush)
+            If (this.pOutline) {
+               oPath := GDIp.Path(G)
+               If (bend)
+                  oPath.AddPathCurve2(bend)
+               Else
+                  oPath.AddPathLine(X1, Y1, X2, Y2)
+               oPath.WidenPath(this.pPrime)
+               oPath.DrawPath(this.pOutline)
+               ; If we are not opaque we have to remove the arrow-head inside lines from the shape
+               ; by overwriting the inside of the path before drawing the translucent line to fill it
+               If (this.shapeOpacity < 255) {
+                   oPath.SolidFillPath(this.blankBrush)
+               }
+               oPath := ""
+            } Else {
+               ; No outline to grab it by: same grab strip as a plain arrow
+               If (bend)
+                  this._DrawCurve(G, this.pGrab, bend)
+               Else
+                  GDIp.DrawLine(G, this.pGrab, X1, Y1, X2, Y2)
             }
-
-            oPath := ""
             If (bend)
                this._DrawCurve(G, this.pPrime, bend)       ; inside pen
             Else
@@ -166,10 +171,12 @@ Class LineShape extends commonShape {
                oPath.TranslateRotatePath(Ang, X1, Y1)
             }
             ; HACK - we center on the path, so we overlap it by half. Which is ok for opacity=255, but we get blending otherwise
-            If (this.shapeOpacity < 255)
-                GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
-            ; oPath.WidenPath(this.pOutline) ; Leaves a hole in the middle since the path is replaced by the outline of the pen
-            oPath.DrawPath(this.pOutline)
+            If (this.pOutline) {
+               If (this.shapeOpacity < 255)
+                   GDIp.SetCompositingMode(G, 1) ; not a fan, but will work to stop the blending
+               ; oPath.WidenPath(this.pOutline) ; Leaves a hole in the middle since the path is replaced by the outline of the pen
+               oPath.DrawPath(this.pOutline)
+            }
             oPath.FillPath(this.fBrush)
             oPath := ""
 
