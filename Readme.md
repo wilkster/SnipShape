@@ -37,11 +37,13 @@ mark up the snip.
     - [Hotkeys on Snip Surface](#hotkeys-on-snip-surface)
       - [Copying and saving](#copying-and-saving)
       - [Dragging a snip into another app](#dragging-a-snip-into-another-app)
-  - [Toolbar - F1 to toggle while snip active](#toolbar---f1-to-toggle-while-snip-active)
+  - [Toolbar - F1 to toggle while snip active, Sample ShapeBars shown on right](#toolbar---f1-to-toggle-while-snip-active-sample-shapebars-shown-on-right)
     - [Show or hide the toolbar](#show-or-hide-the-toolbar)
     - [Use toolbar buttons](#use-toolbar-buttons)
     - [Toolbar behavior](#toolbar-behavior)
     - [Shape bar](#shape-bar)
+      - [Defaults for new shapes, or just the selected shapes](#defaults-for-new-shapes-or-just-the-selected-shapes)
+      - [Using the bar](#using-the-bar)
   - [Drawing on snips](#drawing-on-snips)
     - [Snip Hotkeys to create shapes](#snip-hotkeys-to-create-shapes)
   - [Arrow shapes](#arrow-shapes)
@@ -65,7 +67,7 @@ mark up the snip.
     - [Drawing/Resizing Shapes](#drawingresizing-shapes)
     - [Reshaping shapes (control points)](#reshaping-shapes-control-points)
   - [Hovering and Focus Rectangle](#hovering-and-focus-rectangle)
-  - [Selecting a shape](#selecting-a-shape)
+    - [Selecting a shape](#selecting-a-shape)
     - [Hotkeys on Shapes](#hotkeys-on-shapes)
     - [Text / Graphics](#text--graphics)
     - [Moving Shapes](#moving-shapes)
@@ -208,6 +210,7 @@ One option is to paste in a small picture from the Stickies subfolder of the dis
 | Ctrl-Scroll Wheel        | Zoom in or out of Snip to enlarge/reduce its size                                                                        |
 | Alt-Scroll Wheel         | Adjust the transparency (Alpha) of the visible snip bitmap. It is kept when copying/saving and restored when a saved snip is reopened |
 | RMB (Right Mouse Button) | Brings up a menu with additional options for the snip                                                                    |
+| Esc                      | One step at a time: cancels a shape bar slider drag, clears a group or deselects a shape, leaves the drawing mode, then closes the snip |
 
 #### Copying and saving
 
@@ -236,9 +239,18 @@ itself stays where it is; only the cursor moves, with a small picture of the sni
 - Apps running as administrator won't accept drops from SnipShape unless it runs as administrator too (a Windows rule).
 - Ctrl-click on a shape still duplicates the shape, and Ctrl+Shift-drag still selects a group in a drawing mode.
 
-## Toolbar - F1 to toggle while snip active
+## Toolbar - F1 to toggle while snip active, Sample ShapeBars shown on right
 
-![alt text](Snips/toolbar.png)
+<table>
+  <tr>
+    <td rowspan="5" valign="top"><img src="Snips/toolbar.png" alt="Toolbar"></td>
+    <td><img src="Snips/ArrowBar.png" alt="Shape bar for arrows"></td>
+  </tr>
+  <tr><td><img src="Snips/BodyBar.png" alt="Shape bar for rectangles and ellipses"></td></tr>
+  <tr><td><img src="Snips/PenBar.png" alt="Shape bar for pens"></td></tr>
+  <tr><td><img src="Snips/TextBar.png" alt="Shape bar for text"></td></tr>
+  <tr><td><img src="Snips/BlurBar.png" alt="Shape bar for blur"></td></tr>
+</table>
 
 A toolbar can appear to the left of each active snip to provide quick access to common actions and annotation tools.
 
@@ -298,7 +310,7 @@ Some defaults are shared by several kinds of shape:
 |----------------------------|--------------------------------------------------------------------------------------|
 | Color                      | The kind of shape, see [Colors](#colors)                                             |
 | Thickness                  | All arrows; lines and boxes; Highlighter, Whiteout and Smudge pens. Pen and Wide Pen have their own |
-| Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters                          |
+| Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters (on light backgrounds only: a highlight over a dark background is always full strength) |
 | Outline opacity and width  | Outlined, tapered and arc arrows, and boxes, together (a width of 0 is no outline)   |
 | Blur amount                | Blur, Gaussian Blur and Smudge                                                       |
 | Font, size, style, alignment | Text, Fill Text and Arrow Text. Outline Text and Tags have their own               |
@@ -306,8 +318,9 @@ Some defaults are shared by several kinds of shape:
 
 #### Using the bar
 
-- **Color**: click to choose. While drawing it is the color of that kind of shape, see [Colors](#colors). Several dots mean
-  the selected shapes have different colors.
+- **Color**: click to choose from the [color popup](#color-menu-lmb-to-select-color-rmb-to-customize-color). While
+  drawing it is the color of that kind of shape, see [Colors](#colors). Several dots mean the selected shapes have
+  different colors.
 - **Sliders**: drag the knob, click the track, or turn the mouse wheel over it. Press `Esc` while dragging to put the old
   value back. Right-click for a list of preset values.
 - **Lists** (font, style, alignment, ...): click to choose, or turn the mouse wheel over it.
@@ -467,6 +480,15 @@ which is remembered.
 
 ![alt text](Snips/colorpicker.png)
 
+This color popup opens from the **Color** cell of the [shape bar](#shape-bar) (the toolbar no longer has a color
+button). What the color applies to depends on what the bar is showing: the kind of shape being drawn, the selected
+shape, or the selected group (see [Colors](#colors)).
+
+- Left-click a color to use it.
+- Right-click a color to change it with the color dialog, or Ctrl+right-click to pick the new color from the screen.
+  The 36 colors are kept in the settings file (`[User Shape Color]`).
+- The ring marks the current color.
+
 ### Drawing/Resizing Shapes
 
 - Extra padding is provided outside the snip surface to allow shapes to extend beyond the snip boundary.
@@ -520,7 +542,7 @@ the resize cursor). All shapes and text objects can be resized this way.
 - Move a shape by clicking and dragging the focus rectangle when the hand cursor is displayed.
 - When hovering, use the arrow keys (Up, Down, Left, Right) to move the shape without using the
 mouse. Movement snaps to the grid.
-- When hovering, use the mouse scroll wheel to adjust properties of the selected shape:
+- When hovering, use the mouse scroll wheel to adjust properties of the shape under the mouse:
   - Line thickness for drawn shapes
   - Text size for text shapes
   - Blur or pixelation level for obscure shapes
@@ -554,6 +576,8 @@ The hotkeys while hovering over a shape, or with one selected:
 | Shift-Click          | Add the shape to the group selection, or take it out if it is already in. |
 | Alt-Click            | Edit a text shape; on other shapes, push the shape down one level. |
 | Del                  | Remove the shape.                        |
+| Arrow keys           | Move the shape (snaps to the grid). While dragging a resize handle, Up/Down change the thickness instead. |
+| Esc                  | Deselect the selected shape (a second Esc closes the snip). |
 | 1 to 9               | While moving or resizing the shape: apply the associated color to it. |
 | Scroll up/down       | Adjust thickness or obfuscation amount.  |
 
@@ -591,11 +615,10 @@ The hotkeys while hovering over a shape, or with one selected:
   scheme its tags already use; the default for a snip with no tags is set on the button bar (RMB on the text button >
   **Tag Number Scheme**). Renumber Tags keeps each tag's scheme.
 - Thickness, blur amount, opacities and outline are on the [shape bar](#shape-bar): click the shape to select it. You can
-  also use the mouse wheel (when hovering), or the Up/Down keys while clicking on the shape.
+  also use the mouse wheel (when hovering), or the Up/Down keys while dragging a resize handle.
 - Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape
 - Shift-click to add the shape to the group selection (starting one if needed), or to take it out of the group
 - Alt-click a text shape to edit its text (Alt-click on any other shape pushes it down one level)
-- Click on a shape and use the Up/Down arrow keys to adjust the border thickness or blur amount
 - OCR - Uses Descolada's OCR engine to read text from a snip
   - Read lines of text, with line breaks as shown
   - Read words of text, with line breaks only at paragraph breaks (good for pasting)
@@ -652,7 +675,7 @@ Left-clicking the SnipShape tray icon brings up the following choices:
 
 - By default a configuration file called SnipShape.ini is created in your local AppData folder.
 - Most of the options are set via the Tray Menu and Toolbar; however, some options can only be changed by editing the file. A restart is required after changing these. You can edit the SnipShape.ini file directly from the tray icon menu `Edit Settings File`.
-  - `[User Shape Color]`, custom colors 1 through 20. Named colors or hex RGB (e.g. 0xCE1126) are allowed.
+  - `[User Shape Color]`, the colors of the color popup, 1 through 36. Named colors or hex RGB (e.g. 0xCE1126) are allowed.
   - `[User Snips]`, location of the cursor files, saved snip files and icon clips that are available from the snip menu.
     - `SnipPath` - default is user\Pictures\Screenshots folder
     - `IconPath` - default is Stickies subfolder of installation, these are small images that can be pasted on a snip from the snip menu.
@@ -686,4 +709,6 @@ Left-clicking the SnipShape tray icon brings up the following choices:
 
 ## Limitations/Future
 
-- Improved shape editing toolbar
+- One Arrow type in place of Arrow, Outlined Arrow and Outlined Double Arrow, with the outline and the arrow ends chosen
+  on the shape bar
+- Undo for changes of a shape's stacking order (push down, send to back)
