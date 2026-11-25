@@ -100,6 +100,9 @@ Class GuiSnip extends Gui {
          ShapeGroup.Clear()
       If (ShapeSelect.SnipObj = this)
          ShapeSelect.Clear()
+      ; The shape just drawn points back at this snip (its Gui): a cycle that would keep
+      ; the snip, its pictures and shapes alive when it closes still in a draw mode
+      this.lastDrawn := 0
       Try {
          ; title := this.Title
          this.ClearAllShapes(true)  ; in case we have built in GC

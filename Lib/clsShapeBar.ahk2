@@ -230,7 +230,8 @@ Class ShapeBar {
       this.snipHwnd := 0
       this.Group    := false
       this.Single   := 0
-      this._sig     := ""
+      this._sig     := ""   ; the next Update lays the cells out again
+      this.Items    := []   ; button actions hold the selected shape, and so its snip
       this._hover   := 0
       this._wheel   := 0
    }
