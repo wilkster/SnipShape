@@ -129,8 +129,11 @@ Class GuiSnip extends Gui {
          if (Snips.VisibleSnips() = 0)
             ButtonBar.Hide()
          if (Snips.guiSnips.Count == 0) {
-            ; The last snip is gone: free the color popup until a drawing tool is used again
+            ; The last snip is gone: free the color popup until a drawing tool is used again,
+            ; and the bars' images and icons (loaded again when next drawn)
             ColorPopDown.Release()
+            ButtonBar.Release()
+            ShapeBar.ReleaseIcons()
             ; Force windows to reclaim (used for checkking for memory leaks)
             DllCall("psapi\EmptyWorkingSet", "ptr", -1)
          }
@@ -866,8 +869,8 @@ Class GuiSnip extends Gui {
     * @param {Integer} hWnd - Handle of the window receiving the message
     */
    WM_ACTIVATE_GUI(SnipObj, wParam, lParam, msg) {
-      ; A shape bar value list is open for this snip: it stays in draw mode
-      If (ShapeBar.menuSnip = SnipObj.hwnd)
+      ; A bar's menu or the color popup is open for this snip: it stays in draw mode
+      If (DrawnBar.MenuSnip = SnipObj.hwnd)
          Return
       ; lParam is other window
       focusBorder.HideFocus(true)

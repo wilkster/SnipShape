@@ -3282,6 +3282,20 @@ Class GDIp {
          warning("GDI+ Error " GDIp.TranslateErrorCode(res))
       return res
    }
+   /**
+    * Fill a pie slice of an ellipse using the specified brush
+    * @param pGraphics Handle to the Graphics object
+    * @param pBrush Handle to the Brush
+    * @param x, y, w, h Bounding rectangle of the ellipse
+    * @param startAngle Degrees clockwise from the x axis to the first side
+    * @param sweepAngle Degrees clockwise from the first side to the second
+    * @returns {Integer} GDI+ status code
+    */
+   Static FillPie(pGraphics, pBrush, x, y, w, h, startAngle, sweepAngle) {
+      If (res := DllCall("gdiplus\GdipFillPie", "Ptr", pGraphics, "Ptr", pBrush, "Float", x, "Float", y, "Float", w, "Float", h, "Float", startAngle, "Float", sweepAngle))
+         warning("GDI+ Error " GDIp.TranslateErrorCode(res))
+      return res
+   }
 
    ;
    /**

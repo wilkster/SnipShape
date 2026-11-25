@@ -252,8 +252,9 @@ Class Snips {
 
    Static WM_LBUTTONDOWN(wParam, lParam, msg, hWnd) {
       Static WM_NCLBUTTONDOWN := 0xA1
-      If (hWnd = ShapeBar.hWnd) {
-         ShapeBar.Click()
+      ; A drawn bar (shape bar, toolbar, color popup) handles its own clicks
+      If (bar := DrawnBar.FromHwnd(hWnd)) {
+         bar.Click()
          Return 0
       }
       ; Shape group box: drag moves the group. A click on a snip or on a shape
@@ -279,14 +280,6 @@ Class Snips {
       } else if (hWnd = this.guiSSR.hWnd) {
          ; Step 2, initiate screen selection
          Snips.SelectScreenRegion(2, 'LButton')
-      } else if (hWnd = ButtonBar.bbGui.hWnd) {
-         ; If buttonbar background then allow moving without caption
-         DllCall("ReleaseCapture")
-         PostMessage(WM_NCLBUTTONDOWN, 2, , hWnd)
-      } Else If (cb := ButtonBar.buttonCallbacks.Get(hWnd, 0)) {
-         ; Buttonbar Callbacks are handeled here
-         SetTimer(cb,-10)
-         ; menu is posted in 10ms
       }
       ; Have to NOT return anything
    }

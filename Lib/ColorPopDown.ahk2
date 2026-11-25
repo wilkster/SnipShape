@@ -1,38 +1,44 @@
 /************************************************************************
- * @description Class to contain the color select dialog
+ * @description Class to contain the color select popup
  * @file ColorPopDown.ahk2
  * @author Tom Wilkason
  * @date 2026/07/13
  * @version 1.0.0
+ *
+ * A grid of 36 color circles (the last is the color wheel / screen color picker) drawn with
+ * GDI+ on one layered window (DrawnBar), no controls or icons: each redraw paints the
+ * circles. The current color is ringed; the one under the mouse is drawn larger.
+ *   - left click (on release, also after pressing elsewhere and dragging onto a color, as in
+ *     a menu): pick it
+ *   - right click: change that color (color dialog; Ctrl: pick it from the screen)
+ * It takes the focus when shown and hides when it loses it. The window exists only while
+ * snips are drawn on: Build() when a drawing tool is first chosen (or the popup is first
+ * shown), Release() when the last snip closes.
  ***********************************************************************/
 #Requires Autohotkey 2.1-alpha.25
+#include clsDrawnBar.ahk2
 #include LibMisc.ahk2    ; custom imagelist
 #include clsShapes.ahk2 ; default colors are shared
 #include clsColorPicker.ahk2
-Class ColorPopDown {
+Class ColorPopDown extends DrawnBar {
    Static colorNameArray   := Array() ; Index -> name (tool tips only)
    Static colorValArray    := Array() ; Index -> Color value in decimal
-   Static colorPicControls := Array() ; Index -> Pic Control
-   ; The popup window and its icons exist only while snips are being drawn on: Build() when
-   ; a drawing tool is first chosen (or the popup is first shown), Release() when the last
-   ; snip closes. About 114 GDI + 73 USER objects and 1.8 MB, so a plain snip never pays.
-   Static colorGui         := 0
-   Static smallerIconsObj  := 0 ; ImageList: Index -> hIcon
-   Static circledIconsObj  := 0 ; ImageList: Index -> hIcon
-   Static largerIconsObj   := 0 ; ImageList: Index -> hIcon
-   Static smallerIcon      := 1
-   Static circledIcon      := 2
-   Static largerIcon       := 3
-   Static lastControl      := 0
+   Static gui              := 0       ; the window, 0 until Build
+   Static hWnd             := 0
    Static DPIFactor        := activeDPIFactor()
-   Static callback         := 0  ; called with the color picked (ShowColorPopup)
+   Static callback         := 0       ; called with the color picked (ShowColorPopup)
+   Static current          := -1      ; color shown ringed
    Static MaxIndex         := 36
+   Static Cols             := 6
    Static circleSize       := 0
+   Static _pos             := 0       ; where it was last shown {X, Y}
    Static __New() {
       fontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Scale circle size with the size of the font/buttons for the button bar
       this.circleSize := round(this.DPIFactor * (FontSize / 0.36))
+      this.Scale      := this.DPIFactor
       this._LoadColors()
+      this._upHotkey  := this._ButtonUp.Bind(this)
    }
    /**
     * Read the color values and names from the settings file (cheap, kept for the session:
@@ -58,88 +64,55 @@ Class ColorPopDown {
     * True if the popup window exists (see Build/Release)
     * @type {Integer}
     */
-   Static IsBuilt => this.colorGui != 0
+   Static IsBuilt => this.gui != 0
    /**
     * True if the popup is built and showing
     * @type {Integer}
     */
-   Static IsShown => this.colorGui AND IsWindowVisible(this.colorGui.hWnd)
+   Static IsShown => this.gui AND IsWindowVisible(this.hWnd)
    /**
-    * Make the icons and the popup window, if they don't exist (measured 125-150 ms:
-    * about 50 ms for the 108 icons, the rest for the window and its 36 picture controls)
+    * Make the popup window if it doesn't exist (a few ms: one window, no icons)
     */
    Static Build() {
-      If this.colorGui
+      If this.gui
          Return
-      logGDI("Creating Color GUI")
-      this.smallerIconsObj := ImageList(), this.circledIconsObj := ImageList(), this.largerIconsObj := ImageList()
-      this.smallerIconsObj.Size := this.circledIconsObj.Size := this.largerIconsObj.Size := this.circleSize
-      For Index, Color in this.colorValArray {
-         ; Last index is the color wheel / color picker
-         If (Index == this.MaxIndex)
-            Color := -1
-         ; Save in an image list (this consumes then discards the icon)
-         this.smallerIconsObj[Index] := this._BuildAColor(Color,1)
-         this.circledIconsObj[Index] := this._BuildAColor(Color,2)
-         this.largerIconsObj[Index]  := this._BuildAColor(Color,3)
-      }
-      this._BuildColorPopup()
+      ; It takes the focus when shown, and hides when it loses it
+      this._InitBar(false)
+      this.gui.OnMessage(0x0006, this._WM_ACTIVATE.Bind(this))   ; WM_ACTIVATE
+      this._Layout()
       logGDI("Created Color GUI")
    }
    /**
-    * Destroy the popup window and its icons (the last snip closed). The color values stay.
+    * Destroy the popup window (the last snip closed). The color values stay.
     */
    Static Release() {
-      If NOT this.colorGui
+      If NOT this.gui
          Return
-      If this.IsShown
-         ToolTip
-      this.colorGui.Destroy()
-      this.colorGui         := 0
-      this.colorPicControls := Array()
-      this.lastControl      := 0
-      this.callback         := 0
-      ; Dropping the ImageList objects destroys their image lists (ImageList.__Delete)
-      this.smallerIconsObj  := this.circledIconsObj := this.largerIconsObj := 0
+      this._hideMe()
+      this._DestroyBar()
+      this.callback := 0
       logGDI("Released Color GUI")
    }
-   Static _PrepColorPopup(defColor) {
-      for idx, ctrl in this.colorPicControls {
-         if (defColor == this.colorValArray[idx]) {
-            ; Current default color
-            If (ctrl.IconType != this.circledIcon) {
-               ctrl.value := "HICON:" this.circledIconsObj[idx]
-               ctrl.IconType := this.circledIcon
-            }
-         } Else {
-            ; Not default, make sure it is small
-            If (ctrl.IconType != this.smallerIcon) {
-               ctrl.value := "HICON:" this.smallerIconsObj[idx]
-               ctrl.IconType := this.smallerIcon
-            }
-         }
+   ; Cells: 6 columns of circles
+   Static _Layout() {
+      cs     := this.circleSize
+      gap    := Round(1.8 * this.DPIFactor)
+      margin := gap * 4
+      rows   := Ceil(this.MaxIndex / this.Cols)
+      this.Items := []
+      Loop this.MaxIndex {
+         col := Mod(A_Index - 1, this.Cols), row := (A_Index - 1) // this.Cols
+         this.Items.Push({ Index: A_Index, X: margin + col * (cs + gap), Y: margin + row * (cs + gap), W: cs, H: cs
+            , Tip: A_Index = this.MaxIndex ? "Color Picker" : "" })
       }
-      ; If users leaves mouse down while dragging over controls,
-      ; allow releasing of the buttton over a control select that color
-      ; Similar to how menus work.
-      Hotkey("~LButton Up", HK_LButtonUp, "On")
-      ; Debug("Registered Hotkey")
-      Return
-      /**
-       * Callback if the user releases the mouse button over a picture
-       * Will get called after a click event is processed
-       */
-      HK_LButtonUp(*) {
-         Hotkey("~LButton Up", "Off", "Off")   ; one-shot; don't leave a global hook dangling
-         ; Debug("Triggered Hotkey, value=" IsObject(this.lastControl))
-         If (this.lastControl) {
-            this._colorPicked(this.lastControl.Index)
-         }
-      }
+      this.BarW := 2 * margin + this.Cols * cs + (this.Cols - 1) * gap
+      this.BarH := 2 * margin + rows * cs + (rows - 1) * gap
    }
    /**
-    * Position the color popup at the mouse, aligned under the color button, and show it
-    * Not used for menus, only for buttons
+    * Show the popup at the mouse
+    * @param {Func} [callback] - called with the color picked: callback(ColorPopDown, color)
+    * @param {Integer} [defColor] - current color, shown ringed
+    * @param {Integer} [parent] - owner window
     */
    Static ShowColorPopup(callback?, defColor?, parent:=0, *) {
       ; Normally built when a drawing tool was chosen; a selected shape or the text
@@ -147,111 +120,188 @@ Class ColorPopDown {
       this.Build()
       If (IsSet(callback))
          this.callback := callback ; used by _colorPicked
-      ; Renable active window tracking
-      ; Show the windoww a bit under the mouse
-      If (IsSet(defColor)) {
-         this._PrepColorPopup(defColor)
-      }
+      If (IsSet(defColor))
+         this.current := defColor
+      ; Attach a parent if needed
+      if (WinExist(parent))
+         this.gui.Opt("+Owner" parent)
+      else
+         this.gui.Opt("-Owner")
+      ; At the mouse (a bit under it, on the margin), kept on the monitor
       cm := CoordMode("Mouse", "Screen")
       MouseGetPos(&sX, &sY)
       CoordMode("Mouse", cm)
-      ; Attach a parent if needed
-      if (WinExist(parent))
-         this.colorGui.Opt("+Owner" parent)
-      else
-         this.colorGui.Opt("-Owner")
-
-      this.colorGui.GetPos(,,&wW,&wH)
-      KeepOnMonitor(sX, sY, wW, wH, &X, &Y)
-      this.colorGui.Show("Y" Y " X" X)
-      SetWindowTop(this.colorGui.hwnd)
-      ; Let the user keep mouse down and drag/release over a color
-   }   
+      KeepOnMonitor(sX, sY, this.BarW, this.BarH, &X, &Y)
+      this._ShowAt(X, Y)
+   }
+   Static _ShowAt(X, Y) {
+      this._pos   := { X: X, Y: Y }
+      this._hover := 0
+      ; A color is picked when the button is released over it, also after pressing
+      ; elsewhere and dragging onto it (as in a menu)
+      Hotkey("~LButton Up", this._upHotkey, "On")
+      wasShown := this.IsShown
+      this._Render(X, Y, true, true)
+      If (wasShown)
+         WinActivate(this.hWnd)
+      SetWindowTop(this.hWnd)
+   }
    /**
-    * Build a specific color
-    * 3 GDI + 1 user resource per icon
-    * @param color Color Value
-    * @param tyle 1 = smaller circle, 2= outline circle, 3 = larger circle (active)
-    * @returns {Any} 
+    * Hide the popup
     */
-   Static _BuildAColor(color, type:=1) {
-      smCirSize := this.circleSize * 0.8
-      Switch type {
-         Case this.smallerIcon:
-            ; Smaller circle
-            if (color >= 0)
-               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
-            bs    := smCirSize
-            pad   := (this.circleSize - bs) / 2
-            
-         Case this.largerIcon:
-            ; Larger Circle, highlighted
-            if (color >= 0)
-               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
-            bs    := this.circleSize - 2
-            pad   := 1
-
-         Case this.circledIcon:
-            ; Outline Circle, default
-            If (color >= 0) {
-               penwidth := this.circleSize * 0.07
-               pen := GDIp.CreatePen(0xFFFFFFFF, penwidth) ; white for now. leave small gap between circle so we can see it on white
-               brush := GDIp.BrushCreateSolid(0xFF000000 | color)
-               bs := smCirSize
-               pad := (this.circleSize - bs) / 2
-               GDIp.SetPenAlignment(pen, 0)
-            } Else {
-               bs    := this.circleSize - 2
-               pad   := 1
-            }
-      }
-      pBitmap := GDIp.CreateBitmap(this.circleSize, this.circleSize,)
-      G := GDIp.GraphicsFromImage(pBitmap)
-      GDIp.SetSmoothingMode(G,4)
-      GDIp.SetInterpolationMode(G,7)
-      GDIp.SetCompositingQuality(G, 5)
-      GDIp.SetCompositingMode(G, 0)              ; Alpha blend, Source over
-      GDIp.SetPixelOffsetMode(G, 4)
-      GDIp.GraphicsClear(G, 0x00000000)
-      If (color >= 0) {
-         Switch type {
-            Case this.smallerIcon, this.largerIcon:
-               GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
-            Case this.circledIcon:
-               GDIp.FillEllipse(G, brush, pad, pad, bs, bs) ; 0 - based
-               GDIp.DrawEllipse(G, pen, pad - penwidth, pad - penwidth, bs + penwidth * 2, bs + penwidth * 2) ; 0 - based
-         }
+   Static _hideMe() {
+      If NOT this.gui
+         Return
+      Try Hotkey("~LButton Up", this._upHotkey, "Off")
+      SetTimer(this._hoverTimer, 0)
+      If (this._hover)
+         ToolTip
+      this._hover := 0
+      this.gui.Opt("-Owner")
+      this.gui.Hide()
+   }
+   ; Losing the focus hides it
+   Static _WM_ACTIVATE(GuiObj, wParam, *) {
+      If ((wParam & 0xFFFF) = 0)
+         this._hideMe()
+   }
+   ; Left button released anywhere while shown: over a color, pick it
+   Static _ButtonUp(*) {
+      If NOT this.IsShown
+         Return
+      If (idx := this._MouseItem(&x, &y))
+         this._colorPicked(idx)
+   }
+   ; Pressed on the popup: the color is picked on release (_ButtonUp)
+   Static Click() {
+   }
+   ; Right click on a color: change it (not the color wheel)
+   Static RightClick() {
+      If ((idx := this._MouseItem(&x, &y)) AND idx < this.MaxIndex)
+         this._ColorEdit(idx)
+   }
+   /**
+    * Pick a color: hide the popup, call the callback
+    * @param {Integer} Index - cell; the last one runs the screen color picker
+    */
+   Static _colorPicked(Index, *) {
+      If (Index == this.MaxIndex) {
+         color := ColorPicker.Run()
       } Else {
-         brush := GDIp.BrushCreateSolid(0xFFFFFF)
-         ; Draw the circle in pie pieces
-         pieces := 16
-         slice  := 360 / pieces
-         Loop pieces {
-            a := Round((A_Index - 1) * slice, 0)
-            GDIp.SetBrushColor(brush,this.HsvToArgb(a))
-            DllCall("gdiplus\GdipFillPie", "Ptr", G, "Ptr", brush
-                  , "Float", pad, "Float", pad, "Float", bs, "Float", bs
-                  , "Float", a - 90, "Float", (slice + 5))
-         }            
-         ; Punch a small transparent hole
-         GDIp.SetCompositingMode(G, 1)
-         GDIp.SetBrushColor(brush, 0x00000000)
-         Radius := bs / 5
-         Center := this.circleSize / 2
-         GDIp.FillEllipse(G, brush, Center - Radius, Center - Radius, Radius * 2, Radius * 2)
+         color := this.colorValArray[Index]
       }
-      ; Icons solve the transparency issue on the menu (vs bitmaps)
-      ; We save them away in imagelist, which is small for resources
-      hIcon := GDIp.CreateHICONFromBitmap(pBitmap)
-      GDIp.DeleteGraphics(G)
-      GDIp.DisposeImage(pBitmap)
-      If IsSet(brush)
-         GDIp.DeleteBrush(brush)
-      If IsSet(pen)
-         GDIp.DeletePen(pen)
+      this._hideMe()
+      if (this.callback and color >= 0)
+         this.callback(color)
+   }
+   /**
+    * Replace a color with another and update the INI file (color dialog, or the screen
+    * color picker with Ctrl). The dialog takes the focus, which hides the popup: it is
+    * shown again where it was.
+    * @param {Integer} Index - cell
+    */
+   Static _ColorEdit(Index) {
+      editColor := this.colorValArray[Index]
+      pos := this._pos
+      ; Ctrl down uses color picker
+      If (GetKeyState("Ctrl", "P")) {
+         NewColor := ColorPicker.Run()
+      } Else {
+         NewColor := RGBval(this._PickCustomColor(editColor))
+      }
+      If (NewColor >= 0 AND editColor != RGBval(NewColor)) {
+         ; TODO - Create an undo point
+         NewColor := RGBval(NewColor)
+         this.colorNameArray[Index] := "Set " hex(NewColor) . (Index < 10 ? " color (" . Index . ")" :  " color " Index)
+         IniWrite(hex(NewColor), Settings.File, "User Shape Color", "Color " Index)
+         this.colorValArray[Index] := NewColor
+      }
+      If (this.gui AND pos)
+         this._ShowAt(pos.X, pos.Y)
+   }
+   /**
+    * Bring up the color chooser with the first 16 colors as pre-sets
+    * @param clr Current color to highlight
+    * @returns {String}
+    */
+   Static _PickCustomColor(clr) {
+      colArray := Array()
+      ; Read up 16 custom colors from the color dialog presets
+      Loop 16 {
+         colArray.push(this.colorValArray[A_Index])
+      }
+      Return ColorSelectDialog(clr, this.hWnd, colArray, 1)
+   }
 
-      return hIcon
-   } 
+   ;----------------------------------------------------------------------
+   ; Drawing
+   ;----------------------------------------------------------------------
+   /**
+    * Draw the popup: background, then each circle (current one ringed, the one under the
+    * mouse larger)
+    * @returns {DIBSurface}
+    */
+   Static Draw() {
+      Surf := DIBSurface(this.BarW, this.BarH, this.hWnd)
+      G    := Surf.G
+      Surf.GraphicsClear(0)
+      GDIp.SetSmoothingMode(G, 4)
+      GDIp.SetPixelOffsetMode(G, 4)
+      this._DrawBack(G, this._Px(4))
+      For idx, item in this.Items {
+         clr   := (idx = this.MaxIndex) ? -1 : this.colorValArray[idx]
+         style := (this.colorValArray[idx] = this.current) ? 2 : (idx = this._hover ? 3 : 1)
+         this._DrawCircle(G, item.X, item.Y, clr, style)
+      }
+      Return Surf
+   }
+   /**
+    * One circle in a cell (same geometry as the old icons)
+    * @param {Integer} color - RGB, or -1 for the color wheel
+    * @param {Integer} style - 1 smaller circle, 2 ringed (current), 3 larger (under the mouse)
+    */
+   Static _DrawCircle(G, X, Y, color, style) {
+      cs    := this.circleSize
+      small := cs * 0.8
+      Switch style {
+         Case 1:
+            bs := small, pad := (cs - bs) / 2
+         Case 2:
+            If (color >= 0)
+               bs := small, pad := (cs - bs) / 2
+            Else
+               bs := cs - 2, pad := 1
+         Default:
+            bs := cs - 2, pad := 1
+      }
+      If (color >= 0) {
+         brush := GDIp.BrushCreateSolid(0xFF000000 | color)
+         GDIp.FillEllipse(G, brush, X + pad, Y + pad, bs, bs)
+         GDIp.DeleteBrush(brush)
+         If (style = 2) {
+            ; ring with a small gap around the circle, in the text color so it shows on
+            ; light and dark backgrounds
+            pw  := cs * 0.07
+            pen := GDIp.CreatePen(this.Colors.Value, pw)
+            GDIp.DrawEllipse(G, pen, X + pad - pw, Y + pad - pw, bs + pw * 2, bs + pw * 2)
+            GDIp.DeletePen(pen)
+         }
+         Return
+      }
+      ; Color wheel: 16 pie slices around a hole in the background color
+      brush  := GDIp.BrushCreateSolid(0xFFFFFFFF)
+      pieces := 16
+      slice  := 360 / pieces
+      Loop pieces {
+         a := Round((A_Index - 1) * slice, 0)
+         GDIp.SetBrushColor(brush, this.HsvToArgb(a))
+         GDIp.FillPie(G, brush, X + pad, Y + pad, bs, bs, a - 90, slice + 5)
+      }
+      GDIp.SetBrushColor(brush, this.Colors.Back)
+      r := bs / 5
+      GDIp.FillEllipse(G, brush, X + cs / 2 - r, Y + cs / 2 - r, r * 2, r * 2)
+      GDIp.DeleteBrush(brush)
+   }
    ; h = 0..359, full saturation/value, integer math
    Static HsvToArgb(h) {
       f := Mod(h, 60) * 255 // 60
@@ -264,179 +314,5 @@ Class ColorPopDown {
          default: r := 255,    g := 0,       b := 255 - f
       }
       return 0xFF000000 | r << 16 | g << 8 | b
-   }   
-   /**
-    * Build a borderless popup GUI showing color circles in a grid.
-    * Called by Build; shown/positioned on demand near the color button.
-    * @param {Integer} bs - button/icon size in px
-    */
-   Static _BuildColorPopup() {
-      static cols := 6
-
-      gap := Round(1.8 * this.DPIFactor)
-      this.colorGui           := Gui("+AlwaysOnTop -Caption +ToolWindow -DPIScale")
-      this.colorGui.BackColor := MenuBackColor()
-      this.colorGui.MarginX   := this.colorGui.MarginY := gap * 4
-      For Index, Color in this.colorValArray {
-         opt := (Mod(Index - 1, cols) = 0) ? (Index = 1 ? "" : "XM Y+" gap) : "X+" gap ; wrap the icons by position
-         ; Get a copy of icon from imagelist and hand to picture control
-         pic := this.colorGui.AddPicture(opt, "HICON:" this.smallerIconsObj[A_Index]) ; 1 user resource
-         this.colorPicControls.push(pic)
-         pic.OnEvent("Click", this._colorPicked.Bind(this, Index))
-         if (Index < this.MaxIndex)
-            pic.OnEvent("ContextMenu", _colorEdit)
-         ; Custom properties for this control
-         Pic.Index    := Index
-         pic.IconType := this.smallerIcon
-         pic.Color    := color
-         pic.Tips     := this.colorNameArray[Index]
-      }
-      ; Handle mouse over events here to dynamically adjust circle sizes
-      this.colorGui.OnMessage(0x0020, this.GUI_SETCURSOR.Bind(this)) ;WM_SETCURSOR
-      ; Autohide the gui if it loses focus
-      this.colorGui.OnMessage(0x0006, checkToHide.bind()) ; WM_ACTIVATE
-      win11RoundCorners(this.colorGui.hwnd, 2)
-
-      Return
-      ;----------------------- C L O S U R E S ------------------------------
-      ; Callback for the cursor motion message
-      ; Used to show tips for each color when they are hovered over on the mouse
-      ;----------------------------------------------------------------------
-      /**
-       * Hide the color pop-up when it is deactivated
-       * @param gui 
-       * @param wParam 
-       * @param lParam 
-       * @param msg 
-       */
-      checkToHide(gui, wParam, lParam, msg) {
-         Switch (wParam &= 0xFF) {
-            Case 0 : ; Deactivate
-               this._hideMe()
-            Case 0 : ; Activate
-               ; Any gui prep work to be done?
-            Default:
-         }
-      }
-      /**
-       * Replace a color with another and update the InI file
-       * @param clr Color to change
-       * @param ctrl Control to Change it in
-       */
-      _colorEdit(PICControl, *) {
-         editColor := PICControl.Color
-         Index     := PICControl.Index
-         oldColor  := RGBval(editColor)
-         ; Ctrl down uses color picker
-         If (GetKeyState("Ctrl", "P")) {
-            NewColor := ColorPicker.Run()
-         } Else {
-            NewColor := RGBval(_PickCustomColor(editColor))
-         }
-         this.colorGui.show()
-         SetWindowTop(this.colorGui.hwnd)
-         If (NewColor >= 0 AND oldColor != RGBVal(NewColor)) {
-            ; TODO - Create an undo point
-            newName := "Set " hex(NewColor) . (Index < 10 ? " color (" . Index . ")" :  " color " Index)
-            this.colorNameArray[Index] := newName
-            IniWrite(hex(NewColor), Settings.File, "User Shape Color", "Color " Index)
-            ; Replace this entry in the image list
-            this.smallerIconsObj[Index] := ColorPopDown._BuildAColor(NewColor,1)
-            this.circledIconsObj[Index] := ColorPopDown._BuildAColor(NewColor,2)
-            this.largerIconsObj[Index]  := ColorPopDown._BuildAColor(NewColor,3)
-            ; Replace the active icon with a large on since it is active
-            PICControl.Value           := "HICON:" this.largerIconsObj[Index]
-            PICControl.IconType        := this.largerIcon
-            PICControl.Color           := NewColor
-            PICControl.Tips            := newName
-            this.colorValArray[Index]  := RGBval(NewColor)
-         }
-      }  
-      /**
-       * Bring up the color chooser with the first 16 colors as pre-sets
-       * @param clr Current color to highlight
-       * @returns {String} 
-       */
-      _PickCustomColor(clr) {
-         colArray:=Array()
-         ; Read up 16 custom colors from the color dialog presets
-         Loop 16 {
-            colArray.push(this.colorValArray[A_Index])
-         }
-         Color := ColorSelectDialog(clr,this.colorGui.hwnd, colArray, 1)
-         return Color
-      }
-   }
-   /**
-    * Handle a color circle click: queue the color, tint the bar, hide the popup
-    * @param {Integer} clr - RGB color value chosen
-    */
-   Static _colorPicked(Index, *) {
-      this.lastControl := 0 ; so button-up event doesn't repeat this
-      If (Index == this.colorValArray.Length) {
-         color := ColorPicker.Run()
-      } Else {
-         color := this.colorValArray[Index]
-      }
-
-      this._hideMe()
-      if (this.callback and color >= 0)
-         this.callback(color)
-   }      
-
-   /**
-    * When the mouse is over the gui handle showing/hiding the controls
-    * @param guiControl picture control object 
-    * @param wparam window/control handle the cursor is over
-    * @param lParam 
-    * @param msg 
-    */
-   Static GUI_SETCURSOR(guiControl, wparam, lparam, msg, *) {
-      If (wparam == this.colorGui.hwnd) {
-         ; in between circles, clear any lingering large circles
-         For idx, picControl in this.colorPicControls {
-            If (picControl.IconType == this.largerIcon) {
-               picControl.value := "HICON:" this.smallerIconsObj[idx]
-               picControl.IconType := this.smallerIcon
-            }
-         }
-         this.lastControl := 0
-      } else If (picControl := (GuiCtrlFromHwnd(wparam) ?? false)) {
-         ; over a control, service it if different than last control
-         If (picControl != this.lastControl) {
-            If (picControl.IconType != this.circledIcon) {
-               idx := picControl.Index
-               If (picControl.IconType != this.largerIcon) {
-                  picControl.value := "HICON:" this.largerIconsObj[idx]
-                  picControl.IconType := this.largerIcon
-               }
-            }
-            ; Revert last control to normal if not default
-            If (this.lastControl) {
-               If (this.lastControl.IconType != this.circledIcon) {
-                  idx := this.lastControl.Index
-                  If (this.lastControl.IconType != this.smallerIcon) {
-                     this.lastControl.value := "HICON:" this.smallerIconsObj[idx]
-                     this.lastControl.IconType := this.smallerIcon
-                  }
-               }
-            }
-            ; TODO - make tooltips an option
-            if (picControl.Index == this.MaxIndex)
-               ToolTip "Color Picker"
-            Else
-               ToolTip
-            this.lastControl := picControl
-         }
-      }
-   }
-   /**
-    * Hide the color selector as well as turn off activate callback
-    */
-   Static _hideMe() {
-      If NOT this.colorGui
-         Return
-      this.colorGui.Opt("-Owner")
-      this.colorGui.Hide()
    }
 }

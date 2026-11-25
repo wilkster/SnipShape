@@ -273,6 +273,9 @@ The toolbar is helpful if you prefer selecting tools visually instead of using k
 - The toolbar automatically moves to the currently active snip.
 - If focus changes to a non-snip window, the toolbar hides automatically.
 - When focus returns to a snip, the toolbar reappears.
+- Using the toolbar doesn't take the focus from the snip: the drawing tool stays on (for example Undo or Copy while
+  drawing), and Esc still works on the snip. A shape picked from a toolbar menu is ready to draw at once.
+- Drag the toolbar's background to move it out of the way (until the snip is next activated).
 - The toolbar is on the left of the snip, starting at its top corner. When there is no room there it moves to the right
   side, and a toolbar taller than the space below is moved up to stay on the monitor.
 - To have the toolbar horizontally above the snip instead, set `Orientation` in the settings file (see below).
@@ -686,7 +689,7 @@ Left-clicking the SnipShape tray icon brings up the following choices:
     - `ScaleFreehand` - Set to 1 to also scale line width when scaling a line based shape. Default is 0 for no scaling.
     - `Padding` - Amount of padding in pixels outside the snip to allow shapes to be drawn. Default is 450 pixels.
   - `[User Button Bar]`, size and placement of the button bar
-    - `Font Size` - increase or decrease to change the default size of the Toolbar icons. Default is 8.0. Fractional sizes are allowed.
+    - `Font Size` - increase or decrease to change the size of the toolbar, the shape bar and the color popup together. Default is 8.0. Fractional sizes are allowed.
     - `Orientation` - `Vertical` (left of the snip) or `Horizontal` (above the snip). Default is Vertical.
   - The Tray menu allows you to edit these directly in Notepad.
 - Optional key bindings: these are defaults, so they aren't shown in the file unless you add them. Select Edit Settings File from the tray menu to add them.

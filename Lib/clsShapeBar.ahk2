@@ -18,10 +18,11 @@
  *   - color: click for the color popup
  *   - drag the icon or background to move the bar out of the way
  *
- * It is one layered window drawn with GDI+, not controls: the bar must never take
- * the focus, because deactivating a snip ends its draw mode, and native sliders,
- * buttons and drop-down lists take it when clicked (tested).
+ * It is one layered window drawn with GDI+, not controls (see DrawnBar): the bar must
+ * never take the focus, because deactivating a snip ends its draw mode, and native
+ * sliders, buttons and drop-down lists take it when clicked (tested).
  ***********************************************************************/
+#include clsDrawnBar.ahk2
 #include Settings.ahk2
 #include libMisc.ahk2
 #include clsGDIp.ahk2
@@ -32,29 +33,23 @@
 #include clsShapeSelect.ahk2
 #include ColorPopDown.ahk2
 #include undo.ahk2
-Class ShapeBar {
+Class ShapeBar extends DrawnBar {
+   ; Items (from DrawnBar): cells {Kind, Def, X, Y, W, H}. Kind: Icon, Color, Slider, List or
+   ; Button (with Action, File, Tip). DrawnBar.MenuSnip: snip whose value list or color popup
+   ; is open (it ignores being deactivated).
    Static SnipObj  := 0       ; snip the bar is shown for
    Static snipHwnd := 0
    Static Group    := false   ; true: the selected shape(s), false: defaults of the draw mode
    Static Single   := 0       ; the selected shape, 0 for a group
    Static Shape    := 0       ; shape type shown, 0 for a group of different types
    Static Count    := 0       ; shapes in the group, 0 for a single selected shape
-   Static Items    := []      ; cells: {Kind, Def, X, Y, W, H}. Kind: Icon, Color, Slider,
-                              ; List or Button (with Action, File, Tip)
-   Static BarW     := 0
-   Static BarH     := 0
    Static Scale    := 1       ; DPI scale of the snip's monitor
-   Static Dragging := false
-   Static menuSnip := 0       ; snip whose value list or color popup is open (it ignores
-                              ; being deactivated)
-   Static _menuObj := 0       ; its GuiSnip
-   Static _hover   := 0       ; index of the cell under the mouse
+   Static _menuObj := 0       ; GuiSnip of DrawnBar.MenuSnip while the color popup is open
    Static _maxW    := 0
    Static _sig     := ""      ; what the cells were laid out for
    Static _valSig  := ""      ; values last drawn
    Static _cancel  := false   ; Esc pressed while dragging
    Static _wheel   := 0       ; last wheel change of shapes {Key, Tick, Id}
-   Static _icons   := Map()   ; button icons by file and size
    ; Titles that are too long for a cell
    Static ShortTitles := Map("outlineThickFactor", "Outline Width", "FillOutline", "Border",
       "TCOpacity", "Center Opacity", "TagScheme", "Numbering", "OLOpacity", "Edge Opacity",
@@ -63,24 +58,9 @@ Class ShapeBar {
    Static ListWidths := Map("FontName", 124, "FillOutline", 116, "TextType", 128)
 
    Static __New() {
-      this._hoverTimer := this._CheckHover.Bind(this)
+      ; The window never takes the focus (a deactivated snip leaves its draw mode)
+      this._InitBar(true)
       this._colorTimer := this._WatchColors.Bind(this)
-      this.gui  := Gui("-Caption +E0x80000 +E0x08000000 +ToolWindow +AlwaysOnTop -DPIScale")
-      this.hWnd := this.gui.hWnd
-      this.gui.OnEvent("ContextMenu", (*) => this.RightClick())
-      ; WS_EX_NOACTIVATE alone doesn't stop a click activating it: MA_NOACTIVATE
-      this.gui.OnMessage(0x21, (*) => 3)   ; WM_MOUSEACTIVATE
-      ; Same light/dark colors as the menus and the color popup
-      dark := GetWindowsTheme()
-      this.Colors := {
-         Back:   0xFF000000 | MenuBackColor(),
-         Edge:   dark ? 0xFF606060 : 0xFFB0B0B0,
-         Hover:  0xFF000000 | MenuHoverColor(),
-         Title:  dark ? 0xFFB8B8B8 : 0xFF5A5A5A,
-         Value:  dark ? 0xFFFFFFFF : 0xFF000000,
-         Track:  dark ? 0xFF6A6A6A : 0xFFC4C4C4,
-         Accent: dark ? 0xFF4CA0FF : 0xFF0067C0
-      }
    }
 
    ;----------------------------------------------------------------------
@@ -177,6 +157,17 @@ Class ShapeBar {
    }
    ; New shapes of this type have a color that can be set (whiteout and redact sample theirs)
    Static _DrawHasColor(mode) => Shapes.ColorCat.Has(mode)
+   /**
+    * Size of the bar relative to the default: [User Button Bar] Font Size / 8, the setting
+    * the toolbar and color popup are sized by (1 if it isn't a usable number)
+    * @type {Float}
+    */
+   Static SizeFactor {
+      get {
+         fs := ButtonBar.FontSize
+         Return (IsNumber(fs) AND fs > 0) ? fs / 8 : 1
+      }
+   }
    Static _Place(SnipObj, content, X?, Y?) {
       ; An own mouse drag (slider, bar) is running: leave the bar where it is
       If this.Dragging
@@ -185,7 +176,9 @@ Class ShapeBar {
       WinGetPos(&sX, &sY, &sW, &sH, hwnd)
       sX := X ?? sX, sY := Y ?? sY
       Mon  := windowMonArea(hwnd)
-      zoom := WinDPI(hwnd) / 96
+      ; DPI of the snip's monitor, times the [User Button Bar] Font Size the toolbar and the
+      ; color popup are sized by (8 is the default, so 8 = 100%)
+      zoom := WinDPI(hwnd) / 96 * this.SizeFactor
       maxW := Min(Max(sW, Round(900 * zoom)), Mon.X2 - Mon.X)
       this.SnipObj  := SnipObj
       this.snipHwnd := hwnd
@@ -266,8 +259,6 @@ Class ShapeBar {
    ;----------------------------------------------------------------------
    ; Layout
    ;----------------------------------------------------------------------
-   ; Size in pixels of a size at 96 DPI
-   Static _Px(n) => Round(n * this.Scale)
    /**
     * Place the shape icon, the color, one cell per property and the group buttons, in
     * rows no wider than maxW. Continuation rows start under the first cell.
@@ -363,37 +354,7 @@ Class ShapeBar {
       }
       Return Format("{:g}", Round(value, 1))
    }
-   /**
-    * Cell at a point in bar coordinates
-    * @returns {Integer} index in Items, 0 if none
-    */
-   Static ItemAt(x, y) {
-      For idx, item in this.Items
-         If (x >= item.X AND x < item.X + item.W AND y >= item.Y AND y < item.Y + item.H)
-            Return idx
-      Return 0
-   }
-   ; Mouse position in bar coordinates and the cell under it (0 = none or not over the bar)
-   Static _MouseItem(&x, &y) {
-      cm := CoordMode("Mouse", "Screen")
-      MouseGetPos(&mX, &mY, &over)
-      CoordMode("Mouse", cm)
-      WinGetPos(&wX, &wY,,, this.hWnd)
-      x := mX - wX, y := mY - wY
-      Return (over = this.hWnd) ? this.ItemAt(x, y) : 0
-   }
-   /**
-    * True if the bar is shown and the mouse is over it (wheel hotkeys)
-    * @type {Integer}
-    */
-   Static MouseOver {
-      get {
-         If NOT this.snipHwnd
-            Return false
-         MouseGetPos(,, &over)
-         Return over = this.hWnd
-      }
-   }
+   ; ItemAt, _MouseItem, MouseOver (wheel hotkeys), Hover: DrawnBar
 
    ;----------------------------------------------------------------------
    ; Mouse
@@ -403,10 +364,10 @@ Class ShapeBar {
     */
    Static Click() {
       ; The color popup is open (the bar doesn't take the focus, so it stays): close it
-      If (this.menuSnip) {
+      If (DrawnBar.MenuSnip) {
          If ColorPopDown.IsShown {
             ColorPopDown._hideMe()
-            WinActivate(this.menuSnip)
+            WinActivate(DrawnBar.MenuSnip)
          }
          Return
       }
@@ -503,25 +464,12 @@ Class ShapeBar {
    Static CancelDrag() {
       this._cancel := true
    }
-   ; Move the bar by its icon or background (until it is next placed)
-   Static _DragBar() {
-      cm := CoordMode("Mouse", "Screen")
-      MouseGetPos(&sX, &sY)
-      WinGetPos(&wX, &wY,,, this.hWnd)
-      this.Dragging := true
-      While GetKeyState("LButton", "P") {
-         Sleep(10)
-         MouseGetPos(&mX, &mY)
-         WinMove(wX + mX - sX, wY + mY - sY,,, this.hWnd)
-      }
-      this.Dragging := false
-      CoordMode("Mouse", cm)
-   }
+   ; _DragBar (move the bar by its icon or background, until it is next placed): DrawnBar
    /**
     * Menu of a property's values under its cell, current one checked
     */
    Static ShowValues(item) {
-      If (NOT this.snipHwnd OR this.menuSnip)
+      If (NOT this.snipHwnd OR DrawnBar.MenuSnip)
          Return
       d   := item.Def
       cur := this._Get(d, &mixed)
@@ -534,36 +482,16 @@ Class ShapeBar {
             M.Check(val)
       }
       WinGetPos(&wX, &wY,,, this.hWnd)
-      ; Menu.Show activates the script's main window. The snip ignores that while menuSnip
-      ; is set (GuiSnip.WM_ACTIVATE_GUI), or it would leave draw mode and hide the bar
-      snip := this.SnipObj
-      hwnd := this.menuSnip := this.snipHwnd
-      cm   := CoordMode("Menu", "Screen")
-      Try
-         M.Show(wX + item.X, wY + item.Y + item.H)   ; blocks here
-      Finally {
-         CoordMode("Menu", cm)
-         this.menuSnip := 0
+      ; Menu.Show activates the script's main window: the snip ignores that meanwhile
+      ; (DrawnBar._GuardedMenu), or it would leave draw mode and hide the bar
+      this._GuardedMenu(this.SnipObj, ShowIt)
+      ShowIt() {
+         cm := CoordMode("Menu", "Screen")
+         Try
+            M.Show(wX + item.X, wY + item.Y + item.H)   ; blocks here
+         Finally
+            CoordMode("Menu", cm)
       }
-      this._AfterMenu(snip, hwnd)
-   }
-   /**
-    * The value list closed: activate the snip again, or if another window was clicked
-    * meanwhile, let the snip handle the deactivation it ignored
-    */
-   Static _AfterMenu(snip, hwnd) {
-      If NOT DllCall("IsWindow", "Ptr", hwnd)
-         Return
-      fg := DllCall("GetForegroundWindow", "Ptr")
-      If (fg = hwnd)
-         Return
-      own := 0
-      Try
-         own := (WinGetPID(fg) = DllCall("GetCurrentProcessId"))
-      If (fg = 0 OR (own AND NOT Snips.IsValid(fg)))
-         WinActivate(hwnd)
-      Else
-         snip.WM_ACTIVATE_GUI(snip, 0, own ? fg : 0, 0x6)
    }
    Static _ValuePicked(d, ItemName, *) {
       this.SetValue(d, ItemName)
@@ -588,16 +516,16 @@ Class ShapeBar {
     * popup (or a color dialog it opened) is gone: see _WatchColors
     */
    Static ShowColors() {
-      If (NOT this.snipHwnd OR this.menuSnip)
+      If (NOT this.snipHwnd OR DrawnBar.MenuSnip)
          Return
       list := this._ColorsShown()
-      this.menuSnip := this.snipHwnd
+      DrawnBar.MenuSnip := this.snipHwnd
       this._menuObj := this.SnipObj
       ColorPopDown.ShowColorPopup((cb, clr, *) => this._ColorPicked(clr), list.Length ? list[1] : -1, this.snipHwnd)
       SetTimer(this._colorTimer, 100)
    }
    Static _WatchColors() {
-      hwnd := this.menuSnip
+      hwnd := DrawnBar.MenuSnip
       If ColorPopDown.IsShown
          Return
       fg := DllCall("GetForegroundWindow", "Ptr")
@@ -609,9 +537,10 @@ Class ShapeBar {
          Return
       SetTimer(this._colorTimer, 0)
       snip := this._menuObj
-      this.menuSnip := 0
+      DrawnBar.MenuSnip := 0
       this._menuObj := 0
-      this._AfterMenu(snip, hwnd)
+      If (hwnd)
+         DrawnBar._AfterMenu(snip, hwnd)
    }
    Static _ColorPicked(clr) {
       snip := this.SnipObj
@@ -846,65 +775,13 @@ Class ShapeBar {
       }
       Return sig
    }
-   /**
-    * Mouse over the bar (Cursor.WM_SETCURSOR): highlight the cell under it
-    */
-   Static Hover() {
-      idx := this._MouseItem(&x, &y)
-      If (idx != this._hover) {
-         this._hover := idx
-         this.Redraw()
-         SetTimer(this._hoverTimer, 100)
-         ; buttons have no title: tooltip under the cell
-         item := idx ? this.Items[idx] : 0
-         If (item AND item.HasOwnProp("Tip")) {
-            WinGetPos(&wX, &wY,,, this.hWnd)
-            cm := CoordMode("ToolTip", "Screen")
-            ToolTip(" " item.Tip " ", wX + item.X, wY + item.Y + item.H + this._Px(6))
-            CoordMode("ToolTip", cm)
-            SetTimer(ToolTip, -1500)
-         } Else
-            ToolTip
-      }
-   }
-   ; The mouse left the bar: no message arrives for that, so poll while highlighted
-   Static _CheckHover() {
-      If (this.MouseOver OR this.Dragging)
-         Return
-      SetTimer(this._hoverTimer, 0)
-      If (this._hover) {
-         this._hover := 0
-         ToolTip
-         this.Redraw()
-      }
-   }
-
    ;----------------------------------------------------------------------
-   ; Drawing
+   ; Drawing (Hover, Redraw: DrawnBar)
    ;----------------------------------------------------------------------
-   ; Redraw where it is
-   Static Redraw() {
-      If NOT (this.snipHwnd AND IsWindowVisible(this.hWnd))
-         Return
-      WinGetPos(&wX, &wY,,, this.hWnd)
-      this._Render(wX, wY)
-   }
-   /**
-    * @param {Integer} raise - bring it to the top too: only when it is shown or placed. A
-    *   redraw (hover, values) must not, it would cover an open menu
-    */
-   Static _Render(sX, sY, raise := false) {
-      Surf := this.Draw()
+   ; Draw and show (DrawnBar), and remember the values drawn (SyncGroup)
+   Static _Render(sX, sY, raise := false, activate := false) {
+      super._Render(sX, sY, raise, activate)
       this._valSig := this._ValueSig()
-      ; The first Show sizes and centres the window itself, so give it the box first
-      If NOT IsWindowVisible(this.hWnd)
-         this.gui.Show(Format("NA x{} y{} w{} h{}", sX, sY, this.BarW, this.BarH))
-      Surf.UpdateLayer(sX, sY)
-      ; above the (topmost) snip, which is raised when it is activated:
-      ; HWND_TOPMOST, SWP_NOMOVE|NOSIZE|NOACTIVATE
-      If (raise AND NOT this.menuSnip)
-         DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
-      Surf := ""
    }
    /**
     * Draw the bar
@@ -1009,7 +886,7 @@ Class ShapeBar {
    ; Icon of the shape type (the button bar's menu icons); smaller with a group's count
    Static _DrawShapeIcon(Surf, item) {
       sna  := StrSplit(Shapes.ShapeName[this.Shape], " - ")
-      icon := ButtonBar.shapeIconsObj[sna[1] " (" sna[2] ")"]
+      icon := ButtonBar.ShapeIcon(sna[1] " (" sna[2] ")")   ; a copy, ours to destroy
       If NOT icon
          Return
       sz := this._Px(this.Count ? 20 : 26)
@@ -1017,16 +894,8 @@ Class ShapeBar {
       GDI.DestroyIcon(icon)
    }
    Static _DrawButton(Surf, item) {
-      sz  := this._Px(24)
-      key := item.File "|" sz
-      If NOT this._icons.Has(key)
-         this._icons[key] := LoadPicture(SETTINGS.CursorPath . item.File, "Icon1 w" sz " h" sz, &imgType)
-      this._DrawIcon(Surf, this._icons[key], item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz)
-   }
-   ; GDI+ loses an icon's alpha (black box). GDI draws on the same bits: flush GDI+ first
-   Static _DrawIcon(Surf, icon, X, Y, size) {
-      GDIp.Flush(Surf.G)
-      GDI.DrawIconEx(Surf.ihdc, X, Y, icon, size, size)
+      sz := this._Px(24)
+      this._DrawIcon(Surf, this._Icon(item.File, sz), item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz)
    }
    ; Color dots: one, or up to three overlapping ones for different colors
    Static _DrawColors(G, item, edge) {

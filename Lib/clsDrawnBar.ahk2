@@ -1,0 +1,325 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description DrawnBar: base class of the bars and popups that are drawn with GDI+ on one
+ * layered window, with no controls: the shape bar, the toolbar and the color popup.
+ *
+ * A subclass (static, one window each) calls _InitBar in its static __New, lays its cells
+ * out in Items ({X, Y, W, H, ...} in window pixels; BarW/BarH is the window size) and
+ * returns its picture from Draw() (a DIBSurface). The base gives it:
+ *   - the window: layered and topmost; by default it never takes the focus (a click on it
+ *     doesn't deactivate the snip, which would end its draw mode)
+ *   - hit-testing: ItemAt, _MouseItem, MouseOver
+ *   - hover: Cursor.WM_SETCURSOR calls Hover(), which redraws when the cell under the mouse
+ *     changes and shows the cell's Tip; a timer clears it when the mouse leaves (no message
+ *     arrives for that)
+ *   - clicks: Snips.WM_LBUTTONDOWN calls Click() (default: drag the window), the Gui's
+ *     ContextMenu event calls RightClick()
+ *   - Redraw, _Render, _DragBar, icons cached per file and size (ReleaseIcons frees them)
+ *   - _GuardedMenu: a menu shown from a bar while its snip ignores being deactivated
+ * Cursor and Snips find the bar by window (FromHwnd), so a new bar needs no routing code.
+ ***********************************************************************/
+#include libMisc.ahk2
+#include clsGDIp.ahk2
+#include clsBitmap.ahk2
+Class DrawnBar {
+   ; Snip whose bar menu or color popup is open: it ignores being deactivated meanwhile
+   ; (GuiSnip.WM_ACTIVATE_GUI). Shared by all bars: always write DrawnBar.MenuSnip.
+   Static MenuSnip := 0
+   Static _bars    := Map()   ; hWnd -> bar class
+
+   /**
+    * The bar that owns a window
+    * @param {Integer} hWnd
+    * @returns {Class|Integer} the bar class, or 0
+    */
+   Static FromHwnd(hWnd) => DrawnBar._bars.Get(hWnd, 0)
+
+   /**
+    * Make the bar's window and its state. Call from the subclass's static __New (or when it
+    * is first needed).
+    * @param {Integer} [noActivate=true] - the window never takes the focus
+    * @param {String} [guiOpts] - more Gui options
+    */
+   Static _InitBar(noActivate := true, guiOpts := "") {
+      this.gui      := Gui("-Caption +E0x80000 +ToolWindow +AlwaysOnTop -DPIScale " (noActivate ? "+E0x08000000 " : "") guiOpts)
+      this.hWnd     := this.gui.hWnd
+      this.Items    := []
+      this.BarW     := 0
+      this.BarH     := 0
+      this.Dragging := false
+      this._hover   := 0
+      this._icons   := Map()
+      If NOT this.HasOwnProp("Scale")
+         this.Scale := 1
+      this._hoverTimer := this._CheckHover.Bind(this)
+      ; WS_EX_NOACTIVATE alone doesn't stop a click activating it: MA_NOACTIVATE
+      If (noActivate)
+         this.gui.OnMessage(0x21, (*) => 3)   ; WM_MOUSEACTIVATE
+      this.gui.OnEvent("ContextMenu", (*) => this.RightClick())
+      DrawnBar._bars[this.hWnd] := this
+      ; Same light/dark colors as the menus
+      dark := GetWindowsTheme()
+      this.Colors := {
+         Back:   0xFF000000 | MenuBackColor(),
+         Edge:   dark ? 0xFF606060 : 0xFFB0B0B0,
+         Hover:  0xFF000000 | MenuHoverColor(),
+         Title:  dark ? 0xFFB8B8B8 : 0xFF5A5A5A,
+         Value:  dark ? 0xFFFFFFFF : 0xFF000000,
+         Track:  dark ? 0xFF6A6A6A : 0xFFC4C4C4,
+         Accent: dark ? 0xFF4CA0FF : 0xFF0067C0
+      }
+   }
+   /**
+    * Destroy the window (a bar made on demand). _InitBar makes it again.
+    */
+   Static _DestroyBar() {
+      If NOT (this.HasOwnProp("gui") AND this.gui)
+         Return
+      SetTimer(this._hoverTimer, 0)
+      DrawnBar._bars.Delete(this.hWnd)
+      this.ReleaseIcons()
+      this.gui.Destroy()
+      this.gui   := 0
+      this.hWnd  := 0
+      this.Items := []
+      this._hover := 0
+   }
+
+   ;----------------------------------------------------------------------
+   ; Subclass hooks (defaults)
+   ;----------------------------------------------------------------------
+   ; The bar's picture, BarW x BarH (subclass)
+   Static Draw() {
+      Throw Error(this.Prototype.__Class " must define Draw()")
+   }
+   ; Left button pressed on the window (Snips.WM_LBUTTONDOWN): drag it by default
+   Static Click() {
+      this._DragBar()
+   }
+   ; Right button released on the window (ContextMenu event)
+   Static RightClick() {
+   }
+   ; Where a cell's tooltip goes (screen): under the cell
+   Static _TipPos(item) {
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      Return { X: wX + item.X, Y: wY + item.Y + item.H + this._Px(6) }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Geometry and hit-testing
+   ;----------------------------------------------------------------------
+   ; Size in pixels of a size at 96 DPI
+   Static _Px(n) => Round(n * this.Scale)
+   /**
+    * Cell at a point in window coordinates
+    * @returns {Integer} index in Items, 0 if none
+    */
+   Static ItemAt(x, y) {
+      For idx, item in this.Items
+         If (x >= item.X AND x < item.X + item.W AND y >= item.Y AND y < item.Y + item.H)
+            Return idx
+      Return 0
+   }
+   ; Mouse position in window coordinates and the cell under it (0 = none or not over the bar)
+   Static _MouseItem(&x, &y) {
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&mX, &mY, &over)
+      CoordMode("Mouse", cm)
+      x := 0, y := 0
+      If NOT this.hWnd
+         Return 0
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      x := mX - wX, y := mY - wY
+      Return (over = this.hWnd) ? this.ItemAt(x, y) : 0
+   }
+   /**
+    * True if the window is shown and the mouse is over it
+    * @type {Integer}
+    */
+   Static MouseOver {
+      get {
+         If NOT (this.hWnd AND IsWindowVisible(this.hWnd))
+            Return false
+         MouseGetPos(,, &over)
+         Return over = this.hWnd
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Hover
+   ;----------------------------------------------------------------------
+   /**
+    * Mouse over the window (Cursor.WM_SETCURSOR): highlight the cell under it, its tooltip
+    */
+   Static Hover() {
+      idx := this._MouseItem(&x, &y)
+      If (idx = this._hover)
+         Return
+      this._hover := idx
+      this.Redraw()
+      SetTimer(this._hoverTimer, 100)
+      item := idx ? this.Items[idx] : 0
+      ; No tip while a menu is open (class #32768). Not DrawnBar.MenuSnip: that is also set
+      ; while the color popup is open, which has a tip of its own (Color Picker)
+      If (item AND item.HasOwnProp("Tip") AND item.Tip != "" AND NOT WinExist("ahk_class #32768")) {
+         pos := this._TipPos(item)
+         cm := CoordMode("ToolTip", "Screen")
+         ToolTip(" " item.Tip " ", pos.X, pos.Y)
+         CoordMode("ToolTip", cm)
+         SetTimer(ToolTip, -1500)
+      } Else
+         ToolTip
+   }
+   ; The mouse left the window: no message arrives for that, so poll while highlighted
+   Static _CheckHover() {
+      If (this.MouseOver OR this.Dragging)
+         Return
+      SetTimer(this._hoverTimer, 0)
+      If (this._hover) {
+         this._hover := 0
+         ToolTip
+         this.Redraw()
+      }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Drawing
+   ;----------------------------------------------------------------------
+   ; Redraw where it is (nothing if it isn't shown)
+   Static Redraw() {
+      If NOT (this.hWnd AND IsWindowVisible(this.hWnd))
+         Return
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this._Render(wX, wY)
+   }
+   /**
+    * Draw the bar and show it at a screen position
+    * @param {Integer} raise - bring it to the top too: only when it is shown or placed. A
+    *   redraw (hover, values) must not, it would cover an open menu
+    * @param {Integer} activate - show it activated (a bar that may take the focus)
+    */
+   Static _Render(sX, sY, raise := false, activate := false) {
+      Surf := this.Draw()
+      ; The first Show sizes and centres the window itself, so give it the box first
+      If NOT IsWindowVisible(this.hWnd)
+         this.gui.Show(Format("{} x{} y{} w{} h{}", activate ? "" : "NA", sX, sY, this.BarW, this.BarH))
+      Surf.UpdateLayer(sX, sY)
+      ; above the (topmost) snip, which is raised when it is activated:
+      ; HWND_TOPMOST, SWP_NOMOVE|NOSIZE|NOACTIVATE
+      If (raise AND NOT DrawnBar.MenuSnip)
+         DllCall("SetWindowPos", "Ptr", this.hWnd, "Ptr", -1, "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x13)
+      Surf := ""
+   }
+   /**
+    * The rounded background and edge every bar has
+    * @param {Integer} radius - corner radius (px)
+    */
+   Static _DrawBack(G, radius) {
+      brush := GDIp.BrushCreateSolid(this.Colors.Back)
+      GDIp.FillRoundedRectangle(G, brush, 0, 0, this.BarW, this.BarH, radius)
+      GDIp.DeleteBrush(brush)
+      pen := GDIp.CreatePen(this.Colors.Edge, 1)
+      GDIp.DrawRoundedRectangle(G, pen, 0, 0, this.BarW, this.BarH, radius)
+      GDIp.DeletePen(pen)
+   }
+   /**
+    * Icon from a file in the cursor folder at a size, loaded once (ReleaseIcons frees them)
+    * @returns {Ptr} HICON, 0 if it can't be loaded
+    */
+   Static _Icon(file, size) {
+      key := file "|" size
+      If NOT this._icons.Has(key)
+         this._icons[key] := LoadPicture(SETTINGS.CursorPath . file, "Icon1 w" size " h" size, &imgType)
+      Return this._icons[key]
+   }
+   /**
+    * Draw an icon on a surface. GDI+ loses an icon's alpha (black box), so GDI draws it on
+    * the same bits: flush GDI+ first.
+    * @param {Integer} [alpha=255] - less than 255 fades it (disabled look)
+    */
+   Static _DrawIcon(Surf, icon, X, Y, size, alpha := 255) {
+      If NOT icon
+         Return
+      GDIp.Flush(Surf.G)
+      If (alpha >= 255) {
+         GDI.DrawIconEx(Surf.ihdc, X, Y, icon, size, size)
+         Return
+      }
+      fade := DIBSurface(size, size)
+      fade.GraphicsClear(0)
+      GDIp.Flush(fade.G)
+      GDI.DrawIconEx(fade.ihdc, 0, 0, icon, size, size)
+      GDI.AlphaBlend(Surf.ihdc, X, Y, size, size, fade.ihdc, 0, 0, alpha)
+      fade := ""
+   }
+   ; Free the cached icons (the last snip closed); they load again when next drawn
+   Static ReleaseIcons() {
+      If NOT this.HasOwnProp("_icons")
+         Return
+      For key, icon in this._icons
+         If (icon)
+            GDI.DestroyIcon(icon)
+      this._icons := Map()
+   }
+
+   ;----------------------------------------------------------------------
+   ; Moving, menus
+   ;----------------------------------------------------------------------
+   ; Move the window with the mouse while the left button is down
+   Static _DragBar() {
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&sX, &sY)
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this.Dragging := true
+      Try {
+         While GetKeyState("LButton", "P") {
+            Sleep(10)
+            MouseGetPos(&mX, &mY)
+            WinMove(wX + mX - sX, wY + mY - sY,,, this.hWnd)
+         }
+      } Finally {
+         this.Dragging := false
+         CoordMode("Mouse", cm)
+      }
+   }
+   /**
+    * Run fn (which shows a menu and blocks until it closes) while the snip ignores being
+    * deactivated: Menu.Show activates the script's main window, which would end the snip's
+    * draw mode and hide the bars. Afterwards the snip is activated again, or, if another
+    * window was clicked meanwhile, handles the deactivation it ignored.
+    * Don't use TrackPopupMenuEx with the snip as owner: when the snip isn't the foreground
+    * window the menu hangs open (it did, in tests).
+    * @param {GuiSnip} snip - the snip the bar belongs to (0: just run fn)
+    * @param {Func} fn
+    */
+   Static _GuardedMenu(snip, fn) {
+      hwnd := 0
+      Try hwnd := snip ? snip.hWnd : 0   ; a destroyed snip's hWnd throws
+      DrawnBar.MenuSnip := hwnd
+      Try
+         fn()
+      Finally
+         DrawnBar.MenuSnip := 0
+      If (hwnd)
+         DrawnBar._AfterMenu(snip, hwnd)
+   }
+   /**
+    * A bar's menu or popup closed: activate the snip again, or if another window was
+    * clicked meanwhile, let the snip handle the deactivation it ignored
+    */
+   Static _AfterMenu(snip, hwnd) {
+      If NOT DllCall("IsWindow", "Ptr", hwnd)
+         Return
+      fg := DllCall("GetForegroundWindow", "Ptr")
+      If (fg = hwnd)
+         Return
+      own := 0
+      Try
+         own := (WinGetPID(fg) = DllCall("GetCurrentProcessId"))
+      If (fg = 0 OR (own AND NOT Snips.IsValid(fg)))
+         WinActivate(hwnd)
+      Else
+         snip.WM_ACTIVATE_GUI(snip, 0, own ? fg : 0, 0x6)
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")

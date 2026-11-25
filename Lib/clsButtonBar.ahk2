@@ -6,6 +6,7 @@
  * @version 1.0.0
  ***********************************************************************/
 #Requires AutoHotkey v2.1-
+#include clsDrawnBar.ahk2
 #include Settings.ahk2
 #include libMisc.ahk2
 #include clsGDIp.ahk2
@@ -15,156 +16,228 @@
 #include ColorPopDown.ahk2
 #include clsShapeBar.ahk2
 /*
- * Button Bar Class to show buttons and select shapes, colors and such
+ * Button Bar (toolbar) to pick shapes and act on the snip.
  * Lives beside the active snip if it is enabled: vertical to the left of its top left
  * corner, or horizontal above it ([User Button Bar] Orientation in the settings file).
+ *
+ * Drawn with GDI+ on one layered window (DrawnBar), with a cell per button instead of
+ * button controls. Shape category buttons open their shape menu when pressed (right click:
+ * the category's defaults); the others act when released over them. Undo/Redo are greyed
+ * out with nothing to undo/redo; the pin button shows the snip's pin state.
+ * It never takes the focus, like the shape bar: the snip stays active, so using the toolbar
+ * doesn't end the drawing tool, and Esc goes to the snip. Its menus are shown with
+ * DrawnBar._GuardedMenu (the snip ignores the menu's activation), and a shape picked from a
+ * menu takes effect at once. The old button controls couldn't do this: native buttons take
+ * the focus when clicked even in a WS_EX_NOACTIVATE window (tested for the shape bar).
+ * The button images and the shape menu icons are loaded when first drawn or shown, and
+ * freed when the last snip closes (Release).
 */
-Class ButtonBar {
+Class ButtonBar extends DrawnBar {
    Static DPIFactor  := activeDPIFactor()
    Static Margin     := round(2.5 * this.DPIFactor)
    ; NOTE - we are not adjusting this dynamically for multiple monitors
-   Static ButSize    := this.DPIFactor >= 1.5 ? 32 : 16 ; Raw size of cursor, may have to use 16 for low DPI
+   Static ButSize    := this.DPIFactor >= 1.5 ? 32 : 16 ; size of a shape category button
    Static shapeQueue := 0
-   Static buttonTips := Map()
-   Static buttonCallbacks := Map()
-
-   Static bbGUI      := 0
    Static lastShape  := 0
-   ;                      Arrows   Blocks  Pen  HL   Erase    C/E  Text
-   Static buttonGaps     := [6,2,2,2, 6,2,2,2, 6,2, 6,2, 6,2,2,2, 6,2, 6,2,2, 2,2,2,2,2]
-   Static BS_ICON        := 0x40
-   Static BS_BITMAP      := 0x80
+   Static bbGui      := 0       ; the window (Gui); other code reads bbGui.hWnd
+   Static Pinned     := 1       ; pin button state (SyncPin)
+   Static _pressed   := 0       ; index of the cell being pressed
+   Static _shapeIcons := 0      ; ImageList of the shape menu icons, made when first needed
+   Static _images    := Map()   ; GDI+ bitmaps of the category pictures (png), by file
    /**
-    * Initialize the button bar GUI, build all shape and color buttons,
-    * read settings, and measure the bar height for later positioning
+    * Read the settings, make the window and lay out the buttons
     */
    Static __New() {
       logGDI("Building ButtonBar")
-      ; 0x08000000 not foreground
-      this.Enabled         := IniReadValue("Button Bar", "Enabled", 1)
+      this.Enabled  := IniReadValue("Button Bar", "Enabled", 1)
       ; For now, this is not run-time adjustable just read from the settings file
-      this.FontSize        := IniReadValue("User Button Bar", "Font Size", 8)
+      this.FontSize := IniReadValue("User Button Bar", "Font Size", 8)
       ; Vertical (left of the snip) or Horizontal (above it)
-      this.Vertical        := (IniReadValue("User Button Bar", "Orientation", "Vertical") != "Horizontal")
-      this.bbGui           := Gui("+AlwaysOnTop +Border +ToolWindow -Caption -DPIScale")
-      this.bbGui.MarginY   := this.Margin
-      this.bbGui.MarginX   := this.Margin
-      this.bbGui.BackColor := MenuBackColor()   ; same as the shape bar and color popup
-      this.bbWidth         := 0
-      this.bbHeight        := 0
-      this.SnipObj         := 0
-      ; Force rounded corners on windows 11 since we don't have a caption - we do manually later for windows 10
-      win11RoundCorners(this.bbGUI.hwnd, 2)
-      ; Setting the font size sets the button size as well, later we re-read the button size for this DPI
-      this.bbGui.SetFont("S" this.FontSize " bold", "Verdana")
-      ; Close snip button
-      cH := round(this.FontSize * this.DPIFactor / 0.36)  ; Initial guess, no margin
-      ; TODO - have a space but would like a grabber
-      b := this.AddBarButton(this._Next(this.Margin * 3), Settings.CursorPath . "Close.ico", cH, "Close Active Snip (Esc)", this.CloseSnip.Bind(this))
-      b.GetPos(,,,&cH)
-      ; Cursors need to zoom in a bit, remove some margin
-      bs := this.ButSize := round(cH - 4 * this.DPIFactor)
-
-      ; First button tells us what hull size to use, leave a small margin for cursors
-      this.shapeIconsObj := ImageList()
-      this.shapeIconsObj.Size := this.ButSize
-
+      this.Vertical := (IniReadValue("User Button Bar", "Orientation", "Vertical") != "Horizontal")
+      this.Scale    := this.DPIFactor
+      this.SnipObj  := 0
+      ; It never takes the focus (a deactivated snip leaves its draw mode)
+      this._InitBar(true)
+      this.bbGui := this.gui
       this.MenuShapes := Menu()
-      o := Round(2 * activeDPIFactor()) ; spacing
-      logGDI("Building Shape Buttons")
-      for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
-         this.BuildShapeButtons(cat, Shapes.ShapeCat[cat], o)
-
-      logGDI("Built Shape Buttons")
-      padded := round(cH*.7)
-      b := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Clipboard.ico", padded, "Clipboard Snip (Ctrl-C)", this.ClipSnip.Bind(this, 0))
-      b := this.AddBarButton(this._Next(o),     Settings.CursorPath . "SaveAs.ico", padded, "Save Snip to file (Ctrl-S)", this.SaveSnip.Bind(this, 0))
-
-      this.btnUndo := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Undo.ico", round(cH*.8), "Undo (Ctrl-Z)", this.Undo.Bind(this, 0))
-      this.btnRedo := this.AddBarButton(this._Next(o), Settings.CursorPath . "Redo.ico", round(cH*.8), "Redo (Ctrl-Y)", this.Redo.Bind(this, 0))
-      this.btnUndo.enabled := false
-      this.btnRedo.enabled := false
-
-      this.pinButton := this.AddBarButton(this._Next(o * 3), Settings.CursorPath . "Pin.ico", round(cH*.8), "Pin or Unpin Snip", this.TogglePin.Bind(this, 0))
-      this.pinButton.Pinned := 1
-
-      b := this.AddBarButton(this._Next(o), Settings.CursorPath . "Minimize.ico", cH, "Minimize Active Snip (⌄)", this.MinimizeSnip.Bind(this, 0))
-      logGDI("Built Snip Buttons")
-      ; Also handle Escape
-      this.bbGui.OnEvent("Escape", this.CloseSnip.bind(this))
-      ; this.buttonTips[b.hWnd] := "Close Active Snip (Esc)"
-      logGDI("Built Close Buttons")
-      ; Save the size for positioning on Show
-      logGDI("GUI Show complete")
-      this.bbgui.Show("NA Hide")
-      this.bbgui.GetPos(,,&bbW, &bbH)
-      this.bbWidth  := bbW
-      this.bbHeight := bbH
-      ; Windows 10 round the corners (not needed with backcolor)
-      win10RoundCorners(this.bbgui.hWnd, this.DPIFactor)
-
-      this.bbgui.Hide()
+      this._Layout()
+      this.bbWidth  := this.BarW
+      this.bbHeight := this.BarH
       logGDI("ButtonBar Complete")
-
    }
    /**
-    * Control options that place the next button after the last one
-    * @param {Integer} gap - space before it (px)
-    * @returns {String}
+    * The buttons, in order along the bar, each after a gap. Sizes as the old controls:
+    * cH from the font size; categories ButSize; copy/save smaller; undo/redo/pin a bit
+    * smaller. Narrower buttons are centred across the bar.
     */
-   Static _Next(gap) => this.Vertical ? "X" this.Margin " Y+" gap : "Y" this.Margin " X+" gap
-   /**
-    * Helper routine to add a pic button
-    * @param opts control options
-    * @param icon icon to show in the button
-    * @param wh width/height of the button
-    * @param tip tooltip to show for the button
-    * @param onClick optional event to call when button is clicked
-    * @param onPress optional event to call when button is pressed
-    * @returns {unset} 
-    */
-   Static AddBarButton(opts, icon, wh := 16, tip := "", onClick?, onPress?) {
-      b := this.bbGUI.AddPicButton(opts, icon, "W" wh " H" wh)
-      b.SetFlat(MenuBackColor(), MenuHoverColor(), wh)
-      this.buttonTips[b.hWnd] := tip
-      If IsSet(onClick)
-         b.OnEvent("Click", onClick)
-      If IsSet(onPress)
-         this.buttonCallbacks[b.hWnd] := onPress
-
-      Return b
-   }
-
-   /**
-    * Build a shape category button on the bar and cache all of its cursor icons into the shared ImageList.
-    * Also registers a right-click handler on the button for shape settings.
-    * @param {String} Button - Shape category name used as the button icon filename and menu label
-    * @param {Array} SubButtons - Array of "CursorName - HotkeyChar" strings defining the submenu entries
-    * @param {Integer} [pad=3] - Horizontal pixel padding to insert before this button
-    */
-   Static BuildShapeButtons(Button, SubButtons, pad:=3) {
-      fileName := SETTINGS.CursorPath . "Menu\" . Button . ".png"
-
-      b := this.AddBarButton(this._Next(pad), fileName, this.ButSize, Button . " Menu", , this.PostShapeMenu.Bind(this, SubButtons))
-      ; RMB menu for settings
-      b.OnEvent("contextMenu", Shapes._cmdRMBHandler.bind(Shapes, Button, "lButton"))
-      ; Cache the cursor images into an imagelist for reuse and less GDI resources.
-      For sb in SubButtons {
-         sna      := StrSplit(sb, "-")
-         baseName := Trim(sna[1])
-         key      := Trim(sna[2])
-         fileName := SETTINGS.CursorPath . baseName ".cur"
-         If (FileExist(fileName)) {
-            butName := baseName . " (" . key . ")"
-            this.shapeIconsObj[butName] := fileName  ; Load into image list          
-         } Else
-            MsgBox("Could not find file:" fileName)
+   Static _Layout() {
+      cH := round(this.FontSize * this.DPIFactor / 0.3)
+      bs := this.ButSize := round(cH - 4 * this.DPIFactor)
+      o  := Round(2 * this.DPIFactor)   ; spacing
+      cells := []
+      cells.Push({ Gap: this.Margin * 3, Size: cH, File: "Close.ico", Tip: "Close Active Snip (Esc)", Action: this.CloseSnip.Bind(this) })
+      for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
+         cells.Push({ Gap: o, Size: bs, Image: SETTINGS.CursorPath . "Menu\" . cat . ".png", Tip: cat " Menu"
+            , Kind: "Menu", Cat: cat, Sub: Shapes.ShapeCat[cat] })
+      padded := round(cH * .7)
+      cells.Push({ Gap: o * 3, Size: padded, File: "Clipboard.ico", Tip: "Clipboard Snip (Ctrl-C)", Action: this.ClipSnip.Bind(this) })
+      cells.Push({ Gap: o, Size: padded, File: "SaveAs.ico", Tip: "Save Snip to file (Ctrl-S)", Action: this.SaveSnip.Bind(this) })
+      cells.Push(this._undo := { Gap: o * 3, Size: round(cH * .8), File: "Undo.ico", Tip: "Undo (Ctrl-Z)", Action: this.Undo.Bind(this), Disabled: true })
+      cells.Push(this._redo := { Gap: o, Size: round(cH * .8), File: "Redo.ico", Tip: "Redo (Ctrl-Y)", Action: this.Redo.Bind(this), Disabled: true })
+      cells.Push(this._pin  := { Gap: o * 3, Size: round(cH * .8), File: "Pin.ico", Tip: "Pin or Unpin Snip", Action: this.TogglePin.Bind(this) })
+      cells.Push({ Gap: o, Size: cH, File: "Minimize.ico", Tip: "Minimize Active Snip (⌄)", Action: this.MinimizeSnip.Bind(this) })
+      pos := this.Margin
+      For cell in cells {
+         If NOT cell.HasOwnProp("Kind")
+            cell.Kind := "Button"
+         If NOT cell.HasOwnProp("Disabled")
+            cell.Disabled := false
+         pos += cell.Gap
+         cross := this.Margin + (cH - cell.Size) // 2
+         If (this.Vertical)
+            cell.X := cross, cell.Y := pos
+         Else
+            cell.X := pos, cell.Y := cross
+         cell.W := cell.H := cell.Size
+         pos += cell.Size
       }
-      ; logGDI("  Built " Button)
+      this.Items := cells
+      If (this.Vertical)
+         this.BarW := 2 * this.Margin + cH, this.BarH := pos + this.Margin
+      Else
+         this.BarW := pos + this.Margin, this.BarH := 2 * this.Margin + cH
+   }
+
+   ;----------------------------------------------------------------------
+   ; Mouse
+   ;----------------------------------------------------------------------
+   /**
+    * Left button pressed on the bar (Snips.WM_LBUTTONDOWN). A category button opens its
+    * shape menu at once; another button acts when the button is released over it; the
+    * background drags the bar.
+    */
+   Static Click() {
+      If NOT (idx := this._MouseItem(&x, &y)) {
+         this._DragBar()
+         Return
+      }
+      cell := this.Items[idx]
+      If (cell.Disabled)
+         Return
+      this._pressed := idx
+      this.Redraw()
+      If (cell.Kind = "Menu") {
+         ; leave the button message first, as before
+         SetTimer(this._OpenMenu.Bind(this, idx), -10)
+         Return
+      }
+      While GetKeyState("LButton", "P")
+         Sleep(10)
+      over := (this._MouseItem(&x, &y) = idx)
+      this._pressed := 0
+      this.Redraw()
+      If (over)
+         SetTimer(cell.Action, -10)
+   }
+   ; Shape menu of a category button; the snip keeps its draw mode while it is open
+   Static _OpenMenu(idx) {
+      Try
+         this._GuardedMenu(this.SnipObj, () => this.PostShapeMenu(this.Items[idx].Sub))
+      Finally {
+         this._pressed := 0
+         this.Redraw()
+      }
+   }
+   ; Right click on a category button: the defaults of the category (Shapes._cmdRMBHandler)
+   Static RightClick() {
+      If ((idx := this._MouseItem(&x, &y)) AND (cell := this.Items[idx]).Kind = "Menu")
+         this._GuardedMenu(this.SnipObj, () => Shapes._cmdRMBHandler(cell.Cat, "lButton", 0, 0, 0, 0, 0))
+   }
+   ; Tooltips clear of the bar: beside a vertical one, below a horizontal one
+   Static _TipPos(item) {
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      If (this.Vertical)
+         Return { X: wX + this.BarW + 2, Y: wY + item.Y }
+      Return { X: wX + item.X, Y: wY + this.BarH + 2 }
+   }
+
+   ;----------------------------------------------------------------------
+   ; Drawing
+   ;----------------------------------------------------------------------
+   /**
+    * Draw the bar: background, a highlight under the mouse or the pressed button (moved a
+    * pixel when pressed), each button's image (faded when disabled)
+    * @returns {DIBSurface}
+    */
+   Static Draw() {
+      Surf := DIBSurface(this.BarW, this.BarH, this.hWnd)
+      G    := Surf.G
+      Surf.GraphicsClear(0)
+      this._DrawBack(G, this._Px(6))
+      brush := GDIp.BrushCreateSolid(this.Colors.Hover)
+      For idx, cell in this.Items {
+         pressed := (idx = this._pressed)
+         If (NOT cell.Disabled AND (pressed OR idx = this._hover))
+            GDIp.FillRoundedRectangle(G, brush, cell.X, cell.Y, cell.W, cell.H, cell.H / 8)
+         off := pressed ? 1 : 0
+         If (cell.HasOwnProp("Image")) {
+            If (pB := this._Image(cell.Image))
+               GDIp.DrawImageRect(G, pB, cell.X + off, cell.Y + off, cell.W, cell.H)
+         } Else {
+            file := (cell = this._pin) ? (this.Pinned ? "Pin.ico" : "UnPin.ico") : cell.File
+            this._DrawIcon(Surf, this._Icon(file, cell.W), cell.X + off, cell.Y + off, cell.W, cell.Disabled ? 70 : 255)
+         }
+      }
+      GDIp.DeleteBrush(brush)
+      Return Surf
+   }
+   ; GDI+ bitmap of a category picture, loaded once (Release frees them)
+   Static _Image(file) {
+      If NOT this._images.Has(file)
+         this._images[file] := FileExist(file) ? GDIp.CreateBitmapFromFile(file) : 0
+      Return this._images[file]
    }
    /**
-    * Build and display the shape selection popup menu for a shape category button,
-    * populating it with cursor icons from the shared ImageList
+    * Icon of a shape for menus and the shape bar, e.g. "Arrow (V)": a copy the caller owns
+    * (a menu's "HICON:" takes it). The image list of all of them is made when first asked.
+    * @returns {Ptr} HICON, 0 if there is none
+    */
+   Static ShapeIcon(name) {
+      If NOT this._shapeIcons {
+         this._shapeIcons := ImageList()
+         this._shapeIcons.Size := this.ButSize
+         For cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"] {
+            For sb in Shapes.ShapeCat[cat] {
+               sna      := StrSplit(sb, "-")
+               baseName := Trim(sna[1])
+               fileName := SETTINGS.CursorPath . baseName ".cur"
+               If (FileExist(fileName))
+                  this._shapeIcons[baseName . " (" . Trim(sna[2]) . ")"] := fileName
+               Else
+                  warning("Could not find file:" fileName)
+            }
+         }
+      }
+      Return this._shapeIcons[name]
+   }
+   /**
+    * Free the button images and shape icons (the last snip closed). The window stays
+    * (one window, no controls); they load again when next drawn.
+    */
+   Static Release() {
+      this.ReleaseIcons()
+      For file, pB in this._images
+         If (pB)
+            GDIp.DisposeImage(pB)
+      this._images := Map()
+      this._shapeIcons := 0   ; ImageList.__Delete destroys the list
+   }
+
+   ;----------------------------------------------------------------------
+   ; Shape menus
+   ;----------------------------------------------------------------------
+   /**
+    * Build and display the shape selection popup menu for a shape category button
     * @param {Array} SubButtons - Array of "CursorName - HotkeyChar" strings defining the menu entries
     */
    Static PostShapeMenu(SubButtons) {
@@ -175,7 +248,8 @@ Class ButtonBar {
          key      := Trim(sna[2])
          bn       := baseName . " (" . key . ")"
          this.MenuShapes.Add(bn, this._cmdHandler.bind(this, baseName, key))
-         this.MenuShapes.SetIcon(bn, "HICON:" this.shapeIconsObj[bn], , 0)
+         If (icon := this.ShapeIcon(bn))
+            this.MenuShapes.SetIcon(bn, "HICON:" icon, , 0)
       }
       this.MenuShapes.Show()
       ; Blocks here
@@ -196,6 +270,22 @@ Class ButtonBar {
       ToolTip
       ToolTip(btn " shape pressed (" key ")")
       SetTimer(ToolTip, -2000)
+      ; The snip is still active (the toolbar doesn't take the focus): use the shape now
+      ; rather than when the mouse is next over the snip (Cursor.WM_SETCURSOR)
+      SetTimer(this._ApplyQueued.Bind(this), -1)
+   }
+   /**
+    * Set the queued shape as the draw mode of the toolbar's snip, if it is still there
+    */
+   Static _ApplyQueued() {
+      If NOT (this.shapeQueue AND this.SnipObj)
+         Return
+      hwnd := 0
+      Try hwnd := this.SnipObj.hWnd   ; a destroyed snip's hWnd throws
+      If NOT (hwnd AND Snips.IsValid(hwnd))
+         Return
+      If (idx := Shapes.NameToNumber(this.GetQueuedCommand()))
+         Snips.SetDrawMode(idx, hwnd)
    }
 
    /**
@@ -208,6 +298,9 @@ Class ButtonBar {
       return cmd
    }
 
+   ;----------------------------------------------------------------------
+   ; Show / hide
+   ;----------------------------------------------------------------------
    /**
     * Position and show the button bar beside the specified snip window (see BarPos).
     * Optionally overrides the enabled state before showing.
@@ -229,7 +322,7 @@ Class ButtonBar {
             WinGetPos(,, &sW,, hWnd)
             ; Keep it visible on monitor containing snip
             pos := this.BarPos(sX, sY, sW, windowMonArea(hWnd))
-            this.bbgui.Show("NA Y" pos.Y " X" pos.X)
+            this._Render(pos.X, pos.Y, true)
             ; The shape bar goes along if the snip is in a draw mode
             If (SnipObj := Snips.IsValid(hWnd)) {
                ShapeBar.Update(SnipObj, sX, sY)
@@ -267,10 +360,17 @@ Class ButtonBar {
    Static Hide(enabled?, *) {
       if (IsSet(enabled))
          this.Enabled := enabled
-      this.bbgui.Hide()
+      SetTimer(this._hoverTimer, 0)
+      this._hover   := 0
+      this._pressed := 0
+      this.gui.Hide()
       ShapeBar.Hide()
       ToolTip
    }
+
+   ;----------------------------------------------------------------------
+   ; Button actions
+   ;----------------------------------------------------------------------
    Static Undo(*) {
       If (hWnd := this.SnipObj.hWnd) {
          Snips.UndoAction(hWnd)
@@ -323,32 +423,32 @@ Class ButtonBar {
       }
    }
    /**
-    * Sync Pin or UnPin button to the window state
+    * Sync the pin button to the window state (and the undo/redo buttons)
     */
    Static SyncPin(hWnd) {
       If (this.SyncUndoRedo()) {
-      ; ALso sync the undo/redo state
-         state := WinGetAlwaysOnTop(hWnd)
-         If (state != this.pinButton.Pinned) {
-            If (state) {
-               this.pinButton.SetImg(Settings.CursorPath . "Pin.ico")
-               this.pinButton.Pinned := 1
-            } Else {
-               this.pinButton.SetImg(Settings.CursorPath . "UnPin.ico")
-               this.pinButton.Pinned := 0
-            }
+         state := WinGetAlwaysOnTop(hWnd) ? 1 : 0
+         If (state != this.Pinned) {
+            this.Pinned := state
+            this.Redraw()
          }
       }
    }
    /**
     * Sync undo/redo buttons to their stack length
+    * @returns {Integer} true if the bar's snip has an undo history
     */
    Static SyncUndoRedo(*) {
       ; SnipObj may be a snip that was just closed (Snips.Close unsets its UnDo):
       ; only query a live undo history
       If (this.SnipObj is GuiSnip AND this.SnipObj.HasOwnProp("UnDo") AND IsObject(this.SnipObj.UnDo)) {
-         this.btnUndo.enabled := (this.SnipObj.UnDo.undoStack.length > 0)
-         this.btnRedo.enabled := (this.SnipObj.UnDo.redoStack.length > 0)
+         noUndo := (this.SnipObj.UnDo.undoStack.length = 0)
+         noRedo := (this.SnipObj.UnDo.redoStack.length = 0)
+         If (noUndo != this._undo.Disabled OR noRedo != this._redo.Disabled) {
+            this._undo.Disabled := noUndo
+            this._redo.Disabled := noRedo
+            this.Redraw()
+         }
          return true
       }
       return false
