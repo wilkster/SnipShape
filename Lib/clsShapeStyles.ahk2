@@ -2,16 +2,15 @@
 /************************************************************************
  * @description Table of the shape style properties (thickness, opacity, fonts...)
  *
- * One entry per button bar default. It says where the default is kept, which
- * shapes use it, which property of a shape it sets, and how it can be edited
- * (value list, slider range). Everything that offers these properties reads it:
- *   - the button bar category menus (Shapes._cmdRMBHandler -> AddBarMenu)
- *   - the shape bar (ShapeBar)
- *   - defaults applied to a shape group (commonShape.StyleTarget -> Target)
+ * One entry per style default. It says where the default is kept, which shapes use
+ * it, which property of a shape it sets, and how it can be edited (value list, slider
+ * range). The shape bar (ShapeBar) is built from it: in draw mode it edits the
+ * defaults, with shapes selected the shapes' own values. (The toolbar's category
+ * right-click menus that also used it were removed 2026-11-26.)
  * Lookups are by shape type number, so they work before a shape exists (draw mode).
  *
  * To add a property: read its default in Shapes or TextShape, save it in
- * SaveSettings, add an entry in Build, and list it in BarMenus.
+ * SaveSettings and add an entry in Build.
  * A property set on existing shapes must also be in commonShape.StyleProps (undo).
  ***********************************************************************/
 #include Settings.ahk2
@@ -22,8 +21,6 @@
 Class ShapeStyles {
    Static Defs     := Map()   ; key -> definition (see Build)
    Static Order    := []      ; keys in display order
-   Static BarMenus := Map()   ; button bar category -> [[key, title] or 0 (separator), ...]
-   Static _menus   := Map()   ; key -> value Menu, made when first shown
 
    /**
     * Build the table. Called by Shapes.__New once the shape numbers, the defaults
@@ -120,63 +117,6 @@ Class ShapeStyles {
       this._New("PenSmoothFactor",       "Smoothing", "Smoothing", pens, smooth)
       this._New("HighlightSmoothFactor", "Smoothing", "Smoothing", hlPens, smooth)
       this._New("TagScheme",             "Tag Number Scheme", "TagScheme", tag, TextShape.TagSchemes, TextShape)
-
-      ; Button bar category menus (0 = separator)
-      this.BarMenus := Map(
-         "Arrows", [
-            ["arrowLineThickness",    "Arrow Line Width"],
-            ["outlineThickFactor",    "Outline Thickness Factor"],
-            ["ArrowSmoothFactor",     "Arc Arrow Smoothing Factor"],
-            0,
-            ["arrowOpacity",          "Arrow Opacity"],
-            ["outlineOpacity",        "Outline Opacity"]],
-         "Shapes", [
-            ["rawLineThickness",      "Base Line Width"],
-            ["outlineThickFactor",    "Outline Thickness Factor"],
-            0,
-            ["outlineOpacity",        "Outline Opacity"],
-            ["shapeOpacity",          "Shape Opacity"],
-            ["fillOpacity",           "Shape Fill Opacity"]],
-         "Free Hand", [
-            ["penLineThickness",      "Pen Width"],
-            ["widePenThickness",      "Wide Pen Width"],
-            ["PenSmoothFactor",       "Pen Smoothing Factor"],
-            ["penOpacity",            "Pen Opacity"]],
-         "Highlighters", [
-            ["highLightThickness",    "Highlighter Thickness"],
-            ["HighlightSmoothFactor", "Highlight Smoothing Factor"],
-            ["highlightOpacity",      "Highlight Opacity"]],
-         "Redact", [
-            ["highLightThickness",    "Whiteout Thickness"],
-            ["HighlightSmoothFactor", "Whiteout Smoothing Factor"],
-            0,
-            ["PixelateBlockSize",     "Pixelate Block Size"],
-            ["BlurDivisor",           "Blur Amount"]],
-         "Text", [
-            ["TagFontName",           "Tag Font Name"],
-            ["TagFontStyle",          "Tag Font Style"],
-            ["TagFontSize",           "Tag Font Size"],
-            ["TCOpacity",             "Tag Center Opacity"],
-            ["TagScheme",             "Tag Number Scheme"],
-            0,
-            ["FillFontName",          "Fill/Arrow Font Name"],
-            ["FillFontStyle",         "Fill/Arrow Font Style"],
-            ["FillAlignment",         "Fill/Arrow Font Alignment"],
-            ["FillFontSize",          "Fill/Arrow Font Size"],
-            ["FTOpacity",             "Fill/Arrow Fill Opacity"],
-            ["FTOLOpacity",           "Fill/Arrow Outline Opacity"],
-            ["FillOutline",           "Fill Text Outline"],
-            0,
-            ["OLFontName",            "Outline Font Name"],
-            ["OLFontStyle",           "Outline Font Style"],
-            ["OLAlignment",           "Outline Font Alignment"],
-            ["OLFontSize",            "Outline Font Size"],
-            ["OLOpacity",             "Outline Edge Opacity"],
-            ["OLBlur",                "Outline Edge Blur"],
-            ["OLFillThickness",       "Outline Width Percent"],
-            0,
-            ["textOpacity",           "Text Opacity"]]
-      )
    }
    ; A property set on existing shapes with SetStyle
    Static _Style(key, title, param, prop, forShapes, values, range := 0, unit := "", scale := false, owner := Shapes) {
@@ -248,16 +188,6 @@ Class ShapeStyles {
       }
       Return list
    }
-   /**
-    * Property of a shape type that a default sets with SetStyle (commonShape.StyleTarget)
-    * @param {Integer} Shape - shape type number
-    * @param {String} key - default name
-    * @returns {Object|Integer} {Prop, Scale} or 0 when the default doesn't apply
-    */
-   Static Target(Shape, key) {
-      d := this.Def(key)
-      Return (d AND d.Apply = "Style" AND d.For.Has(Shape)) ? { Prop: d.Prop, Scale: d.Scale } : 0
-   }
 
    ;----------------------------------------------------------------------
    ; Values
@@ -295,54 +225,6 @@ Class ShapeStyles {
       If (this.Defs[key].Prop != "shapeThickness")
          Return 1
       Return ShapeObj.DPIFactor * (ShapeObj.Shape = Shapes.SHAPE_TAPARROW ? 2 : 1)
-   }
-
-   ;----------------------------------------------------------------------
-   ; Menus
-   ;----------------------------------------------------------------------
-   /**
-    * Add a button bar category's sub-menus, with the current defaults checked
-    * @param {Menu} objMenu - Menu to add to
-    * @param {String} category - button bar category name
-    */
-   Static AddBarMenu(objMenu, category) {
-      For item in this.BarMenus.Get(category, []) {
-         If item
-            objMenu.Add(item[2], this._ValueMenu(item[1]))
-         Else
-            objMenu.Add('')
-      }
-   }
-   ; Sub-menu of a key's values, made once and reused, with the default checked
-   Static _ValueMenu(key) {
-      d := this.Defs[key]
-      If NOT this._menus.Has(key) {
-         M := Menu()
-         For val in d.Values
-            M.Add(val, this._DefaultPicked.Bind(this, key))
-         this._menus[key] := M
-      }
-      M   := this._menus[key]
-      cur := this.GetDefault(key)
-      For val in d.Values {
-         If (val = cur)
-            M.Check(val)
-         Else
-            M.UnCheck(val)
-      }
-      Return M
-   }
-   /**
-    * A default was picked on the button bar: also apply it to a selected shape group
-    * @param {String} key - default name
-    * @param {String} ItemName - menu item text, the new value
-    */
-   Static _DefaultPicked(key, ItemName, *) {
-      old := this.GetDefault(key)
-      this.SetDefault(key, ItemName)
-      ShapeBar.Redraw()
-      If (this.Defs[key].Apply = "Style" AND ShapeGroup.Active)
-         ShapeGroup.ApplyDefault(key, old, ItemName)
    }
 }
 logGDI(BFN(Error("", -1).File) " loaded...")

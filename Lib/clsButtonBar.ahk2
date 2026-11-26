@@ -22,8 +22,8 @@
  * corner, or horizontal above it ([User Button Bar] Orientation in the settings file).
  *
  * Drawn with GDI+ on one layered window (DrawnBar), with a cell per button instead of
- * button controls. Shape category buttons open their shape menu when pressed (right click:
- * the category's defaults); the others act when released over them. Undo/Redo are greyed
+ * button controls. Shape category buttons open their shape menu when pressed (right click
+ * too); the others act when released over them. Undo/Redo are greyed
  * out with nothing to undo/redo; the pin button shows the snip's pin state.
  * It never takes the focus, like the shape bar: the snip stays active, so using the toolbar
  * doesn't end the drawing tool, and Esc goes to the snip. Its menus are shown with
@@ -154,10 +154,11 @@ Class ButtonBar extends DrawnBar {
          this.Redraw()
       }
    }
-   ; Right click on a category button: the defaults of the category (Shapes._cmdRMBHandler)
+   ; Right click on a category button: its shape menu, as a left click (the category's
+   ; defaults are set on the shape bar once a shape is picked)
    Static RightClick() {
-      If ((idx := this._MouseItem(&x, &y)) AND (cell := this.Items[idx]).Kind = "Menu")
-         this._GuardedMenu(this.SnipObj, () => Shapes._cmdRMBHandler(cell.Cat, "lButton", 0, 0, 0, 0, 0))
+      If ((idx := this._MouseItem(&x, &y)) AND this.Items[idx].Kind = "Menu" AND NOT DrawnBar.MenuSnip)
+         SetTimer(this._OpenMenu.Bind(this, idx), -10)
    }
    ; Tooltips clear of the bar: beside a vertical one, below a horizontal one
    Static _TipPos(item) {

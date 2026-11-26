@@ -265,8 +265,9 @@ A toolbar can appear to the left of each active snip to provide quick access to 
 
 Each toolbar button represents a shape or tool.
 
-- Left-click a button to select the shape or tool to draw next.
-- Right-click a button to open a menu with configuration options for that shape.
+- Click (left or right) a category button to open its list of shapes, and pick the shape or tool to draw next.
+- A shape's settings (thickness, opacity, fonts, ...) are on the [shape bar](#shape-bar) that appears once a shape is
+  picked: changing them there sets the default for new shapes of that kind.
 
 The toolbar is helpful if you prefer selecting tools visually instead of using keyboard shortcuts.
 
@@ -346,11 +347,18 @@ Some defaults are shared by several kinds of shape:
   Arrow Text). The text, font and color are kept, the shapes stay centered where they were, and a single undo changes
   them back. It doesn't react to the wheel.
 - **Edit** (for a selected text shape): edit the text, the same as Alt-click.
+- **Rotate and flip** (for a selected picture shape): rotate +90 / -90, flip left/right / top/bottom. Each can be
+  undone.
+- **⋯ (More)** (for one selected shape): a menu of the less used actions; its tooltip lists them. Only the ones that
+  apply are there:
+  - **Reset Size / Reset Picture Size / Reset Font Size**: puts a pen stroke back to the size it was drawn at, a
+    picture back to its own size, or a text shape back to its original font size. Undo puts it back.
+  - **Send to Back / Send Backwards** (when the snip has other shapes): moves it below all the other shapes, or one
+    step down (the same as Alt-Click). These can't be undone yet.
+  - **Transparent Background** (pictures): makes the picture's background color (the color around its edges)
+    transparent. Undo puts it back.
 - **Duplicate** (left of the clipboard icon, for one selected shape): the same as Ctrl-D. The copy is then selected, so
   clicking again makes another copy from it. Undo removes it.
-- **Rotate, flip, reset size and transparent background** (for a selected picture shape): rotate +90 / -90, flip
-  left/right / top/bottom, put the picture back to its own size, and make its background color (the color around its
-  edges) transparent. Each can be undone.
 - The bar moves below the snip when there is no room above it. Drag its icon to move it out of the way.
 - `F1` shows or hides the shape bar together with the toolbar.
 
@@ -419,7 +427,7 @@ saved snips still open and can be edited.
 
 | Key        | Action                                                                                   |
 | ---------- | ---------------------------------------------------------------------------------------- |
-| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size. Hold the button and drag to pull out a callout (the tag stays where you clicked). Labels can be numbers, upper or lower case letters, or Roman numerals (RMB on the text button > **Tag Number Scheme**). RMB on a tag > **Renumber Tags** closes gaps after deleting one, **Tag Scheme** changes the scheme |
+| N          | Increasing Numbered tag on click, resets when no text shapes exist, Alt key for 2x size. Hold the button and drag to pull out a callout (the tag stays where you clicked). Labels can be numbers, upper or lower case letters, or Roman numerals (**Tag Number Scheme** on the shape bar while the Tag tool is picked). RMB on a tag > **Renumber Tags** closes gaps after deleting one, **Tag Scheme** changes the scheme |
 | T          | Add Text to cursor location                                                              |
 | U          | Add Outline Text to cursor location                                                      |
 | F          | Add Text with adaptive translucent background to stand out from busy backgrounds         |
@@ -572,9 +580,10 @@ mouse. Movement snaps to the grid.
   - Text size for text shapes
   - Blur or pixelation level for obscure shapes
 - Arrow key and scroll wheel changes can be undone. A run of key presses or wheel notches is a single undo step.
-- When a shape has an active focus rectangle, right-click to open a context menu
-with options specific to that shape. You can also use keyboard shortcuts to
-perform operations on the shape. Available options vary by shape type.
+- Everything for one shape is on its [shape bar](#shape-bar): click the shape to select it. Right-clicking a shape
+  only offers what acts on more than that shape: **Renumber Tags** and **Tag Scheme** for tags, and **Clear Shapes**
+  (Shift-Del) when the snip has several. With none of those, there is no menu. You can also use keyboard shortcuts to
+  perform operations on the shape.
 
 While hovering over a shape, you can also use the hotkeys listed below to perform additional actions.
 
@@ -637,8 +646,8 @@ The hotkeys while hovering over a shape, or with one selected:
 - **Tag Scheme** (next to Renumber Tags) switches all of the snip's numbered tags between Numbers (1, 2, 3), Upper
   Case (A, B, C), Lower Case (a, b, c) and Roman (I, II, III). Each tag keeps its place in the order and stays where it
   is, and a single undo changes them back. Letters continue past Z as AA, AB, ... New tags on a snip continue the
-  scheme its tags already use; the default for a snip with no tags is set on the button bar (RMB on the text button >
-  **Tag Number Scheme**). Renumber Tags keeps each tag's scheme.
+  scheme its tags already use; the default for a snip with no tags is **Tag Number Scheme** on the shape bar while the
+  Tag tool is picked. Renumber Tags keeps each tag's scheme.
 - Thickness, blur amount, opacities and outline are on the [shape bar](#shape-bar): click the shape to select it. You can
   also use the mouse wheel (when hovering), or the Up/Down keys while dragging a resize handle.
 - Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape

@@ -311,9 +311,9 @@ Class SnipMenus {
  */
 Class ShapeMenus {
    /**
-    * Build and display the right-click context menu for a shape control.
-    * Menu entries are assembled dynamically based on ShapeObj.Source and ShapeObj.Shape,
-    * including rotate/flip, z-order and delete actions.
+    * Build and display the right-click context menu for a shape control: only what the
+    * shape bar doesn't have (tag numbering and scheme, clear all shapes). Nothing is shown
+    * when none of it applies.
     * @param {Object} ShapeObj - The shape object that received the right-click
     * @param {Integer} Item - Item index (unused)
     * @param {Integer} IsRightClick - Non-zero if triggered by a right-click
@@ -326,53 +326,26 @@ Class ShapeMenus {
       shapeMenu.Delete()
       schemeMenu.Delete()
       PC := PeerCount(ShapeObj)
-      ; Shape specific
-; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
-      Switch ShapeObj.Source {
-         Case "File", "Clip":
-            ; Reset size, rotate, flip and transparent background are on the shape bar
-            ; (click the picture)
-            If (PC > 1)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
-            If (PC > 2)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards (Alt-Click)", "MoveBack.ico")
-         Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
-            if (ShapeObj.Source = "FreeHand")
-               ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
-            If (PC > 1)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
-            If (PC > 2)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards", "MoveBack.ico")
-         Case "Text":
-            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Edit " ShapeObj.ShapeName " (Alt-Click)","Edit.ico")
-            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Font Size","Reset.ico")
-            ; Numbered tags: close gaps in the sequence (e.g. after deleting one)
-            If (ShapeObj.Shape = Shapes.SHAPE_TAG) {
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Renumber Tags", "Tag.cur")
-               ; Label scheme of the snip's numbered tags (1 2 3 / A B C / a b c / I II III)
-               shapeMenu.Add("Tag Scheme", schemeMenu)
-               shapeMenu.SetIcon("Tag Scheme", SETTINGS.CursorPath . "Tag.cur")
-               For scheme in TextShape.TagSchemes {
-                  schemeMenu.Add(scheme, TagScheme.Bind(scheme))
-                  If (ShapeObj.TagScheme = scheme)
-                     schemeMenu.Check(scheme)
-               }
-            }
-            ShapeMenu.Add()
-            If (PC > 1)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
-            If (PC > 2)
-               ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards (Alt-Click)", "MoveBack.ico")
+      ; Everything about the shape itself is on the shape bar (click the shape): properties,
+      ; Edit, rotate/flip, Duplicate, Copy, Delete, and in its ... menu reset, z-order and
+      ; transparent background. What is left here acts on more than the one shape.
+      ; Numbered tags: close gaps in the sequence (e.g. after deleting one), label scheme of
+      ; the snip's numbered tags (1 2 3 / A B C / a b c / I II III)
+      If (ShapeObj.Shape = Shapes.SHAPE_TAG) {
+         ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Renumber Tags", "Tag.cur")
+         shapeMenu.Add("Tag Scheme", schemeMenu)
+         shapeMenu.SetIcon("Tag Scheme", SETTINGS.CursorPath . "Tag.cur")
+         For scheme in TextShape.TagSchemes {
+            schemeMenu.Add(scheme, TagScheme.Bind(scheme))
+            If (ShapeObj.TagScheme = scheme)
+               schemeMenu.Check(scheme)
+         }
       }
-      ; Doesn't really work as it gets the pic under the shape as well
-      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Copy " ShapeObj.ShapeName " to Clipboard", "Clipboard.ico")
-      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Duplicate " ShapeObj.ShapeName " (Ctrl-D/Ctrl-Click)", "Duplicate.ico")
-      ; Color, thickness, blur amount, opacities and outline are on the shape bar (click the shape)
-      ShapeMenu.Add()
-      ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Delete " ShapeObj.ShapeName " (Del)","Close.ico")
       If (PC > 1)
          ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Clear " PC " Shapes (Shift-Del)", "Clear.ico")
-         
+      ; Nothing left for this shape: no menu
+      If (DllCall("GetMenuItemCount", "Ptr", shapeMenu.Handle) <= 0)
+         Return
       ; Blocks here
       shapeMenu.Show()
       shapeMenu.Delete()
@@ -408,34 +381,6 @@ Class ShapeMenus {
       Switch {
          Case ItemName = "Renumber Tags":
             Shapes.RenumberTags(shapeObj.Gui)
-         Case ItemName ~= "to Back" :
-            ; NOTE - clips and images are pushed too far down
-            ; Also, they are always under drawn shapes
-            ; Due to layered vs non-layered child windows (layered stack always on top)
-            shapeObj.PushToBottom() 
-         Case ItemName ~= "Backwards" : 
-            shapeObj.PushDown() 
-         Case ItemName ~= "Duplicate": 
-            Shapes.Duplicate("lbutton", shapeObj)
-         Case ItemName ~= "Delete": 
-            shapeObj.Close()
-         Case ItemName ~= "Edit": 
-            shapeObj.EditDispText()
-         Case ItemName ~= "Reset": 
-            shapeObj.PostAction(UnDo.RESIZE_SHAPE)
-            shapeObj.ResetSize()
-            focusBorder.Sync()
-         Case ItemName ~= "to Clipboard":
-            focusBorder.HideFocus(false)
-            ; Try raw picture first, otherwise screen grab it
-            If NOT (shapeObj.HasProp("Handle") AND shapeObj.Handle) {
-               hBitmap := BitMap.HBitmapFromHWND(shapeObj.hWnd, 0)
-            } Else {
-               hBitmap := GDI.CopyImage(shapeObj.Handle)
-            }
-            if ((res := Clipboard.SetHBITMAPToClipboard(hBitmap, , MonDPIunderWindow(shapeObj.hWnd))) < 0)
-               MsgBox("Failed To Set Clipboard Data: " res, "Clipboard", 0x30)
-
          Case ItemName ~= "Clear":
             shapeObj.GUI.PostClearAllShapes()
             shapeObj.GUI.ClearAllShapes(true) ; no Undo, done above

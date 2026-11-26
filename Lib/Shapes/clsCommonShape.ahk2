@@ -826,11 +826,7 @@ Class commonShape extends Gui.Pic {
    }
 
    ;----------------------------------------------------------------------
-   ; Style defaults applied to existing shapes
-   ; A button bar default (ShapeStyles key) changed while a shape group is selected is
-   ; applied to the group (ShapeGroup.ApplyDefault). The table maps the key to the
-   ; property each shape type copied the default into at Init; shapes the key doesn't
-   ; apply to return 0 from StyleTarget and are left alone.
+   ; Style properties of existing shapes (set from the shape bar with SetStyle)
    ;----------------------------------------------------------------------
    ; Instance properties that hold a shape's style (SHAPE_STYLE undo, InstanceInfo)
    Static StyleProps := ["Factor", "shapeThickness", "shapeOpacity", "outlineOpacity",
@@ -847,36 +843,6 @@ Class commonShape extends Gui.Pic {
          If this.HasOwnProp(pr)
             info.%pr% := this.%pr%
       Return info
-   }
-   /**
-    * Which property of this shape a button bar default sets, if any.
-    * @param {String} key - default name (ShapeStyles key, e.g. "arrowOpacity")
-    * @returns {Object|Integer} {Prop, Scale} or 0 when the default doesn't apply.
-    *   Scale: true scales the property by new/old default (thickness, blur amount),
-    *   keeping any size change made to the shape; false sets it to the new value.
-    */
-   StyleTarget(key) => ShapeStyles.Target(this.Shape, key)
-   /**
-    * Work out the new value of a style property for a changed default
-    * @param {Object} t - StyleTarget() result
-    * @param {Any} old - previous default
-    * @param {Any} new - new default
-    * @param {VarRef} value - receives the new property value
-    * @returns {Integer} true if the property would change
-    */
-   StyleValue(t, old, new, &value) {
-      prop := t.Prop
-      cur  := this.%prop%
-      If (t.Scale) {
-         If NOT (IsNumber(old) AND IsNumber(new) AND old > 0 AND new != old)
-            Return false
-         value := cur * new / old
-         Return true
-      }
-      If (cur = new)
-         Return false
-      value := new
-      Return true
    }
    /**
     * Pen for the outline, owned by the shape's pens. 0 when the outline width is 0: a

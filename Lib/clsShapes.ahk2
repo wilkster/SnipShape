@@ -190,34 +190,10 @@ Class Shapes {
             dlog("Discarding unavailable font " fnt)
       }
       logGDI("Complete reading system fonts")
-      ; Button bar category menu
-      this.shapeBBMenu := Menu()
-      ; Table of style properties for the menus (needs the shape numbers, defaults and fonts above)
+      ; Table of style properties for the shape bar (needs the shape numbers, defaults and fonts above)
       ShapeStyles.Build()
    }
 
-   /**
-    * @description Right-mouse-button handler for the shape button bar. Rebuilds and
-    *   displays a context menu with sub-menus appropriate to the clicked button category
-    *   (Arrows, Shapes, Free Hand, Highlighters, Redact, Text, Tool). Checks the current
-    *   value in each sub-menu before showing, and cleans up menus after the user dismisses them.
-    * @param {String} btn - Button bar category name (e.g. "Arrows", "Text").
-    * @param {String} key - Hotkey string associated with the button.
-    * @param {Object} ctl - Control object that received the click.
-    * @param {String} item - Menu item name (if applicable).
-    * @param {Integer} IsRightClick - Non-zero if triggered by a right-click.
-    * @param {Integer} X - X coordinate of the click relative to the control.
-    * @param {Integer} Y - Y coordinate of the click relative to the control.
-    */
-   Static _cmdRMBHandler(btn, key, ctl, item, IsRightClick, X, Y) {
-      this.shapeBBMenu.Delete()
-      ; Style defaults of this category (ShapeStyles.BarMenus)
-      ShapeStyles.AddBarMenu(this.shapeBBMenu, btn)
-      ; IDEA - Tool category: OCR capture default (lines/rows/table)
-      this.shapeBBMenu.Show()
-      ; Blocks here
-      this.shapeBBMenu.Delete()
-   }
 
    /**
     * @description Looks up a shape name string in the ShapeName array and returns its

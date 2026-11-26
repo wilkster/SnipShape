@@ -385,40 +385,6 @@ Class ShapeGroup {
    }
 
    /**
-    * A button bar default changed (ShapeStyles._DefaultPicked): apply it to the
-    * shapes in the group it belongs to, one undo step. Opacities, outline type etc.
-    * are set to the new value; thickness and blur/pixelate amounts are scaled by
-    * new/old so sizes changed on a shape are kept. Other shapes are left alone.
-    * @param {String} key - default name (ShapeStyles key)
-    * @param {Any} old - previous default
-    * @param {Any} new - new default
-    * @returns {Integer} number of shapes changed
-    */
-   Static ApplyDefault(key, old, new) {
-      If NOT this.Active
-         Return 0
-      old := IsNumber(old) ? Number(old) : old
-      new := IsNumber(new) ? Number(new) : new
-      tag := UnDo.NewTag("GroupStyle")
-      n   := 0
-      For ShapeObj in this.List {
-         If NOT (t := ShapeObj.StyleTarget(key))
-            Continue
-         If NOT ShapeObj.StyleValue(t, old, new, &value)
-            Continue
-         ShapeObj.PostAction(UnDo.SHAPE_STYLE, tag)
-         ShapeObj.SetStyle(t.Prop, value)
-         ShapeObj.Refresh()
-         n++
-      }
-      If (n) {
-         this._resizePosted := false
-         this._Changed()
-      }
-      Return n
-   }
-
-   /**
     * Up/Down/wheel: change each shape's thickness/size, as for a single focused
     * shape (line width, text font size, blur amount). The first change after a
     * selection or another group action posts one undo step for the whole run.

@@ -274,24 +274,26 @@ Class ShapeBar extends DrawnBar {
          isSlider := IsObject(d.Range)
          cells.Push({ Kind: isSlider ? "Slider" : "List", Def: d, W: this._Px(isSlider ? 128 : this.ListWidths.Get(d.Param, 86)) })
       }
+      ; Action buttons: small icons (bW cells), the occasional actions in the ... menu
+      bW := this._Px(26)
       If (shp := content.Single) {
          If (shp.Source = "Text")
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Edit.ico", Tip: "Edit text (Alt-Click)", Action: (*) => shp.EditDispText() })
+            cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Edit.ico", Tip: "Edit text (Alt-Click)", Action: (*) => shp.EditDispText() })
          ; Pictures: rotate and flip
          If (shp.Source = "File" OR shp.Source = "Clip") {
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "rotateRight.png", Tip: "Rotate +90", Action: this._RotateFlip.Bind(this, shp, 90, 0) })
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "rotateLeft.png", Tip: "Rotate -90", Action: this._RotateFlip.Bind(this, shp, -90, 0) })
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipHorz.png", Tip: "Flip left/right", Action: this._RotateFlip.Bind(this, shp, 0, 2) })
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipVert.png", Tip: "Flip top/bottom", Action: this._RotateFlip.Bind(this, shp, 0, 1) })
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Reset.ico", Tip: "Reset picture size", Action: this._ResetSize.Bind(this, shp) })
-            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "screenshot.ico", Tip: "Transparent background (the color around the edges)", Action: this._Transparent.Bind(this, shp) })
+            cells.Push({ Kind: "Button", Def: 0, W: bW, File: "rotateRight.png", Tip: "Rotate +90", Action: this._RotateFlip.Bind(this, shp, 90, 0) })
+            cells.Push({ Kind: "Button", Def: 0, W: bW, File: "rotateLeft.png", Tip: "Rotate -90", Action: this._RotateFlip.Bind(this, shp, -90, 0) })
+            cells.Push({ Kind: "Button", Def: 0, W: bW, File: "flipHorz.png", Tip: "Flip left/right", Action: this._RotateFlip.Bind(this, shp, 0, 2) })
+            cells.Push({ Kind: "Button", Def: 0, W: bW, File: "flipVert.png", Tip: "Flip top/bottom", Action: this._RotateFlip.Bind(this, shp, 0, 1) })
          }
-         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Duplicate.ico", Tip: "Duplicate selected shape (Ctrl-D)", Action: this._Duplicate.Bind(this, shp) })
-         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
-         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
+         If ((more := this._MoreActions(shp)).Length)
+            cells.Push({ Kind: "Button", Def: 0, W: bW, Glyph: "⋯", Tip: "More: " this._MoreTip(more), Action: this.ShowMore.Bind(this, more) })
+         cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Duplicate.ico", Tip: "Duplicate selected shape (Ctrl-D)", Action: this._Duplicate.Bind(this, shp) })
+         cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
+         cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
       } Else If (content.Group) {
-         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shapes (Ctrl-C)", Action: (*) => ShapeGroup.CopyToClipboard(true) })
-         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shapes (Del)", Action: (*) => ShapeGroup.Delete() })
+         cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Clipboard.ico", Tip: "Copy selected shapes (Ctrl-C)", Action: (*) => ShapeGroup.CopyToClipboard(true) })
+         cells.Push({ Kind: "Button", Def: 0, W: bW, File: "Close.ico", Tip: "Delete selected shapes (Del)", Action: (*) => ShapeGroup.Delete() })
       }
       this.Items := [{ Kind: "Icon", Def: 0, X: pad, Y: pad, W: icoW, H: rowH }]
       left := pad + icoW + gap
@@ -505,6 +507,64 @@ Class ShapeBar extends DrawnBar {
    }
    Static _ValuePicked(d, ItemName, *) {
       this.SetValue(d, ItemName)
+   }
+   /**
+    * The occasional actions of a selected shape, for the ... menu: reset (pictures, pen
+    * strokes, text), z-order (as the shape menu: to the back when there are other shapes,
+    * one step back when there are at least two others), transparent background (pictures)
+    * @returns {Array} of {Text, Icon, Action}
+    */
+   Static _MoreActions(shp) {
+      list := []
+      Switch shp.Source {
+         Case "File", "Clip": list.Push({ Text: "Reset Picture Size", Icon: "Reset.ico", Action: this._ResetSize.Bind(this, shp) })
+         Case "FreeHand":     list.Push({ Text: "Reset Size", Icon: "Reset.ico", Action: this._ResetSize.Bind(this, shp) })
+         Case "Text":         list.Push({ Text: "Reset Font Size", Icon: "Reset.ico", Action: this._ResetSize.Bind(this, shp) })
+      }
+      peers := PeerCount(shp)
+      If (peers > 1)
+         list.Push({ Text: "Send to Back", Icon: "MoveBottom.ico", Action: this._ZOrder.Bind(this, shp, true) })
+      If (peers > 2)
+         list.Push({ Text: "Send Backwards (Alt-Click)", Icon: "MoveBack.ico", Action: this._ZOrder.Bind(this, shp, false) })
+      If (shp.Source = "File" OR shp.Source = "Clip")
+         list.Push({ Text: "Transparent Background", Icon: "screenshot.ico", Action: this._Transparent.Bind(this, shp) })
+      Return list
+   }
+   ; Tooltip of the ... button: what is in its menu
+   Static _MoreTip(list) {
+      s := ""
+      For a in list
+         s .= (A_Index > 1 ? ", " : "") a.Text
+      Return s
+   }
+   /**
+    * The ... menu under its button (shown as the value lists are: the snip ignores the
+    * menu's activation)
+    * @param {Array} list - from _MoreActions
+    */
+   Static ShowMore(list, *) {
+      If (NOT this.snipHwnd OR DrawnBar.MenuSnip)
+         Return
+      item := 0
+      For cell in this.Items
+         If (cell.Kind = "Button" AND cell.HasOwnProp("Glyph"))
+            item := cell
+      If NOT item
+         Return
+      M := Menu()
+      For a in list {
+         M.Add(a.Text, a.Action)
+         Try M.SetIcon(a.Text, SETTINGS.CursorPath . a.Icon)
+      }
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this._GuardedMenu(this.SnipObj, ShowIt)
+      ShowIt() {
+         cm := CoordMode("Menu", "Screen")
+         Try
+            M.Show(wX + item.X, wY + item.Y + item.H)   ; blocks here
+         Finally
+            CoordMode("Menu", cm)
+      }
    }
 
    ;----------------------------------------------------------------------
@@ -904,7 +964,23 @@ Class ShapeBar extends DrawnBar {
       GDI.DestroyIcon(icon)
    }
    Static _DrawButton(Surf, item) {
-      sz := this._Px(24)
+      sz := this._Px(18)
+      If (item.HasOwnProp("Glyph")) {
+         ; The ... button: the glyph in the text color (follows the light/dark theme)
+         family := GDIpText.FontFamilyCreate("Segoe UI")
+         font   := GDIpText.FontCreate(family, this._Px(20), 1, 2)   ; bold, pixels
+         fmt    := GDIpText.StringFormatCreate(0x1000)
+         GDIpText.SetStringFormatAlign(fmt, 1)
+         GDIpText.GdipSetStringFormatLineAlign(fmt, 1)
+         brush  := GDIp.BrushCreateSolid(this.Colors.Value)
+         GDIp.CreateRectF(&rc, item.X, item.Y, item.W, item.H)
+         GDIpText.DrawString(Surf.G, item.Glyph, font, fmt, brush, &rc)
+         GDIp.DeleteBrush(brush)
+         GDIpText.DeleteStringFormat(fmt)
+         GDIpText.DeleteFont(font)
+         GDIpText.DeleteFontFamily(family)
+         Return
+      }
       If (item.File ~= "i)\.png$") {
          ; GDI+ keeps a png's alpha (an icon needs GDI, _DrawIcon)
          If (pB := this._Image(SETTINGS.CursorPath . item.File))
@@ -927,7 +1003,20 @@ Class ShapeBar extends DrawnBar {
       focusBorder.ShowSelected(true)   ; the border fits the new size (a rotate swaps W/H)
    }
    /**
-    * Put a selected picture shape back to the size of its picture (undo: RESIZE_SHAPE)
+    * Send the selected shape to the back, or one step back (as the shape menu; no undo yet)
+    * @param {Integer} toBottom - true: to the back, false: one step
+    */
+   Static _ZOrder(shp, toBottom, *) {
+      If (toBottom)
+         shp.PushToBottom()
+      Else
+         shp.PushDown()
+      shp.Gui.Dirty++
+      focusBorder.ShowSelected(true)
+   }
+   /**
+    * Put a selected shape back to its own size: a picture's size, a pen stroke's size, a
+    * text's font size (undo: RESIZE_SHAPE)
     */
    Static _ResetSize(shp, *) {
       shp.PostAction(UnDo.RESIZE_SHAPE)
