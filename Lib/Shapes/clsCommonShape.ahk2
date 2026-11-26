@@ -205,15 +205,51 @@ Class commonShape extends Gui.Pic {
    }
    /**
     * Push this shape to the bottom of the Z-order, just above the background picture.
+    * Can be undone.
     */
    PushToBottom() {
-      SetWindowBottom(this.hWnd)
+      this._ZChange(() => SetWindowBottom(this.hWnd))
    }
    /**
-    * Push this shape down one position in the Z-order.
+    * Push this shape down one position in the Z-order (Alt-Click). Can be undone.
     */
    PushDown() {
-      PushShapeDownOne(this)
+      this._ZChange(() => PushShapeDownOne(this))
+   }
+   /**
+    * Bring this shape to the top of the Z-order (a click on it). Can be undone; nothing is
+    * posted when it already was on top, so a click that only selects keeps the redo history.
+    */
+   RaiseToTop() {
+      this._ZChange(() => ShapeOnTop(this))
+   }
+   /**
+    * Make a Z-order change, and post its undo (SHAPE_ZORDER) only if the order changed
+    * @param {Func} fn - makes the change
+    */
+   _ZChange(fn) {
+      before := this.ZOrderInfo()
+      fn()
+      If (WindowAbove(this.hWnd) != before.ZAbove) {
+         this.PostAction(UnDo.SHAPE_ZORDER, , before)
+         this.Gui.Dirty++
+      }
+   }
+   /**
+    * Z-order for undo/redo (SHAPE_ZORDER): the window this shape is just under, 0 = on top
+    * @returns {Object} {ZAbove}
+    */
+   ZOrderInfo() => { ZAbove: WindowAbove(this.hWnd) }
+   /**
+    * Put the shape back in a saved Z-order place (UnDo, SHAPE_ZORDER): just under the window
+    * it was under, or on top if that window is gone or isn't on this snip any more
+    * @param {Object} info - ZOrderInfo() result
+    */
+   SetZOrder(info) {
+      above := info.ZAbove
+      If (above AND NOT (DllCall("IsWindow", "Ptr", above) AND GetParentOnly(above) = this.Gui.hWnd))
+         above := 0
+      SetWindowBelow(this.hWnd, above)
    }
    
    /**
@@ -435,8 +471,8 @@ Class commonShape extends Gui.Pic {
     * Post an undo action to the Snip UnDo/ReDo class
     * @param what Action
     */
-   PostAction(what, tag:="") {
-      this.SnipObj.UnDo.PostAction(this, what, tag)
+   PostAction(what, tag:="", data?) {
+      this.SnipObj.UnDo.PostAction(this, what, tag, data?)
    }
    /**
     * Post an undo action for one of a run of small changes (see UnDo.PostRun)

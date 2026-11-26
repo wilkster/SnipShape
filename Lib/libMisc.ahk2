@@ -122,6 +122,21 @@ IsWindowVisible(hwndTry) => DllCall("User32.dll\IsWindowVisible", "Ptr", hwndTry
  * @returns {Ptr} Handle to the window above, 0 if already on top
  */
 GetTopWindow(hWnd) => DllCall("User32\GetWindow", "Ptr", hWnd, "Uint", 3)
+/**
+ * The window just above a window in the Z-order (GW_HWNDPREV)
+ * @param hWnd Handle to the window
+ * @returns {Ptr} Handle to the window above, 0 if it is the top one
+ */
+WindowAbove(hWnd) => DllCall("User32\GetWindow", "Ptr", hWnd, "UInt", 3, "Ptr")
+/**
+ * Put a window just below another one in the Z-order, or at the top (0); position,
+ * size and activation are left alone
+ * @param hWnd Handle to the window to move
+ * @param hWndAbove Handle of the window it goes under, 0 = HWND_TOP
+ * @returns {Integer} nonzero on success
+ */
+SetWindowBelow(hWnd, hWndAbove) => DllCall("User32\SetWindowPos", "Ptr", hWnd, "Ptr", hWndAbove
+   , "Int", 0, "Int", 0, "Int", 0, "Int", 0, "UInt", 0x0013)   ; SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
 ;----------------------------------------------------------------------
 ; Return the parent window for a child window
 ;----------------------------------------------------------------------
@@ -276,6 +291,7 @@ ShapeOnTop(shapeObj) {
       )
       return res
    }
+   Return 0   ; already on top
 }
 ;----------------------------------------------------------------------
 ; Compute the X/Y locations of a GUI to keep it fully on active monitor

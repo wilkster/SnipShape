@@ -817,7 +817,7 @@ Class Shapes {
 
       ; Latest control clicked will be on top of others (shapes are always over bitmaps for some reason)
       SnipObj := ShapeObj.Gui
-      ShapeOnTop(ShapeObj) ; true
+      ShapeObj.RaiseToTop()   ; posts a SHAPE_ZORDER undo only if it wasn't on top
       CoordMode('Mouse', 'Window')
       MouseGetPos(&mouseStart.X, &mouseStart.Y)
 

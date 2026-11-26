@@ -313,7 +313,8 @@ the bar has the copy and delete buttons, you are changing selected shapes.
 | One shape is [selected](#selecting-a-shape)                   | No                              | That shape         |
 | A group is selected (Shift-drag, Shift-click or Ctrl-A)       | No                              | All in the group   |
 
-- Changes to shapes can be undone. Undo does not change a default back.
+- Changes to shapes can be undone, including their stacking order (send to back, send backwards, and a shape brought
+  to the top by clicking it). Undo does not change a default back.
 - The last shape drawn is no longer changed once you pick another tool, leave drawing mode, or delete or undo it. Text
   shapes other than tags leave drawing mode when you enter the text, so select those to change them.
 - Smoothing and Numbering only apply to new shapes.
@@ -354,7 +355,7 @@ Some defaults are shared by several kinds of shape:
   - **Reset Size / Reset Picture Size / Reset Font Size**: puts a pen stroke back to the size it was drawn at, a
     picture back to its own size, or a text shape back to its original font size. Undo puts it back.
   - **Send to Back / Send Backwards** (when the snip has other shapes): moves it below all the other shapes, or one
-    step down (the same as Alt-Click). These can't be undone yet.
+    step down (the same as Alt-Click). Undo puts it back where it was.
   - **Transparent Background** (pictures): makes the picture's background color (the color around its edges)
     transparent. Undo puts it back.
 - **Duplicate** (left of the clipboard icon, for one selected shape): the same as Ctrl-D. The copy is then selected, so
@@ -745,4 +746,3 @@ Left-clicking the SnipShape tray icon brings up the following choices:
 
 - One Arrow type in place of Arrow and Outlined Double Arrow, with the arrow ends chosen on the shape bar (the plain
   arrow is already folded into Arrow)
-- Undo for changes of a shape's stacking order (push down, send to back)

@@ -28,6 +28,7 @@ Class UnDo {
    Static MOVE_SNIP     :=  9
    Static ZOOM_SNIP     := 10   ; zoom only: stores the zoom and window position, no picture
    Static SHAPE_STYLE   := 11   ; opacity/thickness/outline style props (StyleInfo)
+   Static SHAPE_ZORDER  := 12   ; stacking order: the window the shape was under (ZOrderInfo)
    ; Thickness etc. changed in small steps (wheel, arrow keys) posts once per run, see PostRun
    Static RUN_MS    := 1500 ; longest pause within a run
    Static MAX_DEPTH := 100  ; cap stack depth, oldest entries dropped first
@@ -99,12 +100,14 @@ Class UnDo {
     * is invalidated, since this is a fresh branch of edits.
     * @param obj Shape or Snip Object
     * @param action
+    * @param [data] - the state to go back to, when it was captured before the change was
+    *   made (only posting once it is known that something changed); default: now
     */
-   PostAction(obj, action, Tag:="") {
+   PostAction(obj, action, Tag:="", data?) {
       ; Reset the redo stack
       ; debug("Posting " action " with tag " Tag)
       this._clearStack(this.redoStack)
-      data := this._CaptureData(action, obj)
+      data := data ?? this._CaptureData(action, obj)
       item := { obj: obj, action: action, data: data , tag: Tag, id: ++UnDo._tagSeq}
       this.undoStack.push(item)
       ; dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
@@ -203,6 +206,7 @@ Class UnDo {
          Case UnDo.CHANGE_SNIP  : return obj.SnipInfo()
          Case UnDo.MOVE_SNIP    : return obj.MoveInfo()
          Case UnDo.ZOOM_SNIP    : return obj.ZoomInfo()
+         Case UnDo.SHAPE_ZORDER : return obj.ZOrderInfo()
               Default           : Return Object()
       }
    }
@@ -260,7 +264,7 @@ Class UnDo {
     *   - Redoing  an ADD    -> recreate it  (forward of "add")
     *   - Undoing a DELETE  -> recreate it  (reverse of "delete")
     *   - Redoing  a DELETE  -> close it     (forward of "delete")
-    * MOVE_SHAPE, RESIZE_SHAPE, and CHANGE_SNIP are self-symmetric: the same
+    * MOVE_SHAPE, RESIZE_SHAPE, SHAPE_ZORDER and CHANGE_SNIP are self-symmetric: the same
     * "swap stored data with current data" logic runs identically either way.
     * 
     * @param sourceStack stack to pop the entry from (undoStack or redoStack)
@@ -324,6 +328,18 @@ Class UnDo {
                   ; Make sure focus border is synced
                   focusBorder.Sync(shapeObj)
                } else 
+                  warning("Expected Shape but did not get it for Action " item.action)
+
+            Case UnDo.SHAPE_ZORDER:
+               ; Put the shape back under the window it was under (self-symmetric:
+               ; the current place goes on the other stack)
+               If (item.obj is commonShape) {
+                  shapeObj := item.obj
+                  reverseData := this._CaptureData(item.action, shapeObj)
+                  targetStack.Push({ obj: shapeObj, action: item.action, Tag: item.tag, data: reverseData })
+                  shapeObj.SetZOrder(item.data)
+                  focusBorder.Sync(shapeObj)
+               } else
                   warning("Expected Shape but did not get it for Action " item.action)
 
             Case UnDo.MOVE_SNIP:
