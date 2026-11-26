@@ -305,19 +305,52 @@ Class DrawnBar {
     * window was clicked meanwhile, handles the deactivation it ignored.
     * Don't use TrackPopupMenuEx with the snip as owner: when the snip isn't the foreground
     * window the menu hangs open (it did, in tests).
+    * Menus can overlap: a click on another toolbar category while a menu is open closes it
+    * and opens the next one while the first is still finishing. So the guard is counted
+    * (it stays on until the last menu closes), only the last one to finish activates the
+    * snip, and while a menu is open a timer keeps it above the snip: activating the
+    * (topmost) snip after the menu appeared used to put the menu behind it.
     * @param {GuiSnip} snip - the snip the bar belongs to (0: just run fn)
     * @param {Func} fn
     */
    Static _GuardedMenu(snip, fn) {
       hwnd := 0
       Try hwnd := snip ? snip.hWnd : 0   ; a destroyed snip's hWnd throws
+      DrawnBar._menuDepth++
       DrawnBar.MenuSnip := hwnd
+      keep := DrawnBar._KeepMenuOnTop.Bind(DrawnBar, hwnd)
+      If (hwnd)
+         SetTimer(keep, 100)
       Try
          fn()
-      Finally
-         DrawnBar.MenuSnip := 0
-      If (hwnd)
+      Finally {
+         SetTimer(keep, 0)
+         If (--DrawnBar._menuDepth <= 0) {
+            DrawnBar._menuDepth := 0
+            DrawnBar.MenuSnip := 0
+         }
+      }
+      ; Another bar menu still open (opened while this one was closing): it activates the
+      ; snip when it closes
+      If (hwnd AND DrawnBar._menuDepth = 0)
          DrawnBar._AfterMenu(snip, hwnd)
+   }
+   Static _menuDepth := 0   ; bar menus open (see _GuardedMenu)
+   /**
+    * While a bar menu is open (timer): if the menu is below the snip, put it on top.
+    * Seen in the real app (logged 2026-11-26): opening a second toolbar category menu right
+    * after the first, the new menu came up below the snip (and the toolbar/shape bar), at
+    * once, not covered later; the first check puts it on top.
+    * @param {Integer} snipHwnd
+    */
+   Static _KeepMenuOnTop(snipHwnd) {
+      If NOT (m := WinExist("ahk_class #32768 ahk_pid " DllCall("GetCurrentProcessId")))
+         Return
+      h := m
+      While (h := DllCall("GetWindow", "Ptr", h, "UInt", 2, "Ptr"))   ; GW_HWNDNEXT: below the menu
+         If (h = snipHwnd)
+            Return                                                    ; menu is above the snip
+      SetWindowTop(m)   ; HWND_TOPMOST, no move/size/activate
    }
    /**
     * A bar's menu or popup closed: activate the snip again, or if another window was
@@ -325,6 +358,9 @@ Class DrawnBar {
     */
    Static _AfterMenu(snip, hwnd) {
       If NOT DllCall("IsWindow", "Ptr", hwnd)
+         Return
+      ; a menu is open again (opened meanwhile): activating the snip now would cover it
+      If WinExist("ahk_class #32768 ahk_pid " DllCall("GetCurrentProcessId"))
          Return
       fg := DllCall("GetForegroundWindow", "Ptr")
       If (fg = hwnd)
