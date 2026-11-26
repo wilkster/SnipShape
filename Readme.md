@@ -244,14 +244,14 @@ itself stays where it is; only the cursor moves, with a small picture of the sni
 
 <table>
   <tr>
-    <td rowspan="6" valign="top"><img src="Snips/toolbar.png" alt="Toolbar"></td>
-    <td><img src="Snips/ArrowBar.png" alt="Shape bar for arrows"></td>
+    <td rowspan="6" valign="top"><img src="Snips/toolbar.png" alt="Toolbar" width="33" height="396"></td>
+    <td><img src="Snips/ArrowBar.png" alt="Shape bar for arrows" width="714" height="46"></td>
   </tr>
-  <tr><td><img src="Snips/BodyBar.png" alt="Shape bar for rectangles and ellipses"></td></tr>
-  <tr><td><img src="Snips/PenBar.png" alt="Shape bar for pens"></td></tr>
-  <tr><td><img src="Snips/TextBar.png" alt="Shape bar for text"></td></tr>
-  <tr><td><img src="Snips/BlurBar.png" alt="Shape bar for blur"></td></tr>
-  <tr><td><img src="Snips/PictureBar.png" alt="Shape bar for pictures"></td></tr>
+  <tr><td><img src="Snips/BodyBar.png" alt="Shape bar for rectangles and ellipses" width="844" height="46"></td></tr>
+  <tr><td><img src="Snips/PenBar.png" alt="Shape bar for pens" width="434" height="46"></td></tr>
+  <tr><td><img src="Snips/TextBar.png" alt="Shape bar for text" width="766" height="86"></td></tr>
+  <tr><td><img src="Snips/BlurBar.png" alt="Shape bar for blur" width="280" height="46"></td></tr>
+  <tr><td><img src="Snips/PictureBar.png" alt="Shape bar for pictures" width="366" height="46"></td></tr>
 </table>
 
 A toolbar can appear to the left of each active snip to provide quick access to common actions and annotation tools.
@@ -276,7 +276,7 @@ The **Picture Shapes** button (between Text and Tool) opens a bar of small icons
 Stickies folder (`IconPath` in the settings file). The folder is read each time the bar opens, so pictures you add
 or remove show up at once.
 
-![Picture shapes bar](Snips/StickyBar.png)
+<img src="Snips/StickyBar.png" alt="Picture shapes bar" width="256" height="132">
 
 - Click a picture: the bar closes and the cursor becomes that picture. Click on the snip to place it there (centred on
   the click). Esc, or choosing a drawing tool, cancels.
