@@ -342,9 +342,12 @@ Some defaults are shared by several kinds of shape:
 - **Type**: for selected text shapes, changes them to another text type (Text, Fill Text, Outline Text, Tag, Left/Right
   Arrow Text). The text, font and color are kept, the shapes stay centered where they were, and a single undo changes
   them back. It doesn't react to the wheel.
-- **Edit** (left of the clipboard icon, for a selected text shape): edit the text, the same as Alt-click.
-- **Rotate, flip and reset size** (for a selected picture shape): rotate +90 / -90, flip left/right / top/bottom, and put
-  the picture back to its own size. Each can be undone.
+- **Edit** (for a selected text shape): edit the text, the same as Alt-click.
+- **Duplicate** (left of the clipboard icon, for one selected shape): the same as Ctrl-D. The copy is then selected, so
+  clicking again makes another copy from it. Undo removes it.
+- **Rotate, flip, reset size and transparent background** (for a selected picture shape): rotate +90 / -90, flip
+  left/right / top/bottom, put the picture back to its own size, and make its background color (the color around its
+  edges) transparent. Each can be undone.
 - The bar moves below the snip when there is no room above it. Drag its icon to move it out of the way.
 - `F1` shows or hides the shape bar together with the toolbar.
 

@@ -284,7 +284,9 @@ Class ShapeBar extends DrawnBar {
             cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipHorz.png", Tip: "Flip left/right", Action: this._RotateFlip.Bind(this, shp, 0, 2) })
             cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipVert.png", Tip: "Flip top/bottom", Action: this._RotateFlip.Bind(this, shp, 0, 1) })
             cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Reset.ico", Tip: "Reset picture size", Action: this._ResetSize.Bind(this, shp) })
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "screenshot.ico", Tip: "Transparent background (the color around the edges)", Action: this._Transparent.Bind(this, shp) })
          }
+         cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Duplicate.ico", Tip: "Duplicate selected shape (Ctrl-D)", Action: this._Duplicate.Bind(this, shp) })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
       } Else If (content.Group) {
@@ -930,6 +932,26 @@ Class ShapeBar extends DrawnBar {
    Static _ResetSize(shp, *) {
       shp.PostAction(UnDo.RESIZE_SHAPE)
       shp.ResetSize()
+      shp.Gui.Dirty++
+      focusBorder.ShowSelected(true)
+   }
+   /**
+    * Duplicate the selected shape (as Ctrl-D / the shape menu) and select the copy, so the
+    * next click copies the copy
+    */
+   Static _Duplicate(shp, *) {
+      If (CloneObj := Shapes.Duplicate("lbutton", shp)) {
+         CloneObj.Gui.Dirty++
+         ShapeSelect.Select(CloneObj)
+         focusBorder.ShowSelected(true)
+      }
+   }
+   /**
+    * Make a selected picture's background color transparent (BMShape.TransparentBackground
+    * posts its own BITMAP_CHANGE undo)
+    */
+   Static _Transparent(shp, *) {
+      shp.TransparentBackground()
       shp.Gui.Dirty++
       focusBorder.ShowSelected(true)
    }

@@ -322,31 +322,20 @@ Class ShapeMenus {
     */
    Static ShapeRMB(ShapeObj, Item, IsRightClick, menuX, menuY) {
       Static shapeMenu   := Menu()
-      Static subMenu1    := Menu()
       Static schemeMenu  := Menu()
       shapeMenu.Delete()
-      subMenu1.Delete()
       schemeMenu.Delete()
       PC := PeerCount(ShapeObj)
       ; Shape specific
 ; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
       Switch ShapeObj.Source {
          Case "File", "Clip":
-            ; Reset size, rotate and flip are on the shape bar (click the picture)
+            ; Reset size, rotate, flip and transparent background are on the shape bar
+            ; (click the picture)
             If (PC > 1)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
             If (PC > 2)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " Backwards (Alt-Click)", "MoveBack.ico")
-            ShapeMenu.Add()
-            shapeMenu.Add(ShapeObj.ShapeName . " Rotate/Flip/Alter", subMenu1)
-            shapeMenu.SetIcon(ShapeObj.ShapeName . " Rotate/Flip/Alter", SETTINGS.CursorPath . "FlipRotate.ico" )
-            subMenu1.Add("↻ Rotate +90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("↺ Rotate -90", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("Flip ⟺", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add("Flip ⇕", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.Add()
-            subMenu1.Add("Transparent Background", ShapeMenus.ContextShapeMenu_Handler.bind(this, ShapeObj))
-            subMenu1.SetIcon("Transparent Background", SETTINGS.CursorPath . "screenshot.ico" )
          Case "BlurShape", "BodyShape", "LineShape", "FreeHand":
             if (ShapeObj.Source = "FreeHand")
                ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
@@ -387,7 +376,6 @@ Class ShapeMenus {
       ; Blocks here
       shapeMenu.Show()
       shapeMenu.Delete()
-      subMenu1.Delete()
       schemeMenu.Delete()
 
       Return
@@ -433,16 +421,6 @@ Class ShapeMenus {
             shapeObj.Close()
          Case ItemName ~= "Edit": 
             shapeObj.EditDispText()
-         Case ItemName ~= "Transparent":
-            shapeObj.TransparentBackground()
-         Case ItemName = "Flip ⟺":
-            shapeObj.Flip(2)
-         Case ItemName = "Flip ⇕":
-            shapeObj.Flip(1)
-         Case ItemName = "↻ Rotate +90":
-            shapeObj.Rotate(90)
-         Case ItemName = "↺ Rotate -90":
-            shapeObj.Rotate(-90)
          Case ItemName ~= "Reset": 
             shapeObj.PostAction(UnDo.RESIZE_SHAPE)
             shapeObj.ResetSize()

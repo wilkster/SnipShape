@@ -1103,8 +1103,8 @@ Class Shapes {
    /**
     * Duplicate an object
     * @param key - 'lbutton' 
-    * @param GuiCtrlObj - Picture control object 
-    * @returns Nothing 
+    * @param GuiCtrlObj - Picture control object
+    * @returns {commonShape|Integer} the copy, 0 if the shape can't be copied
     */
    Static Duplicate(key, ShapeObj) {
       ; Needs file name for picture control
@@ -1158,10 +1158,10 @@ Class Shapes {
             }
             ShapeOnTop(CloneObj)
             CloneObj.PostAction(UnDo.ADD_SHAPE)
-            
+
          Default:
       }
-      Return
+      Return CloneObj ?? 0   ; the copy (the shape bar selects it)
    }
 
    /**
