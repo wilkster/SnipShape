@@ -277,6 +277,14 @@ Class ShapeBar extends DrawnBar {
       If (shp := content.Single) {
          If (shp.Source = "Text")
             cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Edit.ico", Tip: "Edit text (Alt-Click)", Action: (*) => shp.EditDispText() })
+         ; Pictures: rotate and flip
+         If (shp.Source = "File" OR shp.Source = "Clip") {
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "rotateRight.png", Tip: "Rotate +90", Action: this._RotateFlip.Bind(this, shp, 90, 0) })
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "rotateLeft.png", Tip: "Rotate -90", Action: this._RotateFlip.Bind(this, shp, -90, 0) })
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipHorz.png", Tip: "Flip left/right", Action: this._RotateFlip.Bind(this, shp, 0, 2) })
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "flipVert.png", Tip: "Flip top/bottom", Action: this._RotateFlip.Bind(this, shp, 0, 1) })
+            cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Reset.ico", Tip: "Reset picture size", Action: this._ResetSize.Bind(this, shp) })
+         }
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Clipboard.ico", Tip: "Copy selected shape", Action: (*) => ShapeGroup.CopyShapes(shp.Gui, [shp]) })
          cells.Push({ Kind: "Button", Def: 0, W: icoW, File: "Close.ico", Tip: "Delete selected shape (Del)", Action: (*) => ShapeSelect.Delete() })
       } Else If (content.Group) {
@@ -823,11 +831,11 @@ Class ShapeBar extends DrawnBar {
                   this._DrawShapeIcon(Surf, item)
                If (this.Group) {
                   ; number of shapes: under the icon, or alone for different types.
-                  ; A single selected shape has just the icon (pictures have none)
+                  ; A single selected shape has just the icon (pictures: Shapes.ico)
                   If (this.Single) {
                      If (this.Shape <= 0) {
-                        GDIp.CreateRectF(&rc, item.X - this._Px(4), item.Y + this._Px(11), item.W + this._Px(10), this._Px(17))
-                        GDIpText.DrawString(G, "Picture", fTitle, fmtC, bTitle, &rc)
+                        sz := this._Px(26)
+                        this._DrawIcon(Surf, this._Icon("Shapes.ico", sz), item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz)
                      }
                      Continue
                   }
@@ -895,7 +903,35 @@ Class ShapeBar extends DrawnBar {
    }
    Static _DrawButton(Surf, item) {
       sz := this._Px(24)
+      If (item.File ~= "i)\.png$") {
+         ; GDI+ keeps a png's alpha (an icon needs GDI, _DrawIcon)
+         If (pB := this._Image(SETTINGS.CursorPath . item.File))
+            GDIp.DrawImageRect(Surf.G, pB, item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz, sz)
+         Return
+      }
       this._DrawIcon(Surf, this._Icon(item.File, sz), item.X + (item.W - sz) // 2, item.Y + (item.H - sz) // 2, sz)
+   }
+   /**
+    * Rotate or flip a selected picture shape (BMShape.Rotate/Flip post their own undo)
+    * @param {Integer} angle - +90/-90, 0 for none
+    * @param {Integer} flip - 1 top/bottom, 2 left/right, 0 for none
+    */
+   Static _RotateFlip(shp, angle, flip, *) {
+      If (angle)
+         shp.Rotate(angle)
+      If (flip)
+         shp.Flip(flip)
+      shp.Gui.Dirty++
+      focusBorder.ShowSelected(true)   ; the border fits the new size (a rotate swaps W/H)
+   }
+   /**
+    * Put a selected picture shape back to the size of its picture (undo: RESIZE_SHAPE)
+    */
+   Static _ResetSize(shp, *) {
+      shp.PostAction(UnDo.RESIZE_SHAPE)
+      shp.ResetSize()
+      shp.Gui.Dirty++
+      focusBorder.ShowSelected(true)
    }
    ; Color dots: one, or up to three overlapping ones for different colors
    Static _DrawColors(G, item, edge) {

@@ -115,6 +115,11 @@ Class Cursor {
                Snips.SetDrawMode(idx, hWnd)
             }
          }
+         ; A picture shape waiting to be placed (StickyBar): the cursor is the picture
+         If (StickyBar.Pending) {
+            DllCall(this.SetCur, "Ptr", StickyBar.Pending.Icon)
+            Return 1
+         }
          Tooltip ; turn off if we moved over the snip
          ; ctrl := GuiCtrlFromHwnd(wParam)
          ; (Change) returning 0 (default cursor) if we are not over a shape

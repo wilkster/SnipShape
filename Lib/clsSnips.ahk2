@@ -167,6 +167,9 @@ Class Snips {
          hWnd := WinExist("A")
       if (SnipObj := this.IsValid(hWnd)) {
          if (IsSet(Val)) {
+            ; A drawing tool replaces a picture waiting to be placed (StickyBar)
+            if (val)
+               StickyBar.Cancel()
             if (SnipObj.DrawMode != val) {
                Cursor.SetCursor(Val)
             }
@@ -256,6 +259,17 @@ Class Snips {
       If (bar := DrawnBar.FromHwnd(hWnd)) {
          bar.Click()
          Return 0
+      }
+      ; Picture shapes: a picked picture is placed where a snip (or a shape on it) is
+      ; clicked; with none picked, a click on the snip closes the bar
+      If (StickyBar.Pending OR StickyBar.IsShown) {
+         snip := this.IsValid(hWnd) OR this.IsValid(DllCall("GetAncestor", "Ptr", hWnd, "UInt", 2, "Ptr"))   ; GA_ROOT
+         If (snip AND StickyBar.Pending) {
+            StickyBar.Place(snip)
+            Return 0
+         }
+         If (snip)
+            StickyBar.Hide()
       }
       ; Shape group box: drag moves the group. A click on a snip or on a shape
       ; (a child of a snip) clears the group. Nothing else does: menus, the color

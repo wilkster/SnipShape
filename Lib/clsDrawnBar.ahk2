@@ -49,6 +49,7 @@ Class DrawnBar {
       this.Dragging := false
       this._hover   := 0
       this._icons   := Map()
+      this._images  := Map()
       If NOT this.HasOwnProp("Scale")
          this.Scale := 1
       this._hoverTimer := this._CheckHover.Bind(this)
@@ -252,7 +253,18 @@ Class DrawnBar {
       GDI.AlphaBlend(Surf.ihdc, X, Y, size, size, fade.ihdc, 0, 0, alpha)
       fade := ""
    }
-   ; Free the cached icons (the last snip closed); they load again when next drawn
+   /**
+    * GDI+ bitmap of a picture file (png...: alpha kept, unlike an icon drawn with GDI+),
+    * loaded once (ReleaseIcons frees them)
+    * @param {String} file - full path
+    * @returns {Ptr} pBitmap, 0 if the file isn't there
+    */
+   Static _Image(file) {
+      If NOT this._images.Has(file)
+         this._images[file] := FileExist(file) ? GDIp.CreateBitmapFromFile(file) : 0
+      Return this._images[file]
+   }
+   ; Free the cached icons and images (the last snip closed); they load again when next drawn
    Static ReleaseIcons() {
       If NOT this.HasOwnProp("_icons")
          Return
@@ -260,6 +272,10 @@ Class DrawnBar {
          If (icon)
             GDI.DestroyIcon(icon)
       this._icons := Map()
+      For file, pB in this._images
+         If (pB)
+            GDIp.DisposeImage(pB)
+      this._images := Map()
    }
 
    ;----------------------------------------------------------------------

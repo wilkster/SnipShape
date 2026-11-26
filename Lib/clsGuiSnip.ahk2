@@ -133,6 +133,7 @@ Class GuiSnip extends Gui {
             ; and the bars' images and icons (loaded again when next drawn)
             ColorPopDown.Release()
             ButtonBar.Release()
+            StickyBar.Release()
             ShapeBar.ReleaseIcons()
             ; Force windows to reclaim (used for checkking for memory leaks)
             DllCall("psapi\EmptyWorkingSet", "ptr", -1)
@@ -877,6 +878,7 @@ Class GuiSnip extends Gui {
       hwnd := SnipObj.hwnd
       Switch (wParam &= 0xFF) {
          Case 0:  ; Deactivate
+            StickyBar.Hide()   ; a picture already picked can still go on any snip
             If (Snips.SetDrawMode(0, hwnd)) {
                SnipObj.BackColor := RGBval("c0x6d7f7f") ; Not Active
                ; lParam is 0 if non AHK gui was activated

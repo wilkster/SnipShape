@@ -40,6 +40,7 @@ mark up the snip.
   - [Toolbar - F1 to toggle while snip active, Sample ShapeBars shown on right](#toolbar---f1-to-toggle-while-snip-active-sample-shapebars-shown-on-right)
     - [Show or hide the toolbar](#show-or-hide-the-toolbar)
     - [Use toolbar buttons](#use-toolbar-buttons)
+    - [Picture shapes (stickies)](#picture-shapes-stickies)
     - [Toolbar behavior](#toolbar-behavior)
     - [Shape bar](#shape-bar)
       - [Defaults for new shapes, or just the selected shapes](#defaults-for-new-shapes-or-just-the-selected-shapes)
@@ -180,7 +181,7 @@ reopens with its shapes still editable.
 
 Right-clicking a blank area of a snip shows a menu of various snip actions. Below are some additional hotkeys that work on the active snip surface.
 
-One option is to paste in a small picture from the Stickies subfolder of the distribution. You can add/remove your own bitmaps in the Stickies folder created during installation.
+One option is to paste in a small picture from the Stickies subfolder of the distribution, with the toolbar's **Picture Shapes** button (see [Picture shapes](#picture-shapes-stickies)). You can add/remove your own bitmaps in the Stickies folder created during installation.
 
 | **Snip HotKey**          | **Snip Action**                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
@@ -268,6 +269,17 @@ Each toolbar button represents a shape or tool.
 
 The toolbar is helpful if you prefer selecting tools visually instead of using keyboard shortcuts.
 
+### Picture shapes (stickies)
+
+The **Picture Shapes** button (between Text and Tool) opens a bar of small icons, one for each picture in the
+Stickies folder (`IconPath` in the settings file). The folder is read each time the bar opens, so pictures you add
+or remove show up at once.
+
+- Click a picture: the bar closes and the cursor becomes that picture. Click on the snip to place it there (centred on
+  the click). Esc, or choosing a drawing tool, cancels.
+- The first icon opens a file dialog to add pictures from any folder (same as Ctrl-P).
+- Esc, the button again, or a click on the snip closes the bar without picking. Drag its background to move it.
+
 ### Toolbar behavior
 
 - The toolbar automatically moves to the currently active snip.
@@ -331,6 +343,8 @@ Some defaults are shared by several kinds of shape:
   Arrow Text). The text, font and color are kept, the shapes stay centered where they were, and a single undo changes
   them back. It doesn't react to the wheel.
 - **Edit** (left of the clipboard icon, for a selected text shape): edit the text, the same as Alt-click.
+- **Rotate, flip and reset size** (for a selected picture shape): rotate +90 / -90, flip left/right / top/bottom, and put
+  the picture back to its own size. Each can be undone.
 - The bar moves below the snip when there is no room above it. Drag its icon to move it out of the way.
 - `F1` shows or hides the shape bar together with the toolbar.
 
@@ -588,7 +602,7 @@ The hotkeys while hovering over a shape, or with one selected:
 
 - Press T or U over a snip to open a dialog box and add text at the current mouse location.
 - Press Ctrl-P over a snip to select a graphic from a folder and add it at the current mouse location.
-- RMB on a snip to add a graphic from the menu at the current mouse location (other options as well).
+- Use the toolbar's Picture Shapes button to pick a sticky and click where it goes, see [Picture shapes](#picture-shapes-stickies).
 
 ### Moving Shapes
 

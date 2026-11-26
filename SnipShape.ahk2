@@ -88,6 +88,7 @@ A_IconTip := "Ctrl-Win: Clip Screen Area to Window`nWin-Alt: Clip Screen Area On
 #include clsMenus.ahk2
 #include clsButtonBar.ahk2
 #include clsShapeBar.ahk2
+#include clsStickyBar.ahk2
 #include clsShapeSelect.ahk2
 #include undo.ahk2
 #include OCR.ahk2
@@ -317,6 +318,9 @@ HotIfWinActive
 ; Esc while dragging a slider puts the old value back (not: clear the group, leave draw mode)
 #HotIf ShapeBar.Dragging
    Esc:: ShapeBar.CancelDrag()
+; Picture shapes bar open, or a picture waiting to be placed: Esc closes / drops it
+#HotIf WinActive('SnipShapeWindow ahk_class AutoHotkeyGUI') AND (StickyBar.IsShown OR StickyBar.Pending)
+   Esc:: StickyBar.Escape()
 #HotIf
 ; Shape group selected (Shift-drag on the snip). Defined before the general snip
 ; hotkeys: when several #HotIf variants match, the one created first fires.

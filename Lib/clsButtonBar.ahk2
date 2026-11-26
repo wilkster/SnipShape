@@ -15,6 +15,7 @@
 #include clsSnips.ahk2
 #include ColorPopDown.ahk2
 #include clsShapeBar.ahk2
+#include clsStickyBar.ahk2
 /*
  * Button Bar (toolbar) to pick shapes and act on the snip.
  * Lives beside the active snip if it is enabled: vertical to the left of its top left
@@ -43,7 +44,6 @@ Class ButtonBar extends DrawnBar {
    Static Pinned     := 1       ; pin button state (SyncPin)
    Static _pressed   := 0       ; index of the cell being pressed
    Static _shapeIcons := 0      ; ImageList of the shape menu icons, made when first needed
-   Static _images    := Map()   ; GDI+ bitmaps of the category pictures (png), by file
    /**
     * Read the settings, make the window and lay out the buttons
     */
@@ -76,9 +76,15 @@ Class ButtonBar extends DrawnBar {
       o  := Round(2 * this.DPIFactor)   ; spacing
       cells := []
       cells.Push({ Gap: this.Margin * 3, Size: cH, File: "Close.ico", Tip: "Close Active Snip (Esc)", Action: this.CloseSnip.Bind(this) })
-      for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"]
+      for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"] {
+         ; Picture shapes (stickies) between Text and Tool
+         If (cat = "Tool") {
+            cells.Push(sticky := { Gap: o, Size: bs, File: "Shapes.ico", Tip: "Picture Shapes" })
+            sticky.Action := StickyBar.Toggle.Bind(StickyBar, sticky)
+         }
          cells.Push({ Gap: o, Size: bs, Image: SETTINGS.CursorPath . "Menu\" . cat . ".png", Tip: cat " Menu"
             , Kind: "Menu", Cat: cat, Sub: Shapes.ShapeCat[cat] })
+      }
       padded := round(cH * .7)
       cells.Push({ Gap: o * 3, Size: padded, File: "Clipboard.ico", Tip: "Clipboard Snip (Ctrl-C)", Action: this.ClipSnip.Bind(this) })
       cells.Push({ Gap: o, Size: padded, File: "SaveAs.ico", Tip: "Save Snip to file (Ctrl-S)", Action: this.SaveSnip.Bind(this) })
@@ -191,12 +197,6 @@ Class ButtonBar extends DrawnBar {
       GDIp.DeleteBrush(brush)
       Return Surf
    }
-   ; GDI+ bitmap of a category picture, loaded once (Release frees them)
-   Static _Image(file) {
-      If NOT this._images.Has(file)
-         this._images[file] := FileExist(file) ? GDIp.CreateBitmapFromFile(file) : 0
-      Return this._images[file]
-   }
    /**
     * Icon of a shape for menus and the shape bar, e.g. "Arrow (V)": a copy the caller owns
     * (a menu's "HICON:" takes it). The image list of all of them is made when first asked.
@@ -225,11 +225,7 @@ Class ButtonBar extends DrawnBar {
     * (one window, no controls); they load again when next drawn.
     */
    Static Release() {
-      this.ReleaseIcons()
-      For file, pB in this._images
-         If (pB)
-            GDIp.DisposeImage(pB)
-      this._images := Map()
+      this.ReleaseIcons()   ; icons and the category pictures
       this._shapeIcons := 0   ; ImageList.__Delete destroys the list
    }
 
@@ -365,6 +361,7 @@ Class ButtonBar extends DrawnBar {
       this._pressed := 0
       this.gui.Hide()
       ShapeBar.Hide()
+      StickyBar.Hide()
       ToolTip
    }
 

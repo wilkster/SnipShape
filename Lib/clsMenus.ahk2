@@ -23,7 +23,6 @@
  */   
 Class SnipMenus {
    Static csMenu := Menu()
-   Static PictMenu := Menu()
    Static SnipMenu := Menu()
    Static ResizeCloneMenu := Menu()
    Static ResizeMenu := Menu()
@@ -98,12 +97,7 @@ Class SnipMenus {
       this.csMenu.Add() ;16
       ; IDEA - Can we inhibit paste text/bitmap if none is available on the clipboard     
       ; this.AddEntry("Paste Shape from Clipboard (Ctrl-V)","Paste.ico")
-      this.csMenu.Add("Insert Picture Shapes",this.PictMenu)
-      this.csMenu.SetIcon("Insert Picture Shapes", SETTINGS.CursorPath . "Shapes.ico")
-      this.csMenu.Add("Insert Picture From File (Ctrl-P)", this.ContextSnipMenu_Handler.bind(this))
-      this.csMenu.SetIcon("Insert Picture From File (Ctrl-P)", SETTINGS.CursorPath . "Shapes.ico")
-
-      this.csMenu.Add('') ;16
+      ; Picture shapes (stickies) are on the toolbar (StickyBar); Ctrl-P opens the file dialog
       this.csMenu.Add("Open Saved Snips (Ctrl-E)",Snips.OpenSnipDialog.Bind(this))
       this.csMenu.SetIcon("Open Saved Snips (Ctrl-E)", SETTINGS.CursorPath . "Edit.ico")
 
@@ -144,7 +138,6 @@ Class SnipMenus {
          Case ItemName ~= "Stretch Contrast": SnipObj.StretchSnip()
          Case ItemName ~= "Replace Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY, "dialog")
          Case ItemName ~= "Pick Background Color": SnipObj.ReplaceSnipBGColor(this.MenuX, this.MenuY, "picker")
-         Case ItemName ~= "Insert Picture From File" : Shapes.AddPictureFromFile(hWnd, "lButton", "P")
 
          Case ItemName ~= "OCR Text Lines": Snips.OCRSnipToClipboard(hWnd,15)                           
          Case ItemName ~= "OCR Text Words": Snips.OCRSnipToClipboard(hWnd,12)                           
@@ -176,7 +169,7 @@ Class SnipMenus {
    /**
     * Build and display the right-click context menu for a snip picture control.
     * Dynamically updates the Edit/Save labels with the current snip basename,
-    * conditionally inserts clipboard paste entries, and repopulates the picture submenu.
+    * and conditionally inserts clipboard paste entries.
     * Called in the context of the GuiSnip, so avoid using `this` for GUI references.
     * @param {Object} GuiCtrlObj - The picture control that received the right-click
     * @param {Integer} Item - Item index (unused)
@@ -209,13 +202,9 @@ Class SnipMenus {
       this.csMenu.Rename('4&', "Edit: "  SnipObj.BaseName)
       this.csMenu.Rename('5&', "Save: "  SnipObj.BaseName " (Ctrl-S)")
 
-      this.PictMenu.Delete()
-      this.populatePicMenu(this.PictMenu, SnipObj.hWnd, mX, mY)
-      ; logGDI("Populated Snip/Pic Cache:" Settings_SavePath_Icons)
       ; Show the menu
       this.csMenu.Show()
       ; Blocks here
-      this.PictMenu.Delete()
    }
    /**
     * Add a single entry to the main context menu with its associated icon
@@ -257,61 +246,6 @@ Class SnipMenus {
       if (SnipObj := Snips.GetGuiObj())
          SnipObj.ScaleSnip(-Val)
    }   
-   /**
-    * Populate the Insert Picture Shapes submenu with image files found in the icons folder.
-    * Icons are cached in a static ImageList keyed by full path and the menu is rebuilt sorted by filename.
-    * @param {Object} pictMenu - The Menu object to populate
-    * @param {Integer} hWnd - Window handle of the target snip, used to determine DPI-scaled icon size
-    * @param {Integer} X - Window-relative X coordinate where the picture will be inserted
-    * @param {Integer} Y - Window-relative Y coordinate where the picture will be inserted
-    */
-   Static populatePicMenu(pictMenu, hWnd, X, Y) {
-      iconObj  := ImageList()
-      DPI      := WinDPI(hWnd)
-      butSize  := Round(20 * DPI / 96) ; Pixel size of 20
-      MonInfo  := activeMonArea(1)
-      ; Wrap     := Floor(MonInfo.H / Height)
-      if (iconObj.Count == 0)
-         iconObj.Size := butSize
-      ; Make sure the icon imagelist is up to date
-      Loop Files SETTINGS.SavePath_Icons . "*.*", "F" {
-         If (A_LoopFileExt ~= "i)ico|png|bmp|gif|jpg|wmf") {
-            if NOT iconObj.Has(A_LoopFileFullPath)
-               iconObj[A_LoopFileFullPath] :=A_LoopFileFullPath
-         }
-      }
-      ; Build menu sorted on file name saved in the iconObj
-      ; Maps are inherently sorted
-      For fullPath in iconObj {
-         SplitPath(fullPath , , , , &fName)
-         opt := (A_Index > 1 AND Mod(A_Index -1,30) = 0) ? "BarBreak" : ""
-         pictMenu.Add(fName, Picture_Handler.bind(hWnd, X, Y, fullPath), opt)
-         pictMenu.SetIcon(fName, "HICON:" iconObj[fullPath],,0) ; ,,width
-      }
-      /**
-       * Insert a picture shape from the icons folder into the target snip at the saved cursor position
-       * @param {Integer} hWnd - Window handle of the target snip
-       * @param {Integer} sX - Window-relative X coordinate for placement
-       * @param {Integer} sY - Window-relative Y coordinate for placement
-       * @param {String} fullPath - Full filesystem path to the image file
-       * @param {String} ItemName - Display text of the selected menu item (unused)
-       * @param {Integer} ItemPos - Position of the item in the menu (unused)
-       * @param {Object} MyMenu - The Menu object that triggered the callback
-       */
-      Picture_Handler(hWnd, sX, sY, fullPath, ItemName, ItemPos, MyMenu) {
-         ; Saved when menu was launched
-         SnipObj := Snips.GetGuiObj(hWnd)
-
-         If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, fullPath, sX, sY)) {
-            qTrayTip("Failed to load image from " fullPath, 2)
-            Warning("Failed to load image from " fullPath)
-         } Else {
-            ShapeObj.PostAction(UnDo.ADD_SHAPE)
-         }
-         MyMenu.Delete()
-      }
-   }
-
    /**
     * WM_INITMENUPOPUP message handler — applies the dark mode theme to menu popups
     * on systems running Windows in dark mode, to prevent a white flash on slow computers.
@@ -398,7 +332,7 @@ Class ShapeMenus {
 ; Shapes._cmdRMBHandler("Rectangle", "",0,0,0,0,0)
       Switch ShapeObj.Source {
          Case "File", "Clip":
-            ShapeMenus.AddEntry(shapeMenu,ShapeObj, "Reset " ShapeObj.ShapeName " Size","Reset.ico")
+            ; Reset size, rotate and flip are on the shape bar (click the picture)
             If (PC > 1)
                ShapeMenus.AddEntry(shapeMenu, ShapeObj, "Send " ShapeObj.ShapeName " to Back", "MoveBottom.ico")
             If (PC > 2)

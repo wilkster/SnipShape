@@ -1,0 +1,279 @@
+#Requires AutoHotkey v2.1-
+/************************************************************************
+ * @description StickyBar: picture shapes ("stickies") to place on a snip
+ * @file clsStickyBar.ahk2
+ *
+ * Opened by the toolbar's picture button. Rows of small icons, one per picture file in the
+ * stickies folder (SETTINGS.SavePath_Icons, scanned each time it opens), drawn with GDI+ on
+ * one layered window (DrawnBar). The first cell opens the file dialog instead (as Ctrl-P).
+ *   - click a picture: the bar closes and the cursor becomes that picture; the next click on
+ *     a snip places it there (centred on the click). Esc or choosing a drawing tool cancels.
+ *   - Esc, the picture button again, or a click on the snip closes the bar.
+ * It never takes the focus (the snip stays active, as with the toolbar). The icons are made
+ * when it opens and freed when it closes; the window when the last snip closes (Release).
+ ***********************************************************************/
+#include clsDrawnBar.ahk2
+#include libMisc.ahk2
+#include clsGDIp.ahk2
+#include Settings.ahk2
+Class StickyBar extends DrawnBar {
+   Static gui      := 0       ; the window, 0 until first shown
+   Static hWnd     := 0
+   Static Pending  := 0       ; picture waiting to be placed: {File, Icon}, or 0
+   Static _thumbs  := []      ; HICON per cell (cell 1, the file dialog, uses _Icon)
+   Static _files   := []      ; picture file per cell ("" for cell 1)
+   Static _pressed := 0       ; cell being pressed
+   Static MinCols  := 8       ; columns (more when there are many pictures)
+
+   /**
+    * True if the bar is showing
+    * @type {Integer}
+    */
+   Static IsShown => this.gui AND IsWindowVisible(this.hWnd)
+
+   /**
+    * Show the bar beside a toolbar button, or hide it if it is showing
+    * @param {Object} cell - the toolbar cell {X, Y, W, H} (ButtonBar window coordinates)
+    */
+   Static Toggle(cell) {
+      If (this.IsShown) {
+         this.Hide()
+         Return
+      }
+      If NOT this.gui {
+         this.Scale := ButtonBar.DPIFactor
+         this._InitBar(true)
+      }
+      this._Load()
+      this._Layout()
+      pos := this._Place(cell)
+      this._hover := 0
+      this._pressed := 0
+      this._Render(pos.X, pos.Y, true)
+   }
+   /**
+    * The pictures in the folder, sorted by name, as icons the size of a cell (made with an
+    * image list, as the old Insert Picture Shapes menu did: any picture type, alpha kept)
+    */
+   Static _Load() {
+      this._FreeThumbs()
+      dir := RTrim(SETTINGS.SavePath_Icons, "\") "\"
+      files := Map()   ; Maps are sorted
+      files.CaseSense := "Off"
+      Loop Files dir "*.*", "F"
+         If (A_LoopFileExt ~= "i)^(ico|png|bmp|gif|jpg|jpeg|wmf)$")
+            files[A_LoopFileName] := A_LoopFileFullPath
+      size := this._IconSize()
+      il := ImageList()
+      il.Size := size
+      this._files  := [""]   ; cell 1: the file dialog
+      this._thumbs := [0]
+      For name, path in files {
+         il[path] := path
+         If (icon := il[path]) {   ; a copy, ours to destroy
+            this._files.Push(path)
+            this._thumbs.Push(icon)
+         }
+      }
+      il := ""   ; destroys the image list
+   }
+   Static _IconSize() => ButtonBar.ButSize
+   ; Cells in rows: MinCols columns, more for a long list (roughly square)
+   Static _Layout() {
+      n      := this._files.Length
+      cols   := Min(n, Max(this.MinCols, Ceil(Sqrt(n))))
+      rows   := Ceil(n / cols)
+      pad    := this._Px(3)               ; around the icon in its cell
+      cs     := this._IconSize() + 2 * pad
+      gap    := this._Px(2)
+      margin := this._Px(5)
+      this.Items := []
+      Loop n {
+         col := Mod(A_Index - 1, cols), row := (A_Index - 1) // cols
+         If (A_Index = 1)
+            tip := "Insert Picture From File (Ctrl-P)"
+         Else
+            SplitPath(this._files[A_Index], , , , &tip)
+         this.Items.Push({ X: margin + col * (cs + gap), Y: margin + row * (cs + gap), W: cs, H: cs
+            , Pad: pad, Tip: tip })
+      }
+      this.BarW := 2 * margin + cols * cs + (cols - 1) * gap
+      this.BarH := 2 * margin + rows * cs + (rows - 1) * gap
+   }
+   /**
+    * Where the bar goes: beside the toolbar button, on the side away from the snip (left of
+    * a vertical toolbar, above a horizontal one), else the other side; kept on the monitor
+    * @returns {Object} {X, Y} screen
+    */
+   Static _Place(cell) {
+      WinGetPos(&bX, &bY, &bW, &bH, ButtonBar.hWnd)
+      mon := windowMonArea(ButtonBar.hWnd)
+      sX := bX, sY := bY, sW := 0, sH := 0
+      Try WinGetPos(&sX, &sY, &sW, &sH, ButtonBar.SnipObj.hWnd)
+      If (ButtonBar.Vertical) {
+         Y := bY + cell.Y
+         snipRight := (sX + sW / 2 > bX + bW / 2)
+         X := snipRight ? bX - this.BarW : bX + bW
+         If (X < mon.X OR X + this.BarW > mon.X2)
+            X := snipRight ? bX + bW : bX - this.BarW
+      } Else {
+         X := bX + cell.X
+         snipBelow := (sY + sH / 2 > bY + bH / 2)
+         Y := snipBelow ? bY - this.BarH : bY + bH
+         If (Y < mon.Y OR Y + this.BarH > mon.Y2)
+            Y := snipBelow ? bY + bH : bY - this.BarH
+      }
+      X := Max(mon.X, Min(X, mon.X2 - this.BarW))
+      Y := Max(mon.Y, Min(Y, mon.Y2 - this.BarH))
+      Return { X: X, Y: Y }
+   }
+   /**
+    * Background, a highlight under the mouse or the pressed cell, the icons
+    * @returns {DIBSurface}
+    */
+   Static Draw() {
+      Surf := DIBSurface(this.BarW, this.BarH, this.hWnd)
+      G    := Surf.G
+      Surf.GraphicsClear(0)
+      this._DrawBack(G, this._Px(6))
+      brush := GDIp.BrushCreateSolid(this.Colors.Hover)
+      size  := this._IconSize()
+      For idx, cell in this.Items {
+         pressed := (idx = this._pressed)
+         If (pressed OR idx = this._hover)
+            GDIp.FillRoundedRectangle(G, brush, cell.X, cell.Y, cell.W, cell.H, cell.H / 8)
+         off  := pressed ? 1 : 0
+         icon := (idx = 1) ? this._Icon("Shapes.ico", size) : this._thumbs[idx]
+         this._DrawIcon(Surf, icon, cell.X + cell.Pad + off, cell.Y + cell.Pad + off, size)
+      }
+      GDIp.DeleteBrush(brush)
+      Return Surf
+   }
+
+   ;----------------------------------------------------------------------
+   ; Mouse
+   ;----------------------------------------------------------------------
+   /**
+    * Left button pressed on the bar: a cell acts when the button is released over it, the
+    * background drags the bar
+    */
+   Static Click() {
+      If NOT (idx := this._MouseItem(&x, &y)) {
+         this._DragBar()
+         Return
+      }
+      this._pressed := idx
+      this.Redraw()
+      While GetKeyState("LButton", "P")
+         Sleep(10)
+      over := (this._MouseItem(&x, &y) = idx)
+      this._pressed := 0
+      this.Redraw()
+      If (over)
+         this._Pick(idx)
+   }
+   /**
+    * A cell was clicked: the file dialog (cell 1), or a picture to place with the next click
+    */
+   Static _Pick(idx) {
+      If (idx = 1) {
+         this.Hide()
+         hwnd := 0
+         Try hwnd := ButtonBar.SnipObj.hWnd
+         If (hwnd)
+            SetTimer(() => Shapes.AddPictureFromFile(hwnd, "LButton", "LButton"), -10)
+         Return
+      }
+      this.Cancel()
+      this.Pending := { File: this._files[idx], Icon: this._thumbs[idx] }
+      this._thumbs[idx] := 0   ; the cursor now, not freed with the bar
+      name := this.Items[idx].Tip
+      this.Hide()
+      ToolTip("Click on the snip to place " name " (Esc cancels)")
+      SetTimer(ToolTip, -2500)
+   }
+
+   ;----------------------------------------------------------------------
+   ; Placing the picked picture
+   ;----------------------------------------------------------------------
+   /**
+    * Place the pending picture on a snip, centred on the mouse (Snips.WM_LBUTTONDOWN)
+    * @param {GuiSnip} SnipObj
+    */
+   Static Place(SnipObj) {
+      If NOT (p := this.Pending)
+         Return
+      cm := CoordMode("Mouse", "Screen")
+      MouseGetPos(&mX, &mY)
+      CoordMode("Mouse", cm)
+      WinGetPos(&wX, &wY, , , SnipObj.hWnd)
+      If NOT (ShapeObj := Shapes.CreatePicFromSource(SnipObj, p.File, mX - wX, mY - wY)) {
+         qTrayTip("Failed to load image from " p.File, 2)
+      } Else {
+         ShapeObj.GetPos(&X, &Y, &W, &H)
+         ShapeObj.Move(X - W // 2, Y - H // 2)
+         ShapeObj.SaveSize(p.File)
+         ShapeObj.PostAction(UnDo.ADD_SHAPE)
+      }
+      this.Cancel()
+   }
+   /**
+    * Drop the pending picture (and its cursor)
+    */
+   Static Cancel() {
+      If NOT (p := this.Pending)
+         Return
+      this.Pending := 0
+      ; not the cursor any more before it is destroyed
+      DllCall(Cursor.SetCur, "Ptr", Cursor.Cursors["Pointer"])
+      If (p.Icon)
+         GDI.DestroyIcon(p.Icon)
+   }
+   /**
+    * Esc: close the bar, or drop the pending picture
+    */
+   Static Escape() {
+      If (this.IsShown)
+         this.Hide()
+      Else
+         this.Cancel()
+   }
+
+   ;----------------------------------------------------------------------
+   ; Hide / release
+   ;----------------------------------------------------------------------
+   /**
+    * Hide the bar and free its icons (a pending picture stays)
+    */
+   Static Hide() {
+      If NOT this.gui
+         Return
+      SetTimer(this._hoverTimer, 0)
+      If (this._hover)
+         ToolTip
+      this._hover := 0
+      this._pressed := 0
+      this.gui.Hide()
+      this._FreeThumbs()
+      this.ReleaseIcons()
+   }
+   Static _FreeThumbs() {
+      For icon in this._thumbs
+         If (icon)
+            GDI.DestroyIcon(icon)
+      this._thumbs := []
+      this._files  := []
+      this.Items   := []
+   }
+   /**
+    * The last snip closed: drop the pending picture, destroy the window
+    */
+   Static Release() {
+      this.Cancel()
+      If NOT this.gui
+         Return
+      this.Hide()
+      this._DestroyBar()
+   }
+}
+logGDI(BFN(Error("", -1).File) " loaded...")
