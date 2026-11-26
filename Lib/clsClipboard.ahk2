@@ -146,16 +146,19 @@ Class Clipboard {
       } Else
          warning("Clipboard: PNG conversion failed, PNG format skipped")
       ;--------------------------------------------------------------------
-      ; DDB Format for failsafe
+      ; DDB Format for failsafe - left out: Windows makes CF_BITMAP from CF_DIB
+      ; (below) when an app asks for it (synthesized clipboard formats). The copy
+      ; was a second full-size picture in SnipShape's memory for as long as it
+      ; owned the clipboard (5.8 MB for 1600x900).
       ;--------------------------------------------------------------------
-      hBmpCopy := GDI.CopyImage(hBitmap)
-      If not this.SetClipboardData(CF_BITMAP := 2, hBmpCopy) {
-         warning("Clipboard: Failed to set CF_BITMAP format")
-         DllCall("CloseClipboard")
-         Gdi.DeleteObject(hBitmap)
-         Gdi.DeleteObject(hBmpCopy)
-         Return -10
-      }
+      ; hBmpCopy := GDI.CopyImage(hBitmap)
+      ; If not this.SetClipboardData(CF_BITMAP := 2, hBmpCopy) {
+      ;    warning("Clipboard: Failed to set CF_BITMAP format")
+      ;    DllCall("CloseClipboard")
+      ;    Gdi.DeleteObject(hBitmap)
+      ;    Gdi.DeleteObject(hBmpCopy)
+      ;    Return -10
+      ; }
 
       ;--------------------------------------------------------------------
       ; DIB Format for alpha support and more modern app support

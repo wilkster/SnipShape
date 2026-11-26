@@ -1118,6 +1118,11 @@ class OCR {
         ; BUG - since qsort is used we aren't stable if we sort by Y then X or vice versa
         ; Sort clusters/lines by y-coordinate
       ;   OCR.SortArray(clusters,,"y")
+        ; TFW - ExpandCluster and RegionQuery refer to each other and share these variables,
+        ; a reference cycle AutoHotkey never frees: every call leaked them, with all the words
+        ; (and through them the OCR result): ~270 KB per OCR to clipboard (measured). Empty
+        ; them so the closures that stay behind hold nothing.
+        objs := visited := clustered := C := neighbourPts := compareFunc := ""
         return clusters
 
         ExpandCluster(P) {
