@@ -116,15 +116,8 @@ class OCR {
         ; NOTE - Alpha 28, won't allow this so using extends in definition
       ; this.OCRLine.base          := this.IBase, this.OCRLine.prototype.base := this.IBase.prototype ; OCRLine extends OCR.IBase
       ; this.OCRWord.base          := this.IBase, this.OCRWord.prototype.base := this.IBase.prototype ; OCRWord extends OCR.IBase
-        this.LanguageFactory       := this.CreateClass("Windows.Globalization.Language", ILanguageFactory := "{9B0252AC-0C27-44F8-B792-9793FB66C63E}")
-        this.SoftwareBitmapFactory := this.CreateClass("Windows.Graphics.Imaging.SoftwareBitmap", "{c99feb69-2d62-4d47-a6b3-4fdb6a07fdf8}")
-        this.BitmapTransform       := this.CreateClass("Windows.Graphics.Imaging.BitmapTransform")
-        this.BitmapDecoderStatics  := this.CreateClass("Windows.Graphics.Imaging.BitmapDecoder", IBitmapDecoderStatics := "{438CCB26-BCEF-4E95-BAD6-23A822E58D01}")
-        this.BitmapEncoderStatics  := this.CreateClass("Windows.Graphics.Imaging.BitmapEncoder", IBitmapDecoderStatics := "{a74356a7-a4e4-4eb9-8e40-564de7e1ccb2}")
-        this.SoftwareBitmapStatics := this.CreateClass("Windows.Graphics.Imaging.SoftwareBitmap", ISoftwareBitmapStatics := "{df0385db-672f-4a9d-806e-c2442f343e86}")
-        this.OcrEngineStatics      := this.CreateClass("Windows.Media.Ocr.OcrEngine", IOcrEngineStatics := "{5BFFA85A-3384-3540-9940-699120D428A8}")
-        ComCall(6, this.OcrEngineStatics, "uint*", &MaxImageDimension:=0)   ; MaxImageDimension
-        this.MaxImageDimension := MaxImageDimension
+        ; SnipShape change: the WinRT factories are made on first use (Init, through __Get) and
+        ; freed after each OCR (Release), so nothing is held while OCR isn't used
         DllCall("Dwmapi\DwmIsCompositionEnabled", "Int*", &compositionEnabled:=0)
         this.CAPTUREBLT := compositionEnabled ? 0 : 0x40000000
         /*  // Based on code by AHK forums user Xtra
@@ -170,6 +163,55 @@ class OCR {
         this.InvertColorsMCode := this.MCode((A_PtrSize = 4)
         ? "2,x86:VVdWU4PsCIt8JCiLVCQki0QkIMHvAok8JIXSdF+FwHRbwecCMe2JfCQEi3wkHI00hzH/jXQmAJCLRCQcjQyokIsRg8EEidCJ04Hi/wAA//fQ99OA8v8lAAD/AIHjAP8AAAnYCdCJQfw58XXUg8cBAywkA3QkBDl8JCR1vIPECDHAW15fXcM="
         : "2,x64:VVdWU0SJz0iJy0GJ00SJxsHvAkWFwHRbRTHJRTHAhdJ0UWYPH0QAAESJyQ8fRAAAiciDwQFMjRSDQYsSidCJ1YHi/wAA//fQ99WA8v8lAAD/AIHlAP8AAAnoCdBBiQJBOct1zEGDwAFBAflBAftEOcZ1tTHAW15fXcM=")
+    }
+
+    ; SnipShape change: properties made by Init, on first use
+    static _lazyProps := Map("LanguageFactory", 1, "SoftwareBitmapFactory", 1, "BitmapTransform", 1
+        , "BitmapDecoderStatics", 1, "BitmapEncoderStatics", 1, "SoftwareBitmapStatics", 1
+        , "OcrEngineStatics", 1, "MaxImageDimension", 1)
+
+    /**
+     * SnipShape change: reading one of the WinRT factories while it isn't there makes them
+     * (after Release, or the first time). Other unknown properties are an error, as usual.
+     */
+    static __Get(name, params) {
+        if !this._lazyProps.Has(name)
+            throw PropertyError("This value of type `"Class`" has no property named `"" name "`".", -1, name)
+        this.Init()
+        return params.Length ? this.%name%[params*] : this.%name%
+    }
+
+    /**
+     * SnipShape change: make the WinRT factories (was in static __New, so they were made at
+     * script load and held for good). Called through __Get when one is first needed.
+     */
+    static Init() {
+        if this.HasOwnProp("OcrEngineStatics")
+            return
+        this.LanguageFactory       := this.CreateClass("Windows.Globalization.Language", ILanguageFactory := "{9B0252AC-0C27-44F8-B792-9793FB66C63E}")
+        this.SoftwareBitmapFactory := this.CreateClass("Windows.Graphics.Imaging.SoftwareBitmap", "{c99feb69-2d62-4d47-a6b3-4fdb6a07fdf8}")
+        this.BitmapTransform       := this.CreateClass("Windows.Graphics.Imaging.BitmapTransform")
+        this.BitmapDecoderStatics  := this.CreateClass("Windows.Graphics.Imaging.BitmapDecoder", IBitmapDecoderStatics := "{438CCB26-BCEF-4E95-BAD6-23A822E58D01}")
+        this.BitmapEncoderStatics  := this.CreateClass("Windows.Graphics.Imaging.BitmapEncoder", IBitmapDecoderStatics := "{a74356a7-a4e4-4eb9-8e40-564de7e1ccb2}")
+        this.SoftwareBitmapStatics := this.CreateClass("Windows.Graphics.Imaging.SoftwareBitmap", ISoftwareBitmapStatics := "{df0385db-672f-4a9d-806e-c2442f343e86}")
+        this.OcrEngineStatics      := this.CreateClass("Windows.Media.Ocr.OcrEngine", IOcrEngineStatics := "{5BFFA85A-3384-3540-9940-699120D428A8}")
+        ComCall(6, this.OcrEngineStatics, "uint*", &MaxImageDimension:=0)   ; MaxImageDimension
+        this.MaxImageDimension := MaxImageDimension
+    }
+
+    /**
+     * SnipShape change: free the OCR engine and the WinRT factories, and unload the OCR and
+     * language DLLs once nothing uses them. Call after the OCR results are no longer held.
+     * The next OCR makes them again (Init, about 30-80 ms).
+     */
+    static Release() {
+        for name in ["OcrEngine", "CurrentLanguage"]
+            if this.HasOwnProp(name)
+                this.DeleteProp(name)
+        for name in this._lazyProps
+            if this.HasOwnProp(name)
+                this.DeleteProp(name)   ; IBase.__Delete releases the interface
+        DllCall("ole32\CoFreeUnusedLibrariesEx", "uint", 0, "uint", 0)
     }
 
     /**

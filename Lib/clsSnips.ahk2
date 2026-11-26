@@ -951,6 +951,14 @@ Class Snips {
     *   15 = Line-wrapped with left-padding derived from word X position
     */
    Static OCRSnipToClipboard(hWndOrArea, how := 13) {
+      ; The OCR engine is made for this run and freed after it (OCR.Release): nothing is
+      ; held between runs. The results are freed when _OCRToClipboard returns.
+      Try
+         Return this._OCRToClipboard(hWndOrArea, how)
+      Finally
+         OCR.Release()
+   }
+   Static _OCRToClipboard(hWndOrArea, how) {
       If (IsObject(hWndOrArea)) {
          Result := OCR.FromRect(hWndOrArea.X, hWndOrArea.Y, hWndOrArea.W, hWndOrArea.H)
       } else If this.IsValid(hWndOrArea) {

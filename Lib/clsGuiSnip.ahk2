@@ -1395,6 +1395,13 @@ Class GuiSnip extends Gui {
     * OCR.FromRect(X, Y, W, H, lang?, scale:=1) will work on the snip itself
     */
    OCRShape(ShapeCropObj) {
+      ; The OCR engine is freed after the run (see Snips.OCRSnipToClipboard)
+      Try
+         this._OCRShape(ShapeCropObj)
+      Finally
+         OCR.Release()
+   }
+   _OCRShape(ShapeCropObj) {
       ; Need the screen coordinates of the shape and the GUI
       this.GetPos(&gX1, &gY1, &gW, &gH)
       sC := ShapeCropObj.shapeCoord
