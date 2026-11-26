@@ -67,8 +67,11 @@ Class Shapes {
       */
      ;     Convert into number   Name of Icon file - hotkey    Buttonbar icon
       shapeDb := [
-         ["SHAPE_ARROW"        , "Arrow - V"                 , "Arrows"],
-         ["SHAPE_OARROW"       , "Outlined Arrow - A"        , "Arrows"],
+         ; Retired (2026-11-26): the plain arrow. Kept only so saved snips that have one still
+         ; open and draw (shape numbers are row positions here and are saved in snip files).
+         ; No hotkey and no category: not offered for new shapes. The outlined arrow is "Arrow".
+         ["SHAPE_ARROW"        , "Plain Arrow - "            , ""],
+         ["SHAPE_OARROW"       , "Arrow - A"                 , "Arrows"],
          ["SHAPE_TAPARROW"     , "Tapered Arrow - \"         , "Arrows"],
          ["SHAPE_ARCARROW"     , "Arc Arrow - J"             , "Arrows"],
          ["SHAPE_ODARROW"      , "Outlined Double Arrow - /" , "Arrows"],
@@ -107,15 +110,19 @@ Class Shapes {
          this.%v[1]% := I
          ; Hotkeys & Menus
          this.ShapeName.Push(V[2])
-         ; Buttonbar Categories
+         ; Buttonbar Categories (none: a retired shape, not in the menus)
          cat := V[3]
-         if NOT this.ShapeCat.Has(cat)
-            this.ShapeCat[cat] := Array()
-         this.ShapeCat[cat].Push(V[2])
+         If (cat != "") {
+            if NOT this.ShapeCat.Has(cat)
+               this.ShapeCat[cat] := Array()
+            this.ShapeCat[cat].Push(V[2])
+         }
          ; Default color category: the menu category, tags on their own. Redact shapes
          ; sample their color and tools have none.
          If (V[1] = "SHAPE_TAG")
             this.ColorCat[I] := "Tags"
+         Else If (V[1] = "SHAPE_ARROW")
+            this.ColorCat[I] := "Arrows"   ; retired plain arrow
          Else If (cat != "Redact" AND cat != "Tool")
             this.ColorCat[I] := cat
       }

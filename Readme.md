@@ -244,13 +244,14 @@ itself stays where it is; only the cursor moves, with a small picture of the sni
 
 <table>
   <tr>
-    <td rowspan="5" valign="top"><img src="Snips/toolbar.png" alt="Toolbar"></td>
+    <td rowspan="6" valign="top"><img src="Snips/toolbar.png" alt="Toolbar"></td>
     <td><img src="Snips/ArrowBar.png" alt="Shape bar for arrows"></td>
   </tr>
   <tr><td><img src="Snips/BodyBar.png" alt="Shape bar for rectangles and ellipses"></td></tr>
   <tr><td><img src="Snips/PenBar.png" alt="Shape bar for pens"></td></tr>
   <tr><td><img src="Snips/TextBar.png" alt="Shape bar for text"></td></tr>
   <tr><td><img src="Snips/BlurBar.png" alt="Shape bar for blur"></td></tr>
+  <tr><td><img src="Snips/PictureBar.png" alt="Shape bar for pictures"></td></tr>
 </table>
 
 A toolbar can appear to the left of each active snip to provide quick access to common actions and annotation tools.
@@ -274,6 +275,8 @@ The toolbar is helpful if you prefer selecting tools visually instead of using k
 The **Picture Shapes** button (between Text and Tool) opens a bar of small icons, one for each picture in the
 Stickies folder (`IconPath` in the settings file). The folder is read each time the bar opens, so pictures you add
 or remove show up at once.
+
+![Picture shapes bar](Snips/StickyBar.png)
 
 - Click a picture: the bar closes and the cursor becomes that picture. Click on the snip to place it there (centred on
   the click). Esc, or choosing a drawing tool, cancels.
@@ -326,7 +329,7 @@ Some defaults are shared by several kinds of shape:
 | Color                      | The kind of shape, see [Colors](#colors)                                             |
 | Thickness                  | All arrows; lines and boxes; Highlighter, Whiteout and Smudge pens. Pen and Wide Pen have their own |
 | Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters (on light backgrounds only: a highlight over a dark background is always full strength) |
-| Outline opacity and width  | Outlined, tapered and arc arrows, and boxes, together (a width of 0 is no outline)   |
+| Outline opacity and width  | Arrow, double, tapered and arc arrows, and boxes, together (a width of 0 is no outline) |
 | Blur amount                | Blur, Gaussian Blur and Smudge                                                       |
 | Font, size, style, alignment | Text, Fill Text and Arrow Text. Outline Text and Tags have their own               |
 | Text opacity               | All text except tags                                                                 |
@@ -368,11 +371,13 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 
 | Key   | Action                                                  |
 | ----- | ------------------------------------------------------- |
-| V     | Creates an arrow from end to arrowhead                  |
-| A     | Creates a single outlined arrow                         |
+| A     | Creates an arrow from end to arrowhead, with an outline (set the outline width to 0 on the shape bar for none) |
 | &#92; | Creates a tapered outline arrow from end to arrowhead   |
 | J     | Creates a freehand outlined arc arrow (with slow bends) |
 | /     | Creates a double outline arrow                          |
+
+The plain (never outlined) arrow that V used to draw is gone: use Arrow with an outline width of 0. Plain arrows in
+saved snips still open and can be edited.
 
 ## Shape tools
 
@@ -729,6 +734,6 @@ Left-clicking the SnipShape tray icon brings up the following choices:
 
 ## Limitations/Future
 
-- One Arrow type in place of Arrow, Outlined Arrow and Outlined Double Arrow, with the outline and the arrow ends chosen
-  on the shape bar
+- One Arrow type in place of Arrow and Outlined Double Arrow, with the arrow ends chosen on the shape bar (the plain
+  arrow is already folded into Arrow)
 - Undo for changes of a shape's stacking order (push down, send to back)

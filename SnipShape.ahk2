@@ -296,7 +296,8 @@ HotIfWinActive('SnipShapeWindow ahk_class AutoHotkeyGUI')
    shapeColorHotKeys() {
       for _idx, _sn in Shapes.ShapeName {
          _key := Trim(StrSplit(_sn,"-")[2])
-         Hotkey(_key, Snips.SetDrawModeKey.Bind(Snips, _idx))
+         If (_key != "")   ; a retired shape has no hotkey
+            Hotkey(_key, Snips.SetDrawModeKey.Bind(Snips, _idx))
       }
       ; Color HotKeys, can be overridden by the INI file
       for _idx, _defColor in Shapes.DefaultColorNames {

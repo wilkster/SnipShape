@@ -79,7 +79,7 @@ Class ButtonBar extends DrawnBar {
       for cat in ["Arrows", "Shapes", "Free Hand", "Highlighters", "Redact", "Text", "Tool"] {
          ; Picture shapes (stickies) between Text and Tool
          If (cat = "Tool") {
-            cells.Push(sticky := { Gap: o, Size: bs, File: "Shapes.ico", Tip: "Picture Shapes" })
+            cells.Push(sticky := { Gap: o, Size: round(cH * .8), File: "Shapes.ico", Tip: "Picture Shapes" })
             sticky.Action := StickyBar.Toggle.Bind(StickyBar, sticky)
          }
          cells.Push({ Gap: o, Size: bs, Image: SETTINGS.CursorPath . "Menu\" . cat . ".png", Tip: cat " Menu"
