@@ -76,8 +76,10 @@ Class Shapes {
          ["SHAPE_ARCARROW"     , "Arc Arrow - J"             , "Arrows"],
          ["SHAPE_ODARROW"      , "Outlined Double Arrow - /" , "Arrows"],
          ["SHAPE_LINE"         , "Line - L"                  , "Shapes"],
-         ["SHAPE_RECT"         , "Rectangle - R"             , "Shapes"],
-         ["SHAPE_RORECT"       , "Rounded Rectangle - D"     , "Shapes"],
+         ; Retired (2026-11-27): the square rectangle, now the rectangle with Roundness 0. Kept,
+         ; hidden, for the shape numbers; saved ones are converted on open (FileObject).
+         ["SHAPE_RECT"         , "Square Rectangle - "       , ""],
+         ["SHAPE_RORECT"       , "Rectangle - R"             , "Shapes"],
          ["SHAPE_ELLIPSE"      , "Ellipse - E"               , "Shapes"],
          ["SHAPE_CONNECT"      , "Connector - ["             , "Shapes"],
          ["SHAPE_BRACKET"      , "Bracket - ]"               , "Shapes"],
@@ -123,6 +125,8 @@ Class Shapes {
             this.ColorCat[I] := "Tags"
          Else If (V[1] = "SHAPE_ARROW")
             this.ColorCat[I] := "Arrows"   ; retired plain arrow
+         Else If (V[1] = "SHAPE_RECT")
+            this.ColorCat[I] := "Shapes"   ; retired square rectangle
          Else If (cat != "Redact" AND cat != "Tool")
             this.ColorCat[I] := cat
       }
@@ -148,6 +152,8 @@ Class Shapes {
       this.arrowOpacity          := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
       ; Body   
       this.fillOpacity           := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
+      ; Rectangle corners: 0 square .. 10 fully round ends (2 = the old rounded rectangle)
+      this.Roundness             := IniReadValue("Body Shape", "Rectangle Roundness", 2)
       ; Freehand   
       this.penLineThickness      := IniReadValue("Freehand Shape", "Pen Thickness", 3)
       this.widePenThickness      := IniReadValue("Freehand Shape", "Wide Pen Thickness", 14)

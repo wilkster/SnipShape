@@ -273,13 +273,15 @@ The toolbar is helpful if you prefer selecting tools visually instead of using k
 
 ### Picture shapes (stickies)
 
-The **Picture Shapes** button (between Text and Tool) opens a bar of small icons, one for each picture in the
+Pressing the **Picture Shapes** button (between Text and Tool) opens a bar of small icons, one for each picture in the
 Stickies folder (`IconPath` in the settings file). The folder is read each time the bar opens, so pictures you add
 or remove show up at once.
 
 <img src="Snips/StickyBar.png" alt="Picture shapes bar" width="256" height="132">
 
-- Click a picture: the bar closes and the cursor becomes that picture. Click on the snip to place it there (centred on
+- Pick a picture as you would a color: keep the mouse button down after pressing Picture Shapes, slide onto a picture
+  and let go. Or click the button and then click a picture. Letting go anywhere else leaves the bar open.
+- After picking, the bar closes and the cursor becomes that picture. Click on the snip to place it there (centred on
   the click). Esc, or choosing a drawing tool, cancels.
 - The first icon opens a file dialog to add pictures from any folder (same as Ctrl-P).
 - Esc, the button again, or a click on the snip closes the bar without picking. Drag its background to move it.
@@ -333,6 +335,7 @@ Some defaults are shared by several kinds of shape:
 | Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters (on light backgrounds only: a highlight over a dark background is always full strength) |
 | Outline opacity and width  | Arrow, double, tapered and arc arrows, and boxes, together (a width of 0 is no outline) |
 | Blur amount                | Blur, Gaussian Blur and Smudge                                                       |
+| Roundness                  | Rectangles only                                                                      |
 | Font, size, style, alignment | Text, Fill Text and Arrow Text. Outline Text and Tags have their own               |
 | Text opacity               | All text except tags                                                                 |
 
@@ -394,10 +397,13 @@ saved snips still open and can be edited.
 | Key | Action                                                                            |
 | --- | --------------------------------------------------------------------------------- |
 | L   | Creates a line, shift to keep on an axis                                          |
-| R   | Creates an outlined rectangle, shift to keep square                               |
-| D   | Creates an outlined rounded rectangle, shift to keep square                       |
+| R   | Creates an outlined rectangle, shift to keep square. Set its corners with **Roundness** on the shape bar |
 | E   | Creates an outlined ellipse/circle, shift to keep a circle, draws from center out |
 | [   | Creates a connector line (vert/horz segments only)                                |
+
+There is one rectangle. Its **Roundness** (0 to 10) sets the corners: 0 is square, 2 is the look of the old rounded
+rectangle, 10 gives fully round ends. The separate rounded rectangle (D) is gone. Square rectangles in saved snips open
+as rectangles with Roundness 0, and rounded ones with Roundness 2.
 | ]   | Creates a bracket/brace                                                           |
 
 ## Freehand drawing

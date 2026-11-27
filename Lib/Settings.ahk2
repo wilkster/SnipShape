@@ -140,6 +140,7 @@ SaveSettings() {
    IniWriteValue(Shapes.arrowOpacity, "Arrow Shape", "Arrow Opacity")
    ; Body
    IniWriteValue(Shapes.fillOpacity, "Body Shape", "Shape Fill Opacity")
+   IniWriteValue(Shapes.Roundness, "Body Shape", "Rectangle Roundness")
    ; Freehand
    IniWriteValue(Shapes.penLineThickness, "Freehand Shape", "Pen Thickness")
    IniWriteValue(Shapes.widePenThickness, "Freehand Shape", "Wide Pen Thickness")

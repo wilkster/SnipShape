@@ -867,7 +867,7 @@ Class commonShape extends Gui.Pic {
    ; Instance properties that hold a shape's style (SHAPE_STYLE undo, InstanceInfo)
    Static StyleProps := ["Factor", "shapeThickness", "shapeOpacity", "outlineOpacity",
       "fillOpacity", "outlineThickFactor", "textOpacity", "TCOpacity", "FTOpacity",
-      "FTOLOpacity", "FillOutline", "OLOpacity", "OLBlur", "OLFillThickness"]
+      "FTOLOpacity", "FillOutline", "OLOpacity", "OLBlur", "OLFillThickness", "Roundness"]
    /**
     * Style info for undo/redo (SHAPE_STYLE): the style props this shape has, and its
     * padding (a thicker line was drawn with more)

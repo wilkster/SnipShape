@@ -249,6 +249,12 @@ Class FileObject {
             If (Info.hasProp("Points")) {
                Info.Points := Bitmap.Base64ToBinary(Info.Points)
             }
+            ; Retired square rectangle: now a rectangle with Roundness 0. Rounded ones saved
+            ; before Roundness existed had the look of 2.
+            If (Info.Shape = Shapes.SHAPE_RECT)
+               Info.Shape := Shapes.SHAPE_RORECT, Info.Roundness := 0
+            Else If (Info.Shape = Shapes.SHAPE_RORECT)
+               Info.Roundness ??= 2
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 
          Default:

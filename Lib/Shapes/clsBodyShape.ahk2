@@ -18,6 +18,8 @@ Class BodyShape extends commonShape {
       this.outlineThickFactor := Shapes.outlineThickFactor
       this.fillOpacity        := Shapes.fillOpacity
       this.shapeThickness := Shapes.rawLineThickness * this.DPIFactor * this.Factor
+      If (this.Shape = Shapes.SHAPE_RORECT)
+         this.Roundness := Shapes.Roundness
    }
    /**
     * Create the pens and set the alignment
@@ -58,23 +60,26 @@ Class BodyShape extends commonShape {
     */
    Draw(G, X, Y, W, H) {
       Switch this.Shape {
-         Case Shapes.SHAPE_RECT:
-
-            GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; zero upper/left corner always
-            GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
-            If (this.pOutline)
-               GDIp.DrawRectangle(G, this.pOutline, X, Y, W, H) ; zero upper/left corner always
-            GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
-         Case Shapes.SHAPE_RORECT:
-            ; Increase outline by 1/2 thickness
-            s := this.shapeThickness * (this.outlineThickFactor - 1) / 2
+         Case Shapes.SHAPE_RECT, Shapes.SHAPE_RORECT:
+            ; Corner radius from Roundness: shorter side x 0.05 x Roundness (0 = square,
+            ; 2 = the old rounded rectangle, 10 = fully round ends). SHAPE_RECT is the
+            ; retired square one (saved snips convert it on open).
+            radius := (this.Shape = Shapes.SHAPE_RORECT) ? Min(W, H) * 0.05 * (this.Roundness ?? 0) : 0
             GDIp.DrawRectangle(G, this.pGrab, X, Y, W, H) ; so we can grab corners
-            radius := Min(W, H) * 0.1 ; 10% of min dimension
-            GDIp.FillRoundedRectangle(G, this.fBrush, X, Y, W, H, radius)
-            If (this.pOutline)
-               GDIp.DrawRoundedRectangle(G, this.pOutline, X - s, Y - s, W + s * 2, H + s * 2, radius)
-            ; Note, draws inset regardless of pen setting
-            GDIp.DrawRoundedRectangle(G, this.pPrime, X, Y, W, H, radius)
+            If (radius < 0.5) {
+               GDIp.FillRectangle(G, this.fBrush, X, Y, W, H) ; zero upper/left corner always
+               If (this.pOutline)
+                  GDIp.DrawRectangle(G, this.pOutline, X, Y, W, H) ; zero upper/left corner always
+               GDIp.DrawRectangle(G, this.pPrime, X, Y, W, H) ; zero upper/left corner always
+            } Else {
+               ; Pens centred on the box edge like the square one (DrawRoundedRectangle
+               ; insets by half the pen width, so widen the box by that), so the size doesn't
+               ; jump between Roundness 0 and a little more
+               GDIp.FillRoundedRectangle(G, this.fBrush, X, Y, W, H, radius)
+               If (this.pOutline)
+                  RoundedEdge(this.pOutline)
+               RoundedEdge(this.pPrime)
+            }
 
          Case Shapes.SHAPE_ELLIPSE:
             ; If I want handles I need to fill in a dim rectangle
@@ -87,6 +92,12 @@ Class BodyShape extends commonShape {
          Default:
       }
       this.sCoord := { X1: X, X2: X + W, Y1: Y, Y2: Y + H, W: W, H: H, X: X, Y: Y }
+      Return
+
+      RoundedEdge(pen) {
+         pw := GDIp.GetPenWidth(pen) / 2
+         GDIp.DrawRoundedRectangle(G, pen, X - pw, Y - pw, W + pw * 2, H + pw * 2, radius)
+      }
    }
    /**
     * Redraw a body shape

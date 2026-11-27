@@ -80,7 +80,8 @@ Class ButtonBar extends DrawnBar {
          ; Picture shapes (stickies) between Text and Tool
          If (cat = "Tool") {
             cells.Push(sticky := { Gap: o, Size: round(cH * .8), File: "Shapes.ico", Tip: "Picture Shapes" })
-            sticky.Action := StickyBar.Toggle.Bind(StickyBar, sticky)
+            ; Opens on press, so a picture can be picked in one sweep (as the color popup)
+            sticky.Press := StickyBar.PressOpen.Bind(StickyBar, sticky)
          }
          cells.Push({ Gap: o, Size: bs, Image: SETTINGS.CursorPath . "Menu\" . cat . ".png", Tip: cat " Menu"
             , Kind: "Menu", Cat: cat, Sub: Shapes.ShapeCat[cat] })
@@ -133,6 +134,11 @@ Class ButtonBar extends DrawnBar {
       If (cell.Kind = "Menu") {
          ; leave the button message first, as before
          SetTimer(this._OpenMenu.Bind(this, idx), -10)
+         Return
+      }
+      ; Acts on press (picture shapes); it clears the pressed look itself
+      If (cell.HasOwnProp("Press")) {
+         SetTimer(cell.Press, -10)
          Return
       }
       While GetKeyState("LButton", "P")

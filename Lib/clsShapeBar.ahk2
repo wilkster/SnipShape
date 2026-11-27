@@ -308,11 +308,17 @@ Class ShapeBar extends DrawnBar {
       }
       ; If it takes more than one row anyway, text starts the second one with its opacities
       split := (total - gap + pad > maxW)
+      ; Six sliders or more (rectangles): two rows, half the sliders on each
+      nSliders := 0
+      For cell in cells
+         nSliders += (cell.Kind = "Slider")
+      breakAt := (nSliders >= 6) ? Ceil(nSliders / 2) + 1 : 0, nSlider := 0
       For cell in cells {
          need := (cell.Kind = "Button" AND NOT inBtns) ? btnW - gap : cell.W
          inBtns := (cell.Kind = "Button")
          opac := (split AND Y = pad AND cell.Def AND cell.Def.Param = "TextOpacity")
-         If (X > left AND (opac OR X + need + pad > maxW))
+         half := (cell.Kind = "Slider" AND ++nSlider = breakAt AND Y = pad)
+         If (X > left AND (opac OR half OR X + need + pad > maxW))
             X := left, Y += rowH + gap
          cell.X := X, cell.Y := Y, cell.H := rowH
          this.Items.Push(cell)

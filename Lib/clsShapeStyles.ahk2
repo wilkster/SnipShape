@@ -87,6 +87,8 @@ Class ShapeStyles {
       this._Style("penOpacity",         "Opacity", "Opacity", "shapeOpacity", pens, opacity, [16, 255, 1], "alpha")
       this._Style("highlightOpacity",   "Opacity", "Opacity", "shapeOpacity", [S.SHAPE_HILITER, S.SHAPE_HILITE], [8, 16, 32, 48, 64, 80, 96, 128, 160, 192, 224, 255], [8, 255, 1], "alpha")
       this._Style("fillOpacity",        "Fill Opacity", "FillOpacity", "fillOpacity", body, [0, 1, 4, 8, 16, 32, 48, 64, 96, 128], [0, 255, 1], "alpha")
+      ; Rectangle corners: radius = shorter side x 0.05 x Roundness (0 square, 10 round ends)
+      this._Style("Roundness",          "Roundness", "Roundness", "Roundness", [S.SHAPE_RORECT], [0, 0.5, 1, 2, 3, 5, 7.5, 10], [0, 10, 0.1], "")
       ; Outline
       this._Style("outlineOpacity",     "Outline Opacity", "OutlineOpacity", "outlineOpacity", outBody, [0, 16, 32, 64, 96, 128, 144, 160, 176, 192, 224, 255], [0, 255, 1], "alpha")
       this._Style("outlineThickFactor", "Outline Thickness Factor", "OutlineFactor", "outlineThickFactor", outBody, [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6], [0, 6, 0.25], "x")   ; 0 = no outline

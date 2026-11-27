@@ -3,11 +3,15 @@
  * @description StickyBar: picture shapes ("stickies") to place on a snip
  * @file clsStickyBar.ahk2
  *
- * Opened by the toolbar's picture button. Rows of small icons, one per picture file in the
- * stickies folder (SETTINGS.SavePath_Icons, scanned each time it opens), drawn with GDI+ on
- * one layered window (DrawnBar). The first cell opens the file dialog instead (as Ctrl-P).
- *   - click a picture: the bar closes and the cursor becomes that picture; the next click on
- *     a snip places it there (centred on the click). Esc or choosing a drawing tool cancels.
+ * Opened by pressing the toolbar's picture button. Rows of small icons, one per picture file
+ * in the stickies folder (SETTINGS.SavePath_Icons, scanned each time it opens), drawn with
+ * GDI+ on one layered window (DrawnBar). The first cell opens the file dialog instead (as
+ * Ctrl-P).
+ *   - pick a picture as in the color popup: keep the button down from the toolbar, sweep
+ *     onto a picture and let go; or click the button, then click a picture. Released
+ *     anywhere else, the bar stays open.
+ *   - then the bar closes and the cursor becomes that picture; the next click on a snip
+ *     places it there (centred on the click). Esc or choosing a drawing tool cancels.
  *   - Esc, the picture button again, or a click on the snip closes the bar.
  * It never takes the focus (the snip stays active, as with the toolbar). The icons are made
  * when it opens and freed when it closes; the window when the last snip closes (Release).
@@ -51,6 +55,50 @@ Class StickyBar extends DrawnBar {
       this._pressed := 0
       this._Render(pos.X, pos.Y, true)
    }
+   /**
+    * The toolbar's picture button was pressed (ButtonBar.Click): open the bar, or close it if
+    * it is open; with the button still down, follow the mouse over the pictures and pick the
+    * one it is released on (_Sweep)
+    * @param {Object} cell - the toolbar cell
+    */
+   Static PressOpen(cell) {
+      Try {
+         If (this.IsShown) {
+            this.Hide()
+            Return
+         }
+         this.Toggle(cell)
+         this._Sweep()
+      } Finally {
+         ButtonBar._pressed := 0
+         ButtonBar.Redraw()
+      }
+   }
+   /**
+    * While the left button is down, highlight the picture under the mouse; on release over
+    * one, pick it. Released elsewhere: nothing, the bar stays open.
+    * @returns {Integer} the cell picked, or 0
+    */
+   Static _Sweep() {
+      While this._ButtonDown() {
+         idx := this._MouseItem(&x, &y)
+         If (idx != this._pressed) {
+            this._pressed := idx
+            this.Redraw()
+         }
+         Sleep(10)
+      }
+      idx := this._MouseItem(&x, &y)
+      this._pressed := 0
+      If NOT this.IsShown
+         Return 0
+      this.Redraw()
+      If (idx)
+         this._Pick(idx)
+      Return idx
+   }
+   ; Physical state: the hook's view of the mouse button (tests replace it)
+   Static _ButtonDown() => GetKeyState("LButton", "P")
    /**
     * The pictures in the folder, sorted by name, as icons the size of a cell (made with an
     * image list, as the old Insert Picture Shapes menu did: any picture type, alpha kept)
@@ -154,23 +202,15 @@ Class StickyBar extends DrawnBar {
    ; Mouse
    ;----------------------------------------------------------------------
    /**
-    * Left button pressed on the bar: a cell acts when the button is released over it, the
-    * background drags the bar
+    * Left button pressed on the bar: the picture it is released over is picked (it can slide
+    * to another one first); the background drags the bar
     */
    Static Click() {
-      If NOT (idx := this._MouseItem(&x, &y)) {
+      If NOT this._MouseItem(&x, &y) {
          this._DragBar()
          Return
       }
-      this._pressed := idx
-      this.Redraw()
-      While GetKeyState("LButton", "P")
-         Sleep(10)
-      over := (this._MouseItem(&x, &y) = idx)
-      this._pressed := 0
-      this.Redraw()
-      If (over)
-         this._Pick(idx)
+      this._Sweep()
    }
    /**
     * A cell was clicked: the file dialog (cell 1), or a picture to place with the next click
