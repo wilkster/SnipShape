@@ -340,7 +340,8 @@ Some defaults are shared by several kinds of shape:
 
 - **Color**: click to choose from the [color popup](#color-menu-lmb-to-select-color-rmb-to-customize-color). While
   drawing it is the color of that kind of shape, see [Colors](#colors). Several dots mean the selected shapes have
-  different colors.
+  different colors. Right-click it and choose **Use This Color for All New Shapes** to make the color shown the default
+  for every kind of shape except highlighters (not offered when it shows several colors).
 - **Sliders**: drag the knob, click the track, or turn the mouse wheel over it. Press `Esc` while dragging to put the old
   value back. Right-click for a list of preset values.
 - **Lists** (font, style, alignment, ...): click to choose, or turn the mouse wheel over it.
@@ -467,7 +468,8 @@ Arrows, shapes (lines and boxes), free hand pens, text, tags and highlighters ea
 which is remembered.
 
 - The **shape bar** color and the number keys set the color of the kind of shape you are drawing.
-- The number keys in select mode set the color of all kinds at once, except the highlighters.
+- The number keys in select mode set the color of all kinds at once, except the highlighters. So does right-clicking
+  the color on the shape bar and choosing **Use This Color for All New Shapes**.
 - With a group selected, the keys and the shape bar color recolor the group and leave the colors for new shapes alone.
 - Redact shapes take their color from the picture.
 
