@@ -828,7 +828,7 @@ Class Shapes {
       ; Get start/end points of the shape (may be different than the picture size due to padding)
       ; See if we are near upper right/lower left corner (or line/arrow end-points)
       CI := ShapeObj.CornerInfo(mouseStart.X, mouseStart.Y)
-      cur := CI.C ? (CI.HasOwnProp("Cur") ? CI.Cur : Cursor.ResizeCursors[CI.C]) : "Move"
+      cur := CI.C ? (CI.Cur ?? Cursor.ResizeCursors[CI.C]) : "Move"
       ; cur is text version of Move, SizeNWSE and so on
       Cursor.SetCursorMode(cur)
       corner := CI.C

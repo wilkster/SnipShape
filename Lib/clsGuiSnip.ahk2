@@ -281,14 +281,14 @@ Class GuiSnip extends Gui {
          myShapes := Array()
          hwndShape := DllCall("GetWindow", "Ptr", this.Hwnd, "UInt", 5, "Ptr")  ; GW_CHILD = 5
          If (Obj := (GuiCtrlFromHwnd(hwndShape) ?? false)) {
-            If (Obj.HasProp("Visible") AND Obj.Visible)
+            If (Obj.Visible ?? 0)
                myShapes.Push(Obj)
             ; Loop through all child windows
             While (hwndShape != 0) {
                ; Get the next child window in Z-order (below the current one)
                hwndShape := DllCall("GetWindow", "Ptr", hwndShape, "UInt", 2, "Ptr")  ; GW_HWNDNEXT = 2
                Obj := GuiCtrlFromHwnd(hwndShape) ?? false
-               If (Obj AND Obj.HasProp("Visible") AND Obj.Visible)
+               If (Obj AND (Obj.Visible ?? 0))
                   myShapes.Push(Obj) ; First In First Out
             }
          }

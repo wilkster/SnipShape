@@ -94,10 +94,8 @@ Class ButtonBar extends DrawnBar {
       cells.Push({ Gap: o, Size: cH, File: "Minimize.ico", Tip: "Minimize Active Snip (⌄)", Action: this.MinimizeSnip.Bind(this) })
       pos := this.Margin
       For cell in cells {
-         If NOT cell.HasOwnProp("Kind")
-            cell.Kind := "Button"
-         If NOT cell.HasOwnProp("Disabled")
-            cell.Disabled := false
+         cell.Kind     ??= "Button"
+         cell.Disabled ??= false
          pos += cell.Gap
          cross := this.Margin + (cH - cell.Size) // 2
          If (this.Vertical)

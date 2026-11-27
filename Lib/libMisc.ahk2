@@ -1317,7 +1317,7 @@ Class ImageList extends map {
     * Destroy the underlying ImageList and free its resources
     */
    __Delete() {
-      If (this.HasOwnProp("iList") AND this.iList)
+      If (this.iList ?? 0)   ; not set if __New failed
          IL_Destroy(this.iList)
    }
    ; [item] properties override

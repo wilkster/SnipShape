@@ -107,7 +107,7 @@ Class UnDo {
       ; Reset the redo stack
       ; debug("Posting " action " with tag " Tag)
       this._clearStack(this.redoStack)
-      data := data ?? this._CaptureData(action, obj)
+      data ??= this._CaptureData(action, obj)
       item := { obj: obj, action: action, data: data , tag: Tag, id: ++UnDo._tagSeq}
       this.undoStack.push(item)
       ; dlog("Posting action " action ", Stack Length=" this.undoStack.Length)
@@ -363,7 +363,7 @@ Class UnDo {
                      ; The master picture (now owned by the snip) and the zoom it was
                      ; shown at; the display picture is rebuilt from them. Position is
                      ; kept (the shapes' MOVE entries in the same tag put them back)
-                     snipObj.RestoreBase(hbitmap, item.data.HasProp("Zoom") ? item.data.Zoom : snipObj.ScaleFactor)
+                     snipObj.RestoreBase(hbitmap, item.data.Zoom ?? snipObj.ScaleFactor)
                      item.data.hBitmap := 0   ; handed over: not freed with this entry
                      ButtonBar.Show(snipObj.hWnd)
                      snipObj.RefreshTextures()

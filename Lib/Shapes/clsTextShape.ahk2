@@ -213,8 +213,8 @@ Class TextShape extends CommonShape {
     * @returns {Integer} 1 on success, 0 if the font is invalid or no text was found
     */
    Render(bX?, bY?) {
-      bX := bX ?? this.sCoord.X
-      bY := bY ?? this.sCoord.Y
+      bX ??= this.sCoord.X
+      bY ??= this.sCoord.Y
       If !(r := this._RenderSurface(bX, bY))
          Return 0
       ; Update the window with the text (different than the underlying picture control)
@@ -371,7 +371,7 @@ Class TextShape extends CommonShape {
     * True if the callout tail is currently drawn (tip set and outside the shape)
     * @type {Integer}
     */
-   HasCallout => (this.CalloutCapable AND IsObject(this.Tip) AND this.HasOwnProp("_tailShown") AND this._tailShown)
+   HasCallout => (this.CalloutCapable AND IsObject(this.Tip) AND (this._tailShown ?? 0))
 
    /**
     * The shape the tail or arrow starts from, in body coordinates: the Tag's circle,
@@ -714,8 +714,7 @@ Class TextShape extends CommonShape {
       RCTextF.Init(txt.X, txt.Y, txt.W, txt.H)
       txt.iW := Ceil(txt.W), txt.iH := Ceil(txt.H)
       ; First time draw, save width, always save height for the text editor
-      if (NOT this.HasProp("EditWidth"))
-         this.EditWidth := txt.W / this.DPIFactor *1.03
+      this.EditWidth ??= txt.W / this.DPIFactor * 1.03
       ; Always add an extra line for the editor
       this.EditHeight := (txt.H + txt.LH) / this.DPIFactor * 1.05
       Return {
@@ -1672,8 +1671,8 @@ TextInputBox(ShapeObj, Prompt := '', Title := '', InitText := '') {
    ; Restore edit control size from last edit if it exists   
    ; NOTE - if we shrunk the edit control, it will also be expanded to that of the controls above it
    editDesiredHeight := Max(150, ShapeObj.FontSize * Scale * 3)
-   eWidth  := ShapeObj.HasProp("EditWidth") ? ShapeObj.EditWidth : 400
-   eHeight := ShapeObj.HasProp("EditHeight") ? ShapeObj.EditHeight : editDesiredHeight
+   eWidth  := ShapeObj.EditWidth ?? 400
+   eHeight := ShapeObj.EditHeight ?? editDesiredHeight
    oEdit := textGui.AddEdit('+Wrap +' oAlign.text . ctrlBG . ' W' . eWidth . ' XM Y+M h' . eHeight . ' WantTab T4 Multi VScroll HScroll -E0x200 Border', InitText)
    oEdit.SetFont('s' ShapeObj.FontSize, ShapeObj.FontName)
    SetEditFontStyle(oStyle.text)

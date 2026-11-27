@@ -415,7 +415,7 @@ Class LineShape extends commonShape {
     */
    ConnectMidPoint() {
       C    := this.shapeCoord
-      horz := this.HasOwnProp("HasDirection") ? this.HasDirection : true   ; Draw() defaults to true
+      horz := this.HasDirection ?? true   ; Draw() defaults to true
       mp   := (this.HasOwnProp("MidPos") AND this.MidPos != "") ? this.MidPos : 0.5
       If (horz)
          Return { X: C.X1 + (C.X2 - C.X1) * mp, Y: (C.Y1 + C.Y2) / 2, Horz: true }

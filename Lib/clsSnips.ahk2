@@ -163,8 +163,7 @@ Class Snips {
     * @param {Integer} [hWnd] - Window handle of the target snip; defaults to the active window
     */
    Static SetDrawMode(Val?, hWnd?) {
-      if NOT IsSet(hWnd)
-         hWnd := WinExist("A")
+      hWnd ??= WinExist("A")
       if (SnipObj := this.IsValid(hWnd)) {
          if (IsSet(Val)) {
             ; A drawing tool replaces a picture waiting to be placed (StickyBar)
