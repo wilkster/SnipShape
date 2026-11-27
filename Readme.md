@@ -649,8 +649,9 @@ The hotkeys while hovering over a shape, or with one selected:
 - **Tag Scheme** (next to Renumber Tags) switches all of the snip's numbered tags between Numbers (1, 2, 3), Upper
   Case (A, B, C), Lower Case (a, b, c) and Roman (I, II, III). Each tag keeps its place in the order and stays where it
   is, and a single undo changes them back. Letters continue past Z as AA, AB, ... New tags on a snip continue the
-  scheme its tags already use; the default for a snip with no tags is **Tag Number Scheme** on the shape bar while the
-  Tag tool is picked. Renumber Tags keeps each tag's scheme.
+  scheme its tags already use. **Tag Number Scheme** on the shape bar while the Tag tool is picked shows that scheme;
+  changing it switches the snip's tags the same way (one undo step) and is also the default for snips with no tags yet.
+  Renumber Tags keeps each tag's scheme.
 - Thickness, blur amount, opacities and outline are on the [shape bar](#shape-bar): click the shape to select it. You can
   also use the mouse wheel (when hovering), or the Up/Down keys while dragging a resize handle.
 - Ctrl-click to clone a copy of the object (except for freehand shapes), or press Ctrl-D on a shape

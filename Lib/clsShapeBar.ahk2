@@ -722,8 +722,19 @@ Class ShapeBar extends DrawnBar {
       }
       Return first
    }
+   /**
+    * The scheme the next tag on the bar's snip gets: that of its tags (the highest one), or
+    * the default when it has none (as Shapes.DrawTag)
+    */
+   Static _SnipTagScheme() {
+      If (this.SnipObj AND (seq := Shapes.TagSequence(this.SnipObj)).Length)
+         Return seq[-1].shape.TagScheme
+      Return TextShape.TagScheme
+   }
    ; All current values: one for draw mode, one per shape for a group (in list order)
    Static _Values(d) {
+      If (NOT this.Group AND d.Key = "TagScheme")
+         Return [this._SnipTagScheme()]
       If NOT this.Group
          Return [ShapeStyles.GetDefault(d.Key)]
       list := []
@@ -774,6 +785,15 @@ Class ShapeBar extends DrawnBar {
          Return
       }
       value := IsNumber(value) ? Number(value) : value
+      ; Tag tool: a new tag continues the scheme of the snip's tags, so the scheme is
+      ; changed for those too (one undo step), not only the default for snips with no tags
+      If (d.Key = "TagScheme" AND NOT this.Group) {
+         this._SetAll(d, value)
+         If (this.SnipObj)
+            Shapes.SetTagScheme(this.SnipObj, value)
+         this.Redraw()
+         Return
+      }
       If (this._Get(d, &mixed) = value AND NOT mixed AND NOT this._Differs(d, value))
          Return
       If NOT this._Differs(d, value) {
