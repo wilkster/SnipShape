@@ -15,7 +15,7 @@
  *   - slider: drag it, click the track, or turn the wheel over it (Esc while
  *     dragging puts the old value back); right-click for the list of values
  *   - list (fonts, alignment...): click for the choices, or turn the wheel
- *   - color: click for the color popup
+ *   - color: click for the color popup; right-click to use it for all new shapes
  *   - drag the icon or background to move the bar out of the way
  *
  * It is one layered window drawn with GDI+, not controls (see DrawnBar): the bar must
@@ -268,8 +268,10 @@ Class ShapeBar extends DrawnBar {
       rowH := this._Px(38)
       icoW := this._Px(34)
       cells := []
-      If (content.Color)
-         cells.Push({ Kind: "Color", Def: 0, W: this._Px(42), Tip: content.Single ? "Color of the selected shape" : content.Group ? "Color of the selected shapes" : "Color for new shapes" })
+      If (content.Color) {
+         tip := content.Single ? "Color of the selected shape" : content.Group ? "Color of the selected shapes" : "Color for new shapes"
+         cells.Push({ Kind: "Color", Def: 0, W: this._Px(42), Tip: tip " (right-click: use it for all new shapes)" })
+      }
       For d in content.Defs {
          isSlider := IsObject(d.Range)
          cells.Push({ Kind: isSlider ? "Slider" : "List", Def: d, W: this._Px(isSlider ? 128 : this.ListWidths.Get(d.Param, 86)) })
@@ -396,8 +398,12 @@ Class ShapeBar extends DrawnBar {
    }
    ; Right click: list of values, also for sliders
    Static RightClick() {
-      If ((idx := this._MouseItem(&x, &y)) AND this.Items[idx].Def)
+      If NOT (idx := this._MouseItem(&x, &y))
+         Return
+      If (this.Items[idx].Def)
          this.ShowValues(this.Items[idx])
+      Else If (this.Items[idx].Kind = "Color")
+         this.ShowColorMenu(this.Items[idx])
    }
    /**
     * Wheel over the bar: change the property under the mouse
@@ -507,6 +513,62 @@ Class ShapeBar extends DrawnBar {
    }
    Static _ValuePicked(d, ItemName, *) {
       this.SetValue(d, ItemName)
+   }
+   /**
+    * Right-click on the Color cell: a menu to make the color shown the default of all
+    * kinds of new shapes (Shapes.SetAllColors: every category but highlighters, as the
+    * number keys in select mode). Nothing when the cell shows several colors.
+    */
+   Static ShowColorMenu(item) {
+      If (NOT this.snipHwnd OR DrawnBar.MenuSnip)
+         Return
+      list := this._ColorsShown()
+      If (list.Length != 1)
+         Return
+      clr := list[1]
+      M := Menu(), txt := "Use This Color for All New Shapes"
+      M.Add(txt, (*) => this._ColorForAll(clr))
+      If (icon := this._ColorIcon(clr, this._Px(16)))
+         M.SetIcon(txt, "HICON:" icon)   ; the menu owns it
+      WinGetPos(&wX, &wY,,, this.hWnd)
+      this._GuardedMenu(this.SnipObj, ShowIt)
+      ShowIt() {
+         cm := CoordMode("Menu", "Screen")
+         Try
+            M.Show(wX + item.X, wY + item.Y + item.H)   ; blocks here
+         Finally
+            CoordMode("Menu", cm)
+      }
+   }
+   /**
+    * Make a color the default of all kinds of new shapes (not highlighters), and show it
+    * on the snip border if a drawing tool is on
+    */
+   Static _ColorForAll(clr) {
+      Shapes.SetAllColors(clr)
+      If ((snip := this.SnipObj) AND snip.DrawMode)
+         snip.BackColor := Shapes.DefaultColor(snip.DrawMode)
+      ToolTip("Color of all new shapes set to " RGBHex(clr))
+      SetTimer(ToolTip, -2000)
+   }
+   /**
+    * A round color swatch for a menu item
+    * @param {Integer} clr - RGB
+    * @param {Integer} size - pixels
+    * @returns {Ptr} HICON (the caller owns it), 0 on failure
+    */
+   Static _ColorIcon(clr, size) {
+      pB := GDIp.CreateBitmap(size, size)
+      G  := GDIp.GraphicsFromImage(pB)
+      GDIp.SetSmoothingMode(G, 4)
+      brush := GDIp.BrushCreateSolid(0xFF000000 | clr)
+      GDIp.FillEllipse(G, brush, 1, 1, size - 2, size - 2)
+      pen := GDIp.CreatePen(this.Colors.Edge, 1)
+      GDIp.DrawEllipse(G, pen, 1, 1, size - 2, size - 2)
+      GDIp.DeletePen(pen), GDIp.DeleteBrush(brush), GDIp.DeleteGraphics(G)
+      icon := GDIp.CreateHICONFromBitmap(pB)
+      GDIp.DisposeImage(pB)
+      Return icon
    }
    /**
     * The occasional actions of a selected shape, for the ... menu: reset (pictures, pen
