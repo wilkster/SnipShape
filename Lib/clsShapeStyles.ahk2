@@ -71,6 +71,8 @@ Class ShapeStyles {
       sizes    := [8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 24, 28, 32]
 
       ; Arguments: key, title, param, prop, shapes, values, range, unit, scale, owner
+      ; Arrow start end (the head end has no choice for now)
+      this._Style("ArrowStart",         "Start", "ArrowStart", "ArrowStart", [S.SHAPE_OARROW], ["Arrow", "Square", "Round"], 0, "")
       ; Thickness
       this._Style("rawLineThickness",   "Thickness", "Thickness", "shapeThickness", lineBody, thin, [0.5, 20, 0.5], "px", true)
       this._Style("arrowLineThickness", "Thickness", "Thickness", "shapeThickness", arrows, [2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20], [1, 30, 0.5], "px", true)

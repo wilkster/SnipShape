@@ -74,7 +74,9 @@ Class Shapes {
          ["SHAPE_OARROW"       , "Arrow - A"                 , "Arrows"],
          ["SHAPE_TAPARROW"     , "Tapered Arrow - \"         , "Arrows"],
          ["SHAPE_ARCARROW"     , "Arc Arrow - J"             , "Arrows"],
-         ["SHAPE_ODARROW"      , "Outlined Double Arrow - /" , "Arrows"],
+         ; Retired (2026-11-27): the double arrow, now Arrow with ArrowStart "Arrow". Kept,
+         ; hidden, for the shape numbers; saved ones are converted on open (FileObject).
+         ["SHAPE_ODARROW"      , "Double Arrow - "           , ""],
          ["SHAPE_LINE"         , "Line - L"                  , "Shapes"],
          ; Retired (2026-11-27): the square rectangle, now the rectangle with Roundness 0. Kept,
          ; hidden, for the shape numbers; saved ones are converted on open (FileObject).
@@ -123,8 +125,8 @@ Class Shapes {
          ; sample their color and tools have none.
          If (V[1] = "SHAPE_TAG")
             this.ColorCat[I] := "Tags"
-         Else If (V[1] = "SHAPE_ARROW")
-            this.ColorCat[I] := "Arrows"   ; retired plain arrow
+         Else If (V[1] = "SHAPE_ARROW" OR V[1] = "SHAPE_ODARROW")
+            this.ColorCat[I] := "Arrows"   ; retired plain and double arrows
          Else If (V[1] = "SHAPE_RECT")
             this.ColorCat[I] := "Shapes"   ; retired square rectangle
          Else If (cat != "Redact" AND cat != "Tool")
@@ -150,6 +152,8 @@ Class Shapes {
       this.arrowLineThickness    := IniReadValue("Arrow Shape", "Arrow Thickness", 5)
       this.ArrowSmoothFactor     := IniReadValue("Arrow Shape", "Arrow Smoothing Factor", "High")
       this.arrowOpacity          := IniReadValue("Arrow Shape", "Arrow Opacity", 0xFF)
+      ; Start end of the arrow: "Arrow" (a second head), "Square" (flat) or "Round"
+      this.ArrowStart            := IniReadValue("Arrow Shape", "Arrow Start", "Square")
       ; Body   
       this.fillOpacity           := IniReadValue("Body Shape", "Shape Fill Opacity", 0)
       ; Rectangle corners: 0 square .. 10 fully round ends (2 = the old rounded rectangle)

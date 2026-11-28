@@ -333,7 +333,8 @@ Some defaults are shared by several kinds of shape:
 | Color                      | The kind of shape, see [Colors](#colors)                                             |
 | Thickness                  | All arrows; lines and boxes; Highlighter, Whiteout and Smudge pens. Pen and Wide Pen have their own |
 | Opacity                    | All arrows; lines and boxes; Pen and Wide Pen; highlighters (on light backgrounds only: a highlight over a dark background is always full strength) |
-| Outline opacity and width  | Arrow, double, tapered and arc arrows, and boxes, together (a width of 0 is no outline) |
+| Outline opacity and width  | Arrow, tapered and arc arrows, and boxes, together (a width of 0 is no outline) |
+| Start                      | Arrow only: the start end is a second arrowhead, square (flat) or round              |
 | Blur amount                | Blur, Gaussian Blur and Smudge                                                       |
 | Roundness                  | Rectangles only                                                                      |
 | Font, size, style, alignment | Text, Fill Text and Arrow Text. Outline Text and Tags have their own               |
@@ -387,10 +388,13 @@ While drawing, the cursor changes to the selected shape and the snip border indi
 | A     | Creates an arrow from end to arrowhead, with an outline (set the outline width to 0 on the shape bar for none) |
 | &#92; | Creates a tapered outline arrow from end to arrowhead   |
 | J     | Creates a freehand outlined arc arrow (with slow bends) |
-| /     | Creates a double outline arrow                          |
 
-The plain (never outlined) arrow that V used to draw is gone: use Arrow with an outline width of 0. Plain arrows in
-saved snips still open and can be edited.
+The Arrow's **Start** on the shape bar sets the end it is drawn from: **Arrow** (a second arrowhead, a double arrow),
+**Square** (flat, the default) or **Round**. The arrowhead end has no choice. The outline follows the ends.
+
+The plain (never outlined) arrow that V used to draw and the double arrow that / drew are gone: use Arrow with an
+outline width of 0, or Start set to Arrow. Double arrows in saved snips open as Arrows with an arrow start (so Start
+can be changed); plain arrows still open and can be edited.
 
 ## Shape tools
 
@@ -558,7 +562,7 @@ shape instead of resizing it. Undo/redo, duplicating and saving keep the new sha
 
 | Shape                                   | Control point                    | Dragging it                                                                                     |
 | --------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Line, Arrow, Outline Arrow, Double Arrow, Tapered Arrow | Middle of the line | Bends the line into a smooth curve through that point. Drag it back near the straight line to straighten it again. Arrowheads follow the curve. |
+| Line, Arrow, Tapered Arrow             | Middle of the line               | Bends the line into a smooth curve through that point. Drag it back near the straight line to straighten it again. Arrowheads follow the curve. |
 | Bracket                                 | Tip of the center triangle       | Along the bracket moves the triangle; away from or towards the bracket makes it deeper or shallower. |
 | Connector                               | Middle of the center segment     | Slides the middle segment left/right (or up/down), between the two ends.                        |
 | Text shapes                             | Callout tip                      | See [Callouts](#callouts).                                                                       |
@@ -753,5 +757,4 @@ Left-clicking the SnipShape tray icon brings up the following choices:
 
 ## Limitations/Future
 
-- One Arrow type in place of Arrow and Outlined Double Arrow, with the arrow ends chosen on the shape bar (the plain
-  arrow is already folded into Arrow)
+- A choice for the arrowhead end of the Arrow as well (the start end already has one)

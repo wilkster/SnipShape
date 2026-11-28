@@ -246,7 +246,10 @@ Class Clipboard {
       imgBytes := ds.dsBmih.biSizeImage || ds.dsBm.bmWidthBytes * Abs(ds.dsBmih.biHeight)
       If not (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, ds.dsBmih.size + imgBytes))
          Return 0
-      pDIB := this.GlobalLock(hDIB)
+      If NOT (pDIB := this.GlobalLock(hDIB)) {
+         this.GlobalFree(hDIB)
+         Return 0
+      }
       this.CopyMemory(pDIB, ds.dsBmih.Ptr, ds.dsBmih.Size)                ; header
       this.CopyMemory(pDIB + ds.dsBmih.Size, ds.dsBm.bmBits, imgBytes)   ; pixels
       ; Resolution: a DIB section has none (0 = readers assume 96 dpi). Write the DPI of
@@ -278,8 +281,10 @@ Class Clipboard {
          If GDIp.LockBits(pB, 0, 0, W, H, &Stride, &Scan0, &bmd, 1, 0x26200A)
             Return 0
          rowBytes := W * 4
-         If (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, HDR + rowBytes * H)) {
-            p := this.GlobalLock(hDIB)
+         If (hDIB := this.GlobalAlloc(GMEM_MOVEABLE := 2, HDR + rowBytes * H))
+            If NOT (p := this.GlobalLock(hDIB))
+               this.GlobalFree(hDIB), hDIB := 0
+         If (hDIB) {
             DllCall("RtlZeroMemory", "Ptr", p, "UPtr", HDR)
             ppm := Round((dpi || A_ScreenDPI) / 0.0254)
             NumPut("UInt", HDR, "Int", W, "Int", H, "UShort", 1, "UShort", 32   ; size, w, h (+ = bottom-up), planes, bpp

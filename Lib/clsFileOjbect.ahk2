@@ -255,6 +255,12 @@ Class FileObject {
                Info.Shape := Shapes.SHAPE_RORECT, Info.Roundness := 0
             Else If (Info.Shape = Shapes.SHAPE_RORECT)
                Info.Roundness ??= 2
+            ; Retired double arrow: now an arrow with a head at the start. Arrows saved
+            ; before ArrowStart existed had a flat start.
+            If (Info.Shape = Shapes.SHAPE_ODARROW)
+               Info.Shape := Shapes.SHAPE_OARROW, Info.ArrowStart := "Arrow"
+            Else If (Info.Shape = Shapes.SHAPE_OARROW)
+               Info.ArrowStart ??= "Square"
             CloneObj := SnipObj.AddNewShape(Info.Shape)
 
          Default:

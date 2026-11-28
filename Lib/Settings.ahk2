@@ -138,6 +138,7 @@ SaveSettings() {
    IniWriteValue(Shapes.arrowLineThickness, "Arrow Shape", "Arrow Thickness")
    IniWriteValue(Shapes.ArrowSmoothFactor, "Arrow Shape", "Arrow Smoothing Factor")
    IniWriteValue(Shapes.arrowOpacity, "Arrow Shape", "Arrow Opacity")
+   IniWriteValue(Shapes.ArrowStart, "Arrow Shape", "Arrow Start")
    ; Body
    IniWriteValue(Shapes.fillOpacity, "Body Shape", "Shape Fill Opacity")
    IniWriteValue(Shapes.Roundness, "Body Shape", "Rectangle Roundness")

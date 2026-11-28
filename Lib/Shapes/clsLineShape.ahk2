@@ -34,6 +34,8 @@ Class LineShape extends commonShape {
          Case Shapes.SHAPE_ARROW, Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
             this.shapeOpacity := Shapes.arrowOpacity
             this.shapeThickness := Shapes.arrowLineThickness * this.Factor * this.DPIFactor
+            If (this.Shape = Shapes.SHAPE_OARROW)
+               this.ArrowStart := Shapes.ArrowStart
          Case Shapes.SHAPE_LINE, Shapes.SHAPE_BRACKET, Shapes.SHAPE_CONNECT:
             this.shapeThickness := Shapes.rawLineThickness * this.Factor * this.DPIFactor
          Default:
@@ -68,7 +70,13 @@ Class LineShape extends commonShape {
          Case Shapes.SHAPE_OARROW, Shapes.SHAPE_ODARROW:
             ; Outline arrow is a little more complex to draw
             this.pOutline := this.OutlinePen(3) ; Grey thickness/color of the outer border, 0 = none
-            GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW)
+            ; Start end: a second head ("Arrow", and the retired double arrow), flat
+            ; ("Square", the default) or rounded ("Round", as the old plain arrow).
+            ; The outline is the widened pen path, so it follows the caps.
+            start := (this.shape = Shapes.SHAPE_ODARROW) ? "Arrow" : (this.ArrowStart ?? "Square")
+            GDIp.CustomArrowCap(this.pPrime, 5, 4, 1, 1, start = "Arrow")
+            If (start = "Round")
+               GDIp.SetPenStartCap(this.pPrime, 2)
             ; GDIp.CustomArrowCap(this.pOutline, 5, 4, 1, 1, this.shape = Shapes.SHAPE_ODARROW) ; This isn't necessary since we are drawing along a path
 
          Case Shapes.SHAPE_BRACKET:
